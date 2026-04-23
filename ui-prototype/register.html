@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>注册 · HelloTime Pro</title>
+  <link rel="stylesheet" href="assets/prototype.css" />
+</head>
+<body>
+
+<header class="cy-header">
+  <div class="cy-container cy-header__inner">
+    <a class="cy-brand" href="index.html">
+      <img class="cy-brand__mark" src="../spec/assets/logo.svg" width="38" height="38" alt="" />
+      HelloTime<span class="cy-brand__pro">PRO</span>
+    </a>
+    <nav class="cy-nav">
+      <a href="index.html">广场</a>
+      <a href="open.html">开启</a>
+      <a href="about.html">关于</a>
+    </nav>
+    <div class="cy-header__actions">
+      <button class="cy-theme-toggle" data-theme-toggle aria-label="切换主题">
+        <span data-theme-toggle-icon>☾</span>
+      </button>
+      <a class="cy-btn cy-btn--ghost cy-btn--sm" href="login.html">登录</a>
+    </div>
+  </div>
+</header>
+
+<main class="cy-container cy-container--narrow" style="margin-top: var(--space-12); margin-bottom: var(--space-16)">
+  <div class="cy-card" style="max-width: 560px; margin: 0 auto">
+    <h1 style="font-family: var(--font-display); font-size: var(--font-size-3xl); margin: 0 0 var(--space-2)">注册新身份</h1>
+    <p style="color: var(--color-text-secondary); margin: 0 0 var(--space-8)">选一个赛博头像、写一封最早 60 秒后才能打开的信。</p>
+
+    <form class="cy-form" onsubmit="event.preventDefault(); location.href='create.html'">
+      <div class="cy-field">
+        <label for="email">邮箱</label>
+        <input class="cy-input" id="email" type="email" placeholder="you@example.com" required />
+      </div>
+
+      <div class="cy-field">
+        <label for="nick">昵称</label>
+        <input class="cy-input" id="nick" type="text" maxlength="24" placeholder="1–24 个字符，允许中英数字" required />
+        <span class="cy-field__hint">昵称会显示在广场与胶囊作者处，注册后可修改。</span>
+      </div>
+
+      <div class="cy-field">
+        <label for="pwd">密码</label>
+        <input class="cy-input" id="pwd" type="password" placeholder="至少 8 位，建议包含字母和数字" required />
+      </div>
+
+      <div class="cy-field">
+        <label>选择头像（必选）</label>
+        <div class="cy-avatar-picker" data-seg>
+          <button type="button" class="cy-avatar-picker__item cy-seg__active"><img src="../spec/avatars/neo.svg" alt="新生" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/specter.svg" alt="幽影" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/glyph.svg" alt="符文" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/pulse.svg" alt="心跳" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/circuit.svg" alt="电路" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/nova.svg" alt="新星" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/oracle.svg" alt="神谕" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/drift.svg" alt="漂流" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/echo.svg" alt="回声" /></button>
+          <button type="button" class="cy-avatar-picker__item"><img src="../spec/avatars/void.svg" alt="深渊" /></button>
+        </div>
+        <span class="cy-field__hint">默认 10 个内置头像，不支持上传自定义头像（M1 版本）。</span>
+      </div>
+
+      <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit" style="width: 100%">创建账号并进入创建胶囊</button>
+
+      <div style="text-align:center; color: var(--color-text-muted); font-size: var(--font-size-sm)">
+        已有账号？<a href="login.html" style="color: var(--color-brand-primary)">去登录</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- 校验错误示例 -->
+  <div style="max-width: 560px; margin: var(--space-6) auto 0">
+    <div class="cy-alert cy-alert--danger">
+      <span>⚠</span>
+      <span>昵称已被占用，请尝试其他昵称 · <code style="opacity:0.8">CONFLICT</code></span>
+    </div>
+  </div>
+</main>
+
+<footer class="cy-footer">
+  <div class="cy-container cy-footer__inner">
+    <div>© 2026 HelloTime Pro</div>
+    <div class="cy-stack">
+      <span class="cy-stack__item"><img src="../spec/icons/react.svg" alt="">React</span>
+      <span class="cy-stack__item"><img src="../spec/icons/typescript.svg" alt="">TypeScript</span>
+      <span class="cy-stack__item"><img src="../spec/icons/fastapi.svg" alt="">FastAPI</span>
+      <span class="cy-stack__item"><img src="../spec/icons/python.svg" alt="">Python</span>
+      <span class="cy-stack__item"><img src="../spec/icons/postgresql.svg" alt="">PostgreSQL</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/demo.js"></script>
+</body>
+</html>

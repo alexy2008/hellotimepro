@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="PostgreSQL">
+  <defs>
+    <linearGradient id="pg-a" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4169e1"/>
+      <stop offset="100%" stop-color="#1b3fa0"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="12" cy="5" rx="8" ry="2.4" fill="url(#pg-a)"/>
+  <path d="M4 5 L4 18 C 4 20 7.5 21.5 12 21.5 C 16.5 21.5 20 20 20 18 L 20 5"
+        fill="url(#pg-a)"/>
+  <ellipse cx="12" cy="11" rx="8" ry="2.2" fill="none" stroke="#8fb0ff" stroke-width="1" opacity="0.7"/>
+  <ellipse cx="12" cy="15" rx="8" ry="2.2" fill="none" stroke="#8fb0ff" stroke-width="1" opacity="0.55"/>
+  <ellipse cx="12" cy="5" rx="8" ry="2.4" fill="none" stroke="#8fb0ff" stroke-width="0.8"/>
+</svg>

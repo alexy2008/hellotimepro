@@ -1,0 +1,127 @@
+# ============================================================
+# HelloTime Pro · 全仓 .gitignore
+# 通用忽略 + 各语言生态。各实现如需更细粒度，在自己子目录下再加一份。
+# ============================================================
+
+# --- OS & 编辑器 ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- 运行时数据 / 日志（dev-manager 与 PG compose 的落盘位置）---
+/data/
+!/data/.gitkeep
+/logs/
+*.log
+
+# --- 临时 / 缓存 ---
+.cache/
+.tmp/
+tmp/
+*.pid
+
+# --- 环境变量 ---
+.env
+.env.local
+.env.*.local
+
+# --- Node / Bun / TS ---
+node_modules/
+dist/
+.next/
+.nuxt/
+.output/
+.svelte-kit/
+.angular/
+.turbo/
+.vercel/
+.solid/
+coverage/
+*.tsbuildinfo
+bun.lockb
+.pnp.*
+.yarn/cache
+.yarn/build-state.log
+.yarn/install-state.gz
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Go ---
+/bin/
+/vendor/
+
+# --- Rust ---
+target/
+Cargo.lock
+!/backends/*/Cargo.lock
+
+# --- Java / Kotlin / Gradle / Maven ---
+*.class
+build/
+!spec/*/build/   # 但 spec 下若需要可另行处理
+.gradle/
+/out/
+target/
+.kotlin/
+
+# --- Swift / Xcode ---
+.build/
+.swiftpm/
+Package.resolved
+DerivedData/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# --- .NET ---
+obj/
+bin/
+*.user
+*.suo
+
+# --- Ruby / Rails ---
+*.gem
+.bundle/
+/vendor/bundle
+/storage/
+/log/*
+!/log/.keep
+/tmp/*
+
+# --- PHP / Laravel ---
+/public/hot
+/public/storage
+/vendor/
+composer.lock
+!composer.lock   # 在 Laravel 仓库里是 tracked 的 — 如需保留请删除上一行
+
+# --- C++ ---
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+cmake_install.cmake
+Makefile
+
+# --- SQLite 本地开发数据库 ---
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# --- Playwright / 契约测试产物 ---
+/playwright-report/
+/test-results/
+/verification/**/node_modules/
+
+# --- Dev-manager 状态 ---
+.hello-state.json

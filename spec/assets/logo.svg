@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!--
+    HelloTime Pro · Logo
+    设计语言继承 v1：倾斜胶囊 + 时钟 + 液体分半
+    Pro 升级：
+      · 三色品牌渐变（signal → accent → success）替换 v1 的蓝绿双色
+      · 深色内盘（cyber 质感）替换 v1 的纯白
+      · 霓虹发光滤镜提升"高级感"
+      · 更精细的描边与双层刻度（主刻度 + 次刻度）
+      · 右上 Pro 标识光点（accent 品红）
+  -->
+  <defs>
+    <!-- 外胶囊三色描边渐变：与 gradient-brand-hero 一致 -->
+    <linearGradient id="htp-capsule-stroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#40e4ff"/>  <!-- signal-300 -->
+      <stop offset="50%"  stop-color="#ff4fa0"/>  <!-- accent-400 -->
+      <stop offset="100%" stop-color="#5ed49a"/>  <!-- success-300 -->
+    </linearGradient>
+
+    <!-- 液体渐变：青 → 薄荷绿（已开启语义） -->
+    <linearGradient id="htp-liquid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#14d4f0" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#1aa866" stop-opacity="0.98"/>
+    </linearGradient>
+
+    <!-- 霓虹发光滤镜（指针 / Pro 光点 / 外光晕） -->
+    <filter id="htp-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- 内盘剪裁 -->
+    <clipPath id="htp-inner-clip">
+      <rect x="-34" y="-64" width="68" height="128" rx="34" ry="34"/>
+    </clipPath>
+  </defs>
+
+  <g transform="translate(100,100) rotate(-35)">
+
+    <!-- 外层霓虹光晕（更大、更淡） -->
+    <rect x="-46" y="-76" width="92" height="152" rx="46" ry="46"
+          fill="none" stroke="url(#htp-capsule-stroke)" stroke-width="6"
+          opacity="0.30" filter="url(#htp-glow)"/>
+
+    <!-- 外胶囊描边（主体） -->
+    <rect x="-42" y="-72" width="84" height="144" rx="42" ry="42"
+          fill="none" stroke="url(#htp-capsule-stroke)" stroke-width="14"/>
+
+    <!-- 内盘细边（青色细描，赛博质感；fill 透明以适配浅色模式） -->
+    <rect x="-34" y="-64" width="68" height="128" rx="34" ry="34"
+          fill="none" stroke="#40e4ff" stroke-width="3" opacity="0.50"/>
+
+    <!-- 液体（裁剪在内盘） -->
+    <g clip-path="url(#htp-inner-clip)">
+      <ellipse cx="0" cy="34" rx="42" ry="44" fill="url(#htp-liquid)"/>
+      <!-- 液面反光条 -->
+      <ellipse cx="-8" cy="-2" rx="22" ry="4" fill="#40e4ff" opacity="0.40"/>
+      <!-- 高光 -->
+      <ellipse cx="-10" cy="14" rx="14" ry="4" fill="#ffffff" opacity="0.25"/>
+    </g>
+
+    <!-- 时钟刻度（上半表盘；细次刻度 + 粗主刻度） -->
+    <g stroke="#40e4ff" stroke-linecap="round" opacity="0.9">
+      <!-- 次刻度 -->
+      <g stroke-width="4" opacity="0.7">
+        <line x1="0" y1="-54" x2="0" y2="-46" transform="rotate(30)"/>
+        <line x1="0" y1="-54" x2="0" y2="-46" transform="rotate(-30)"/>
+        <line x1="0" y1="-54" x2="0" y2="-46" transform="rotate(60)"/>
+        <line x1="0" y1="-54" x2="0" y2="-46" transform="rotate(-60)"/>
+      </g>
+      <!-- 主刻度（12 / 3 / 9） -->
+      <g stroke-width="6" stroke="#5ed49a">
+        <line x1="0" y1="-54" x2="0" y2="-42"/>
+        <line x1="0" y1="-54" x2="0" y2="-42" transform="rotate(90)"/>
+        <line x1="0" y1="-54" x2="0" y2="-42" transform="rotate(-90)"/>
+      </g>
+    </g>
+
+    <!-- 时针（霓虹青、带发光） -->
+    <line x1="0" y1="4" x2="0" y2="-36"
+          stroke="#40e4ff" stroke-width="8" stroke-linecap="round"
+          filter="url(#htp-glow)"/>
+
+    <!-- 分针（品红、带发光） -->
+    <line x1="0" y1="4" x2="26" y2="10"
+          stroke="#ff4fa0" stroke-width="7" stroke-linecap="round"
+          filter="url(#htp-glow)"/>
+
+    <!-- 中心点：绿色核心 + 白色光斑 -->
+    <circle cx="0" cy="0" r="8" fill="#5ed49a" filter="url(#htp-glow)"/>
+    <circle cx="0" cy="0" r="3.5" fill="#ffffff"/>
+
+    <!-- Pro 标识：右上角霓虹品红光点（v1 没有） -->
+    <circle cx="30" cy="-58" r="6" fill="#ff4fa0" filter="url(#htp-glow)"/>
+    <circle cx="30" cy="-58" r="2.5" fill="#ffffff"/>
+
+  </g>
+</svg>

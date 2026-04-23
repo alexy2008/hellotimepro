@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>关于 · HelloTime Pro</title>
+  <link rel="stylesheet" href="assets/prototype.css" />
+</head>
+<body>
+
+<header class="cy-header">
+  <div class="cy-container cy-header__inner">
+    <a class="cy-brand" href="index.html">
+      <img class="cy-brand__mark" src="../spec/assets/logo.svg" width="38" height="38" alt="" />
+      HelloTime<span class="cy-brand__pro">PRO</span>
+    </a>
+    <nav class="cy-nav">
+      <a href="index.html">广场</a>
+      <a href="open.html">开启</a>
+      <a href="about.html" class="cy-nav__active">关于</a>
+    </nav>
+    <div class="cy-header__actions">
+      <button class="cy-theme-toggle" data-theme-toggle aria-label="切换主题">
+        <span data-theme-toggle-icon>☾</span>
+      </button>
+      <a class="cy-btn cy-btn--ghost cy-btn--sm" href="login.html">登录</a>
+      <a class="cy-btn cy-btn--primary cy-btn--sm" href="register.html">注册</a>
+    </div>
+  </div>
+</header>
+
+<main class="cy-container cy-container--narrow" style="margin: var(--space-12) auto var(--space-16)">
+
+  <h1 style="font-family: var(--font-display); font-size: var(--font-size-5xl); margin: 0 0 var(--space-4)">
+    关于 <span style="background: var(--gradient-brand-hero); -webkit-background-clip: text; background-clip: text; color: transparent">HelloTime Pro</span>
+  </h1>
+  <p style="color: var(--color-text-secondary); font-size: var(--font-size-lg); margin: 0 0 var(--space-10); line-height: var(--line-height-relaxed)">
+    这是一个<strong style="color: var(--color-text-primary)">多技术栈对比学习项目</strong> —— 同一款时光胶囊 Web 应用，
+    由 10 个后端、5 个前端、5 个全栈框架各自独立实现一遍，
+    像一张可切换的技术雷达。前端打开浏览器开发者工具就能看见后端响应的具体栈。
+  </p>
+
+  <!-- 一句话项目介绍卡片 -->
+  <div class="cy-alert cy-alert--info" style="margin-bottom: var(--space-10); padding: var(--space-4) var(--space-5); font-size: var(--font-size-base)">
+    <span>ⓘ</span>
+    <span>
+      项目处于 <strong>M0 (Design)</strong> 阶段 · 2026-04-19 · 所有 UI 都基于同一套 <a href="https://example.com/spec" style="color: var(--color-brand-primary)">spec/</a> tokens
+      实现；切换后端只需调整 <code style="background: var(--color-surface-2); padding: 2px 6px; border-radius: var(--radius-sm)">.env</code> 里的 <code>BACKEND</code> 变量。
+    </span>
+  </div>
+
+  <!-- 后端栈 -->
+  <section style="margin-bottom: var(--space-12)">
+    <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">后端 10 栈</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-3)">
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/springboot.svg" alt=""> Spring Boot · Java</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/fastapi.svg" alt=""> FastAPI · Python</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/gin.svg" alt=""> Gin · Go</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/elysia.svg" alt=""> Elysia · Bun</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/nestjs.svg" alt=""> NestJS · Node</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/aspnet.svg" alt=""> ASP.NET Core · C#</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/vapor.svg" alt=""> Vapor · Swift</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/axum.svg" alt=""> Axum · Rust</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/drogon.svg" alt=""> Drogon · C++</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/ktor.svg" alt=""> Ktor · Kotlin</div>
+    </div>
+  </section>
+
+  <!-- 前端栈 -->
+  <section style="margin-bottom: var(--space-12)">
+    <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">前端 5 栈</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-3)">
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/vue.svg" alt=""> Vue 3 (Composition)</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/react.svg" alt=""> React 19</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/angular.svg" alt=""> Angular 18</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/svelte.svg" alt=""> Svelte 5</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/solidjs.svg" alt=""> SolidJS</div>
+    </div>
+  </section>
+
+  <!-- 全栈 -->
+  <section style="margin-bottom: var(--space-12)">
+    <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">全栈 5 框架</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-3)">
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/nextjs.svg" alt=""> Next.js · App Router</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/nuxt.svg" alt=""> Nuxt 3</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/springboot.svg" alt=""> Spring MVC · Thymeleaf</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/laravel.svg" alt=""> Laravel · Blade</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/rails.svg" alt=""> Rails · Hotwire</div>
+    </div>
+  </section>
+
+  <!-- 数据库 & 共享 -->
+  <section style="margin-bottom: var(--space-12)">
+    <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">基础设施</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-3)">
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/postgresql.svg" alt=""> PostgreSQL 16 · 主驱动</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/sqlite.svg" alt=""> SQLite · 备选驱动</div>
+      <div class="cy-stack__item" style="padding: var(--space-3); justify-content: flex-start"><img src="../spec/icons/tailwindcss.svg" alt=""> Tailwind CSS v4 · 共享 tokens</div>
+    </div>
+  </section>
+
+  <!-- 设计原则 -->
+  <div class="cy-card" style="margin-bottom: var(--space-10)">
+    <h2 style="font-family: var(--font-display); font-size: var(--font-size-xl); margin: 0 0 var(--space-4)">三条硬约束</h2>
+    <ul style="color: var(--color-text-secondary); margin: 0; padding-left: var(--space-5); line-height: var(--line-height-relaxed)">
+      <li><strong style="color: var(--color-text-primary)">API 同源：</strong>所有后端实现同一份 <code>spec/api/openapi.yaml</code>，用契约测试验证。</li>
+      <li><strong style="color: var(--color-text-primary)">UI 同源：</strong>所有前端消费同一份 <code>spec/styles/tokens.css</code>，视觉对齐到像素级。</li>
+      <li><strong style="color: var(--color-text-primary)">数据同源：</strong>所有后端兼容同一份 <code>spec/db/schema.sql</code>，可通过反向代理热切换。</li>
+    </ul>
+  </div>
+
+  <!-- 版本 -->
+  <div style="padding: var(--space-4); border-top: 1px solid var(--color-border-subtle); color: var(--color-text-muted); font-size: var(--font-size-sm); display: flex; gap: var(--space-4); flex-wrap: wrap">
+    <span>Spec 版本: <code>v0.1.0</code></span>
+    <span>更新日期: <code>2026-04-20</code></span>
+    <span>当前栈: <code>fastapi-python</code></span>
+    <span>License: MIT</span>
+  </div>
+</main>
+
+<footer class="cy-footer">
+  <div class="cy-container cy-footer__inner">
+    <div>© 2026 HelloTime Pro</div>
+    <div class="cy-stack">
+      <span class="cy-stack__item"><img src="../spec/icons/react.svg" alt="">React</span>
+      <span class="cy-stack__item"><img src="../spec/icons/typescript.svg" alt="">TypeScript</span>
+      <span class="cy-stack__item"><img src="../spec/icons/fastapi.svg" alt="">FastAPI</span>
+      <span class="cy-stack__item"><img src="../spec/icons/python.svg" alt="">Python</span>
+      <span class="cy-stack__item"><img src="../spec/icons/postgresql.svg" alt="">PostgreSQL</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/demo.js"></script>
+</body>
+</html>

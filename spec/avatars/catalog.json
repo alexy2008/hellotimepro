@@ -1,0 +1,83 @@
+{
+  "$schema": "./catalog.schema.json",
+  "meta": {
+    "name": "HelloTime Pro Built-in Avatars",
+    "version": "0.1.0",
+    "updated": "2026-04-20",
+    "viewBox": "0 0 128 128",
+    "style": "cyber · 深色径向底 + 几何发光主图",
+    "note": "所有 SVG 尺寸 128×128；主色用于 UI 选择态边框 / 昵称色点"
+  },
+  "avatars": [
+    {
+      "id": "neo",
+      "name": "新生",
+      "primaryColor": "#8467ff",
+      "svgUrl": "/static/avatars/neo.svg",
+      "tagline": "三角矩阵 · 赛博紫"
+    },
+    {
+      "id": "specter",
+      "name": "幽影",
+      "primaryColor": "#c8b8ff",
+      "svgUrl": "/static/avatars/specter.svg",
+      "tagline": "飘渺幽灵 · 淡紫"
+    },
+    {
+      "id": "glyph",
+      "name": "符文",
+      "primaryColor": "#40e4ff",
+      "svgUrl": "/static/avatars/glyph.svg",
+      "tagline": "同心符咒 · 霓虹青"
+    },
+    {
+      "id": "pulse",
+      "name": "心跳",
+      "primaryColor": "#ff4fa0",
+      "svgUrl": "/static/avatars/pulse.svg",
+      "tagline": "脉冲波形 · 品红"
+    },
+    {
+      "id": "circuit",
+      "name": "电路",
+      "primaryColor": "#5ed49a",
+      "svgUrl": "/static/avatars/circuit.svg",
+      "tagline": "芯片走线 · 荧绿"
+    },
+    {
+      "id": "nova",
+      "name": "新星",
+      "primaryColor": "#ffc14a",
+      "svgUrl": "/static/avatars/nova.svg",
+      "tagline": "星爆核心 · 琥珀"
+    },
+    {
+      "id": "oracle",
+      "name": "神谕",
+      "primaryColor": "#6b46ff",
+      "svgUrl": "/static/avatars/oracle.svg",
+      "tagline": "洞察之眼 · 深紫"
+    },
+    {
+      "id": "drift",
+      "name": "漂流",
+      "primaryColor": "#b0b0c0",
+      "svgUrl": "/static/avatars/drift.svg",
+      "tagline": "三重波纹 · 冷灰"
+    },
+    {
+      "id": "echo",
+      "name": "回声",
+      "primaryColor": "#ffc14a",
+      "svgUrl": "/static/avatars/echo.svg",
+      "tagline": "同心信号 · 金琥珀"
+    },
+    {
+      "id": "void",
+      "name": "深渊",
+      "primaryColor": "#341a8f",
+      "svgUrl": "/static/avatars/void.svg",
+      "tagline": "黑洞奇点 · 深紫黑"
+    }
+  ]
+}

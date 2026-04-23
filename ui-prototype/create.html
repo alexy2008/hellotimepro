@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>创建胶囊 · HelloTime Pro</title>
+  <link rel="stylesheet" href="assets/prototype.css" />
+</head>
+<body>
+
+<header class="cy-header">
+  <div class="cy-container cy-header__inner">
+    <a class="cy-brand" href="index.html">
+      <img class="cy-brand__mark" src="../spec/assets/logo.svg" width="38" height="38" alt="" />
+      HelloTime<span class="cy-brand__pro">PRO</span>
+    </a>
+    <nav class="cy-nav">
+      <a href="index.html">广场</a>
+      <a href="open.html">开启</a>
+      <a href="about.html">关于</a>
+    </nav>
+    <div class="cy-header__actions">
+      <button class="cy-theme-toggle" data-theme-toggle aria-label="切换主题">
+        <span data-theme-toggle-icon>☾</span>
+      </button>
+      <a class="cy-user-chip" href="me-created.html">
+        <span>specter</span>
+        <img src="../spec/avatars/specter.svg" alt="">
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="cy-container cy-container--narrow" style="margin-top: var(--space-10); margin-bottom: var(--space-16)">
+  <div style="max-width: 720px; margin: 0 auto">
+    <h1 style="font-family: var(--font-display); font-size: var(--font-size-4xl); margin: 0 0 var(--space-2)">写给未来的信</h1>
+    <p style="color: var(--color-text-secondary); margin: 0 0 var(--space-8)">
+      这段文字会被上锁，直到你设定的时刻才能由任何人 —— 包括你自己 —— 开启。
+    </p>
+
+    <form class="cy-form" onsubmit="event.preventDefault(); location.href='capsule-sealed.html'">
+      <div class="cy-field">
+        <label for="title">标题 <span style="color: var(--color-text-muted); font-weight: 400">· 最多 60 字</span></label>
+        <input class="cy-input" id="title" type="text" maxlength="60" placeholder="例如：写给三年后的自己" required />
+      </div>
+
+      <div class="cy-field">
+        <label for="content">内容 <span style="color: var(--color-text-muted); font-weight: 400">· 最多 5000 字</span></label>
+        <textarea class="cy-textarea" id="content" rows="10" maxlength="5000" required placeholder="在这里写下你想传递到未来的话。建议：
+- 具体的场景 / 情绪 / 正在读的书
+- 一个小小的许诺
+- 或只是一句：嘿，还活着吗？"></textarea>
+        <span class="cy-field__hint"><span id="count" style="color: var(--color-text-secondary)">0</span> / 5000</span>
+      </div>
+
+      <div class="cy-field">
+        <label for="open_at">开启时间 <span style="color: var(--color-text-muted); font-weight: 400">· 最早 60 秒后</span></label>
+        <input class="cy-input" id="open_at" type="datetime-local" required />
+        <span class="cy-field__hint">时区以你当前所在时区为准，保存时会转换为 UTC。</span>
+      </div>
+
+      <div class="cy-field">
+        <label>可见性</label>
+        <label class="cy-toggle">
+          <input type="checkbox" id="in_plaza" checked />
+          <span class="cy-toggle__track"></span>
+          <span class="cy-toggle__body">
+            <span class="cy-toggle__label">发布到胶囊广场</span>
+            <span class="cy-toggle__hint">开启后，胶囊标题和倒计时将对所有人可见；关闭后仅持有胶囊码的人可访问。</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="cy-field">
+        <label>快速预设</label>
+        <div style="display:flex; flex-wrap:wrap; gap: var(--space-2)">
+          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm">1 分钟后（测试）</button>
+          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm">1 小时后</button>
+          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm">明天早上 9:00</button>
+          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm">1 年后</button>
+          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm">2030.01.01</button>
+        </div>
+      </div>
+
+      <div class="cy-alert cy-alert--info">
+        <span>ⓘ</span>
+        <span>上锁后不可编辑、不可提前开启，也不可删除胶囊内容（只能在未开启时从"我的"里撤回）。</span>
+      </div>
+
+      <div style="display:flex; gap: var(--space-3); justify-content: flex-end">
+        <a class="cy-btn cy-btn--ghost" href="index.html">取消</a>
+        <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit">🔒 上锁封存</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<footer class="cy-footer">
+  <div class="cy-container cy-footer__inner">
+    <div>© 2026 HelloTime Pro</div>
+    <div class="cy-stack">
+      <span class="cy-stack__item"><img src="../spec/icons/react.svg" alt="">React</span>
+      <span class="cy-stack__item"><img src="../spec/icons/typescript.svg" alt="">TypeScript</span>
+      <span class="cy-stack__item"><img src="../spec/icons/fastapi.svg" alt="">FastAPI</span>
+      <span class="cy-stack__item"><img src="../spec/icons/python.svg" alt="">Python</span>
+      <span class="cy-stack__item"><img src="../spec/icons/postgresql.svg" alt="">PostgreSQL</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/demo.js"></script>
+</body>
+</html>

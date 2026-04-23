@@ -1,0 +1,1072 @@
+openapi: 3.1.0
+info:
+  title: HelloTime Pro API
+  description: |
+    HelloTime Pro 的对外 API 契约。**单一事实源**。
+
+    - 所有实现必须满足本 spec 定义的路径、方法、请求 / 响应 shape、错误码
+    - 每个端点都通过外部黑盒脚本 `verify-contract.sh` 校验
+    - 统一响应包装：`{ success, data, message, errorCode }`
+    - 鉴权端点以外，鉴权头 `Authorization: Bearer <accessToken>` 可选（匿名可访问的端点忽略；需要登录的端点缺失返回 `UNAUTHORIZED`）
+  version: 0.1.0
+  contact:
+    name: HelloTime Pro
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:9080
+    description: 本地反向代理（SPA 默认指向，动态切换当前后端）
+  - url: http://localhost:29010
+    description: FastAPI 参考后端直连
+  - url: '{backendBaseUrl}'
+    description: 任意后端 / 全栈自身根路径
+    variables:
+      backendBaseUrl:
+        default: http://localhost:29010
+
+tags:
+  - name: Health
+    description: 健康检查与技术栈元数据
+  - name: Avatars
+    description: 内置头像目录
+  - name: Auth
+    description: 注册 / 登录 / 刷新 / 登出
+  - name: Me
+    description: 当前用户资料（登录后）
+  - name: Capsules
+    description: 胶囊创建与按码查询
+  - name: Plaza
+    description: 胶囊广场（公开列表）
+  - name: MyCapsules
+    description: 我创建的胶囊（登录后）
+  - name: Favorites
+    description: 收藏 / 取消收藏 / 我收藏的（登录后）
+
+# ============================================================
+# 安全方案
+# ============================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        `Authorization: Bearer <accessToken>` 形式。
+        - access token：JWT HS256，1h
+        - refresh token 通过 `/auth/refresh` 换取新 access token
+        - access 过期统一返回 `{ errorCode: "UNAUTHORIZED", message: "access_token_expired" }`
+
+  # ============================================================
+  # 公共响应包装
+  # ============================================================
+  schemas:
+
+    # ----- 基础包装 -----
+    Envelope:
+      type: object
+      description: 所有响应的统一外壳
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+          description: 成功时的数据；失败时为 null
+        message:
+          type: string
+          nullable: true
+          description: 人类可读的提示；成功可为 null
+        errorCode:
+          $ref: '#/components/schemas/ErrorCode'
+
+    ErrorCode:
+      type: string
+      nullable: true
+      enum:
+        - null
+        - VALIDATION_ERROR
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - NOT_FOUND
+        - CONFLICT
+        - RATE_LIMITED
+        - BAD_REQUEST
+        - INTERNAL_ERROR
+
+    ErrorEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [success, errorCode, message]
+          properties:
+            success:
+              const: false
+            data:
+              nullable: true
+              example: null
+            message:
+              type: string
+            errorCode:
+              $ref: '#/components/schemas/ErrorCode'
+            details:
+              type: array
+              description: 仅 VALIDATION_ERROR 时出现，逐字段说明
+              items:
+                type: object
+                required: [field, message]
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    # ----- 分页 -----
+    Pagination:
+      type: object
+      required: [page, pageSize, total, totalPages]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+
+    # ----- 用户 -----
+    AvatarId:
+      type: string
+      minLength: 2
+      maxLength: 20
+      pattern: '^[a-z0-9-]+$'
+      description: 内置头像 ID（见 `/api/v1/avatars`）
+      example: neo
+
+    User:
+      type: object
+      required: [id, email, nickname, avatarId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          description: 存储小写；登录时大小写不敏感
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+        avatarId:
+          $ref: '#/components/schemas/AvatarId'
+        createdAt:
+          type: string
+          format: date-time
+
+    UserBrief:
+      type: object
+      description: 在胶囊详情 / 广场卡片中引用的用户摘要
+      required: [nickname, avatarId]
+      properties:
+        nickname:
+          type: string
+        avatarId:
+          $ref: '#/components/schemas/AvatarId'
+
+    # ----- 头像目录 -----
+    Avatar:
+      type: object
+      required: [id, name, primaryColor]
+      properties:
+        id:
+          $ref: '#/components/schemas/AvatarId'
+        name:
+          type: string
+          description: 中文名
+        primaryColor:
+          type: string
+          description: 推荐主色（Hex，含 `#`）
+          pattern: '^#[0-9a-fA-F]{6}$'
+        svgUrl:
+          type: string
+          description: 图像地址（相对后端根，如 `/static/avatars/neo.svg`）
+
+    # ----- 胶囊 -----
+    CapsuleCode:
+      type: string
+      pattern: '^[A-Z0-9]{8}$'
+      minLength: 8
+      maxLength: 8
+      description: 8 位大写字母数字码
+      example: A1B2C3D4
+
+    CapsuleBase:
+      type: object
+      required:
+        - id
+        - code
+        - title
+        - creator
+        - openAt
+        - createdAt
+        - inPlaza
+        - favoriteCount
+        - isOpened
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          $ref: '#/components/schemas/CapsuleCode'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        creator:
+          $ref: '#/components/schemas/UserBrief'
+        openAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        inPlaza:
+          type: boolean
+        favoriteCount:
+          type: integer
+          minimum: 0
+        isOpened:
+          type: boolean
+          description: 服务端计算：`openAt <= now`
+
+    CapsuleList:
+      description: 广场 / "我创建的" / "我收藏的" 列表项；**不含 content**
+      allOf:
+        - $ref: '#/components/schemas/CapsuleBase'
+        - type: object
+          required: [favoritedByMe]
+          properties:
+            favoritedByMe:
+              type: boolean
+              description: 未登录固定 false；登录用户返回其收藏状态
+            favoritedAt:
+              type: string
+              format: date-time
+              nullable: true
+              description: 仅在 `/me/favorites` 列表中出现（当前用户收藏该胶囊的时间）
+
+    CapsuleDetail:
+      description: 按 code / 按 id 查询单个胶囊；未到期 `content=null`
+      allOf:
+        - $ref: '#/components/schemas/CapsuleBase'
+        - type: object
+          required: [content, favoritedByMe]
+          properties:
+            content:
+              type: string
+              nullable: true
+              description: 未到期返回 null；已到期返回完整文本（1–5000 字符）
+            favoritedByMe:
+              type: boolean
+
+    # ----- 请求体 -----
+    RegisterRequest:
+      type: object
+      required: [email, password, nickname, avatarId]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: 至少一个字母 + 一个数字
+          pattern: '^(?=.*[A-Za-z])(?=.*\d).{8,128}$'
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+          pattern: '^[\p{L}\p{N}_-]{2,20}$'
+        avatarId:
+          $ref: '#/components/schemas/AvatarId'
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: 若提供则该 token 立即吊销
+
+    AuthTokens:
+      type: object
+      required: [accessToken, refreshToken, accessTokenExpiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          description: JWT HS256
+        refreshToken:
+          type: string
+          description: 不透明随机 256-bit base64url 字符串
+        accessTokenExpiresIn:
+          type: integer
+          minimum: 1
+          description: 秒；参考实现 3600
+        refreshTokenExpiresIn:
+          type: integer
+          minimum: 1
+          description: 秒；参考实现 604800（7 天）
+        user:
+          $ref: '#/components/schemas/User'
+
+    UpdateProfileRequest:
+      type: object
+      description: 两个字段都可选，至少提供其一
+      minProperties: 1
+      properties:
+        nickname:
+          type: string
+          minLength: 2
+          maxLength: 20
+        avatarId:
+          $ref: '#/components/schemas/AvatarId'
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: '^(?=.*[A-Za-z])(?=.*\d).{8,128}$'
+
+    CreateCapsuleRequest:
+      type: object
+      required: [title, content, openAt]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        content:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        openAt:
+          type: string
+          format: date-time
+          description: ISO 8601 UTC；必须 > now + 60s，且 ≤ now + 10 年
+        inPlaza:
+          type: boolean
+          default: true
+
+    FavoriteRequest:
+      type: object
+      required: [capsuleId]
+      properties:
+        capsuleId:
+          type: string
+          format: uuid
+
+    # ----- health -----
+    StackItem:
+      type: object
+      required: [role, name, version]
+      properties:
+        role:
+          type: string
+          description: language / framework / runtime / database / orm / template 等
+        name:
+          type: string
+        version:
+          type: string
+        iconUrl:
+          type: string
+          nullable: true
+          description: 相对该服务根的 SVG 图标路径，如 `/static/icons/fastapi.svg`
+
+    HealthData:
+      type: object
+      required: [status, service, stack, version, uptimeSeconds]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        service:
+          type: string
+          const: hellotime-pro
+        version:
+          type: string
+        uptimeSeconds:
+          type: integer
+          minimum: 0
+        stack:
+          type: object
+          required: [kind, items]
+          properties:
+            kind:
+              type: string
+              enum: [backend, fullstack]
+            items:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/StackItem'
+
+  # ============================================================
+  # 公共参数
+  # ============================================================
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PageSizeParam:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+    PlazaSortParam:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: [hot, new]
+        default: new
+
+    PlazaFilterParam:
+      name: filter
+      in: query
+      schema:
+        type: string
+        enum: [all, opened, unopened]
+        default: all
+
+    PlazaQueryParam:
+      name: q
+      in: query
+      description: |
+        模糊搜索关键词；大小写不敏感子串匹配，
+        匹配 `title` 或 `creator.nickname`（OR 关系）。
+        前后自动 trim；trim 后为空视为未传。
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 50
+
+  # ============================================================
+  # 公共响应
+  # ============================================================
+  responses:
+    ValidationError:
+      description: 字段校验失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            passwordFormat:
+              value:
+                success: false
+                data: null
+                message: 字段校验失败
+                errorCode: VALIDATION_ERROR
+                details:
+                  - field: password
+                    message: 密码至少 8 位且需包含字母和数字
+
+    Unauthorized:
+      description: 未登录 / access token 过期 / 凭证错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            expired:
+              value:
+                success: false
+                data: null
+                message: access_token_expired
+                errorCode: UNAUTHORIZED
+
+    Forbidden:
+      description: 已登录但无权限（如删除他人胶囊）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    NotFound:
+      description: 目标资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            capsule:
+              value:
+                success: false
+                data: null
+                message: 胶囊不存在
+                errorCode: NOT_FOUND
+
+    Conflict:
+      description: 资源冲突（邮箱 / 昵称已占用）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    BadRequest:
+      description: 业务规则冲突（如收藏自己的胶囊）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+    RateLimited:
+      description: 触发速率限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+# ============================================================
+# 路径
+# ============================================================
+security: []
+
+paths:
+
+  # ---------- 公共 ----------
+
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: 健康检查 + 技术栈元数据
+      description: 页脚与关于页的技术栈展示直接消费此端点
+      security: []
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/HealthData'
+
+  /api/v1/avatars:
+    get:
+      tags: [Avatars]
+      summary: 内置头像列表
+      security: []
+      responses:
+        '200':
+          description: 头像数组
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Avatar'
+
+  # ---------- 鉴权 ----------
+
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: 注册并自动登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokens'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: 登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokens'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: 刷新 access token（rotate）
+      security: []
+      description: |
+        - 消耗一个未撤销的 refresh token，返回新的 access + refresh 对
+        - 旧 refresh token 标记 revoked；family_id 延续
+        - 若 refresh token 已 revoked：**整家族作废**，返回 401
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokens'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: 登出（吊销 refresh token）
+      description: access token 本身不做服务端黑名单；refresh token 若提供则立即吊销
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '204':
+          description: 登出成功（无响应体）
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------- 当前用户 ----------
+
+  /api/v1/me:
+    get:
+      tags: [Me]
+      summary: 当前用户资料
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 当前用户
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags: [Me]
+      summary: 修改昵称 / 头像（邮箱不可改）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: 更新后的用户
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/me/password:
+    post:
+      tags: [Me]
+      summary: 修改密码（成功后吊销其他 refresh token）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: 修改成功（客户端应使用新密码重新登录）
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ---------- 胶囊 · 创建与按码查询 ----------
+
+  /api/v1/capsules:
+    post:
+      tags: [Capsules]
+      summary: 创建胶囊
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCapsuleRequest'
+      responses:
+        '201':
+          description: 创建成功，返回完整胶囊（包含 code）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CapsuleDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/capsules/{code}:
+    get:
+      tags: [Capsules]
+      summary: 按 8 位码查询胶囊（凭码即可见，包括 inPlaza=false）
+      security: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/CapsuleCode'
+      responses:
+        '200':
+          description: 胶囊详情；未到期 `content=null`
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CapsuleDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------- 广场 ----------
+
+  /api/v1/plaza/capsules:
+    get:
+      tags: [Plaza]
+      summary: 胶囊广场列表（仅 inPlaza=true）
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PlazaSortParam'
+        - $ref: '#/components/parameters/PlazaFilterParam'
+        - $ref: '#/components/parameters/PlazaQueryParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 分页胶囊列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items, pagination]
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/CapsuleList'
+                          pagination:
+                            $ref: '#/components/schemas/Pagination'
+
+  /api/v1/plaza/capsules/{id}:
+    get:
+      tags: [Plaza]
+      summary: 广场胶囊详情（仅 inPlaza=true；`false` 返回 404）
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 胶囊详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CapsuleDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------- 我创建的 ----------
+
+  /api/v1/me/capsules:
+    get:
+      tags: [MyCapsules]
+      summary: 我创建的胶囊（按创建时间降序）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 分页列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items, pagination]
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/CapsuleList'
+                          pagination:
+                            $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/me/capsules/{id}:
+    delete:
+      tags: [MyCapsules]
+      summary: 删除我创建的胶囊（无论是否到期）
+      description: 不允许修改 content / openAt；删除永远允许
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 删除成功
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------- 收藏 ----------
+
+  /api/v1/me/favorites:
+    get:
+      tags: [Favorites]
+      summary: 我收藏的胶囊（按收藏时间降序）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 分页列表（每项含 `favoritedAt`）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [items, pagination]
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/CapsuleList'
+                          pagination:
+                            $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Favorites]
+      summary: 收藏胶囊
+      description: |
+        约束：
+        - 只能收藏 `inPlaza = true` 的胶囊
+        - 不能收藏自己创建的胶囊（`BAD_REQUEST`）
+        - 重复收藏幂等：返回 200 而非 409
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FavoriteRequest'
+      responses:
+        '200':
+          description: 收藏成功（已存在时幂等）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [capsuleId, favoriteCount, favoritedAt]
+                        properties:
+                          capsuleId:
+                            type: string
+                            format: uuid
+                          favoriteCount:
+                            type: integer
+                          favoritedAt:
+                            type: string
+                            format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/me/favorites/{capsuleId}:
+    delete:
+      tags: [Favorites]
+      summary: 取消收藏（幂等：未收藏返回 204 而非 404）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: capsuleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 已取消（或原本未收藏）
+        '401':
+          $ref: '#/components/responses/Unauthorized'

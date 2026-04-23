@@ -1,0 +1,17 @@
+{
+  "$comment": "M0 占位：契约测试使用的预置账号。M1 的 verify-contract.sh 会在每次运行前用 reset-db.sh 清库后重新种入。",
+  "users": [
+    {
+      "email": "specter@hellotime.pro",
+      "password": "specter-pass-01",
+      "nickname": "specter",
+      "avatarId": "specter"
+    },
+    {
+      "email": "neo@hellotime.pro",
+      "password": "neo-pass-01",
+      "nickname": "neo",
+      "avatarId": "neo"
+    }
+  ]
+}

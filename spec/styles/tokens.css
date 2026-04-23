@@ -1,0 +1,313 @@
+/* ============================================================
+ * HelloTime Pro · 语义化设计令牌（Tokens）
+ * 版本：0.1 · 2026-04-20
+ *
+ * 本文件是 **设计令牌的事实源**。`spec/tokens/tokens.json`
+ * 从本文件同步生成，供 Tailwind preset / 各栈 JS 消费。
+ *
+ * 使用规则：
+ *   1. 组件层只允许消费语义令牌（--color-surface-1 等），
+ *      禁止直接消费色阶（--brand-500）；违者被 verify-design-tokens.sh 拦截
+ *   2. 新增令牌先在此声明，再在 tokens.json 同步
+ *   3. 所有值都使用 CSS 变量引用 palette，避免硬编码色
+ * ============================================================ */
+
+@import "./palette.css";
+
+/* ------------------------------------------------------------
+ * 主题：深色（默认）
+ * ------------------------------------------------------------ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ===== 背景层（越大数字越靠前） ============================ */
+  --color-surface-0:        var(--neutral-950);  /* page bg */
+  --color-surface-1:        var(--neutral-900);  /* card bg */
+  --color-surface-2:        var(--neutral-800);  /* elevated / hover */
+  --color-surface-3:        var(--neutral-700);  /* input bg / highlight */
+  --color-surface-raised:   var(--neutral-800);  /* 模态/下拉/tooltip */
+  --color-surface-overlay:  rgba(6, 6, 12, 0.72);/* scrim */
+
+  /* ===== 描边与分隔 ========================================= */
+  --color-border-subtle:    var(--neutral-700);
+  --color-border-default:   var(--neutral-600);
+  --color-border-strong:    var(--neutral-500);
+  --color-border-focus:     var(--brand-400);
+
+  /* ===== 文字 ============================================== */
+  --color-text-primary:     var(--neutral-50);
+  --color-text-secondary:   var(--neutral-200);
+  --color-text-muted:       var(--neutral-400);
+  --color-text-disabled:    var(--neutral-500);
+  --color-text-inverse:     var(--neutral-900);
+  --color-text-link:        var(--signal-300);
+  --color-text-link-hover:  var(--signal-200);
+
+  /* ===== 品牌 ============================================== */
+  --color-brand-primary:    var(--brand-500);
+  --color-brand-hover:      var(--brand-400);
+  --color-brand-pressed:    var(--brand-600);
+  --color-brand-subtle:     var(--brand-800);
+  --color-brand-on:         var(--neutral-50);     /* brand 上的文字色 */
+
+  /* ===== 强调 ============================================== */
+  --color-accent-primary:   var(--accent-500);
+  --color-accent-hover:     var(--accent-400);
+  --color-accent-subtle:    var(--accent-800);
+  --color-accent-on:        var(--neutral-50);
+
+  /* ===== 信号（霓虹） ======================================== */
+  --color-signal-primary:   var(--signal-400);
+  --color-signal-hover:     var(--signal-300);
+  --color-signal-subtle:    var(--signal-800);
+  --color-signal-on:        var(--neutral-950);    /* 亮青底 → 深色文字 */
+  --color-success-on:       var(--neutral-950);    /* 薄荷绿底（深色模式亮绿）→ 深色文字 */
+
+  /* ===== 状态：成功 / 警告 / 危险 ============================= */
+  --color-success-bg:       var(--success-900);
+  --color-success-fg:       var(--success-300);
+  --color-success-border:   var(--success-700);
+  --color-success-solid:    var(--success-500);
+
+  --color-warning-bg:       var(--warning-900);
+  --color-warning-fg:       var(--warning-300);
+  --color-warning-border:   var(--warning-700);
+  --color-warning-solid:    var(--warning-500);
+
+  --color-danger-bg:        var(--danger-900);
+  --color-danger-fg:        var(--danger-300);
+  --color-danger-border:    var(--danger-700);
+  --color-danger-solid:     var(--danger-500);
+
+  /* ===== 业务语义 · 广场 ====================================== */
+  --color-plaza-card-bg:        var(--neutral-900);
+  --color-plaza-card-hover:     var(--neutral-800);
+  --color-plaza-card-border:    var(--neutral-700);
+  --color-plaza-divider:        var(--neutral-800);
+  --color-plaza-glow:           rgba(107, 70, 255, 0.35);
+
+  /* ===== 业务语义 · 胶囊（已/未开启） ========================== */
+  /* 未开启：霓虹青呼吸感 */
+  --color-capsule-sealed-bg:       linear-gradient(135deg,
+                                     rgba(107, 70, 255, 0.15),
+                                     rgba(0, 184, 212, 0.12));
+  --color-capsule-sealed-border:   var(--signal-500);
+  --color-capsule-sealed-accent:   var(--signal-300);
+  --color-capsule-sealed-glow:     0 0 24px rgba(20, 212, 240, 0.45);
+
+  /* 已开启：薄荷绿（"解封成功 / 时光已到"） */
+  --color-capsule-opened-bg:       linear-gradient(135deg,
+                                     rgba(26, 168, 102, 0.14),
+                                     rgba(94, 212, 154, 0.07));
+  --color-capsule-opened-border:   var(--success-500);
+  --color-capsule-opened-accent:   var(--success-300);
+  --color-capsule-opened-glow:     0 0 18px rgba(94, 212, 154, 0.38);
+
+  /* ===== 业务语义 · 收藏按钮 ================================== */
+  --color-favorite-active:    var(--accent-500);
+  --color-favorite-inactive:  var(--neutral-400);
+
+  /* ===== 渐变（品牌 hero） ==================================== */
+  --gradient-brand-hero:      linear-gradient(135deg,
+                                var(--signal-300) 0%,
+                                var(--accent-400) 50%,
+                                var(--success-300) 100%);
+  --gradient-brand-subtle:    linear-gradient(135deg,
+                                rgba(20, 212, 240, 0.15),
+                                rgba(255, 79, 160, 0.10),
+                                rgba(94, 212, 154, 0.08));
+}
+
+/* ------------------------------------------------------------
+ * 主题：明亮
+ * ------------------------------------------------------------ */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --color-surface-0:        var(--neutral-50);
+  --color-surface-1:        #ffffff;
+  --color-surface-2:        var(--neutral-100);
+  --color-surface-3:        var(--neutral-200);
+  --color-surface-raised:   #ffffff;
+  --color-surface-overlay:  rgba(13, 13, 21, 0.48);
+
+  --color-border-subtle:    var(--neutral-200);
+  --color-border-default:   var(--neutral-300);
+  --color-border-strong:    var(--neutral-400);
+  --color-border-focus:     var(--brand-500);
+
+  --color-text-primary:     var(--neutral-900);
+  --color-text-secondary:   var(--neutral-700);
+  --color-text-muted:       var(--neutral-500);
+  --color-text-disabled:    var(--neutral-400);
+  --color-text-inverse:     var(--neutral-50);
+  --color-text-link:        var(--brand-600);
+  --color-text-link-hover:  var(--brand-500);
+
+  --color-brand-primary:    var(--brand-600);
+  --color-brand-hover:      var(--brand-500);
+  --color-brand-pressed:    var(--brand-700);
+  --color-brand-subtle:     var(--brand-100);
+  --color-brand-on:         #ffffff;
+
+  --color-accent-primary:   var(--accent-600);
+  --color-accent-hover:     var(--accent-500);
+  --color-accent-subtle:    var(--accent-100);
+  --color-accent-on:        #ffffff;
+
+  --color-signal-primary:   var(--signal-600);
+  --color-signal-hover:     var(--signal-500);
+  --color-signal-subtle:    var(--signal-100);
+  --color-signal-on:        #ffffff;               /* 深青底 → 白色文字 */
+  --color-success-on:       #ffffff;               /* 绿底（浅色模式偏暗）→ 白色文字 */
+
+  --color-success-bg:       var(--success-50);
+  --color-success-fg:       var(--success-700);
+  --color-success-border:   var(--success-300);
+  --color-success-solid:    var(--success-500);
+
+  --color-warning-bg:       var(--warning-50);
+  --color-warning-fg:       var(--warning-700);
+  --color-warning-border:   var(--warning-300);
+  --color-warning-solid:    var(--warning-500);
+
+  --color-danger-bg:        var(--danger-50);
+  --color-danger-fg:        var(--danger-700);
+  --color-danger-border:    var(--danger-300);
+  --color-danger-solid:     var(--danger-500);
+
+  --color-plaza-card-bg:        #ffffff;
+  --color-plaza-card-hover:     var(--neutral-50);
+  --color-plaza-card-border:    var(--neutral-200);
+  --color-plaza-divider:        var(--neutral-100);
+  --color-plaza-glow:           rgba(107, 70, 255, 0.18);
+
+  --color-capsule-sealed-bg:       linear-gradient(135deg,
+                                     rgba(107, 70, 255, 0.08),
+                                     rgba(0, 184, 212, 0.06));
+  --color-capsule-sealed-border:   var(--signal-500);
+  --color-capsule-sealed-accent:   var(--signal-700);
+  --color-capsule-sealed-glow:     0 0 18px rgba(0, 184, 212, 0.22);
+
+  --color-capsule-opened-bg:       linear-gradient(135deg,
+                                     rgba(26, 168, 102, 0.08),
+                                     rgba(94, 212, 154, 0.04));
+  --color-capsule-opened-border:   var(--success-600);
+  --color-capsule-opened-accent:   var(--success-700);
+  --color-capsule-opened-glow:     0 0 12px rgba(94, 212, 154, 0.20);
+
+  --color-favorite-active:    var(--accent-500);
+  --color-favorite-inactive:  var(--neutral-400);
+
+  --gradient-brand-hero:      linear-gradient(135deg,
+                                var(--signal-400) 0%,
+                                var(--accent-500) 50%,
+                                var(--success-500) 100%);
+  --gradient-brand-subtle:    linear-gradient(135deg,
+                                rgba(20, 212, 240, 0.10),
+                                rgba(255, 45, 145, 0.07),
+                                rgba(26, 168, 102, 0.06));
+}
+
+/* ------------------------------------------------------------
+ * 非颜色令牌（主题无关）
+ * ------------------------------------------------------------ */
+:root {
+  /* ===== 字体 ============================================== */
+  --font-sans: "Inter", "HarmonyOS Sans SC", "PingFang SC",
+               -apple-system, "Segoe UI", "Roboto", "Helvetica Neue",
+               "Noto Sans CJK SC", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "SF Mono",
+               Menlo, Consolas, monospace;
+  --font-display: "Orbitron", "Exo 2", var(--font-sans);  /* 赛博风标题 */
+
+  /* ===== 字号（rem；1rem = 16px） ============================ */
+  --font-size-xs:    0.75rem;   /* 12px */
+  --font-size-sm:    0.875rem;  /* 14px */
+  --font-size-base:  1rem;      /* 16px */
+  --font-size-lg:    1.125rem;  /* 18px */
+  --font-size-xl:    1.25rem;   /* 20px */
+  --font-size-2xl:   1.5rem;    /* 24px */
+  --font-size-3xl:   1.875rem;  /* 30px */
+  --font-size-4xl:   2.25rem;   /* 36px */
+  --font-size-5xl:   3rem;      /* 48px */
+
+  /* ===== 行高 ============================================== */
+  --line-height-tight:  1.2;
+  --line-height-snug:   1.35;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+
+  /* ===== 字重 ============================================== */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* ===== 间距（8pt grid） ==================================== */
+  --space-0:   0;
+  --space-1:   0.25rem;  /* 4px */
+  --space-2:   0.5rem;   /* 8px */
+  --space-3:   0.75rem;  /* 12px */
+  --space-4:   1rem;     /* 16px */
+  --space-5:   1.25rem;  /* 20px */
+  --space-6:   1.5rem;   /* 24px */
+  --space-8:   2rem;     /* 32px */
+  --space-10:  2.5rem;   /* 40px */
+  --space-12:  3rem;     /* 48px */
+  --space-16:  4rem;     /* 64px */
+  --space-20:  5rem;     /* 80px */
+
+  /* ===== 圆角 ============================================== */
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+  /* ===== 阴影 ============================================== */
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.28);
+  --shadow-lg:  0 12px 32px rgba(0, 0, 0, 0.38);
+  --shadow-xl:  0 24px 64px rgba(0, 0, 0, 0.48);
+  /* 霓虹发光（brand / signal / accent） */
+  --shadow-glow-brand:  0 0 24px rgba(107, 70, 255, 0.45);
+  --shadow-glow-signal: 0 0 24px rgba(20, 212, 240, 0.45);
+  --shadow-glow-accent: 0 0 24px rgba(255, 45, 145, 0.45);
+
+  /* ===== 布局 ============================================== */
+  --container-max:      1200px;
+  --container-narrow:   720px;
+  --header-height:      64px;
+  --footer-height:      64px;
+
+  /* ===== 动效 ============================================== */
+  --duration-instant:   80ms;
+  --duration-fast:      140ms;
+  --duration-normal:    220ms;
+  --duration-slow:      360ms;
+  --duration-breath:    3200ms;   /* 未开启胶囊呼吸 */
+
+  --ease-standard:      cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-emphasized:    cubic-bezier(0.2, 0.0, 0, 1);
+  --ease-decel:         cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-accel:         cubic-bezier(0.4, 0.0, 1, 1);
+
+  /* ===== 层级 ============================================== */
+  --z-base:       0;
+  --z-raised:     10;
+  --z-dropdown:   1000;
+  --z-sticky:     1100;
+  --z-overlay:    1200;
+  --z-modal:      1300;
+  --z-toast:      1400;
+
+  /* ===== 断点（供 @media 参考） ============================== */
+  --breakpoint-sm:  360px;
+  --breakpoint-md:  768px;
+  --breakpoint-lg:  1024px;
+  --breakpoint-xl:  1280px;
+}

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>广场 · HelloTime Pro</title>
+  <link rel="stylesheet" href="assets/prototype.css" />
+</head>
+<body>
+
+<header class="cy-header">
+  <div class="cy-container cy-header__inner">
+    <a class="cy-brand" href="index.html">
+      <img class="cy-brand__mark" src="../spec/assets/logo.svg" width="38" height="38" alt="" />
+      HelloTime<span class="cy-brand__pro">PRO</span>
+    </a>
+    <nav class="cy-nav">
+      <a href="index.html" class="cy-nav__active">广场</a>
+      <a href="open.html">开启</a>
+      <a href="about.html">关于</a>
+    </nav>
+    <div class="cy-header__actions">
+      <button class="cy-theme-toggle" data-theme-toggle aria-label="切换主题">
+        <span data-theme-toggle-icon>☾</span>
+      </button>
+      <a class="cy-btn cy-btn--ghost cy-btn--sm" href="login.html">登录</a>
+      <a class="cy-btn cy-btn--primary cy-btn--sm" href="register.html">注册</a>
+    </div>
+  </div>
+</header>
+
+<section class="cy-hero-block">
+  <div class="cy-container">
+    <h1 class="cy-hero-title">
+      封存此刻 <span class="cy-hero-title__highlight">开启未来</span>
+    </h1>
+    <p class="cy-hero-subtitle">
+      写下此刻最真实的想法，设定一个解封时刻——可以是明年生日、十年后的某个清晨，或任何你觉得值得等待的瞬间。时间到了，它才会被打开。
+    </p>
+    <div class="cy-hero-cta">
+      <a class="cy-btn cy-btn--primary cy-btn--hero" href="register.html">创建我的胶囊 →</a>
+      <a class="cy-btn cy-btn--success cy-btn--hero" href="open.html">用胶囊码开启</a>
+    </div>
+  </div>
+</section>
+
+<main class="cy-container">
+  <div class="cy-toolbar">
+    <div class="cy-toolbar__group">
+      <div class="cy-seg" data-seg>
+        <button class="cy-seg__active">🔥 热门</button>
+        <button>✨ 最新</button>
+      </div>
+      <div class="cy-seg" data-seg>
+        <button class="cy-seg__active">全部</button>
+        <button>已开启</button>
+        <button>未开启</button>
+      </div>
+    </div>
+    <label class="cy-search" aria-label="搜索胶囊">
+      <span class="cy-search__icon" aria-hidden="true">🔍</span>
+      <input
+        type="search"
+        class="cy-search__input"
+        placeholder="搜索标题或昵称…"
+        maxlength="50"
+      />
+    </label>
+  </div>
+
+  <div class="cy-grid">
+
+    <!-- 已开启胶囊 1 -->
+    <article class="cy-capsule cy-capsule--opened">
+      <div class="cy-capsule__head">
+        <span class="cy-badge cy-badge--opened">已开启</span>
+        <span class="cy-capsule__code">8F2K9R4M</span>
+      </div>
+      <h3 class="cy-capsule__title">写给三年后的自己：如果还在写代码，请诚实一点</h3>
+      <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; line-height: var(--line-height-relaxed)">
+        2023 年的我总爱把复杂藏起来，不知道未来的你是否已经学会把它摊开给别人看。
+      </p>
+      <div class="cy-capsule__meta">
+        <span class="cy-capsule__creator">
+          <img src="../spec/avatars/neo.svg" alt="" /> 新生.42
+        </span>
+        <button class="cy-capsule__fav is-active" data-fav>♥ 128</button>
+      </div>
+    </article>
+
+    <!-- 未开启胶囊（呼吸动画） -->
+    <article class="cy-capsule cy-capsule--sealed">
+      <div class="cy-capsule__head">
+        <span class="cy-badge cy-badge--sealed">未开启</span>
+        <span class="cy-capsule__code">A7Q3Z1XP</span>
+      </div>
+      <h3 class="cy-capsule__title">等待到 2027.01.01 00:00:00 ——</h3>
+      <p class="cy-capsule__countdown">⏳ 还剩 621 天 · 04:22:18</p>
+      <div class="cy-capsule__meta">
+        <span class="cy-capsule__creator">
+          <img src="../spec/avatars/glyph.svg" alt="" /> 符文.07
+        </span>
+        <button class="cy-capsule__fav" data-fav>♡ 34</button>
+      </div>
+    </article>
+
+    <!-- 已开启胶囊 2 -->
+    <article class="cy-capsule cy-capsule--opened">
+      <div class="cy-capsule__head">
+        <span class="cy-badge cy-badge--opened">已开启</span>
+        <span class="cy-capsule__code">M4X8P2LV</span>
+      </div>
+      <h3 class="cy-capsule__title">第一次把 bug 留给未来的自己</h3>
+      <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; line-height: var(--line-height-relaxed)">
+        如果你在读这条，说明我又没有写文档，对不起。
+      </p>
+      <div class="cy-capsule__meta">
+        <span class="cy-capsule__creator">
+          <img src="../spec/avatars/circuit.svg" alt="" /> 电路.15
+        </span>
+        <button class="cy-capsule__fav" data-fav>♡ 91</button>
+      </div>
+    </article>
+
+    <!-- 未开启胶囊 2 -->
+    <article class="cy-capsule cy-capsule--sealed">
+      <div class="cy-capsule__head">
+        <span class="cy-badge cy-badge--sealed">未开启</span>
+        <span class="cy-capsule__code">T9W6N3BK</span>
+      </div>
+      <h3 class="cy-capsule__title">给十年后的你</h3>
+      <p class="cy-capsule__countdown">⏳ 还剩 3,507 天</p>
+      <div class="cy-capsule__meta">
+        <span class="cy-capsule__creator">
+          <img src="../spec/avatars/oracle.svg" alt="" /> 神谕.88
+        </span>
+        <button class="cy-capsule__fav" data-fav>♡ 212</button>
+      </div>
+    </article>
+
+    <!-- 已开启胶囊 3 -->
+    <article class="cy-capsule cy-capsule--opened">
+      <div class="cy-capsule__head">
+        <span class="cy-badge cy-badge--opened">已开启</span>
+        <span class="cy-capsule__code">R1K5H7QZ</span>
+      </div>
+      <h3 class="cy-capsule__title">Hello，Time.</h3>
+      <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; line-height: var(--line-height-relaxed)">
+        第一个测试胶囊 —— 跨越 60 秒的问候。
+      </p>
+      <div class="cy-capsule__meta">
+        <span class="cy-capsule__creator">
+          <img src="../spec/avatars/pulse.svg" alt="" /> 心跳.01
+        </span>
+        <button class="cy-capsule__fav is-active" data-fav>♥ 3,142</button>
+      </div>
+    </article>
+
+    <!-- 未开启胶囊 3 -->
+    <article class="cy-capsule cy-capsule--sealed">
+      <div class="cy-capsule__head">
+        <span class="cy-badge cy-badge--sealed">未开启</span>
+        <span class="cy-capsule__code">V2C4D8JY</span>
+      </div>
+      <h3 class="cy-capsule__title">深夜项目必成立后：2026-06-30 前要跑通</h3>
+      <p class="cy-capsule__countdown">⏳ 还剩 71 天 · 08:45:02</p>
+      <div class="cy-capsule__meta">
+        <span class="cy-capsule__creator">
+          <img src="../spec/avatars/nova.svg" alt="" /> 新星.33
+        </span>
+        <button class="cy-capsule__fav" data-fav>♡ 17</button>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- 分页提示（原型静态） -->
+  <div style="text-align:center; margin: var(--space-10) 0 var(--space-6); color: var(--color-text-muted); font-size: var(--font-size-sm)">
+    已显示 6 / 1,286 条 · 滚动到底部加载更多
+  </div>
+</main>
+
+<footer class="cy-footer">
+  <div class="cy-container cy-footer__inner">
+    <div>© 2026 HelloTime Pro</div>
+    <div class="cy-stack">
+      <span class="cy-stack__item"><img src="../spec/icons/react.svg" alt="">React</span>
+      <span class="cy-stack__item"><img src="../spec/icons/typescript.svg" alt="">TypeScript</span>
+      <span class="cy-stack__item"><img src="../spec/icons/fastapi.svg" alt="">FastAPI</span>
+      <span class="cy-stack__item"><img src="../spec/icons/python.svg" alt="">Python</span>
+      <span class="cy-stack__item"><img src="../spec/icons/postgresql.svg" alt="">PostgreSQL</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/demo.js"></script>
+</body>
+</html>

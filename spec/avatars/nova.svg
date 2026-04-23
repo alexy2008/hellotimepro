@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Nova">
+  <defs>
+    <radialGradient id="nova-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#5a3700"/>
+      <stop offset="100%" stop-color="#06060c"/>
+    </radialGradient>
+    <radialGradient id="nova-core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffe3a8"/>
+      <stop offset="60%" stop-color="#ffc14a"/>
+      <stop offset="100%" stop-color="#f29d0a"/>
+    </radialGradient>
+  </defs>
+  <circle cx="64" cy="64" r="62" fill="url(#nova-bg)"/>
+  <circle cx="64" cy="64" r="62" fill="none" stroke="#f29d0a" stroke-width="1.5" opacity="0.6"/>
+  <!-- 星爆光芒 -->
+  <g stroke="#ffc14a" stroke-width="3" stroke-linecap="round">
+    <line x1="64" y1="16" x2="64" y2="40"/>
+    <line x1="64" y1="88" x2="64" y2="112"/>
+    <line x1="16" y1="64" x2="40" y2="64"/>
+    <line x1="88" y1="64" x2="112" y2="64"/>
+    <line x1="30" y1="30" x2="46" y2="46"/>
+    <line x1="82" y1="82" x2="98" y2="98"/>
+    <line x1="98" y1="30" x2="82" y2="46"/>
+    <line x1="46" y1="82" x2="30" y2="98"/>
+  </g>
+  <circle cx="64" cy="64" r="22" fill="url(#nova-core)"/>
+  <circle cx="64" cy="64" r="8" fill="#fff5e0"/>
+</svg>

@@ -1,0 +1,60 @@
+# ============================================================
+# HelloTime Pro · 本地基础设施
+#
+# 只负责"可选的外部依赖"（主要是 Postgres）。
+# 各后端 / 前端 / 全栈实现自己的运行由 scripts/hello 管理，
+# 不在此 compose 内，保持 compose 简洁 + 启动时间可控。
+#
+# 用法：
+#   docker compose up -d postgres         # 启 PG（黄金路径）
+#   docker compose down                    # 停所有
+#   docker compose down -v                 # 停并清数据（⚠ 会删 ./data/pg）
+#
+# 端口映射：55432 → 5432（避免与本机其它 PG 冲突）
+# 数据持久化：./data/pg/       （见 docs/02-design.md §4）
+# ============================================================
+
+name: hellotime-pro
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hellotime-pro-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hellotime
+      POSTGRES_PASSWORD: hellotime
+      POSTGRES_DB: hellotime_pro
+      # 让 scripts/hello doctor 能直接在容器里 pg_isready
+      PGUSER: hellotime
+      # UTC 存储，应用层自行本地化显示
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "55432:5432"
+    volumes:
+      - ./data/pg:/var/lib/postgresql/data
+      # 首次启动时自动执行，幂等（IF NOT EXISTS）
+      - ./spec/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hellotime -d hellotime_pro"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  # ----- 可选：一次性 psql shell，用 `docker compose run --rm psql` 进 -----
+  psql:
+    image: postgres:16-alpine
+    profiles: ["tools"]  # 默认不启动，需显式 --profile tools
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: hellotime
+    entrypoint: ["psql", "-h", "postgres", "-U", "hellotime", "-d", "hellotime_pro"]
+
+# 说明：
+# - Redis / 消息队列等暂未引入，M1 范围内不需要。
+# - SQLite 不走 compose，实现方直接读本地文件 ./data/sqlite/hellotime.db。
+# - CI 上不使用此 compose，各实现在 CI 里起自己的 PG 容器以保证隔离。

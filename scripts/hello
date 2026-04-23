@@ -1,0 +1,482 @@
+#!/usr/bin/env python3
+# ============================================================
+# HelloTime Pro · dev-manager v2（M0 骨架版）
+#
+# 单文件、零 pip 依赖（仅使用 Python 3.11+ 标准库）。
+# M0 范围内实现 CLI 子命令：
+#   hello doctor                  检查环境依赖
+#   hello status                  当前启动状态
+#   hello start <name>            启动一个实现
+#   hello stop <name>             停止一个实现
+#   hello restart-all             重启所有已启动的实现
+#   hello switch <backend>        切换 :9080 代理目标
+#   hello logs <name> [-n 200]    查看尾部日志
+#   hello list                    显示所有已登记的实现
+#
+# Web UI（:9090）、真正的 TCP 代理与 HTMX 前端留到 M1 补齐。
+#
+# 实现原则：
+# - 没有实现时优雅退出，明确告知 "stack 已登记但目录不存在"
+# - 进程信息落盘在 data/.hello-state.json（见 docs/02-design.md §14.3）
+# - 日志追加到 data/logs/<name>.log
+# - 所有路径均相对于仓库根（本脚本所在目录的父目录）
+# ============================================================
+
+from __future__ import annotations
+import argparse
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+from typing import Optional
+
+# --------------------------------------------------------------
+# 路径与常量
+# --------------------------------------------------------------
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+DATA_DIR = ROOT / "data"
+LOG_DIR = DATA_DIR / "logs"
+STATE_FILE = DATA_DIR / ".hello-state.json"
+
+# 端口登记（docs/02-design.md §4）
+BACKENDS = {
+    "spring":   {"dir": "backends/spring-boot",   "port": 29000, "runtime": "jdk"},
+    "fastapi":  {"dir": "backends/fastapi",       "port": 29010, "runtime": "python"},
+    "gin":      {"dir": "backends/gin",           "port": 29020, "runtime": "go"},
+    "elysia":   {"dir": "backends/elysia",        "port": 29030, "runtime": "bun"},
+    "nest":     {"dir": "backends/nest",          "port": 29040, "runtime": "node"},
+    "aspnet":   {"dir": "backends/aspnet",        "port": 29050, "runtime": "dotnet"},
+    "vapor":    {"dir": "backends/vapor",         "port": 29060, "runtime": "swift"},
+    "axum":     {"dir": "backends/axum",          "port": 29070, "runtime": "rust"},
+    "drogon":   {"dir": "backends/drogon",        "port": 29080, "runtime": "cmake"},
+    "ktor":     {"dir": "backends/ktor",          "port": 29090, "runtime": "jdk"},
+}
+
+FRONTENDS = {
+    "vue":      {"dir": "frontends/vue",          "port": 7173,  "runtime": "node"},
+    "react":    {"dir": "frontends/react",        "port": 7174,  "runtime": "node"},
+    "angular":  {"dir": "frontends/angular",      "port": 7175,  "runtime": "node"},
+    "svelte":   {"dir": "frontends/svelte",       "port": 7176,  "runtime": "node"},
+    "solid":    {"dir": "frontends/solid",        "port": 7180,  "runtime": "node"},
+}
+
+FULLSTACKS = {
+    "next":     {"dir": "fullstacks/next",        "port": 7177,  "runtime": "node"},
+    "nuxt":     {"dir": "fullstacks/nuxt",        "port": 7178,  "runtime": "node"},
+    "spring-mvc": {"dir": "fullstacks/spring-mvc","port": 7179,  "runtime": "jdk"},
+    "rails":    {"dir": "fullstacks/rails",       "port": 7181,  "runtime": "ruby"},
+    "laravel":  {"dir": "fullstacks/laravel",     "port": 7182,  "runtime": "php"},
+}
+
+PROXY_PORT = 9080
+WEBUI_PORT = 9090
+
+# --------------------------------------------------------------
+# 终端颜色（无依赖，支持 NO_COLOR）
+# --------------------------------------------------------------
+NO_COLOR = bool(os.environ.get("NO_COLOR")) or not sys.stdout.isatty()
+
+def c(code: str, s: str) -> str:
+    if NO_COLOR:
+        return s
+    return f"\033[{code}m{s}\033[0m"
+
+def green(s):  return c("32", s)
+def red(s):    return c("31", s)
+def yellow(s): return c("33", s)
+def dim(s):    return c("2",  s)
+def bold(s):   return c("1",  s)
+def cyan(s):   return c("36", s)
+
+# --------------------------------------------------------------
+# 实现登记
+# --------------------------------------------------------------
+def all_stacks() -> dict:
+    """返回 name -> {dir, port, runtime, kind}。"""
+    merged = {}
+    for k, v in BACKENDS.items():
+        merged[k] = {**v, "kind": "backend"}
+    for k, v in FRONTENDS.items():
+        merged[k] = {**v, "kind": "frontend"}
+    for k, v in FULLSTACKS.items():
+        merged[k] = {**v, "kind": "fullstack"}
+    return merged
+
+def resolve_stack(name: str) -> Optional[dict]:
+    stacks = all_stacks()
+    if name in stacks:
+        return {"name": name, **stacks[name]}
+    print(red(f"未知实现: {name}"))
+    print(dim("可用实现见 `hello list`"))
+    return None
+
+# --------------------------------------------------------------
+# 状态文件
+# --------------------------------------------------------------
+@dataclass
+class ProcessRecord:
+    name: str
+    pid: int
+    port: int
+    started_at: float
+    log: str
+
+@dataclass
+class State:
+    processes: dict = field(default_factory=dict)  # name -> ProcessRecord
+    proxy_target: Optional[str] = None             # 当前 :9080 指向的 backend name
+    db_driver: str = "postgres"
+
+    def save(self):
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        data = {
+            "processes": {k: asdict(v) for k, v in self.processes.items()},
+            "proxy_target": self.proxy_target,
+            "db_driver": self.db_driver,
+        }
+        STATE_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
+    @classmethod
+    def load(cls) -> "State":
+        if not STATE_FILE.exists():
+            return cls()
+        try:
+            raw = json.loads(STATE_FILE.read_text())
+            procs = {k: ProcessRecord(**v) for k, v in raw.get("processes", {}).items()}
+            return cls(
+                processes=procs,
+                proxy_target=raw.get("proxy_target"),
+                db_driver=raw.get("db_driver", "postgres"),
+            )
+        except Exception as e:
+            print(yellow(f"⚠ 状态文件损坏（{e}），重置。"))
+            return cls()
+
+def is_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+def sweep_dead(state: State) -> None:
+    """清理已死亡进程。"""
+    dead = [name for name, p in state.processes.items() if not is_alive(p.pid)]
+    for name in dead:
+        del state.processes[name]
+    if dead:
+        state.save()
+
+# --------------------------------------------------------------
+# 子命令：list
+# --------------------------------------------------------------
+def cmd_list(args) -> int:
+    stacks = all_stacks()
+    print(bold("\n已登记实现（共 %d）\n" % len(stacks)))
+    header = f"  {'name':<12} {'kind':<10} {'port':<6} {'runtime':<8} {'dir'}"
+    print(dim(header))
+    print(dim("  " + "-" * (len(header) - 2)))
+    for name, info in sorted(stacks.items(), key=lambda x: (x[1]["kind"], x[1]["port"])):
+        exists = (ROOT / info["dir"]).exists()
+        mark = green("●") if exists else dim("○")
+        print(f"  {mark} {name:<10} {info['kind']:<10} {info['port']:<6} {info['runtime']:<8} {info['dir']}")
+    print()
+    print(dim("  ● = 目录存在    ○ = 暂未实现"))
+    return 0
+
+# --------------------------------------------------------------
+# 子命令：doctor
+# --------------------------------------------------------------
+def probe(cmd: str, *, version_flag: str = "--version") -> tuple[bool, str]:
+    exe = shutil.which(cmd)
+    if not exe:
+        return False, ""
+    try:
+        out = subprocess.run(
+            [exe, version_flag],
+            capture_output=True, text=True, timeout=4,
+        )
+        text = out.stdout + out.stderr
+        # 回退到无 flag 的形式（Go 等工具用 `go version`）
+        if out.returncode != 0 or "not defined" in text:
+            out = subprocess.run(
+                [exe, "version"],
+                capture_output=True, text=True, timeout=4,
+            )
+            text = out.stdout + out.stderr
+        ver = text.splitlines()[0] if text else "(无版本输出)"
+        return True, ver.strip()[:80]
+    except Exception:
+        return True, "(无法读取版本)"
+
+def cmd_doctor(args) -> int:
+    checks = [
+        ("Docker",      "docker"),
+        ("Docker Compose", "docker"),  # 用 docker compose 子命令，同一个 bin
+        ("Python 3",    "python3"),
+        ("Node.js",     "node"),
+        ("Bun",         "bun"),
+        ("Go",          "go"),
+        ("Rust (cargo)", "cargo"),
+        ("JDK (javac)", "javac"),
+        ("Kotlin",      "kotlinc"),
+        ("Swift",       "swift"),
+        (".NET SDK",    "dotnet"),
+        ("Ruby",        "ruby"),
+        ("PHP",         "php"),
+        ("CMake",       "cmake"),
+        ("psql",        "psql"),
+    ]
+    print(bold("\n环境依赖检查\n"))
+    ok_count = 0
+    for label, cmd in checks:
+        ok, ver = probe(cmd)
+        if ok:
+            ok_count += 1
+            print(f"  {green('✓')} {label:<16} {dim(ver)}")
+        else:
+            print(f"  {yellow('○')} {label:<16} {dim('未安装（仅在要跑对应栈时需要）')}")
+
+    # Postgres 容器可达性
+    print()
+    pg_ok = False
+    try:
+        out = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", "hellotime-pro-pg"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if out.returncode == 0 and out.stdout.strip() == "true":
+            pg_ok = True
+            print(f"  {green('✓')} {'Postgres 容器':<16} {dim('运行中（hellotime-pro-pg）')}")
+        else:
+            print(f"  {yellow('○')} {'Postgres 容器':<16} {dim('未运行 · 试试: docker compose up -d postgres')}")
+    except Exception:
+        print(f"  {yellow('○')} {'Postgres 容器':<16} {dim('Docker 未就绪')}")
+
+    # 目录检查
+    print()
+    for sub in ["spec", "ui-prototype", "data"]:
+        p = ROOT / sub
+        if p.exists():
+            print(f"  {green('✓')} {'目录 ' + sub:<16} {dim(str(p.relative_to(ROOT)))}")
+        else:
+            print(f"  {red('✗')} {'目录 ' + sub:<16} {dim('缺失')}")
+
+    print()
+    print(dim(f"  通过: {ok_count}/{len(checks)} 基础工具 + Postgres={'✓' if pg_ok else '○'}"))
+    print()
+    return 0 if ok_count >= 2 else 1
+
+# --------------------------------------------------------------
+# 子命令：status
+# --------------------------------------------------------------
+def cmd_status(args) -> int:
+    state = State.load()
+    sweep_dead(state)
+
+    print(bold("\n当前状态\n"))
+    if not state.processes:
+        print(dim("  （没有正在运行的实现）"))
+    else:
+        print(dim(f"  {'name':<12} {'pid':<8} {'port':<6} {'uptime'}"))
+        print(dim("  " + "-" * 50))
+        now = time.time()
+        for name, p in state.processes.items():
+            dur = int(now - p.started_at)
+            uptime = f"{dur // 3600}h{(dur % 3600) // 60}m{dur % 60}s"
+            print(f"  {green('●')} {name:<10} {p.pid:<8} {p.port:<6} {uptime}")
+
+    print()
+    print(f"  :{PROXY_PORT} 代理指向：{cyan(state.proxy_target or '（未设置）')}")
+    print(f"  DB_DRIVER   = {cyan(state.db_driver)}")
+    print(f"  Web UI      = http://127.0.0.1:{WEBUI_PORT}  {dim('(M1 提供)')}")
+    print()
+    return 0
+
+# --------------------------------------------------------------
+# 子命令：start / stop / restart-all
+# --------------------------------------------------------------
+def cmd_start(args) -> int:
+    stack = resolve_stack(args.name)
+    if not stack:
+        return 2
+    state = State.load()
+    sweep_dead(state)
+
+    if args.name in state.processes:
+        p = state.processes[args.name]
+        print(yellow(f"已经在运行：pid={p.pid} port={p.port}"))
+        return 0
+
+    stack_dir = ROOT / stack["dir"]
+    if not stack_dir.exists():
+        print(red(f"目录不存在：{stack_dir.relative_to(ROOT)}"))
+        print(dim("该栈还未在 M1+ 实现，无法启动。"))
+        return 3
+
+    run_script = stack_dir / "run"
+    if not run_script.exists():
+        print(red(f"缺少启动脚本：{run_script.relative_to(ROOT)}"))
+        print(dim("按约定每个实现需提供可执行的 ./run 脚本。"))
+        return 4
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{args.name}.log"
+    log_f = log_path.open("a", buffering=1)
+    log_f.write(f"\n\n=== start at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+
+    try:
+        proc = subprocess.Popen(
+            ["./run"],
+            cwd=stack_dir,
+            stdout=log_f,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,  # 让 stop 可以 kill 整个进程组
+        )
+    except Exception as e:
+        print(red(f"启动失败: {e}"))
+        return 5
+
+    state.processes[args.name] = ProcessRecord(
+        name=args.name, pid=proc.pid, port=stack["port"],
+        started_at=time.time(), log=str(log_path),
+    )
+    state.save()
+    print(green(f"✓ 已启动 {args.name}  pid={proc.pid}  port={stack['port']}"))
+    print(dim(f"  日志: tail -f {log_path.relative_to(ROOT)}"))
+    return 0
+
+def cmd_stop(args) -> int:
+    state = State.load()
+    sweep_dead(state)
+    if args.name not in state.processes:
+        print(dim(f"{args.name} 不在运行中。"))
+        return 0
+    p = state.processes[args.name]
+    try:
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+        # 等待最多 5s
+        for _ in range(50):
+            if not is_alive(p.pid):
+                break
+            time.sleep(0.1)
+        if is_alive(p.pid):
+            print(yellow("SIGTERM 超时，发送 SIGKILL"))
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except PermissionError as e:
+        print(red(f"无法杀进程 {p.pid}: {e}"))
+        return 6
+    del state.processes[args.name]
+    state.save()
+    print(green(f"✓ 已停止 {args.name}"))
+    return 0
+
+def cmd_restart_all(args) -> int:
+    state = State.load()
+    names = list(state.processes.keys())
+    if not names:
+        print(dim("（没有正在运行的实现）"))
+        return 0
+    for name in names:
+        cmd_stop(argparse.Namespace(name=name))
+    for name in names:
+        cmd_start(argparse.Namespace(name=name))
+    return 0
+
+# --------------------------------------------------------------
+# 子命令：switch
+# --------------------------------------------------------------
+def cmd_switch(args) -> int:
+    if args.backend not in BACKENDS:
+        print(red(f"未知后端: {args.backend}"))
+        print(dim("可选: " + ", ".join(BACKENDS.keys())))
+        return 2
+    state = State.load()
+    state.proxy_target = args.backend
+    state.save()
+    port = BACKENDS[args.backend]["port"]
+    print(green(f"✓ :{PROXY_PORT} 代理 → {args.backend} (:{port})"))
+    print(dim(f"  实际代理将在 M1 的 Web UI 中落地；当前仅记录目标。"))
+    return 0
+
+# --------------------------------------------------------------
+# 子命令：logs
+# --------------------------------------------------------------
+def cmd_logs(args) -> int:
+    log_path = LOG_DIR / f"{args.name}.log"
+    if not log_path.exists():
+        print(dim(f"没有日志文件: {log_path.relative_to(ROOT)}"))
+        return 0
+    # 简单尾部读取（避免 tail 依赖）
+    with log_path.open("rb") as f:
+        f.seek(0, 2)
+        size = f.tell()
+        back = min(size, 8192)
+        f.seek(size - back)
+        text = f.read().decode("utf-8", errors="replace")
+    lines = text.splitlines()[-args.n:]
+    for line in lines:
+        print(line)
+    return 0
+
+# --------------------------------------------------------------
+# 子命令：web（占位）
+# --------------------------------------------------------------
+def cmd_web(args) -> int:
+    print(bold("\nHelloTime Pro · Web UI"))
+    print(dim(f"  预计在 M1 提供，将绑定 http://127.0.0.1:{WEBUI_PORT}"))
+    print(dim("  当前请使用 CLI 子命令：status / start / stop / doctor / switch / logs / list"))
+    return 0
+
+# --------------------------------------------------------------
+# 入口
+# --------------------------------------------------------------
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="hello",
+        description="HelloTime Pro · dev-manager",
+    )
+    sub = p.add_subparsers(dest="cmd")
+
+    sub.add_parser("list",        help="列出所有已登记实现").set_defaults(func=cmd_list)
+    sub.add_parser("doctor",      help="检查环境依赖").set_defaults(func=cmd_doctor)
+    sub.add_parser("status",      help="显示进程状态").set_defaults(func=cmd_status)
+
+    start = sub.add_parser("start", help="启动实现"); start.add_argument("name")
+    start.set_defaults(func=cmd_start)
+
+    stop = sub.add_parser("stop",   help="停止实现"); stop.add_argument("name")
+    stop.set_defaults(func=cmd_stop)
+
+    sub.add_parser("restart-all", help="重启所有").set_defaults(func=cmd_restart_all)
+
+    sw = sub.add_parser("switch",  help="切换 :9080 代理目标后端")
+    sw.add_argument("backend")
+    sw.set_defaults(func=cmd_switch)
+
+    lg = sub.add_parser("logs",    help="查看尾部日志")
+    lg.add_argument("name")
+    lg.add_argument("-n", type=int, default=200, help="行数，默认 200")
+    lg.set_defaults(func=cmd_logs)
+
+    sub.add_parser("web",         help="启动 Web UI (M1)").set_defaults(func=cmd_web)
+    return p
+
+def main(argv=None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not args.cmd:
+        return cmd_web(args)
+    return args.func(args)
+
+if __name__ == "__main__":
+    sys.exit(main())

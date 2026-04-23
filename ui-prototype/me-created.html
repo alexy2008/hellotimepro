@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>我创建的 · HelloTime Pro</title>
+  <link rel="stylesheet" href="assets/prototype.css" />
+</head>
+<body>
+
+<header class="cy-header">
+  <div class="cy-container cy-header__inner">
+    <a class="cy-brand" href="index.html">
+      <img class="cy-brand__mark" src="../spec/assets/logo.svg" width="38" height="38" alt="" />
+      HelloTime<span class="cy-brand__pro">PRO</span>
+    </a>
+    <nav class="cy-nav">
+      <a href="index.html">广场</a>
+      <a href="open.html">开启</a>
+      <a href="about.html">关于</a>
+    </nav>
+    <div class="cy-header__actions">
+      <button class="cy-theme-toggle" data-theme-toggle aria-label="切换主题">
+        <span data-theme-toggle-icon>☾</span>
+      </button>
+      <a class="cy-user-chip" href="me-created.html">
+        <span>specter</span>
+        <img src="../spec/avatars/specter.svg" alt="">
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="cy-container">
+  <div class="cy-me">
+
+    <aside class="cy-me__nav">
+      <a href="me-created.html" class="is-active">📝 我创建的 <span style="color: var(--color-text-muted); margin-left:auto">4</span></a>
+      <a href="me-favorites.html">♥ 我收藏的 <span style="color: var(--color-text-muted); margin-left:auto">23</span></a>
+      <a href="me-profile.html">⚙ 账号设置</a>
+      <span style="border-top: 1px solid var(--color-border-subtle); margin: var(--space-3) 0"></span>
+      <a href="login.html" style="color: var(--color-danger-fg)">登出</a>
+    </aside>
+
+    <section class="cy-me__content">
+      <h1>我创建的胶囊</h1>
+
+      <div class="cy-toolbar" style="border-bottom: none; padding-top: 0">
+        <div class="cy-seg" data-seg>
+          <button class="cy-seg__active">全部 4</button>
+          <button>未开启 2</button>
+          <button>已开启 2</button>
+        </div>
+        <a class="cy-btn cy-btn--primary cy-btn--sm" href="create.html">+ 新建胶囊</a>
+      </div>
+
+      <div class="cy-grid">
+
+        <!-- 未开启（我的胶囊可撤回） -->
+        <article class="cy-capsule cy-capsule--sealed">
+          <div class="cy-capsule__head">
+            <span class="cy-badge cy-badge--sealed">未开启</span>
+            <span class="cy-capsule__code">A7Q3Z1XP</span>
+          </div>
+          <h3 class="cy-capsule__title">等待到 2027.01.01 00:00:00 ——</h3>
+          <p class="cy-capsule__countdown">⏳ 还剩 621 天</p>
+          <div class="cy-capsule__meta">
+            <span style="color: var(--color-text-muted)">创建于 2026-04-18</span>
+            <button class="cy-btn cy-btn--ghost cy-btn--sm" style="min-height: 28px; padding: 4px 12px; color: var(--color-danger-fg)">撤回</button>
+          </div>
+        </article>
+
+        <article class="cy-capsule cy-capsule--sealed">
+          <div class="cy-capsule__head">
+            <span class="cy-badge cy-badge--sealed">未开启</span>
+            <span class="cy-capsule__code">V2C4D8JY</span>
+          </div>
+          <h3 class="cy-capsule__title">深夜项目必成立后</h3>
+          <p class="cy-capsule__countdown">⏳ 还剩 71 天 · 08:45:02</p>
+          <div class="cy-capsule__meta">
+            <span style="color: var(--color-text-muted)">创建于 2026-04-05</span>
+            <button class="cy-btn cy-btn--ghost cy-btn--sm" style="min-height: 28px; padding: 4px 12px; color: var(--color-danger-fg)">撤回</button>
+          </div>
+        </article>
+
+        <!-- 已开启 -->
+        <article class="cy-capsule cy-capsule--opened">
+          <div class="cy-capsule__head">
+            <span class="cy-badge cy-badge--opened">已开启</span>
+            <span class="cy-capsule__code">R1K5H7QZ</span>
+          </div>
+          <h3 class="cy-capsule__title">Hello，Time.</h3>
+          <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0">第一个测试胶囊 —— 跨越 60 秒的问候。</p>
+          <div class="cy-capsule__meta">
+            <span style="color: var(--color-text-muted)">开启于 2026-01-01</span>
+            <span><span style="color: var(--color-favorite-active)">♥</span> 3,142</span>
+          </div>
+        </article>
+
+        <article class="cy-capsule cy-capsule--opened">
+          <div class="cy-capsule__head">
+            <span class="cy-badge cy-badge--opened">已开启</span>
+            <span class="cy-capsule__code">K8H2Y5WN</span>
+          </div>
+          <h3 class="cy-capsule__title">第一次跨年测试</h3>
+          <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0">祝自己 2026 年写的代码都有人读懂。</p>
+          <div class="cy-capsule__meta">
+            <span style="color: var(--color-text-muted)">开启于 2026-01-01</span>
+            <span><span style="color: var(--color-favorite-active)">♥</span> 42</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="cy-footer">
+  <div class="cy-container cy-footer__inner">
+    <div>© 2026 HelloTime Pro</div>
+    <div class="cy-stack">
+      <span class="cy-stack__item"><img src="../spec/icons/react.svg" alt="">React</span>
+      <span class="cy-stack__item"><img src="../spec/icons/typescript.svg" alt="">TypeScript</span>
+      <span class="cy-stack__item"><img src="../spec/icons/fastapi.svg" alt="">FastAPI</span>
+      <span class="cy-stack__item"><img src="../spec/icons/python.svg" alt="">Python</span>
+      <span class="cy-stack__item"><img src="../spec/icons/postgresql.svg" alt="">PostgreSQL</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/demo.js"></script>
+</body>
+</html>

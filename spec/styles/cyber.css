@@ -1,0 +1,448 @@
+/* ============================================================
+ * HelloTime Pro · 共享组件样式（cyber.css）
+ * 版本：0.1 · 2026-04-20
+ *
+ * 包含无法用 Tailwind utility 简洁表达的：
+ *   - 关键帧动画（呼吸 / 霓虹闪烁 / 渐变流动）
+ *   - 胶囊卡片 / 按钮光晕的专用组合
+ *   - 全局基线（reset 的薄化版 + body 排版）
+ *
+ * 所有 class 命名以 `cy-` 前缀，与 Tailwind utility 共存。
+ * ============================================================ */
+
+@import "./tokens.css";
+
+/* ------------------------------------------------------------
+ * 基线
+ * ------------------------------------------------------------ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: var(--line-height-normal);
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  color: var(--color-text-primary);
+  background: var(--color-surface-0);
+  min-height: 100vh;
+}
+
+a {
+  color: var(--color-text-link);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+a:hover {
+  color: var(--color-text-link-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ------------------------------------------------------------
+ * 动画关键帧
+ * ------------------------------------------------------------ */
+
+/* 呼吸光晕：未开启胶囊 */
+@keyframes cy-breath {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(20, 212, 240, 0.28),
+                inset 0 0 24px rgba(107, 70, 255, 0.12);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(20, 212, 240, 0.55),
+                inset 0 0 40px rgba(107, 70, 255, 0.22);
+    transform: scale(1.01);
+  }
+}
+
+/* 霓虹流动：hero 背景 */
+@keyframes cy-gradient-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 点亮闪烁：CTA 按钮 hover */
+@keyframes cy-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.78; }
+}
+
+/* 倒计时脉冲 */
+@keyframes cy-countdown-tick {
+  0%   { transform: scale(1);    opacity: 1; }
+  50%  { transform: scale(1.08); opacity: 0.85; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+/* 淡入 */
+@keyframes cy-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cy-btn-scan {
+  to { left: 200%; }
+}
+
+/* ------------------------------------------------------------
+ * Hero 渐变条带
+ * ------------------------------------------------------------ */
+.cy-hero {
+  background: var(--gradient-brand-hero);
+  background-size: 200% 200%;
+  animation: cy-gradient-flow 12s var(--ease-standard) infinite;
+  color: var(--color-brand-on);
+}
+
+.cy-hero-subtle {
+  background: var(--gradient-brand-subtle);
+}
+
+/* ------------------------------------------------------------
+ * 胶囊卡片
+ * ------------------------------------------------------------ */
+.cy-capsule {
+  position: relative;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-plaza-card-border);
+  background: var(--color-plaza-card-bg);
+  transition:
+    border-color var(--duration-normal) var(--ease-standard),
+    transform var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.cy-capsule:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+/* 未开启：呼吸光晕 + 霓虹青边 */
+.cy-capsule--sealed {
+  background: var(--color-capsule-sealed-bg), var(--color-plaza-card-bg);
+  border-color: var(--color-capsule-sealed-border);
+  box-shadow: var(--color-capsule-sealed-glow);
+  animation: cy-breath var(--duration-breath) var(--ease-standard) infinite;
+}
+
+.cy-capsule--sealed:hover {
+  animation-play-state: paused;
+  box-shadow: 0 0 36px rgba(20, 212, 240, 0.6);
+}
+
+/* 已开启：静态暖光 + 品红边 */
+.cy-capsule--opened {
+  background: var(--color-capsule-opened-bg), var(--color-plaza-card-bg);
+  border-color: var(--color-capsule-opened-border);
+  box-shadow: var(--color-capsule-opened-glow);
+}
+
+/* ------------------------------------------------------------
+ * 按钮（主 / 次 / 幽灵）
+ * ------------------------------------------------------------ */
+.cy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  min-height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.cy-btn:active {
+  transform: translateY(1px);
+}
+
+.cy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cy-btn--primary {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-signal-primary);
+  color: var(--color-signal-on);
+  box-shadow: var(--shadow-glow-signal);
+}
+
+/* 扫描线用 ::before，渲染在文字下方，hover 时才触发动画 */
+.cy-btn--primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+.cy-btn--primary:hover:not(:disabled) {
+  background: var(--color-signal-hover);
+  color: var(--color-signal-on);   /* 压住全局 a:hover 的颜色覆盖 */
+  box-shadow: 0 0 36px rgba(20, 212, 240, 0.65);
+}
+
+.cy-btn--primary:hover:not(:disabled)::before {
+  animation: cy-btn-scan 1.2s var(--ease-standard) infinite;
+}
+
+.cy-btn--primary:active:not(:disabled) {
+  background: var(--color-signal-primary);
+  box-shadow: var(--shadow-glow-signal);
+}
+
+/* 成功绿实心（薄荷绿，与 primary 等权重 CTA 搭配使用） */
+.cy-btn--success {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--success-300) 30%, var(--success-500));
+  color: var(--color-success-on);
+  box-shadow: 0 0 24px rgba(94, 212, 154, 0.45);
+}
+
+.cy-btn--success::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+.cy-btn--success:hover:not(:disabled) {
+  background: var(--success-300);
+  color: var(--color-success-on);
+  box-shadow: 0 0 36px rgba(94, 212, 154, 0.65);
+}
+
+.cy-btn--success:hover:not(:disabled)::before {
+  animation: cy-btn-scan 1.2s var(--ease-standard) infinite;
+}
+
+.cy-btn--success:active:not(:disabled) {
+  background: var(--color-success-solid);   /* 按下时回到 500，给按压反馈 */
+  box-shadow: 0 0 24px rgba(94, 212, 154, 0.45);
+}
+
+.cy-btn--accent {
+  background: var(--color-accent-primary);
+  color: var(--color-accent-on);
+  box-shadow: var(--shadow-glow-accent);
+}
+
+.cy-btn--accent:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  color: var(--color-accent-on);   /* 压住全局 a:hover 的颜色覆盖 */
+}
+
+/* 次要 CTA：与主按钮同色系，描边 + 透明底，用于平等的双 CTA 配对 */
+.cy-btn--secondary {
+  background: transparent;
+  color: var(--color-signal-primary);
+  border-color: var(--color-signal-primary);
+}
+
+.cy-btn--secondary:hover:not(:disabled) {
+  background: rgba(20, 212, 240, 0.10);
+  color: var(--color-signal-hover);
+  border-color: var(--color-signal-hover);
+  box-shadow: var(--shadow-glow-signal);
+}
+
+/* 幽灵按钮：中性色，用于次要操作、取消、跳过等 */
+.cy-btn--ghost {
+  background: transparent;
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.cy-btn--ghost:hover:not(:disabled) {
+  border-color: var(--color-signal-primary);
+  color: var(--color-signal-primary);
+}
+
+.cy-btn--lg {
+  min-height: 48px;
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--font-size-base);
+}
+
+.cy-btn--sm {
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+/* ------------------------------------------------------------
+ * 表单控件
+ * ------------------------------------------------------------ */
+.cy-input,
+.cy-textarea,
+.cy-select {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.cy-input:focus,
+.cy-textarea:focus,
+.cy-select:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px rgba(107, 70, 255, 0.25);
+}
+
+.cy-input::placeholder,
+.cy-textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.cy-textarea {
+  min-height: 160px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+/* ------------------------------------------------------------
+ * 标签 / 徽章
+ * ------------------------------------------------------------ */
+.cy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.cy-badge--sealed {
+  background: var(--color-signal-subtle);
+  color: var(--color-signal-primary);
+  border: 1px solid var(--color-signal-primary);
+}
+
+.cy-badge--opened {
+  background: var(--color-capsule-opened-bg);
+  color: var(--color-capsule-opened-accent);
+  border: 1px solid var(--color-capsule-opened-border);
+}
+
+.cy-badge--plaza {
+  background: var(--color-brand-subtle);
+  color: var(--color-brand-primary);
+  border: 1px solid var(--color-brand-primary);
+}
+
+/* ------------------------------------------------------------
+ * 倒计时数字
+ * ------------------------------------------------------------ */
+.cy-countdown {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  color: var(--color-signal-primary);
+  letter-spacing: 0.08em;
+  animation: cy-countdown-tick 1s var(--ease-standard) infinite;
+}
+
+/* ------------------------------------------------------------
+ * 页面淡入（进入动画）
+ * ------------------------------------------------------------ */
+.cy-page-enter {
+  animation: cy-fade-in var(--duration-slow) var(--ease-decel) both;
+}
+
+/* ------------------------------------------------------------
+ * 减少动效（无障碍）
+ * ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------
+ * 8 位码输入（CapsuleCodeInput 专用）
+ * ------------------------------------------------------------ */
+.cy-code-input {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.cy-code-input input {
+  width: 48px;
+  height: 56px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  background: var(--color-surface-3);
+  color: var(--color-signal-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  caret-color: var(--color-brand-primary);
+}
+
+.cy-code-input input:focus {
+  outline: none;
+  border-color: var(--color-signal-primary);
+  box-shadow: 0 0 0 2px rgba(20, 212, 240, 0.3);
+}
