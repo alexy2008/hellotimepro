@@ -1,25 +1,62 @@
 /**
- * capsules-opened.spec.ts · 契约测试（M0 占位）
+ * capsules-opened.spec.ts · 已开启 / 删除语义
  *
- * 覆盖：已开启胶囊的行为一致性
- *
- * 断言要点：
- * - 触发开启的机制：openAt <= now 且首次被访问时切换 status="opened"
- *   （惰性转换，不依赖定时任务）—— 各实现必须一致
- * - 已开启 GET /c/{code}：返回 content 字段（完整正文）
- * - 广场列表出现在其中（inPlaza=true 的）
- * - favoriteCount 与 favorites 表实际行数相等
- * - 已开启的胶囊不能再被作者删除（返回 FORBIDDEN 或 VALIDATION_ERROR）
- * - status 字段值只能是 "sealed" | "opened"
+ * 说明：契约创建约束 openAt > now+60s，无法在黑盒内构造"已开启"状态。
+ * 因此这里覆盖：`isOpened` 字段的形态契约 + 删除永远允许（含作者删除）+ 非作者不可删。
  */
 import { test } from "node:test";
+import assert from "node:assert/strict";
+import { api, createCapsule, register } from "./_helpers.ts";
 
-const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:29010";
+test("isOpened 字段严格为 boolean（byCode / 广场详情 / 列表均一致）", async () => {
+  const u = await register();
+  const cap = await createCapsule(u.accessToken);
 
-test.skip("capsule becomes opened when accessed at/after openAt", async () => {});
-test.skip("opened GET /c/{code} returns full content", async () => {});
-test.skip("opened capsule with inPlaza=true appears in GET /plaza", async () => {});
-test.skip("opened capsule with inPlaza=false does NOT appear in /plaza but /c/{code} works", async () => {});
-test.skip("opened capsule favoriteCount equals actual favorites row count", async () => {});
-test.skip("DELETE /me/capsules/{id} on opened capsule returns FORBIDDEN", async () => {});
-test.skip("status field is strictly \"sealed\" or \"opened\"", async () => {});
+  const byCode = await api<{ isOpened: unknown }>(
+    "GET",
+    `/api/v1/capsules/${cap.code}`,
+  );
+  const byId = await api<{ isOpened: unknown }>(
+    "GET",
+    `/api/v1/plaza/capsules/${cap.id}`,
+  );
+  const list = await api<{ items: Array<{ id: string; isOpened: unknown }> }>(
+    "GET",
+    "/api/v1/plaza/capsules?pageSize=50",
+  );
+  assert.equal(typeof byCode.body.data!.isOpened, "boolean");
+  assert.equal(typeof byId.body.data!.isOpened, "boolean");
+  const listed = list.body.data!.items.find((i) => i.id === cap.id)!;
+  assert.equal(typeof listed.isOpened, "boolean");
+});
+
+test("DELETE /api/v1/me/capsules/{id} 作者可删（未开启也允许）→ 204", async () => {
+  const u = await register();
+  const cap = await createCapsule(u.accessToken);
+  const r = await api("DELETE", `/api/v1/me/capsules/${cap.id}`, { token: u.accessToken });
+  assert.equal(r.status, 204);
+
+  // 删后 byCode 404
+  const after = await api("GET", `/api/v1/capsules/${cap.code}`);
+  assert.equal(after.status, 404);
+});
+
+test("DELETE /api/v1/me/capsules/{id} 非作者 → 403 FORBIDDEN", async () => {
+  const owner = await register();
+  const other = await register();
+  const cap = await createCapsule(owner.accessToken);
+  const r = await api("DELETE", `/api/v1/me/capsules/${cap.id}`, { token: other.accessToken });
+  assert.equal(r.status, 403);
+  assert.equal(r.body.errorCode, "FORBIDDEN");
+});
+
+test("DELETE /api/v1/me/capsules/{id} 不存在 → 404", async () => {
+  const u = await register();
+  const r = await api(
+    "DELETE",
+    "/api/v1/me/capsules/00000000-0000-0000-0000-000000000000",
+    { token: u.accessToken },
+  );
+  assert.equal(r.status, 404);
+  assert.equal(r.body.errorCode, "NOT_FOUND");
+});

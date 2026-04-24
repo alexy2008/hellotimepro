@@ -1,20 +1,26 @@
 /**
- * avatars.spec.ts · 契约测试（M0 占位）
- *
- * 覆盖：GET /avatars
- *
- * 断言要点：
- * - 返回数组长度 === 10（当前内置头像数）
- * - 每项包含 id / name / primaryColor (#RRGGBB) / svgUrl / tagline
- * - id 唯一、svgUrl 可被 HEAD 成功（另行在 UI smoke 中验证）
- * - 响应头 Cache-Control: public, max-age >= 300（头像极少变化）
+ * avatars.spec.ts · 头像目录
  */
 import { test } from "node:test";
+import assert from "node:assert/strict";
+import { api } from "./_helpers.ts";
 
-const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:29010";
-
-test.skip("GET /avatars returns 10 built-in avatars", async () => {});
-test.skip("each avatar has id, name, primaryColor, svgUrl, tagline", async () => {});
-test.skip("avatar ids are unique", async () => {});
-test.skip("primaryColor is a valid #RRGGBB hex", async () => {});
-test.skip("response includes Cache-Control with reasonable max-age", async () => {});
+test("GET /api/v1/avatars 至少 10 个，字段齐全", async () => {
+  const r = await api<Array<{ id: string; name: string; primaryColor: string; svgUrl?: string }>>(
+    "GET",
+    "/api/v1/avatars",
+  );
+  assert.equal(r.status, 200);
+  assert.equal(r.body.success, true);
+  const items = r.body.data!;
+  assert.ok(Array.isArray(items) && items.length >= 10);
+  const ids = new Set(items.map((i) => i.id));
+  for (const required of ["neo", "specter", "glyph"]) {
+    assert.ok(ids.has(required), `缺失头像 ${required}`);
+  }
+  for (const it of items) {
+    assert.match(it.id, /^[a-z0-9-]{2,20}$/);
+    assert.ok(typeof it.name === "string" && it.name.length > 0);
+    assert.match(it.primaryColor, /^#[0-9a-fA-F]{6}$/);
+  }
+});

@@ -1,24 +1,68 @@
 /**
- * capsules-sealed.spec.ts · 契约测试（M0 占位）
- *
- * 覆盖：未开启胶囊的行为一致性
- *
- * 断言要点：
- * - 广场列表（GET /plaza）不返回未开启胶囊（无论 inPlaza 值）
- * - 未开启胶囊 GET /c/{code}：返回 title, code, openAt, creator, favoriteCount；
- *   不返回 content 字段（严格不泄露）
- * - 任何用户（包括作者）在 openAt 之前访问，都是 sealed 视图
- * - 未开启胶囊 remainingSeconds 字段 > 0，且为整数
- * - 作者可收藏自己的未开启胶囊 —— ❌ 业务约束：禁止收藏自己的胶囊（422）
- * - 其他用户可收藏未开启胶囊（收藏计数在开启后可见即时生效）
+ * capsules-sealed.spec.ts · 未开启胶囊的行为
  */
 import { test } from "node:test";
+import assert from "node:assert/strict";
+import { api, createCapsule, register } from "./_helpers.ts";
 
-const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:29010";
+test("未开启胶囊：byCode 查询 content=null, isOpened=false, openAt 在未来", async () => {
+  const u = await register();
+  const cap = await createCapsule(u.accessToken, { openAtSeconds: 7200 });
+  const r = await api<{
+    content: string | null;
+    isOpened: boolean;
+    openAt: string;
+    favoriteCount: number;
+  }>("GET", `/api/v1/capsules/${cap.code}`);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.data!.content, null);
+  assert.equal(r.body.data!.isOpened, false);
+  assert.ok(new Date(r.body.data!.openAt).getTime() > Date.now());
+});
 
-test.skip("GET /plaza never returns sealed capsules", async () => {});
-test.skip("sealed GET /c/{code} hides content field", async () => {});
-test.skip("sealed GET /c/{code} returns positive integer remainingSeconds", async () => {});
-test.skip("owner sees same sealed view before openAt (no privileged content peek)", async () => {});
-test.skip("author cannot favorite own capsule (422 VALIDATION_ERROR)", async () => {});
-test.skip("other user can favorite sealed capsule", async () => {});
+test("未开启胶囊：inPlaza=true 出现在广场列表，列表项不含 content", async () => {
+  const u = await register();
+  const cap = await createCapsule(u.accessToken, { openAtSeconds: 3600 });
+  const r = await api<{ items: Array<{ id: string; isOpened: boolean } & Record<string, unknown>> }>(
+    "GET",
+    "/api/v1/plaza/capsules?sort=new&pageSize=50",
+  );
+  assert.equal(r.status, 200);
+  const found = r.body.data!.items.find((i) => i.id === cap.id);
+  assert.ok(found, "未开启 public 胶囊应出现在广场");
+  assert.equal(found!.isOpened, false);
+  assert.ok(!("content" in found!), "列表项不应含 content");
+});
+
+test("未开启胶囊：作者视角同样看到 content=null（无特权预览）", async () => {
+  const u = await register();
+  const cap = await createCapsule(u.accessToken, { openAtSeconds: 3600 });
+  const r = await api<{ content: string | null }>(
+    "GET",
+    `/api/v1/plaza/capsules/${cap.id}`,
+    { token: u.accessToken },
+  );
+  assert.equal(r.status, 200);
+  assert.equal(r.body.data!.content, null);
+});
+
+test("未开启胶囊：inPlaza=false 不在广场列表，但 byCode 仍可见", async () => {
+  const u = await register();
+  const cap = await createCapsule(u.accessToken, { openAtSeconds: 3600, inPlaza: false });
+  const list = await api<{ items: Array<{ id: string }> }>(
+    "GET",
+    "/api/v1/plaza/capsules?sort=new&pageSize=50",
+  );
+  assert.ok(!list.body.data!.items.some((i) => i.id === cap.id));
+
+  const byCode = await api("GET", `/api/v1/capsules/${cap.code}`);
+  assert.equal(byCode.status, 200);
+});
+
+test("inPlaza=false 走广场详情 → 404", async () => {
+  const u = await register();
+  const cap = await createCapsule(u.accessToken, { openAtSeconds: 3600, inPlaza: false });
+  const r = await api("GET", `/api/v1/plaza/capsules/${cap.id}`);
+  assert.equal(r.status, 404);
+  assert.equal(r.body.errorCode, "NOT_FOUND");
+});

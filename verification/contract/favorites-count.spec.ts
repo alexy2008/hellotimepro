@@ -1,21 +1,82 @@
 /**
- * favorites-count.spec.ts · 契约测试（M0 占位）
- *
- * 覆盖：favorite_count 与 favorites 表的一致性
- *
- * 断言要点（通过黑盒观察）：
- * - 同一胶囊 100 次 POST + 100 次 DELETE（不同用户交错）后，
- *   favoriteCount === 实际 favorites 表行数（由 /me/favorites 在各账号下交叉校验）
- * - 并发下仍收敛（允许最终一致，但 10s 后必须等同）
- * - 事务一致：中途中断不会留下 "favoriteCount - 1 比实际行数少 1" 这种漂移
- *
- * 这是设计上的硬约束（docs/02-design.md §5.3），所有后端实现必须通过此测试。
+ * favorites-count.spec.ts · favorite_count 与实际收藏行数一致
  */
 import { test } from "node:test";
+import assert from "node:assert/strict";
+import { api, createCapsule, register } from "./_helpers.ts";
 
-const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:29010";
+async function favCount(capId: string): Promise<number> {
+  const r = await api<{ items: Array<{ id: string; favoriteCount: number }> }>(
+    "GET",
+    "/api/v1/plaza/capsules?pageSize=50",
+  );
+  const it = r.body.data!.items.find((i) => i.id === capId);
+  assert.ok(it, "胶囊应在广场列表中");
+  return it!.favoriteCount;
+}
 
-test.skip("serial favorite+unfavorite cycles keep count in sync", async () => {});
-test.skip("concurrent favorite ops converge to consistent count within 10s", async () => {});
-test.skip("favoriteCount never drifts negative even under race conditions", async () => {});
-test.skip("server crash mid-transaction leaves no orphaned favorites rows", async () => {});
+test("串行收藏/取消：favoriteCount 与实际收藏行数一致", async () => {
+  const owner = await register();
+  const cap = await createCapsule(owner.accessToken);
+  const fans = await Promise.all([register(), register(), register(), register()]);
+
+  for (const f of fans) {
+    const r = await api("POST", "/api/v1/me/favorites", {
+      token: f.accessToken,
+      json: { capsuleId: cap.id },
+    });
+    assert.equal(r.status, 200);
+  }
+  assert.equal(await favCount(cap.id), fans.length);
+
+  // 取消 2 个
+  for (const f of fans.slice(0, 2)) {
+    await api("DELETE", `/api/v1/me/favorites/${cap.id}`, { token: f.accessToken });
+  }
+  assert.equal(await favCount(cap.id), fans.length - 2);
+});
+
+test("重复收藏/取消不累加：幂等保证不漂移", async () => {
+  const owner = await register();
+  const fan = await register();
+  const cap = await createCapsule(owner.accessToken);
+
+  for (let i = 0; i < 5; i++) {
+    await api("POST", "/api/v1/me/favorites", {
+      token: fan.accessToken,
+      json: { capsuleId: cap.id },
+    });
+  }
+  assert.equal(await favCount(cap.id), 1);
+
+  for (let i = 0; i < 5; i++) {
+    await api("DELETE", `/api/v1/me/favorites/${cap.id}`, { token: fan.accessToken });
+  }
+  assert.equal(await favCount(cap.id), 0);
+});
+
+test("favoriteCount 不会变负", async () => {
+  const owner = await register();
+  const fan = await register();
+  const cap = await createCapsule(owner.accessToken);
+  // 未收藏直接 DELETE 多次
+  for (let i = 0; i < 3; i++) {
+    await api("DELETE", `/api/v1/me/favorites/${cap.id}`, { token: fan.accessToken });
+  }
+  assert.equal(await favCount(cap.id), 0);
+});
+
+test("并发收藏：5 个账号并发点赞，总数仍为 5", async () => {
+  const owner = await register();
+  const cap = await createCapsule(owner.accessToken);
+  const fans = await Promise.all(Array.from({ length: 5 }, () => register()));
+  await Promise.all(
+    fans.map((f) =>
+      api("POST", "/api/v1/me/favorites", {
+        token: f.accessToken,
+        json: { capsuleId: cap.id },
+      }),
+    ),
+  );
+  assert.equal(await favCount(cap.id), 5);
+});

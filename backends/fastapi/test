@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# 跑单元测试。默认用 SQLite，无需外部 PG。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+uv sync --quiet
+
+export DB_DRIVER="${DB_DRIVER:-sqlite}"
+if [[ "$DB_DRIVER" == "sqlite" ]]; then
+  REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+  mkdir -p "$REPO_ROOT/data/sqlite"
+  export DB_URL="${DB_URL:-sqlite:///$REPO_ROOT/data/sqlite/hellotime_test.db}"
+  rm -f "$REPO_ROOT/data/sqlite/hellotime_test.db"
+fi
+
+uv run alembic upgrade head
+uv run pytest -q "$@"
