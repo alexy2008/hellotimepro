@@ -1,46 +1,55 @@
 # 契约测试套件
 
-M0 阶段只列用例清单 + 基础脚手架，真正的断言在 M1 随 FastAPI 参考栈一起落地。
+黑盒契约测试，断言目标后端行为符合 [spec/api/openapi.yaml](../../spec/api/openapi.yaml)。
 
-## 组织
-
-每个 `*.spec.ts` 文件对应一组关联端点，用 Node 原生 `fetch` + 断言库（`node:test` + `node:assert`）写成，避免引入额外 npm 依赖。
-
-测试目标由环境变量 `BASE_URL` 决定（例如 `http://127.0.0.1:29010` 或 `http://127.0.0.1:9080`），以便同一套用例跑遍所有后端 / 全栈。
+## 运行
 
 ```bash
-BASE_URL=http://127.0.0.1:29010 node --test verification/contract
+# 默认打 fastapi 参考后端的直连端口
+node --test verification/contract
+
+# 或指向别的后端 / 反向代理
+BASE_URL=http://127.0.0.1:9080 node --test verification/contract
 ```
 
-## 已列出的 Spec 文件
+脚本入口：[`verification/scripts/verify-contract.sh`](../scripts/verify-contract.sh) 会自动启停目标服务 + 重置 DB + 运行本目录。
 
-| 文件 | 覆盖端点 | 断言重点 |
-|---|---|---|
-| `health.spec.ts` | `GET /health`, `GET /stack` | 返回栈标识 / 必填字段齐全 |
-| `auth.spec.ts` | `POST /auth/register`, `/login`, `/refresh`, `/logout` | JWT 格式、refresh 轮转、重复注册冲突 |
-| `auth-errors.spec.ts` | 错误场景 | 401 无效 token、429 限流、422 密码过短 |
-| `avatars.spec.ts` | `GET /avatars` | 至少返回 10 个且字段齐全 |
-| `me.spec.ts` | `GET /me`, `PATCH /me`, `POST /me/password` | 昵称修改、密码变更后 refresh 失效 |
-| `capsules-create.spec.ts` | `POST /capsules`, `GET /c/{code}` | 创建、code 格式 `[A-Z0-9]{8}`、60 秒约束 |
-| `capsules-sealed.spec.ts` | 未开启胶囊 | 广场不可见、详情隐藏内容、倒计时字段 |
-| `capsules-opened.spec.ts` | 已开启胶囊 | 广场可见、内容公开、favoriteCount 一致 |
-| `plaza.spec.ts` | `GET /plaza`, `?sort=hot|new` | 分页、排序稳定性、inPlaza 过滤 |
-| `favorites.spec.ts` | `POST/DELETE/GET /capsules/{id}/favorite` | 幂等、重复收藏返 200、取消未收藏返 204 |
-| `favorites-count.spec.ts` | 计数同步 | 并发收藏/取消后 favorite_count 与实际行数一致 |
-| `me-capsules.spec.ts` | `GET /me/capsules`, `DELETE /me/capsules/{id}` | 仅作者可撤回、已开启不可删 |
-| `envelope.spec.ts` | 通用响应壳 | 所有端点返回 `{ success, data?, message?, errorCode? }` |
-| `error-codes.spec.ts` | 错误枚举 | errorCode 必须在 spec 列举内，状态码匹配 |
+## 设计原则
 
-共 **14 个 spec 文件 / 约 70+ 用例**，M1 交付完整实现。
+- **纯黑盒**：只用 HTTP + envelope。不读数据库、不 import 任何实现代码。
+- **零 npm 依赖**：Node 原生 `node:test` + `fetch`，Node ≥ 22 直接跑 `.spec.ts`（类型剥离）。
+- **自隔离**：每个 test 通过 `_helpers.ts::register()` 创建唯一用户 / 胶囊，不依赖前序状态，也不依赖运行顺序。
+- **对齐 openapi**：本目录断言的是 spec，不是某个实现的实现细节。
 
-## 共享 fixtures
+## Spec 文件
 
-位于 [`verification/fixtures/`](../fixtures/)：
-- `users.json` — 两个预置用户（specter / neo）
-- `seed-capsules.ts` — 预置 10 条胶囊（5 已开启 + 5 未开启），跑前用 admin API 或直接 SQL 插入
-- `reset-db.sh` — 清 DB 再跑 schema.sql（本地开发用，CI 里通过 docker volume 隔离）
+| 文件 | 覆盖 |
+|---|---|
+| `health.spec.ts` | `GET /health` — envelope + stack items |
+| `avatars.spec.ts` | `GET /avatars` — ≥10 项、字段齐全 |
+| `auth.spec.ts` | register / login / refresh / logout + rotate |
+| `auth-errors.spec.ts` | 401 / 403 / 429 错误路径 |
+| `me.spec.ts` | `GET/PATCH /me`、`POST /me/password` + refresh 吊销 |
+| `capsules-create.spec.ts` | 创建校验 + `GET /capsules/{code}` |
+| `capsules-sealed.spec.ts` | 未开启胶囊：content=null、isOpened=false、inPlaza 过滤 |
+| `capsules-opened.spec.ts` | isOpened 字段形态 + 删除语义（永远允许、非作者 403） |
+| `plaza.spec.ts` | sort / filter / q / pagination |
+| `favorites.spec.ts` | 幂等收藏 / 取消 / 我收藏的列表 |
+| `favorites-count.spec.ts` | favorite_count 与实际行数一致 |
+| `me-capsules.spec.ts` | 我创建的列表 + 删除级联 |
+| `envelope.spec.ts` | 统一响应壳 + 204 无 body |
+| `error-codes.spec.ts` | errorCode ↔ HTTP 严格映射 |
 
-## 运行顺序约束
+## 共享工具
 
-- `health` → `auth` → `me` → `capsules-*` → `plaza` → `favorites`：部分用例依赖前面的状态
-- 每个 spec 自带 `beforeAll` 注册独立用户 / 独立胶囊，不依赖前序 spec（除非显式 `--seq`）
+[`_helpers.ts`](_helpers.ts) 提供：
+- `api(method, path, {token, json, headers})` — fetch 封装，解析 envelope
+- `register(overrides?)` — 注册并返回 `{accessToken, refreshToken, user…}`
+- `createCapsule(token, overrides?)` — 登录后创建胶囊
+- `isoFuture(sec)` / `uniqueEmail()` / `uniqueNickname()` — 时间与随机辅助
+
+## 注意事项
+
+- 每次运行前 DB 应被清空（由 `verify-contract.sh` 负责）；单条 spec 内部无清理假设。
+- 登录限流（10/min per email）通过使用每测试独立邮箱绕开。
+- "已开启胶囊"无法在黑盒内构造（创建时 openAt 必须 > now+60s），这部分留给手工 / UI smoke 验证。

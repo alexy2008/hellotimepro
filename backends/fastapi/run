@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# 启动 FastAPI 参考后端。
+#
+#   DB_DRIVER=postgres (默认) 需要 `docker compose up -d postgres`
+#   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime.db
+#
+# 运行前自动执行 alembic migrate。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "需要 uv，请先安装：https://docs.astral.sh/uv/" >&2
+  exit 1
+fi
+
+uv sync --quiet
+
+# SQLite 默认路径
+if [[ "${DB_DRIVER:-postgres}" == "sqlite" && -z "${DB_URL:-}" ]]; then
+  REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+  mkdir -p "$REPO_ROOT/data/sqlite"
+  export DB_URL="sqlite:///$REPO_ROOT/data/sqlite/hellotime.db"
+fi
+
+# 升级 DB schema
+uv run alembic upgrade head
+
+PORT="${PORT:-29010}"
+HOST="${HOST:-0.0.0.0}"
+exec uv run uvicorn app.main:app --host "$HOST" --port "$PORT" "$@"

@@ -1,22 +1,31 @@
 /**
- * health.spec.ts · 契约测试（M0 占位）
- *
- * 覆盖：GET /health, GET /stack
- *
- * 断言要点：
- * - HTTP 200、envelope.success === true
- * - /health data 包含 status, uptime, dbDriver
- * - /stack data 包含 backend.name / version, runtime.name, database.name
- * - Cache-Control: no-store
- *
- * 真实实现将在 M1 完成。此文件目前仅作清单，运行时会被跳过：
- *    it.skip(...)  — 保证 node --test 报告里显示"已登记但未实现"。
+ * health.spec.ts · 健康检查 + 栈身份
  */
 import { test } from "node:test";
+import assert from "node:assert/strict";
+import { api } from "./_helpers.ts";
 
-const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:29010";
-
-test.skip("GET /health returns 200 with envelope + status/uptime/dbDriver", async () => {});
-test.skip("GET /health sets Cache-Control: no-store", async () => {});
-test.skip("GET /stack returns 200 with backend/runtime/database identity", async () => {});
-test.skip("GET /stack includes iconUrl for all entries (or explicit null)", async () => {});
+test("GET /api/v1/health 返回 envelope + HealthData", async () => {
+  const r = await api<{
+    status: string;
+    service: string;
+    version: string;
+    uptimeSeconds: number;
+    stack: { kind: string; items: Array<{ role: string; name: string; version: string }> };
+  }>("GET", "/api/v1/health");
+  assert.equal(r.status, 200);
+  assert.equal(r.body.success, true);
+  assert.equal(r.body.errorCode, null);
+  const d = r.body.data!;
+  assert.equal(d.status, "ok");
+  assert.equal(d.service, "hellotime-pro");
+  assert.ok(typeof d.version === "string" && d.version.length > 0);
+  assert.ok(Number.isInteger(d.uptimeSeconds) && d.uptimeSeconds >= 0);
+  assert.ok(["backend", "fullstack"].includes(d.stack.kind));
+  assert.ok(Array.isArray(d.stack.items) && d.stack.items.length >= 1);
+  for (const it of d.stack.items) {
+    assert.ok(typeof it.role === "string" && it.role.length > 0);
+    assert.ok(typeof it.name === "string" && it.name.length > 0);
+    assert.ok(typeof it.version === "string" && it.version.length > 0);
+  }
+});

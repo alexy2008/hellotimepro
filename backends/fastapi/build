@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# 生产构建：锁依赖 + 预编译。Python 无需打包，仅验证锁可安装。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+uv sync --locked --no-dev
+echo "✓ 依赖已按锁文件同步"
+
+uv run python -c "import app; print('app importable, version:', app.__version__)"
