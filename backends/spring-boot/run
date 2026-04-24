@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# 启动 Spring Boot 后端。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+export REPO_ROOT
+export DB_DRIVER="${DB_DRIVER:-postgres}"
+
+if [[ "$DB_DRIVER" == "sqlite" ]]; then
+  mkdir -p "$REPO_ROOT/data/sqlite"
+  DB_URL="${DB_URL:-sqlite:///$REPO_ROOT/data/sqlite/hellotime.db}"
+  DB_FILE="${DB_URL#sqlite:///}"
+  export SPRING_DATASOURCE_URL="jdbc:sqlite:$DB_FILE"
+  export SPRING_DATASOURCE_DRIVER="org.sqlite.JDBC"
+  export SPRING_JPA_DATABASE_PLATFORM="org.hibernate.community.dialect.SQLiteDialect"
+  export SPRING_DATASOURCE_MAX_POOL_SIZE="${SPRING_DATASOURCE_MAX_POOL_SIZE:-1}"
+  export DB_USERNAME="${DB_USERNAME:-}"
+  export DB_PASSWORD="${DB_PASSWORD:-}"
+elif [[ "${DB_URL:-}" == postgres://* ]]; then
+  rest="${DB_URL#postgres://}"
+  auth_host="${rest%%/*}"
+  db_name="${rest#*/}"
+  auth="${auth_host%@*}"
+  host_port="${auth_host#*@}"
+  export DB_USERNAME="${DB_USERNAME:-${auth%%:*}}"
+  export DB_PASSWORD="${DB_PASSWORD:-${auth#*:}}"
+  export SPRING_DATASOURCE_URL="jdbc:postgresql://$host_port/$db_name"
+else
+  export SPRING_DATASOURCE_URL="${DB_URL:-jdbc:postgresql://127.0.0.1:55432/hellotime_pro}"
+fi
+
+exec mvn spring-boot:run "$@"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# 一致性构建。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+mvn -q -DskipTests package
+echo "✓ Spring Boot backend packaged"

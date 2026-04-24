@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# 默认使用 SQLite 跑测试，无需外部 PostgreSQL。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+export REPO_ROOT
+export DB_DRIVER="${DB_DRIVER:-sqlite}"
+if [[ "$DB_DRIVER" == "sqlite" ]]; then
+  mkdir -p "$REPO_ROOT/data/sqlite"
+  TEST_DB="$REPO_ROOT/data/sqlite/hellotime_spring_test.db"
+  rm -f "$TEST_DB"
+  export SPRING_DATASOURCE_URL="jdbc:sqlite:$TEST_DB"
+  export SPRING_DATASOURCE_DRIVER="org.sqlite.JDBC"
+  export SPRING_JPA_DATABASE_PLATFORM="org.hibernate.community.dialect.SQLiteDialect"
+  export SPRING_DATASOURCE_MAX_POOL_SIZE="${SPRING_DATASOURCE_MAX_POOL_SIZE:-1}"
+  export DB_USERNAME=""
+  export DB_PASSWORD=""
+fi
+
+mvn test "$@"
