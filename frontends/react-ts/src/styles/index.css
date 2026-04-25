@@ -1,0 +1,20 @@
+/* ============================================================
+ * React 参考前端样式入口
+ *
+ * 直接消费 spec/styles 下的设计令牌与共享组件类（cy-*）
+ * - palette.css: 色阶 50..900
+ * - tokens.css: 语义令牌（dark / light 主题切换）
+ * - cyber.css: 共享组件（按钮 / 卡片 / 输入 / 徽章 / 动画 ...）
+ *
+ * Tailwind v4 引入是为了少量 utility 工具类。
+ * 组件层禁止直接消费色阶（--brand-500 等），
+ * 必须用语义令牌（--color-*）或 cy-* class。
+ * ============================================================ */
+
+@import "tailwindcss";
+
+@import "../../../../spec/styles/palette.css";
+@import "../../../../spec/styles/tokens.css";
+@import "../../../../spec/styles/cyber.css";
+
+@import "./layout.css";
