@@ -808,13 +808,113 @@
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-capsule-sealed-border);
   background: var(--color-capsule-sealed-bg), var(--color-surface-1);
-  animation: cy-breath var(--duration-breath) var(--ease-standard) infinite;
 }
 
-.cy-capsule-detail__sealed .cy-countdown {
-  font-size: var(--font-size-5xl);
-  margin: var(--space-4) 0;
+/* ---------- 日历翻动倒计时 ---------- */
+.cy-cal {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  align-items: flex-end;
+  margin: var(--space-6) 0;
 }
+
+.cy-cal-sep {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  margin-bottom: 28px;
+  line-height: 1;
+  user-select: none;
+}
+
+.cy-cal-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cy-cal-card {
+  position: relative;
+  width: 72px;
+  height: 88px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-default);
+  box-shadow: var(--shadow-md), 0 4px 0 var(--color-border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transform-origin: center 50%;
+}
+
+/* 绑环孔 */
+.cy-cal-card::before,
+.cy-cal-card::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--color-surface-0);
+  border: 2px solid var(--color-border-default);
+  z-index: 2;
+}
+.cy-cal-card::before { left: 14px; }
+.cy-cal-card::after  { right: 14px; }
+
+.cy-cal-num {
+  font-family: var(--font-display);
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-signal-primary);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding-top: 14px;
+}
+
+.cy-cal-num--sm {
+  font-size: var(--font-size-2xl);
+}
+
+.cy-cal-crease {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-border-default);
+  opacity: 0.5;
+  z-index: 1;
+}
+
+.cy-cal-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: var(--font-weight-medium);
+}
+
+@keyframes cy-cal-fold {
+  from { transform: perspective(300px) rotateX(0deg); opacity: 1; }
+  to   { transform: perspective(300px) rotateX(-90deg); opacity: 0.2; }
+}
+
+@keyframes cy-cal-unfold {
+  from { transform: perspective(300px) rotateX(90deg); opacity: 0.2; }
+  to   { transform: perspective(300px) rotateX(0deg); opacity: 1; }
+}
+
+.cy-cal-card--fold   { animation: cy-cal-fold   0.2s ease-in  forwards; }
+.cy-cal-card--unfold { animation: cy-cal-unfold 0.2s ease-out forwards; }
 
 /* ---------- 大版 CTA 链接按钮（hero 中） ---------- */
 .cy-btn--hero {
@@ -863,4 +963,27 @@
   background: var(--color-success-bg);
   color: var(--color-success-fg);
   border-color: var(--color-success-border);
+}
+
+/* ---------- 后端连接状态指示点 ---------- */
+.cy-backend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.cy-backend-dot--online {
+  background: var(--color-success-fg);
+  box-shadow: 0 0 6px var(--color-success-fg);
+}
+
+.cy-backend-dot--offline {
+  background: var(--color-danger-fg);
+  box-shadow: 0 0 6px var(--color-danger-fg);
 }

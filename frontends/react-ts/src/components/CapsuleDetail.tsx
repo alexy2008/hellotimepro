@@ -1,8 +1,43 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CapsuleDetail as CapsuleDetailT } from "@/types";
 import { avatarUrl } from "@/utils/avatar";
-import { countdownTo, fmtDateTime, fmtNumber } from "@/utils/format";
+import { countdownTo, fmtDateTime } from "@/utils/format";
 import { FavoriteButton } from "./FavoriteButton";
+
+function CalendarUnit({ value, label }: { value: number; label: string }) {
+  const str = String(value).padStart(2, "0");
+  const latestStr = useRef(str);
+  const [shown, setShown] = useState(str);
+  const [phase, setPhase] = useState<"idle" | "fold" | "unfold">("idle");
+
+  useEffect(() => {
+    if (str === latestStr.current) return;
+    latestStr.current = str;
+    setPhase("fold");
+  }, [str]);
+
+  function handleAnimationEnd() {
+    if (phase === "fold") {
+      setShown(latestStr.current);
+      setPhase("unfold");
+    } else if (phase === "unfold") {
+      setPhase("idle");
+    }
+  }
+
+  return (
+    <div className="cy-cal-unit">
+      <div
+        className={`cy-cal-card${phase !== "idle" ? ` cy-cal-card--${phase}` : ""}`}
+        onAnimationEnd={handleAnimationEnd}
+      >
+        <div className={`cy-cal-num${shown.length > 2 ? " cy-cal-num--sm" : ""}`}>{shown}</div>
+        <div className="cy-cal-crease" />
+      </div>
+      <div className="cy-cal-label">{label}</div>
+    </div>
+  );
+}
 
 export function CapsuleDetail({
   capsule,
@@ -96,15 +131,14 @@ export function CapsuleDetail({
           >
             这封信还在上锁，将在以下时刻开启
           </div>
-          <div className="cy-countdown" style={{ fontSize: "var(--font-size-5xl)", margin: "var(--space-4) 0" }}>
-            {fmtNumber(cd.days)}{" "}
-            <span style={{ fontSize: "0.4em", color: "var(--color-text-muted)" }}>天</span>{" "}
-            {String(cd.hours).padStart(2, "0")}{" "}
-            <span style={{ fontSize: "0.4em", color: "var(--color-text-muted)" }}>时</span>{" "}
-            {String(cd.minutes).padStart(2, "0")}{" "}
-            <span style={{ fontSize: "0.4em", color: "var(--color-text-muted)" }}>分</span>{" "}
-            {String(cd.seconds).padStart(2, "0")}{" "}
-            <span style={{ fontSize: "0.4em", color: "var(--color-text-muted)" }}>秒</span>
+          <div className="cy-cal">
+            <CalendarUnit value={cd.days} label="天" />
+            <span className="cy-cal-sep">:</span>
+            <CalendarUnit value={cd.hours} label="时" />
+            <span className="cy-cal-sep">:</span>
+            <CalendarUnit value={cd.minutes} label="分" />
+            <span className="cy-cal-sep">:</span>
+            <CalendarUnit value={cd.seconds} label="秒" />
           </div>
           <div style={{ color: "var(--color-text-secondary)" }}>
             {cd.expired ? (
