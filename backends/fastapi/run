@@ -24,6 +24,14 @@ if [[ "${DB_DRIVER:-postgres}" == "sqlite" && -z "${DB_URL:-}" ]]; then
   export DB_URL="sqlite:///$REPO_ROOT/data/sqlite/hellotime.db"
 fi
 
+# 标准化 PostgreSQL scheme：postgresql:// / postgres:// → postgresql+psycopg://
+# SQLAlchemy 2 + psycopg v3 需要显式指定驱动，否则默认尝试 psycopg2
+if [[ "${DB_URL:-}" == postgresql://* ]]; then
+  export DB_URL="postgresql+psycopg${DB_URL#postgresql}"
+elif [[ "${DB_URL:-}" == postgres://* ]]; then
+  export DB_URL="postgresql+psycopg${DB_URL#postgres}"
+fi
+
 # 升级 DB schema
 uv run alembic upgrade head
 

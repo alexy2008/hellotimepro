@@ -26,6 +26,10 @@ def _uuid_pk(is_pg: bool) -> sa.Column:
 
 
 def upgrade() -> None:
+    # Schema already created by another backend — stamp version and skip.
+    if sa.inspect(op.get_bind()).has_table("users"):
+        return
+
     is_pg = _is_pg()
 
     if is_pg:
