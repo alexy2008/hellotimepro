@@ -60,7 +60,7 @@ BACKENDS = {
 
 FRONTENDS = {
     "vue":      {"dir": "frontends/vue",          "port": 7173,  "runtime": "node"},
-    "react":    {"dir": "frontends/react",        "port": 7174,  "runtime": "node"},
+    "react":    {"dir": "frontends/react-ts",     "port": 7174,  "runtime": "node"},
     "angular":  {"dir": "frontends/angular",      "port": 7175,  "runtime": "node"},
     "svelte":   {"dir": "frontends/svelte",       "port": 7176,  "runtime": "node"},
     "solid":    {"dir": "frontends/solid",        "port": 7180,  "runtime": "node"},
@@ -128,17 +128,30 @@ class ProcessRecord:
     log: str
 
 @dataclass
+class DbConfig:
+    pg_host: str = "127.0.0.1"
+    pg_port: int = 55432
+    pg_db:   str = "hellotime_pro"
+    pg_user: str = "hellotime"
+    pg_pass: str = "hellotime"
+    sqlite_path: str = "data/sqlite/hellotime.db"
+
+@dataclass
 class State:
     processes: dict = field(default_factory=dict)  # name -> ProcessRecord
     proxy_target: Optional[str] = None             # 当前 :9080 指向的 backend name
+    proxy_pid: Optional[int] = None                # :9080 代理进程 PID
     db_driver: str = "postgres"
+    db_config: DbConfig = field(default_factory=DbConfig)
 
     def save(self):
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         data = {
             "processes": {k: asdict(v) for k, v in self.processes.items()},
             "proxy_target": self.proxy_target,
+            "proxy_pid": self.proxy_pid,
             "db_driver": self.db_driver,
+            "db_config": asdict(self.db_config),
         }
         STATE_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
 
@@ -149,14 +162,26 @@ class State:
         try:
             raw = json.loads(STATE_FILE.read_text())
             procs = {k: ProcessRecord(**v) for k, v in raw.get("processes", {}).items()}
+            raw_cfg = raw.get("db_config", {})
+            cfg = DbConfig(**{k: v for k, v in raw_cfg.items() if k in DbConfig.__dataclass_fields__})
             return cls(
                 processes=procs,
                 proxy_target=raw.get("proxy_target"),
+                proxy_pid=raw.get("proxy_pid"),
                 db_driver=raw.get("db_driver", "postgres"),
+                db_config=cfg,
             )
         except Exception as e:
             print(yellow(f"⚠ 状态文件损坏（{e}），重置。"))
             return cls()
+
+def _build_db_url(driver: str, cfg: DbConfig) -> str:
+    if driver == "sqlite":
+        path = cfg.sqlite_path
+        if not os.path.isabs(path):
+            path = str(ROOT / path)
+        return f"sqlite:///{path}"
+    return f"postgresql://{cfg.pg_user}:{cfg.pg_pass}@{cfg.pg_host}:{cfg.pg_port}/{cfg.pg_db}"
 
 def is_alive(pid: int) -> bool:
     try:
@@ -295,39 +320,39 @@ def cmd_status(args) -> int:
     print()
     print(f"  :{PROXY_PORT} 代理指向：{cyan(state.proxy_target or '（未设置）')}")
     print(f"  DB_DRIVER   = {cyan(state.db_driver)}")
-    print(f"  Web UI      = http://127.0.0.1:{WEBUI_PORT}  {dim('(M1 提供)')}")
+    print(f"  Web UI      = http://127.0.0.1:{WEBUI_PORT}  {dim('(hello web 启动)')}")
     print()
     return 0
 
 # --------------------------------------------------------------
-# 子命令：start / stop / restart-all
+# 核心操作（CLI 与 Web 共用）
 # --------------------------------------------------------------
-def cmd_start(args) -> int:
-    stack = resolve_stack(args.name)
-    if not stack:
-        return 2
+def op_start(name: str) -> dict:
+    """启动一个实现，返回 {ok, code, msg, pid?, port?}。"""
+    stacks = all_stacks()
+    if name not in stacks:
+        return {"ok": False, "code": 2, "msg": f"未知实现: {name}"}
+    info = stacks[name]
     state = State.load()
     sweep_dead(state)
 
-    if args.name in state.processes:
-        p = state.processes[args.name]
-        print(yellow(f"已经在运行：pid={p.pid} port={p.port}"))
-        return 0
+    if name in state.processes:
+        p = state.processes[name]
+        return {"ok": True, "code": 0, "msg": f"已经在运行 pid={p.pid}",
+                "pid": p.pid, "port": p.port, "already": True}
 
-    stack_dir = ROOT / stack["dir"]
+    stack_dir = ROOT / info["dir"]
     if not stack_dir.exists():
-        print(red(f"目录不存在：{stack_dir.relative_to(ROOT)}"))
-        print(dim("该栈还未在 M1+ 实现，无法启动。"))
-        return 3
+        return {"ok": False, "code": 3,
+                "msg": f"目录不存在: {info['dir']}（该栈还未实现）"}
 
     run_script = stack_dir / "run"
     if not run_script.exists():
-        print(red(f"缺少启动脚本：{run_script.relative_to(ROOT)}"))
-        print(dim("按约定每个实现需提供可执行的 ./run 脚本。"))
-        return 4
+        return {"ok": False, "code": 4,
+                "msg": f"缺少启动脚本: {info['dir']}/run"}
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_path = LOG_DIR / f"{args.name}.log"
+    log_path = LOG_DIR / f"{name}.log"
     log_f = log_path.open("a", buffering=1)
     log_f.write(f"\n\n=== start at {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
 
@@ -338,50 +363,257 @@ def cmd_start(args) -> int:
             stdout=log_f,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
-            start_new_session=True,  # 让 stop 可以 kill 整个进程组
+            start_new_session=True,
+            env={**os.environ,
+                 "DB_DRIVER": state.db_driver,
+                 "DB_URL": _build_db_url(state.db_driver, state.db_config)},
         )
     except Exception as e:
-        print(red(f"启动失败: {e}"))
-        return 5
+        return {"ok": False, "code": 5, "msg": f"启动失败: {e}"}
 
-    state.processes[args.name] = ProcessRecord(
-        name=args.name, pid=proc.pid, port=stack["port"],
+    state.processes[name] = ProcessRecord(
+        name=name, pid=proc.pid, port=info["port"],
         started_at=time.time(), log=str(log_path),
     )
     state.save()
-    print(green(f"✓ 已启动 {args.name}  pid={proc.pid}  port={stack['port']}"))
-    print(dim(f"  日志: tail -f {log_path.relative_to(ROOT)}"))
-    return 0
+    return {"ok": True, "code": 0,
+            "msg": f"已启动 {name} pid={proc.pid} port={info['port']}",
+            "pid": proc.pid, "port": info["port"]}
 
-def cmd_stop(args) -> int:
+def op_stop(name: str) -> dict:
     state = State.load()
     sweep_dead(state)
-    if args.name not in state.processes:
-        print(dim(f"{args.name} 不在运行中。"))
-        return 0
-    p = state.processes[args.name]
+    if name not in state.processes:
+        return {"ok": True, "code": 0, "msg": f"{name} 不在运行中"}
+    p = state.processes[name]
     try:
         os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-        # 等待最多 5s
         for _ in range(50):
             if not is_alive(p.pid):
                 break
             time.sleep(0.1)
         if is_alive(p.pid):
-            print(yellow("SIGTERM 超时，发送 SIGKILL"))
             os.killpg(os.getpgid(p.pid), signal.SIGKILL)
     except ProcessLookupError:
         pass
     except PermissionError as e:
-        print(red(f"无法杀进程 {p.pid}: {e}"))
-        return 6
-    del state.processes[args.name]
+        return {"ok": False, "code": 6, "msg": f"无法杀进程 {p.pid}: {e}"}
+    del state.processes[name]
     state.save()
-    print(green(f"✓ 已停止 {args.name}"))
+    return {"ok": True, "code": 0, "msg": f"已停止 {name}"}
+
+def op_stop_external(name: str) -> dict:
+    """Kill the process listening on the stack's port (externally-started service)."""
+    stacks = all_stacks()
+    if name not in stacks:
+        return {"ok": False, "code": 2, "msg": f"未知实现: {name}"}
+    port = stacks[name]["port"]
+    try:
+        out = subprocess.run(
+            ["lsof", "-ti", f"TCP:{port}"],
+            capture_output=True, text=True, timeout=3,
+        )
+        pids = [int(p) for p in out.stdout.split() if p.strip().isdigit()]
+    except Exception as e:
+        return {"ok": False, "code": 7, "msg": f"lsof 失败: {e}"}
+    if not pids:
+        return {"ok": True, "code": 0, "msg": f"端口 {port} 无进程监听"}
+    killed = []
+    for pid in pids:
+        try:
+            try:
+                os.killpg(os.getpgid(pid), signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                os.kill(pid, signal.SIGTERM)
+            for _ in range(30):
+                if not is_alive(pid):
+                    break
+                time.sleep(0.1)
+            if is_alive(pid):
+                os.kill(pid, signal.SIGKILL)
+            killed.append(pid)
+        except PermissionError as e:
+            return {"ok": False, "code": 6, "msg": f"无权 kill pid {pid}: {e}"}
+        except ProcessLookupError:
+            killed.append(pid)
+    # 如果该进程之前也被 hello 管理（不寻常但可能），清一下状态
+    state = State.load()
+    if name in state.processes:
+        del state.processes[name]
+        state.save()
+    return {"ok": True, "code": 0, "msg": f"已停止 {name}（pid {killed}）"}
+
+_PROXY_SCRIPT = """
+import socket, threading, sys
+
+target_port = int(sys.argv[1])
+
+def pipe(src, dst):
+    try:
+        while True:
+            d = src.recv(4096)
+            if not d:
+                break
+            dst.sendall(d)
+    except Exception:
+        pass
+    finally:
+        for s in (src, dst):
+            try: s.close()
+            except Exception: pass
+
+srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind(('0.0.0.0', {proxy_port}))
+srv.listen(128)
+while True:
+    c, _ = srv.accept()
+    try:
+        b = socket.create_connection(('127.0.0.1', target_port), timeout=5)
+        threading.Thread(target=pipe, args=(c, b), daemon=True).start()
+        threading.Thread(target=pipe, args=(b, c), daemon=True).start()
+    except Exception:
+        c.close()
+"""
+
+def _kill_proxy_pid(pid: Optional[int]) -> None:
+    """Kill a proxy process by PID (best-effort)."""
+    if pid is None:
+        return
+    try:
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+        except (ProcessLookupError, OSError):
+            os.kill(pid, signal.SIGTERM)
+        for _ in range(20):
+            if not is_alive(pid):
+                break
+            time.sleep(0.05)
+        if is_alive(pid):
+            os.kill(pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+def _kill_port(port: int) -> None:
+    """Kill whatever process is listening on port (best-effort, handles orphans)."""
+    try:
+        out = subprocess.run(
+            ["lsof", "-ti", f"TCP:{port}"],
+            capture_output=True, text=True, timeout=3,
+        )
+        for p in out.stdout.split():
+            if p.strip().isdigit():
+                _kill_proxy_pid(int(p))
+    except Exception:
+        pass
+
+def _start_proxy(target_port: int) -> int:
+    """Start a Python TCP proxy on PROXY_PORT → target_port. Returns PID."""
+    script = _PROXY_SCRIPT.format(proxy_port=PROXY_PORT)
+    proc = subprocess.Popen(
+        [sys.executable, "-c", script, str(target_port)],
+        start_new_session=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    time.sleep(0.15)  # give the socket a moment to bind
+    return proc.pid
+
+def op_switch(backend: str) -> dict:
+    if backend not in BACKENDS:
+        return {"ok": False, "code": 2, "msg": f"未知后端: {backend}"}
+    target_port = BACKENDS[backend]["port"]
+    state = State.load()
+    # Kill existing proxy (tracked PID first, then sweep the port for orphans)
+    _kill_proxy_pid(state.proxy_pid)
+    _kill_port(PROXY_PORT)
+    pid = _start_proxy(target_port)
+    state.proxy_target = backend
+    state.proxy_pid = pid
+    state.save()
+    return {"ok": True, "code": 0,
+            "msg": f":{PROXY_PORT} → {backend} (:{target_port})，代理 pid={pid}"}
+
+def op_set_db_driver(driver: str) -> dict:
+    if driver not in ("postgres", "sqlite"):
+        return {"ok": False, "code": 2, "msg": f"未知 DB_DRIVER: {driver}"}
+    state = State.load()
+    state.db_driver = driver
+    state.save()
+    return {"ok": True, "code": 0, "msg": f"DB_DRIVER = {driver}（重启已运行的服务后生效）"}
+
+def op_set_db_config(cfg: dict) -> dict:
+    state = State.load()
+    c = state.db_config
+    for k in ("pg_host", "pg_db", "pg_user", "pg_pass", "sqlite_path"):
+        if k in cfg and cfg[k] is not None:
+            setattr(c, k, str(cfg[k]).strip())
+    if "pg_port" in cfg:
+        try:
+            c.pg_port = int(cfg["pg_port"])
+        except (ValueError, TypeError):
+            return {"ok": False, "code": 2, "msg": "pg_port 必须是数字"}
+    state.save()
+    return {"ok": True, "code": 0, "msg": "数据库连接已保存（重启服务后生效）"}
+
+def op_logs(name: str, n: int = 200) -> str:
+    log_path = LOG_DIR / f"{name}.log"
+    if not log_path.exists():
+        return ""
+    with log_path.open("rb") as f:
+        f.seek(0, 2)
+        size = f.tell()
+        # 取最近 ~64KB，足够覆盖几百行
+        back = min(size, 65536)
+        f.seek(size - back)
+        text = f.read().decode("utf-8", errors="replace")
+    lines = text.splitlines()[-n:]
+    return "\n".join(lines)
+
+def op_clear_log(name: str) -> dict:
+    log_path = LOG_DIR / f"{name}.log"
+    try:
+        log_path.write_text("", encoding="utf-8")
+        return {"ok": True, "msg": f"已清空 {name} 日志"}
+    except Exception as e:
+        return {"ok": False, "msg": str(e)}
+
+# --------------------------------------------------------------
+# 子命令：start / stop / restart-all
+# --------------------------------------------------------------
+def cmd_start(args) -> int:
+    res = op_start(args.name)
+    if not res["ok"]:
+        print(red(res["msg"]))
+        if res["code"] == 2:
+            print(dim("可用实现见 `hello list`"))
+        elif res["code"] == 3:
+            print(dim("该栈还未在 M1+ 实现，无法启动。"))
+        elif res["code"] == 4:
+            print(dim("按约定每个实现需提供可执行的 ./run 脚本。"))
+        return res["code"]
+    if res.get("already"):
+        print(yellow(res["msg"]))
+    else:
+        print(green(f"✓ {res['msg']}"))
+        print(dim(f"  日志: tail -f data/logs/{args.name}.log"))
+    return 0
+
+def cmd_stop(args) -> int:
+    res = op_stop(args.name)
+    if not res["ok"]:
+        print(red(res["msg"]))
+        return res["code"]
+    if "已停止" in res["msg"]:
+        print(green(f"✓ {res['msg']}"))
+    else:
+        print(dim(res["msg"]))
     return 0
 
 def cmd_restart_all(args) -> int:
     state = State.load()
+    sweep_dead(state)
     names = list(state.processes.keys())
     if not names:
         print(dim("（没有正在运行的实现）"))
@@ -396,16 +628,12 @@ def cmd_restart_all(args) -> int:
 # 子命令：switch
 # --------------------------------------------------------------
 def cmd_switch(args) -> int:
-    if args.backend not in BACKENDS:
-        print(red(f"未知后端: {args.backend}"))
+    res = op_switch(args.backend)
+    if not res["ok"]:
+        print(red(res["msg"]))
         print(dim("可选: " + ", ".join(BACKENDS.keys())))
-        return 2
-    state = State.load()
-    state.proxy_target = args.backend
-    state.save()
-    port = BACKENDS[args.backend]["port"]
-    print(green(f"✓ :{PROXY_PORT} 代理 → {args.backend} (:{port})"))
-    print(dim(f"  实际代理将在 M1 的 Web UI 中落地；当前仅记录目标。"))
+        return res["code"]
+    print(green(f"✓ {res['msg']}"))
     return 0
 
 # --------------------------------------------------------------
@@ -416,25 +644,955 @@ def cmd_logs(args) -> int:
     if not log_path.exists():
         print(dim(f"没有日志文件: {log_path.relative_to(ROOT)}"))
         return 0
-    # 简单尾部读取（避免 tail 依赖）
-    with log_path.open("rb") as f:
-        f.seek(0, 2)
-        size = f.tell()
-        back = min(size, 8192)
-        f.seek(size - back)
-        text = f.read().decode("utf-8", errors="replace")
-    lines = text.splitlines()[-args.n:]
-    for line in lines:
-        print(line)
+    text = op_logs(args.name, args.n)
+    if text:
+        print(text)
     return 0
 
 # --------------------------------------------------------------
-# 子命令：web（占位）
+# Web 健康探测与快照
+# --------------------------------------------------------------
+def op_health(name: str, timeout: float = 3.0) -> dict:
+    """调用实现的 /api/v1/health 端点，返回技术栈信息。"""
+    from urllib.request import urlopen
+    from urllib.error import URLError, HTTPError
+    stacks = all_stacks()
+    if name not in stacks:
+        return {"ok": False, "error": "未知实现"}
+    port = stacks[name]["port"]
+    t0 = time.time()
+    try:
+        with urlopen(f"http://127.0.0.1:{port}/api/v1/health", timeout=timeout) as r:
+            body = json.loads(r.read().decode("utf-8"))
+            return {"ok": True, "latency_ms": int((time.time() - t0) * 1000), "body": body}
+    except (HTTPError, URLError, OSError) as e:
+        return {"ok": False, "error": str(e)}
+
+def op_snapshot() -> dict:
+    """构造 web 前端轮询用的快照。并发 TCP 探活，识别外部启动的服务。"""
+    import socket as _sock
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _tcp_probe(port: int) -> bool:
+        try:
+            with _sock.create_connection(("127.0.0.1", port), timeout=0.25):
+                return True
+        except Exception:
+            return False
+
+    state = State.load()
+    sweep_dead(state)
+    stacks = all_stacks()
+    now = time.time()
+
+    stack_list = list(stacks.items())
+    with ThreadPoolExecutor(max_workers=len(stack_list)) as ex:
+        port_open_map = dict(zip(
+            [n for n, _ in stack_list],
+            ex.map(lambda x: _tcp_probe(x[1]["port"]), stack_list),
+        ))
+
+    items = []
+    for name, info in stack_list:
+        rec = state.processes.get(name)
+        stack_dir = ROOT / info["dir"]
+        items.append({
+            "name": name,
+            "kind": info["kind"],
+            "port": info["port"],
+            "runtime": info["runtime"],
+            "dir": info["dir"],
+            "implemented": stack_dir.exists() and (stack_dir / "run").exists(),
+            "running": rec is not None,
+            "port_open": port_open_map.get(name, False),
+            "pid": rec.pid if rec else None,
+            "started_at": rec.started_at if rec else None,
+            "uptime_s": int(now - rec.started_at) if rec else 0,
+        })
+    return {
+        "stacks": items,
+        "proxy_target": state.proxy_target,
+        "proxy_port": PROXY_PORT,
+        "db_driver": state.db_driver,
+        "db_config": asdict(state.db_config),
+        "now": now,
+    }
+
+# --------------------------------------------------------------
+# Web UI HTML（单文件嵌入；无 npm / CDN 依赖）
+# --------------------------------------------------------------
+WEB_HTML = r"""<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HelloTime Pro · dev-manager</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg0:#0e0e1c;--bg1:#161630;--bg2:#1e1e38;--bg3:#262644;
+  --border0:#25254a;--border1:#353570;
+  --text:#f5f5fa;--text2:#c8c8e0;--muted:#7a7aa0;
+  --brand:#6b46ff;--brand-h:#8a6dff;--brand-rgb:107,70,255;
+  --sig:#14d4f0;--sig-h:#5fe6f5;--sig-rgb:20,212,240;
+  --acc:#ff2d91;--acc-h:#ff5faa;--acc-rgb:255,45,145;
+  --ok:#1aa866;--ok-h:#5ed49a;
+  --warn:#ffae3d;--err:#ff5470;
+  --sans:"Inter","PingFang SC",-apple-system,"Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+  --disp:"Orbitron",var(--sans);
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--text);font-family:var(--sans);min-height:100vh;
+  background:
+    radial-gradient(900px 560px at 0 -5%,rgba(107,70,255,.30),transparent 60%),
+    radial-gradient(900px 540px at 100% 0,rgba(20,212,240,.22),transparent 60%),
+    radial-gradient(700px 400px at 60% 105%,rgba(255,45,145,.18),transparent 60%),
+    var(--bg0);}
+.shell{max-width:1380px;margin:0 auto;padding:18px clamp(12px,2.5vw,28px) 64px}
+
+/* header */
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.hdr-status{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.hdr-chip{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border0);border-radius:8px;padding:6px 12px;font-size:12px;line-height:1.4}
+.hdr-chip .lbl{color:var(--muted);font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-right:2px}
+.hdr-chip .val{color:var(--text);font-weight:500;font-size:13px}
+.hdr-chip .val.sig{color:var(--sig-h)}
+.hdr-chip .val.dim{color:var(--muted);font-style:italic}
+.hdr-chip .val.db{color:var(--sig-h)}
+h1{margin:0;font-family:var(--disp);font-size:clamp(17px,2vw,24px);letter-spacing:.07em;
+  background:linear-gradient(135deg,var(--sig-h) 0%,var(--acc) 50%,var(--ok-h) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;}
+.sub{color:var(--muted);font-size:11px}
+.ctl{display:flex;gap:7px;flex-wrap:wrap}
+
+/* panel */
+/* config modal */
+.cfg-bg{position:fixed;inset:0;background:rgba(6,6,12,.76);display:none;
+  align-items:center;justify-content:center;z-index:1300;padding:20px}
+.cfg-bg.open{display:flex}
+.cfg-box{width:min(500px,100%);background:var(--bg1);border:1px solid var(--border1);
+  border-radius:13px;box-shadow:0 24px 64px rgba(0,0,0,.6);
+  max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.cfg-head{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--border0);flex-shrink:0}
+.cfg-head h3{margin:0;font-size:13px}
+.cfg-body{overflow-y:auto}
+.cfg-sec{padding:16px}
+.cfg-div{height:1px;background:var(--border0)}
+.dbform{display:grid;gap:6px;margin-top:10px}
+.dbfields{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dbfields.pg4{grid-template-columns:2fr 1fr}
+.dblabel{font-size:10px;color:var(--muted);margin-bottom:2px}
+input.dbi{width:100%;background:var(--bg2);border:1px solid var(--border0);border-radius:6px;
+  color:var(--text);font-size:12px;padding:5px 8px;box-sizing:border-box;outline:none;font-family:var(--mono)}
+input.dbi:focus{border-color:var(--sig);box-shadow:0 0 0 2px rgba(var(--sig-rgb),.18)}
+.dbrow{display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap}
+.dbtab{display:none}.dbtab.active{display:block}
+.plabel{margin:0 0 9px;font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+.row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:11px;margin:7px 0 0}
+
+/* badge */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:10px;
+  background:var(--bg2);border:1px solid var(--border0);color:var(--text2);}
+.b-sig{color:var(--sig-h);border-color:rgba(var(--sig-rgb),.4);background:rgba(var(--sig-rgb),.08)}
+.b-ok{color:var(--ok-h);border-color:rgba(94,212,154,.4);background:rgba(26,168,102,.10)}
+.b-ext{color:var(--warn);border-color:rgba(255,174,61,.4);background:rgba(255,174,61,.10)}
+.b-err{color:var(--err);border-color:rgba(255,84,112,.4);background:rgba(255,84,112,.10)}
+.b-dim{color:var(--muted)}
+
+/* controls */
+select,button,input{font:inherit;color:inherit;background:var(--bg2);
+  border:1px solid var(--border0);border-radius:8px;padding:5px 10px;transition:all 140ms ease}
+select:hover,button:hover{border-color:var(--border1)}
+select:focus,button:focus{outline:2px solid var(--brand);outline-offset:1px}
+button{cursor:pointer}
+button.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+button.pri:hover{background:var(--brand-h);border-color:var(--brand-h)}
+button.ghost{background:transparent}
+button.ghost:hover{background:var(--bg2)}
+button.bdanger{color:var(--err);border-color:rgba(255,84,112,.4)}
+button.bdanger:hover{background:rgba(255,84,112,.12)}
+button.bopen{color:var(--sig-h);border-color:rgba(var(--sig-rgb),.35)}
+button.bopen:hover{background:rgba(var(--sig-rgb),.10)}
+button.bhealth{color:#aaa;border-color:rgba(150,150,200,.3);font-size:10px;padding:2px 7px}
+button.bhealth:hover{color:var(--sig-h);border-color:rgba(var(--sig-rgb),.4);background:rgba(var(--sig-rgb),.08)}
+button.brestart{color:var(--warn);border-color:rgba(255,174,61,.4)}
+button.brestart:hover{background:rgba(255,174,61,.12)}
+button[disabled]{opacity:.45;cursor:not-allowed}
+
+/* section */
+.section{margin-top:20px}
+.section[data-kind=backend]{--sr:var(--brand-rgb);--sc:var(--brand)}
+.section[data-kind=frontend]{--sr:var(--sig-rgb);--sc:var(--sig)}
+.section[data-kind=fullstack]{--sr:var(--acc-rgb);--sc:var(--acc)}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.sh h2{margin:0;font-size:12px;font-weight:700;letter-spacing:.2em;color:var(--text2);
+  text-transform:uppercase;display:flex;align-items:center;gap:7px}
+.sbar{width:3px;height:13px;border-radius:2px;flex-shrink:0;
+  background:linear-gradient(180deg,rgba(var(--sr),1),rgba(var(--sr),.3));
+  box-shadow:0 0 7px rgba(var(--sr),.55);}
+.scount{color:var(--muted);font-size:10px}
+
+/* grid: 5 col */
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+@media(max-width:1250px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:960px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
+
+/* card */
+.card{
+  background:rgba(22,22,48,.52);
+  backdrop-filter:blur(16px) saturate(160%);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:11px;
+  padding:11px 12px 10px;display:flex;flex-direction:column;gap:7px;
+  transition:border-color 160ms,box-shadow 220ms,transform 220ms;
+  position:relative;overflow:hidden;
+}
+.card:not(.unimpl):hover{
+  border-color:rgba(var(--sr),.45);
+  box-shadow:0 0 0 1px rgba(var(--sr),.15),0 10px 26px rgba(0,0,0,.42);
+  transform:translateY(-2px);
+}
+.card.managed{border-color:rgba(94,212,154,.28);box-shadow:0 0 0 1px rgba(94,212,154,.12),0 8px 20px rgba(0,0,0,.3)}
+.card.managed:hover{border-color:rgba(var(--sr),.5);box-shadow:0 0 0 1px rgba(var(--sr),.2),0 12px 28px rgba(0,0,0,.42)}
+.card.external{border-color:rgba(255,174,61,.28);box-shadow:0 0 0 1px rgba(255,174,61,.10)}
+.card.unimpl{opacity:.45}
+/* top color bar */
+.card-bar{
+  position:absolute;top:0;left:0;right:0;height:3px;border-radius:11px 11px 0 0;
+  opacity:0;transition:opacity 260ms;
+}
+.card.managed .card-bar{
+  background:linear-gradient(90deg,rgba(var(--sr),.05) 0%,rgba(var(--sr),1) 30%,var(--ok-h) 60%,rgba(var(--sr),.05) 100%);
+  box-shadow:0 0 8px rgba(var(--sr),.5);
+  opacity:1;
+}
+.card.external .card-bar{
+  background:linear-gradient(90deg,rgba(255,174,61,.05) 0%,rgba(255,174,61,1) 30%,#ffd060 60%,rgba(255,174,61,.05) 100%);
+  box-shadow:0 0 8px rgba(255,174,61,.5);
+  opacity:1;
+}
+.card:not(.unimpl):hover .card-bar{
+  opacity:1;
+  background:linear-gradient(90deg,rgba(var(--sr),.05) 0%,rgba(var(--sr),.9) 30%,rgba(var(--sr),.9) 70%,rgba(var(--sr),.05) 100%);
+}
+.shine{position:absolute;inset:-1px;border-radius:11px;pointer-events:none;
+  background:linear-gradient(135deg,transparent 25%,rgba(var(--sr),.07) 50%,transparent 75%);
+  opacity:0;transition:opacity 260ms}
+.card:not(.unimpl):hover .shine,.card.managed .shine,.card.external .shine{opacity:1}
+
+/* card header: icon + name/port */
+.ch{display:flex;align-items:center;gap:9px;padding-bottom:7px;
+  border-bottom:1px solid var(--border0)}
+.icon{width:34px;height:34px;flex-shrink:0;border-radius:8px;
+  border:1px solid rgba(var(--ic-rgb,128,128,128),.3);
+  background:rgba(var(--ic-rgb,128,128,128),.10);
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.icon svg{width:22px;height:22px}
+.ci{flex:1;min-width:0}
+.cname{font-weight:700;font-size:13.5px;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cport{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:1px}
+.cport a{color:var(--sig-h)}
+.cport a:hover{color:var(--sig)}
+
+/* status + actions row */
+.cs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:22px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.dot.run{background:var(--ok-h);box-shadow:0 0 6px rgba(94,212,154,.65);animation:pulse 2.2s ease-in-out infinite}
+.dot.ext{background:var(--warn);animation:pulse 2.2s ease-in-out infinite}
+.dot.ud{background:transparent;border:1px dashed var(--muted)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.uptime{font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+/* actions */
+.ca{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto}
+.ca button{padding:3px 8px;font-size:11px}
+
+/* health modal */
+.hm{position:fixed;inset:0;background:rgba(6,6,12,.76);display:none;
+  align-items:center;justify-content:center;z-index:1300;padding:20px}
+.hm.open{display:flex}
+.hmbox{width:min(560px,100%);background:var(--bg1);border:1px solid var(--border1);
+  border-radius:13px;box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden}
+.hmhead{padding:11px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border0)}
+.hmhead h3{margin:0;font-size:13px}
+.hmbody{padding:14px 16px}
+.hm-meta{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.hm-meta .badge{font-size:11px}
+.hm-lat{font-size:11px;color:var(--muted)}
+.hm-err{padding:14px 16px;color:var(--err);font-size:12px}
+.hm-stack{width:100%;border-collapse:collapse;font-size:12px}
+.hm-stack tr{border-bottom:1px solid var(--border0)}
+.hm-stack tr:last-child{border-bottom:none}
+.hm-stack td{padding:7px 10px;color:var(--text2)}
+.hm-stack td:first-child{color:var(--muted);width:80px;text-transform:uppercase;font-size:10px;letter-spacing:.04em}
+.hm-stack td:last-child{color:var(--text);font-weight:500}
+
+/* log modal */
+.modal-bg{position:fixed;inset:0;background:rgba(6,6,12,.76);display:none;
+  align-items:center;justify-content:center;z-index:1200;padding:20px}
+.modal-bg.open{display:flex}
+.modal{width:min(980px,100%);max-height:82vh;display:flex;flex-direction:column;
+  background:var(--bg1);border:1px solid var(--border1);border-radius:13px;
+  box-shadow:0 24px 64px rgba(0,0,0,.55)}
+.mhead{padding:11px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border0)}
+.mhead h3{margin:0;font-size:13px}
+.mbody{flex:1;overflow:auto;background:#04040a}
+pre.log{margin:0;padding:14px;font-family:var(--mono);font-size:11.5px;line-height:1.6;
+  color:var(--text2);white-space:pre-wrap;word-break:break-all}
+.mfoot{padding:8px 16px;border-top:1px solid var(--border0);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.mfoot label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
+
+/* toasts */
+.toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:6px;z-index:1400}
+.toast{padding:8px 13px;border-radius:9px;font-size:12px;background:var(--bg2);border:1px solid var(--border1);
+  animation:slIn 200ms ease;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast.ok{border-color:rgba(94,212,154,.5);color:var(--ok-h)}
+.toast.err{border-color:rgba(255,84,112,.5);color:var(--err)}
+@keyframes slIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+
+a{color:var(--sig-h);text-decoration:none}
+a:hover{color:var(--sig);text-decoration:underline}
+.ldot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--ok-h);
+  margin-right:5px;vertical-align:middle;animation:pulse 2.2s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<header>
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <h1>HELLOTIME · PRO</h1>
+    <span class="sub">dev-manager v2 &nbsp;·&nbsp; <span class="ldot"></span><span id="liveLabel">实时</span></span>
+  </div>
+  <div class="ctl">
+    <div class="hdr-status">
+      <div class="hdr-chip"><span class="lbl">转发</span><span class="val dim" id="hdrProxy">未设置</span></div>
+      <div class="hdr-chip"><span class="lbl">数据库</span><span class="val db" id="hdrDb">—</span></div>
+    </div>
+    <button class="ghost" id="btnConfig">配置</button>
+    <button class="ghost" id="btnRestart">重启所有</button>
+    <button class="bdanger" id="btnStopAll">停止所有</button>
+  </div>
+</header>
+
+<div id="sections"></div>
+</div>
+
+<!-- config modal -->
+<div class="cfg-bg" id="cfgModal">
+  <div class="cfg-box">
+    <div class="cfg-head">
+      <h3>配置</h3>
+      <button class="ghost" id="cfgClose">关闭</button>
+    </div>
+    <div class="cfg-body">
+      <div class="cfg-sec">
+        <p class="plabel">:9080 反代目标</p>
+        <div class="row">
+          <select id="proxySel"></select>
+          <button class="pri" id="btnSwitch">切换</button>
+          <span class="badge b-dim" id="proxyState">未设置</span>
+        </div>
+        <p class="hint">前端通过 <code style="color:var(--text2)">:9080</code> 访问后端，切换无需重启前端。</p>
+      </div>
+      <div class="cfg-div"></div>
+      <div class="cfg-sec">
+        <p class="plabel">DB_DRIVER</p>
+        <div class="row">
+          <select id="dbSel"><option value="postgres">postgres</option><option value="sqlite">sqlite</option></select>
+          <button class="pri" id="btnDb">应用</button>
+          <span class="badge b-dim" id="dbState">postgres</span>
+        </div>
+        <p class="hint">切换后须重启已运行的服务才会生效。</p>
+      </div>
+      <div class="cfg-div"></div>
+      <div class="cfg-sec">
+        <p class="plabel">数据库连接</p>
+        <div class="dbform">
+          <div class="dbtab" id="dbTabPg">
+            <div class="dbfields pg4">
+              <div><div class="dblabel">主机</div><input class="dbi" id="pgHost" placeholder="127.0.0.1"/></div>
+              <div><div class="dblabel">端口</div><input class="dbi" id="pgPort" placeholder="55432"/></div>
+            </div>
+            <div style="margin-top:6px"><div class="dblabel">数据库名</div><input class="dbi" id="pgDb" placeholder="hellotime_pro"/></div>
+            <div class="dbfields" style="margin-top:6px">
+              <div><div class="dblabel">用户名</div><input class="dbi" id="pgUser" placeholder="hellotime"/></div>
+              <div><div class="dblabel">密码</div><input class="dbi" id="pgPass" type="password" placeholder="••••••••"/></div>
+            </div>
+          </div>
+          <div class="dbtab" id="dbTabSqlite">
+            <div><div class="dblabel">文件路径（相对项目根目录）</div><input class="dbi" id="sqlitePath" placeholder="data/sqlite/hellotime.db"/></div>
+          </div>
+        </div>
+        <div class="dbrow">
+          <button class="pri" id="btnDbConfig">保存连接</button>
+          <span class="badge b-dim" id="dbConfigState"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- health modal -->
+<div class="hm" id="healthModal">
+  <div class="hmbox">
+    <div class="hmhead">
+      <h3 id="hmTitle">技术栈检查</h3>
+      <button class="ghost" id="hmClose">关闭</button>
+    </div>
+    <div id="hmBody"></div>
+  </div>
+</div>
+
+<!-- log modal -->
+<div class="modal-bg" id="logModal">
+  <div class="modal">
+    <div class="mhead"><h3 id="logTitle">日志</h3><button class="ghost" id="logClose">关闭</button></div>
+    <div class="mbody"><pre class="log" id="logPre"></pre></div>
+    <div class="mfoot">
+      <label><input type="checkbox" id="logFollow" checked/> 自动刷新（2s）</label>
+      <div class="row">
+        <span class="badge b-dim" id="logMeta"></span>
+        <button class="ghost" id="logClear">清空</button>
+        <button class="ghost" id="logRefresh">刷新</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+const $  = (s,r=document) => r.querySelector(s);
+const $$ = (s,r=document) => Array.from(r.querySelectorAll(s));
+const KL = {backend:"后端",frontend:"前端",fullstack:"全栈"};
+
+/* ── Tech SVG icons ── */
+/* viewBox="0 0 24 24", injected into .icon>svg */
+const ICONS = {
+  spring: [`<g fill="none"><path d="M19 5.8C15.8 2.6 10.8 2 7 4.2 4 6 2.5 9.5 3 13c.4 2.8 2 5.2 4.3 6.6 2 1.3 4.5 1.7 6.8 1 2.5-.7 4.5-2.6 5.5-5 .8-2 .8-4.3-.2-6.2-.7-1.4-1.8-2.5-2-4.2z" stroke="#6db33f" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#6db33f" opacity=".6"/><path d="M12 9.5c0-1.5.5-3 1.5-4" stroke="#6db33f" stroke-width="1.3" stroke-linecap="round" opacity=".7"/></g>`, "#6db33f"],
+  fastapi: [`<circle cx="12" cy="12" r="10.5" fill="rgba(0,150,136,.12)" stroke="#009688" stroke-width="1.2"/><path d="M14.5 4.5 7 13h5l-1.5 6.5L20 10h-5.5z" fill="#009688"/>`, "#009688"],
+  gin: [`<rect x="2" y="5" width="20" height="14" rx="3.5" fill="rgba(0,173,215,.1)" stroke="#00acd7" stroke-width="1.3"/><text x="4" y="17" font-family="monospace" font-weight="800" font-size="13.5" fill="#00acd7">Go</text>`, "#00acd7"],
+  elysia: [`<circle cx="12" cy="10.5" r="7.5" fill="rgba(245,216,160,.1)" stroke="#f5b842" stroke-width="1.3"/><circle cx="12" cy="10.5" r="3.5" fill="#f5b842" opacity=".7"/><circle cx="9" cy="4.5" r="2.5" fill="#f5b842" opacity=".9"/>`, "#f5b842"],
+  nest: [`<path d="M7 14.5C5.8 13 5.5 11 6 9.2 6.6 7 8.3 5.3 10.5 4.5L14 3C16.5 2.3 19 3.5 20.5 5.5c1 1.5 1.3 3.5.5 5.2-.6 1.3-1.8 2.3-3 2.8" stroke="#e0234e" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M17 9.5C18.2 11 18.5 13 18 14.8 17.4 17 15.7 18.7 13.5 19.5L10 21C7.5 21.7 5 20.5 3.5 18.5c-1-1.5-1.3-3.5-.5-5.2.6-1.3 1.8-2.3 3-2.8" stroke="#e0234e" stroke-width="2" fill="none" stroke-linecap="round"/>`, "#e0234e"],
+  aspnet: [`<path d="M12 2 21.5 6v12L12 22 2.5 18V6z" fill="rgba(81,43,212,.12)" stroke="#512bd4" stroke-width="1.3"/><text x="7.5" y="16.5" font-family="monospace" font-weight="700" font-size="10.5" fill="#512bd4">C#</text>`, "#512bd4"],
+  vapor: [`<path d="M19.8 7C18.3 4.5 15.5 3 12.5 3.2 9.3 3.4 6.5 5.3 5 8.2 3.7 10.7 3.8 13.8 5.2 16.2c.8 1.3 2 2.3 3.3 2.8 0 0-1.5-3 1.5-5.8 0 0 .5 3.5 4 4.8 0 0-1.8-2.3-.5-4.5 0 0 2.5 3.5 6 2C21.8 14.5 22.3 10.5 19.8 7z" fill="#f05138"/>`, "#f05138"],
+  axum: [`<g stroke="#ce412b" stroke-width="1.4" fill="none"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="2.5" fill="#ce412b" stroke="none"/><line x1="12" y1="2.5" x2="12" y2="5.5"/><line x1="12" y1="18.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5.5" y2="12"/><line x1="18.5" y1="12" x2="21.5" y2="12"/><line x1="4.7" y1="4.7" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="19.3" y2="19.3"/><line x1="19.3" y1="4.7" x2="17.2" y2="6.8"/><line x1="6.8" y1="17.2" x2="4.7" y2="19.3"/></g>`, "#ce412b"],
+  drogon: [`<rect x="2" y="5" width="20" height="14" rx="3.5" fill="rgba(98,149,203,.12)" stroke="#6295cb" stroke-width="1.3"/><text x="3.5" y="17" font-family="monospace" font-weight="700" font-size="12.5" fill="#6295cb">C++</text>`, "#6295cb"],
+  ktor: [`<polygon points="2,2 13.5,12 2,22" fill="none" stroke="#7f52ff" stroke-width="1.5" stroke-linejoin="round"/><polygon points="13.5,2 22,2 22,22 13.5,22" fill="rgba(127,82,255,.15)" stroke="#7f52ff" stroke-width="1.3" stroke-linejoin="round"/>`, "#7f52ff"],
+  vue: [`<polygon points="12,20.5 1.5,3.5 6.5,3.5 12,13.5 17.5,3.5 22.5,3.5" fill="#42b883"/><polygon points="12,13.5 7,3.5 9.5,3.5 12,8.5 14.5,3.5 17,3.5" fill="#35495e"/>`, "#42b883"],
+  react: [`<g stroke="#61dafb" stroke-width="1.25" fill="none"><ellipse cx="12" cy="12" rx="10.5" ry="4.2"/><ellipse cx="12" cy="12" rx="10.5" ry="4.2" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10.5" ry="4.2" transform="rotate(120 12 12)"/></g><circle cx="12" cy="12" r="1.8" fill="#61dafb"/>`, "#61dafb"],
+  angular: [`<polygon points="12,2 22,5.5 20.5,18.5 12,22.5 3.5,18.5 2,5.5" fill="#dd0031"/><polygon points="12,4.5 20,7.2 18.8,18 12,21.2 5.2,18 4,7.2" fill="#c3002f"/><path d="M9 16.5 12 8l3 8.5M10.3 14h3.4" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`, "#dd0031"],
+  svelte: [`<path d="M20.5 7.5c-1.2-3-4.5-4.8-7.8-4-2.8.7-5 3-5.5 5.8-.4 2.2.2 4.5 1.8 6.2" stroke="#ff3e00" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M3.5 16.5c1.2 3 4.5 4.8 7.8 4 2.8-.7 5-3 5.5-5.8.4-2.2-.2-4.5-1.8-6.2" stroke="#ff3e00" stroke-width="2.2" fill="none" stroke-linecap="round"/>`, "#ff3e00"],
+  solid: [`<path d="M21 8c-.8-2.8-3.5-4.5-6.5-4.5H9C6 3.5 3.5 6 3.5 9c0 2.2 1.3 4.1 3.2 5l5 2.3c1.5.7 2.5 2.2 2.3 3.8-.2 1.8-1.8 3-3.5 3H7" stroke="#446b9e" stroke-width="2.2" fill="none" stroke-linecap="round"/>`, "#446b9e"],
+  next: [`<circle cx="12" cy="12" r="10.5" fill="#111" stroke="rgba(255,255,255,.2)" stroke-width="1"/><path d="M8 16.5 15.5 7.5M15.5 7.5V16.5" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`, "#e2e8f0"],
+  nuxt: [`<polygon points="12,3.5 22,19.5 2,19.5" fill="none" stroke="#00dc82" stroke-width="1.5" stroke-linejoin="round"/><polygon points="12,7.5 19.5,19.5 4.5,19.5" fill="rgba(0,220,130,.15)" stroke="none"/>`, "#00dc82"],
+  "spring-mvc": [`<g fill="none"><path d="M18.5 6C15.5 2.8 10.5 2.3 7 4.5 4.2 6.3 2.8 9.8 3.5 13.2c.5 2.7 2.2 5 4.5 6.3 2 1.2 4.5 1.5 6.8.8 2.3-.7 4.2-2.5 5.2-4.8.8-2 .8-4.2-.2-6.2-.7-1.4-1.8-2.5-2-4z" stroke="#6db33f" stroke-width="1.4" stroke-linecap="round"/><path d="M12 10c0-1.5.4-2.8 1.2-3.8" stroke="#6db33f" stroke-width="1.3" stroke-linecap="round" opacity=".65"/><circle cx="12" cy="13" r="2.2" fill="#6db33f" opacity=".55"/></g>`, "#6db33f"],
+  rails: [`<path d="M12 3 20.5 8.5v7L12 21 3.5 15.5v-7z" fill="rgba(204,0,0,.12)" stroke="#cc0000" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 6.5 17.5 10v4L12 17.5 6.5 14v-4z" fill="rgba(204,0,0,.15)" stroke="#cc0000" stroke-width=".8" stroke-linejoin="round"/><circle cx="12" cy="12" r="2" fill="#cc0000"/>`, "#cc0000"],
+  laravel: [`<path d="M22 8.5l-5-4.5-5 3.5v5l5 3 5-3V8.5zM12 7.5 7 4 2 7v5l5 3 5-3V7.5z" fill="none" stroke="#ff2d20" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 12.5v5l5 3M12 12.5l-5 3" stroke="#ff2d20" stroke-width="1.2" fill="none"/>`, "#ff2d20"],
+};
+
+function iconEl(name){
+  const t = ICONS[name] || [`<text x="3" y="17" font-family="monospace" font-weight="700" font-size="13" fill="#888">${name.slice(0,2).toUpperCase()}</text>`, "#888"];
+  const ic = document.createElement("div");
+  ic.className = "icon";
+  const rgb = hexToRgb(t[1].replace("#",""));
+  ic.style.setProperty("--ic-rgb", rgb);
+  ic.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${t[0]}</svg>`;
+  return ic;
+}
+
+function hexToRgb(h){
+  const n = parseInt(h, 16);
+  return [(n>>16)&255,(n>>8)&255,n&255].join(",");
+}
+
+let snap = null, logTarget = null, logTimer = null;
+
+function fmtUp(s){
+  if(!s) return "";
+  if(s<60) return s+"s";
+  const m=Math.floor(s/60);
+  if(m<60) return `${m}m${s%60}s`;
+  return `${Math.floor(m/60)}h${m%60}m`;
+}
+
+function toast(msg,k="ok"){
+  const el=document.createElement("div");
+  el.className="toast "+k; el.textContent=msg;
+  $("#toasts").appendChild(el);
+  setTimeout(()=>el.remove(), 3200);
+}
+
+async function api(path,opts={}){
+  const r=await fetch(path,{headers:{"Content-Type":"application/json"},...opts});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return r.json();
+}
+
+async function refresh(){
+  try{
+    const j=await api("/api/snapshot");
+    snap=j.data; render();
+  }catch(e){ $("#liveLabel").textContent="离线"; }
+}
+
+function render(){
+  if(!snap) return;
+  $("#liveLabel").textContent = "实时";
+  const backends = snap.stacks.filter(s=>s.kind==="backend");
+
+  const sel=$("#proxySel");
+  if(sel.options.length===0){
+    backends.forEach(b=>{
+      const o=document.createElement("option");
+      o.value=b.name; o.textContent=`${b.name} · :${b.port}`;
+      sel.appendChild(o);
+    });
+  }
+  if(snap.proxy_target) sel.value=snap.proxy_target;
+  const px=$("#proxyState");
+  if(snap.proxy_target){
+    const t=backends.find(b=>b.name===snap.proxy_target);
+    px.textContent=t?`${snap.proxy_target} · :${t.port}`:snap.proxy_target;
+    px.className="badge b-sig";
+  }else{
+    px.textContent="未设置"; px.className="badge b-dim";
+  }
+  $("#dbSel").value=snap.db_driver;
+  $("#dbState").textContent=snap.db_driver;
+  syncDbTabs(snap.db_driver);
+  // header status chips
+  const hp=$("#hdrProxy");
+  if(snap.proxy_target){
+    const t=snap.stacks.find(s=>s.name===snap.proxy_target);
+    hp.textContent=snap.proxy_target+(t?` :${t.port}`:"");
+    hp.className="val sig";
+  }else{
+    hp.textContent="未设置"; hp.className="val dim";
+  }
+  const cfg2=snap.db_config||{};
+  const dbDetail=snap.db_driver==="sqlite"
+    ?(cfg2.sqlite_path||"").replace(/.*\//,"")
+    :`${cfg2.pg_host||""}:${cfg2.pg_port||""}/${cfg2.pg_db||""}`;
+  $("#hdrDb").textContent=snap.db_driver+" · "+dbDetail;
+  const cfg=snap.db_config||{};
+  if(!$("#pgHost").matches(":focus")) $("#pgHost").value=cfg.pg_host||"";
+  if(!$("#pgPort").matches(":focus")) $("#pgPort").value=cfg.pg_port||"";
+  if(!$("#pgDb").matches(":focus"))   $("#pgDb").value=cfg.pg_db||"";
+  if(!$("#pgUser").matches(":focus")) $("#pgUser").value=cfg.pg_user||"";
+  if(!$("#pgPass").matches(":focus")) $("#pgPass").value=cfg.pg_pass||"";
+  if(!$("#sqlitePath").matches(":focus")) $("#sqlitePath").value=cfg.sqlite_path||"";
+
+  const groups={backend:[],frontend:[],fullstack:[]};
+  snap.stacks.forEach(s=>groups[s.kind].push(s));
+  Object.keys(groups).forEach(k=>groups[k].sort((a,b)=>a.port-b.port));
+
+  const root=$("#sections");
+  const sy=window.scrollY;
+  root.innerHTML="";
+  ["backend","frontend","fullstack"].forEach(kind=>{
+    const list=groups[kind]; if(!list.length) return;
+    const sec=document.createElement("section");
+    sec.className="section"; sec.dataset.kind=kind;
+    const running=list.filter(s=>s.running).length;
+    const ext=list.filter(s=>!s.running&&s.port_open).length;
+    const impl=list.filter(s=>s.implemented).length;
+    const sh=document.createElement("div"); sh.className="sh";
+    sh.innerHTML=`<h2><span class="sbar"></span>${KL[kind]}</h2><span class="scount">${running} 管理运行${ext?" · "+ext+" 外部":""} · ${impl} 已实现 · ${list.length} 登记</span>`;
+    const grid=document.createElement("div"); grid.className="grid";
+    list.forEach(s=>grid.appendChild(buildCard(s,kind)));
+    sec.appendChild(sh); sec.appendChild(grid);
+    root.appendChild(sec);
+  });
+  window.scrollTo(0,sy);
+}
+
+function buildCard(s,kind){
+  const card=document.createElement("div");
+  const managed=s.running;
+  const external=!s.running&&s.port_open;
+  let cls="card";
+  if(managed) cls+=" managed";
+  else if(external) cls+=" external";
+  if(!s.implemented) cls+=" unimpl";
+  card.className=cls;
+
+  const bar=document.createElement("div"); bar.className="card-bar"; card.appendChild(bar);
+  const shine=document.createElement("div"); shine.className="shine"; card.appendChild(shine);
+
+  /* header */
+  const ch=document.createElement("div"); ch.className="ch";
+  ch.appendChild(iconEl(s.name));
+  const ci=document.createElement("div"); ci.className="ci";
+  const active=managed||external;
+  const portHtml=active
+    ?`<a href="http://127.0.0.1:${s.port}" target="_blank" rel="noopener">:${s.port}</a>`
+    :":"+s.port;
+  ci.innerHTML=`<div class="cname">${s.name}</div><div class="cport">${portHtml}</div>`;
+  ch.appendChild(ci);
+  card.appendChild(ch);
+
+  /* status */
+  const cs=document.createElement("div"); cs.className="cs";
+  if(managed){
+    cs.innerHTML=`<span class="dot run"></span><span class="badge b-ok" style="font-size:10px">运行中</span><span class="uptime">${fmtUp(s.uptime_s)}</span><span class="badge b-dim" style="font-size:9px">pid&nbsp;${s.pid}</span>`;
+  }else if(external){
+    cs.innerHTML=`<span class="dot ext"></span><span class="badge b-ext" style="font-size:10px">外部运行</span>`;
+  }else if(s.implemented){
+    cs.innerHTML=`<span class="dot"></span><span class="badge b-dim" style="font-size:10px">未启动</span>`;
+  }else{
+    cs.innerHTML=`<span class="dot ud"></span><span class="badge b-dim" style="font-size:10px">未实现</span>`;
+  }
+  card.appendChild(cs);
+
+  /* actions */
+  const ca=document.createElement("div"); ca.className="ca";
+  if(managed){
+    btn(ca,"bdanger","stop","停止");
+    btn(ca,"brestart","restart","重启");
+    btn(ca,"ghost","logs","日志");
+  }else if(external){
+    btn(ca,"bdanger","stop-ext","停止");
+    btn(ca,"ghost","logs","日志");
+  }else if(s.implemented){
+    btn(ca,"pri","start","启动");
+    btn(ca,"ghost","logs","日志");
+  }else{
+    const b=document.createElement("button"); b.disabled=true; b.className="ghost"; b.textContent="未实现"; ca.appendChild(b);
+  }
+  if((kind==="frontend"||kind==="fullstack")&&(managed||external)){
+    btn(ca,"bopen","open","打开");
+  }
+  if(kind==="backend"&&(s.implemented||external)){
+    btn(ca,"bhealth","health","检查");
+  }
+  $$("button[data-act]",ca).forEach(b=>b.addEventListener("click",()=>onAct(s,b.dataset.act,card)));
+  card.appendChild(ca);
+  return card;
+}
+
+function btn(parent,cls,act,label){
+  const b=document.createElement("button"); b.className=cls; b.dataset.act=act; b.textContent=label;
+  parent.appendChild(b);
+}
+
+async function onAct(s,act,card){
+  try{
+    if(act==="start"){
+      const j=await api(`/api/start/${encodeURIComponent(s.name)}`,{method:"POST"});
+      toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+    }else if(act==="stop"){
+      const j=await api(`/api/stop/${encodeURIComponent(s.name)}`,{method:"POST"});
+      toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+    }else if(act==="stop-ext"){
+      const j=await api(`/api/stop-external/${encodeURIComponent(s.name)}`,{method:"POST"});
+      toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+    }else if(act==="restart"){
+      const b=$("button[data-act=restart]",card);
+      if(b){b.disabled=true;b.textContent="重启中…"}
+      try{
+        const j=await api(`/api/restart/${encodeURIComponent(s.name)}`,{method:"POST"});
+        toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+      }finally{
+        if(b){b.disabled=false;b.textContent="重启"}
+      }
+    }else if(act==="logs"){
+      openLogs(s.name);
+    }else if(act==="open"){
+      window.open(`http://127.0.0.1:${s.port}`,"_blank");
+    }else if(act==="health"){
+      const b=$("button[data-act=health]",card);
+      if(b){b.disabled=true; b.textContent="检查中…"}
+      try{
+        const j=await api(`/api/health/${encodeURIComponent(s.name)}`);
+        showHealth(s.name, j.data);
+      }finally{
+        if(b){b.disabled=false; b.textContent="检查"}
+      }
+    }
+  }catch(e){ toast("请求失败："+e.message,"err"); }
+}
+
+function showHealth(name, data){
+  $("#hmTitle").textContent = "技术栈检查 · "+name;
+  const box=$("#hmBody");
+  if(!data.ok){
+    box.innerHTML=`<div class="hm-err">连接失败：${data.error||"未知错误"}</div>`;
+  }else{
+    const bd=data.body||{};
+    const d=bd.data||bd;
+    const items=(d.stack&&d.stack.items)||[];
+    const status=d.status||"ok";
+    const uptime=d.uptimeSeconds!=null?fmtUptime(d.uptimeSeconds):"—";
+    const rows=items.map(it=>`<tr>
+      <td>${it.role||"—"}</td>
+      <td>${it.name||"—"}</td>
+      <td>${it.version||"—"}</td>
+    </tr>`).join("");
+    box.innerHTML=`<div class="hmbody">
+      <div class="hm-meta">
+        <span class="badge ${status==="ok"?"b-ok":"b-err"}">${status}</span>
+        <span class="hm-lat">${data.latency_ms}ms</span>
+        <span class="hm-lat">运行 ${uptime}</span>
+      </div>
+      ${rows?`<table class="hm-stack">
+        <tr><td>角色</td><td>名称</td><td>版本</td></tr>
+        ${rows}
+      </table>`:"<div class='hm-err'>后端未返回技术栈信息</div>"}
+    </div>`;
+  }
+  $("#healthModal").classList.add("open");
+}
+function fmtUptime(s){
+  if(s<60) return s+"s";
+  if(s<3600) return Math.floor(s/60)+"m "+Math.floor(s%60)+"s";
+  return Math.floor(s/3600)+"h "+Math.floor((s%3600)/60)+"m";
+}
+
+function openLogs(name){
+  logTarget=name;
+  $("#logTitle").textContent="日志 · "+name;
+  $("#logModal").classList.add("open");
+  loadLog();
+  if(logTimer) clearInterval(logTimer);
+  logTimer=setInterval(()=>{ if($("#logFollow").checked) loadLog(); },2000);
+}
+function closeLogs(){
+  $("#logModal").classList.remove("open");
+  logTarget=null;
+  if(logTimer){clearInterval(logTimer);logTimer=null}
+}
+async function loadLog(){
+  if(!logTarget) return;
+  try{
+    const j=await api(`/api/logs/${encodeURIComponent(logTarget)}?n=400`);
+    const pre=$("#logPre");
+    const atBottom=pre.scrollTop+pre.clientHeight>=pre.scrollHeight-8;
+    pre.textContent=j.data.content||"（暂无日志）";
+    if(atBottom) pre.scrollTop=pre.scrollHeight;
+    $("#logMeta").textContent=`${j.data.n} 行 · ${(j.data.content||"").length} 字符`;
+  }catch(e){$("#logPre").textContent="读取失败："+e.message}
+}
+
+$("#btnSwitch").addEventListener("click",async()=>{
+  const backend=$("#proxySel").value;
+  const j=await api("/api/switch",{method:"POST",body:JSON.stringify({backend})});
+  toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+});
+$("#btnDb").addEventListener("click",async()=>{
+  const driver=$("#dbSel").value;
+  const j=await api("/api/db-driver",{method:"POST",body:JSON.stringify({driver})});
+  toast(j.result.msg,j.result.ok?"ok":"err"); syncDbTabs(driver); refresh();
+});
+$("#dbSel").addEventListener("change",()=>syncDbTabs($("#dbSel").value));
+function syncDbTabs(driver){
+  $("#dbTabPg").classList.toggle("active", driver==="postgres");
+  $("#dbTabSqlite").classList.toggle("active", driver==="sqlite");
+}
+$("#btnDbConfig").addEventListener("click",async()=>{
+  const body={
+    pg_host:$("#pgHost").value, pg_port:$("#pgPort").value,
+    pg_db:$("#pgDb").value, pg_user:$("#pgUser").value, pg_pass:$("#pgPass").value,
+    sqlite_path:$("#sqlitePath").value,
+  };
+  const j=await api("/api/db-config",{method:"POST",body:JSON.stringify(body)});
+  const st=$("#dbConfigState");
+  st.textContent=j.result.ok?"已保存":"保存失败";
+  st.className="badge "+(j.result.ok?"b-ok":"b-err");
+  toast(j.result.msg,j.result.ok?"ok":"err");
+  setTimeout(()=>{st.textContent="";st.className="badge b-dim";},3000);
+});
+$("#btnRestart").addEventListener("click",async()=>{
+  if(!confirm("重启所有正在运行的服务？")) return;
+  const j=await api("/api/restart-all",{method:"POST"});
+  toast(j.result.msg,"ok"); refresh();
+});
+$("#btnStopAll").addEventListener("click",async()=>{
+  if(!confirm("停止所有正在运行的服务？")) return;
+  const j=await api("/api/stop-all",{method:"POST"});
+  toast(j.result.msg,"ok"); refresh();
+});
+$("#hmClose").addEventListener("click",()=>$("#healthModal").classList.remove("open"));
+$("#btnConfig").addEventListener("click",()=>$("#cfgModal").classList.add("open"));
+$("#cfgClose").addEventListener("click",()=>$("#cfgModal").classList.remove("open"));
+$("#cfgModal").addEventListener("click",e=>{ if(e.target.id==="cfgModal") $("#cfgModal").classList.remove("open"); });
+$("#healthModal").addEventListener("click",e=>{ if(e.target.id==="healthModal") $("#healthModal").classList.remove("open"); });
+$("#logClose").addEventListener("click",closeLogs);
+$("#logModal").addEventListener("click",e=>{ if(e.target.id==="logModal") closeLogs(); });
+$("#logRefresh").addEventListener("click",loadLog);
+$("#logClear").addEventListener("click",async()=>{
+  if(!logTarget) return;
+  try{
+    const j=await api(`/api/clear-log/${encodeURIComponent(logTarget)}`,{method:"POST"});
+    if(j.result.ok){ $("#logPre").textContent=""; $("#logMeta").textContent=""; }
+    toast(j.result.msg,j.result.ok?"ok":"err");
+  }catch(e){ toast("清空失败："+e.message,"err"); }
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeLogs(); $("#healthModal").classList.remove("open"); $("#cfgModal").classList.remove("open"); } });
+
+refresh();
+setInterval(()=>{ if(!$("#cfgModal").classList.contains("open")) refresh(); },2000);
+</script>
+</body>
+</html>
+"""
+
+# --------------------------------------------------------------
+# 子命令：web（启动 :9090 控制台）
 # --------------------------------------------------------------
 def cmd_web(args) -> int:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.parse import urlparse, parse_qs
+
+    host = getattr(args, "host", "127.0.0.1")
+    port = getattr(args, "port", WEBUI_PORT)
+
+    class Handler(BaseHTTPRequestHandler):
+        server_version = "HelloTimePro-DevManager/0.1"
+
+        def log_message(self, fmt, *a):  # 静默
+            pass
+
+        def _send_json(self, payload, status=200):
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+
+        def _send_html(self, html, status=200):
+            body = html.encode("utf-8")
+            try:
+                self.send_response(status)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+
+        def _read_body(self):
+            n = int(self.headers.get("Content-Length", "0") or "0")
+            if n <= 0:
+                return {}
+            try:
+                return json.loads(self.rfile.read(n).decode("utf-8"))
+            except Exception:
+                return {}
+
+        def do_GET(self):
+            u = urlparse(self.path)
+            path = u.path.rstrip("/") or "/"
+            if path in ("/", "/index.html"):
+                self._send_html(WEB_HTML)
+                return
+            if path == "/api/snapshot":
+                self._send_json({"ok": True, "data": op_snapshot()})
+                return
+            if path.startswith("/api/health/"):
+                name = path[len("/api/health/"):]
+                self._send_json({"ok": True, "data": op_health(name)})
+                return
+            if path.startswith("/api/logs/"):
+                name = path[len("/api/logs/"):]
+                q = parse_qs(u.query)
+                n = 200
+                try:
+                    n = max(10, min(2000, int(q.get("n", ["200"])[0])))
+                except ValueError:
+                    pass
+                self._send_json({"ok": True, "data": {
+                    "name": name, "n": n, "content": op_logs(name, n),
+                }})
+                return
+            self._send_json({"ok": False, "msg": "not found"}, 404)
+
+        def do_POST(self):
+            u = urlparse(self.path)
+            path = u.path.rstrip("/") or "/"
+            body = self._read_body()
+            if path.startswith("/api/start/"):
+                self._send_json({"ok": True, "result": op_start(path[len("/api/start/"):])})
+                return
+            if path.startswith("/api/stop/"):
+                self._send_json({"ok": True, "result": op_stop(path[len("/api/stop/"):])})
+                return
+            if path.startswith("/api/stop-external/"):
+                self._send_json({"ok": True, "result": op_stop_external(path[len("/api/stop-external/"):])})
+                return
+            if path.startswith("/api/restart/"):
+                name = path[len("/api/restart/"):]
+                op_stop(name)
+                res = op_start(name)
+                self._send_json({"ok": True, "result": res})
+                return
+            if path.startswith("/api/clear-log/"):
+                name = path[len("/api/clear-log/"):]
+                self._send_json({"ok": True, "result": op_clear_log(name)})
+                return
+            if path == "/api/switch":
+                target = str(body.get("backend", "")).strip()
+                self._send_json({"ok": True, "result": op_switch(target)})
+                return
+            if path == "/api/db-driver":
+                drv = str(body.get("driver", "")).strip()
+                self._send_json({"ok": True, "result": op_set_db_driver(drv)})
+                return
+            if path == "/api/db-config":
+                self._send_json({"ok": True, "result": op_set_db_config(body)})
+                return
+            if path == "/api/restart-all":
+                state = State.load()
+                sweep_dead(state)
+                names = list(state.processes.keys())
+                results = []
+                for n in names:
+                    results.append({"name": n, **op_stop(n)})
+                for n in names:
+                    results.append({"name": n, **op_start(n)})
+                self._send_json({"ok": True, "result": {"ok": True, "msg": f"已重启 {len(names)} 个", "results": results}})
+                return
+            if path == "/api/stop-all":
+                state = State.load()
+                sweep_dead(state)
+                names = list(state.processes.keys())
+                results = [{"name": n, **op_stop(n)} for n in names]
+                self._send_json({"ok": True, "result": {"ok": True, "msg": f"已停止 {len(names)} 个", "results": results}})
+                return
+            self._send_json({"ok": False, "msg": "not found"}, 404)
+
     print(bold("\nHelloTime Pro · Web UI"))
-    print(dim(f"  预计在 M1 提供，将绑定 http://127.0.0.1:{WEBUI_PORT}"))
-    print(dim("  当前请使用 CLI 子命令：status / start / stop / doctor / switch / logs / list"))
+    print(f"  监听: {cyan(f'http://{host}:{port}')}")
+    print(dim("  按 Ctrl+C 退出\n"))
+    if not getattr(args, "no_open", False):
+        try:
+            import webbrowser
+            webbrowser.open(f"http://{host}:{port}")
+        except Exception:
+            pass
+    try:
+        ThreadingHTTPServer((host, port), Handler).serve_forever()
+    except KeyboardInterrupt:
+        print(dim("\n已退出。"))
+        return 0
+    except OSError as e:
+        print(red(f"启动失败: {e}"))
+        if "Address already in use" in str(e):
+            print(dim(f"  端口 {port} 被占用，可用 --port 指定其他端口"))
+        return 7
     return 0
 
 # --------------------------------------------------------------
@@ -468,7 +1626,11 @@ def build_parser() -> argparse.ArgumentParser:
     lg.add_argument("-n", type=int, default=200, help="行数，默认 200")
     lg.set_defaults(func=cmd_logs)
 
-    sub.add_parser("web",         help="启动 Web UI (M1)").set_defaults(func=cmd_web)
+    web = sub.add_parser("web", help="启动 Web UI 控制台")
+    web.add_argument("--host", default="127.0.0.1")
+    web.add_argument("--port", type=int, default=WEBUI_PORT)
+    web.add_argument("--no-open", action="store_true", help="不自动打开浏览器")
+    web.set_defaults(func=cmd_web)
     return p
 
 def main(argv=None) -> int:
