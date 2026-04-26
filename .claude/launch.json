@@ -6,6 +6,18 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-p", "5500", "ui-prototype"],
       "port": 5500
+    },
+    {
+      "name": "react-ts",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontends/react-ts", "run", "dev"],
+      "port": 7174
+    },
+    {
+      "name": "hello-web",
+      "runtimeExecutable": "./scripts/hello",
+      "runtimeArgs": ["web", "--no-open", "--port", "9090"],
+      "port": 9090
     }
   ]
 }
