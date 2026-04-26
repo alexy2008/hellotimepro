@@ -50,7 +50,7 @@ public class AuthService {
 
     OffsetDateTime now = now();
     UserEntity user = new UserEntity();
-    user.setId(UUID.randomUUID().toString());
+    user.setId(UUID.randomUUID());
     user.setEmail(email);
     user.setPasswordHash(security.hashPassword(req.password()));
     user.setNickname(req.nickname());
@@ -117,15 +117,15 @@ public class AuthService {
     refreshTokens.revokeUser(user.getId(), now());
   }
 
-  private AuthTokens issueTokenPair(UserEntity user, String familyId) {
+  private AuthTokens issueTokenPair(UserEntity user, UUID familyId) {
     String access = security.createAccessToken(user);
     String refresh = security.generateRefreshToken();
     OffsetDateTime now = now();
     RefreshTokenEntity row = new RefreshTokenEntity();
-    row.setId(UUID.randomUUID().toString());
+    row.setId(UUID.randomUUID());
     row.setUserId(user.getId());
     row.setTokenHash(security.hashRefreshToken(refresh));
-    row.setFamilyId(familyId == null ? UUID.randomUUID().toString() : familyId);
+    row.setFamilyId(familyId == null ? UUID.randomUUID() : familyId);
     row.setExpiresAt(now.plusSeconds(props.getRefreshTokenTtlSeconds()));
     row.setCreatedAt(now);
     refreshTokens.save(row);

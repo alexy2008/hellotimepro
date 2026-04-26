@@ -36,7 +36,7 @@ public class PlazaController {
       @RequestParam(required = false) String q,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "20") int pageSize) {
-    String viewerId = auth.optional(authorization).map(UserEntity::getId).orElse(null);
+    String viewerId = auth.optional(authorization).map(u -> u.getId().toString()).orElse(null);
     return Envelope.ok(plaza.plazaList(sort, filter, q, page, pageSize, viewerId));
   }
 
@@ -44,7 +44,7 @@ public class PlazaController {
   public Envelope<CapsuleDetail> detail(
       @RequestHeader(value = "Authorization", required = false) String authorization,
       @PathVariable String id) {
-    String viewerId = auth.optional(authorization).map(UserEntity::getId).orElse(null);
+    String viewerId = auth.optional(authorization).map(u -> u.getId().toString()).orElse(null);
     return Envelope.ok(capsules.getPlazaDetail(id, viewerId));
   }
 }

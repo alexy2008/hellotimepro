@@ -10,6 +10,7 @@ import com.hellotimepro.springboot.dto.Dtos.UserOut;
 import com.hellotimepro.springboot.repository.FavoriteRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,14 +22,14 @@ public class MapperService {
   }
 
   public UserOut user(UserEntity u) {
-    return new UserOut(u.getId(), u.getEmail(), u.getNickname(), u.getAvatarId(), u.getCreatedAt());
+    return new UserOut(u.getId().toString(), u.getEmail(), u.getNickname(), u.getAvatarId(), u.getCreatedAt());
   }
 
   public CapsuleDetail detail(CapsuleEntity c, UserEntity owner, String viewerId, boolean includeContent) {
     boolean opened = c.getOpenAt().isBefore(now()) || c.getOpenAt().isEqual(now());
-    boolean favorited = viewerId != null && favorites.existsById(new FavoriteId(viewerId, c.getId()));
+    boolean favorited = viewerId != null && favorites.existsById(new FavoriteId(UUID.fromString(viewerId), c.getId()));
     return new CapsuleDetail(
-        c.getId(),
+        c.getId().toString(),
         c.getCode(),
         c.getTitle(),
         new UserBrief(owner.getNickname(), owner.getAvatarId()),
@@ -44,7 +45,7 @@ public class MapperService {
   public CapsuleListItem listItem(CapsuleEntity c, UserEntity owner, boolean favorited, OffsetDateTime favoritedAt) {
     boolean opened = c.getOpenAt().isBefore(now()) || c.getOpenAt().isEqual(now());
     return new CapsuleListItem(
-        c.getId(),
+        c.getId().toString(),
         c.getCode(),
         c.getTitle(),
         new UserBrief(owner.getNickname(), owner.getAvatarId()),

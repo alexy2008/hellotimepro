@@ -2,7 +2,6 @@ package com.hellotimepro.springboot.service;
 
 import com.hellotimepro.springboot.domain.CapsuleEntity;
 import com.hellotimepro.springboot.domain.FavoriteEntity;
-import com.hellotimepro.springboot.domain.FavoriteId;
 import com.hellotimepro.springboot.domain.UserEntity;
 import com.hellotimepro.springboot.dto.Dtos.CapsuleListItem;
 import com.hellotimepro.springboot.dto.Dtos.Paginated;
@@ -13,13 +12,20 @@ import com.hellotimepro.springboot.repository.UserRepository;
 import com.hellotimepro.springboot.web.ApiException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -48,74 +54,80 @@ public class PlazaService {
     if (normalizedQuery != null && normalizedQuery.length() > 50) {
       throw ApiException.validation("q 长度不得超过 50", "q");
     }
-    String query = normalizedQuery;
+    String qPattern = normalizedQuery == null ? null : "%" + escapeLike(normalizedQuery) + "%";
 
-    OffsetDateTime now = now();
-    Map<String, UserEntity> ownerMap = users.findAll().stream()
-        .collect(Collectors.toMap(UserEntity::getId, Function.identity()));
-    List<CapsuleEntity> filtered = capsules.findAll().stream()
-        .filter(CapsuleEntity::isInPlaza)
-        .filter(c -> filter.equals("all") || (filter.equals("opened") == !c.getOpenAt().isAfter(now)))
-        .filter(c -> matches(c, ownerMap.get(c.getOwnerId()), query))
-        .sorted(comparator(sort))
-        .toList();
+    Pageable pageable = PageRequest.of(page - 1, pageSize, sortOf(sort));
+    Page<CapsuleEntity> pageResult = capsules.findPlazaPage(filter, now(), qPattern, pageable);
 
-    Set<String> faved = favoriteIds(viewerId);
-    List<CapsuleListItem> items = page(filtered, page, pageSize).stream()
+    List<CapsuleEntity> items = pageResult.getContent();
+    Map<UUID, UserEntity> ownerMap = loadOwners(items.stream().map(CapsuleEntity::getOwnerId).toList());
+    Set<UUID> faved = loadFavoriteSet(viewerId, items.stream().map(CapsuleEntity::getId).toList());
+
+    List<CapsuleListItem> dto = items.stream()
         .map(c -> mapper.listItem(c, ownerMap.get(c.getOwnerId()), faved.contains(c.getId()), null))
         .toList();
-    return new Paginated<>(items, pagination(filtered.size(), page, pageSize));
+    return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
   }
 
   public Paginated<CapsuleListItem> myCapsules(UserEntity user, int page, int pageSize) {
     validatePage(page, pageSize);
-    List<CapsuleEntity> all = capsules.findByOwnerIdOrderByCreatedAtDesc(user.getId());
-    List<CapsuleListItem> items = page(all, page, pageSize).stream()
+    Pageable pageable = PageRequest.of(page - 1, pageSize);
+    Page<CapsuleEntity> pageResult = capsules.findByOwnerIdOrderByCreatedAtDesc(user.getId(), pageable);
+    List<CapsuleListItem> dto = pageResult.getContent().stream()
         .map(c -> mapper.listItem(c, user, false, null))
         .toList();
-    return new Paginated<>(items, pagination(all.size(), page, pageSize));
+    return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
   }
 
   public Paginated<CapsuleListItem> myFavorites(UserEntity user, int page, int pageSize) {
     validatePage(page, pageSize);
-    List<FavoriteEntity> all = favorites.findByIdUserIdOrderByCreatedAtDesc(user.getId());
-    Map<String, UserEntity> ownerMap = users.findAll().stream()
-        .collect(Collectors.toMap(UserEntity::getId, Function.identity()));
-    List<CapsuleListItem> items = page(all, page, pageSize).stream()
-        .map(f -> capsules.findById(f.getId().getCapsuleId())
-            .map(c -> mapper.listItem(c, ownerMap.get(c.getOwnerId()), true, f.getCreatedAt()))
-            .orElse(null))
-        .filter(i -> i != null)
-        .toList();
-    return new Paginated<>(items, pagination(all.size(), page, pageSize));
-  }
-
-  private boolean matches(CapsuleEntity c, UserEntity owner, String query) {
-    if (query == null) return true;
-    String title = c.getTitle().toLowerCase(Locale.ROOT);
-    String nickname = owner == null ? "" : owner.getNickname().toLowerCase(Locale.ROOT);
-    return title.contains(query) || nickname.contains(query);
-  }
-
-  private Comparator<CapsuleEntity> comparator(String sort) {
-    if (sort.equals("hot")) {
-      return Comparator.comparingInt(CapsuleEntity::getFavoriteCount).reversed()
-          .thenComparing(CapsuleEntity::getCreatedAt, Comparator.reverseOrder());
+    Pageable pageable = PageRequest.of(page - 1, pageSize);
+    Page<FavoriteEntity> pageResult = favorites.findByIdUserIdOrderByCreatedAtDesc(user.getId(), pageable);
+    List<FavoriteEntity> favs = pageResult.getContent();
+    if (favs.isEmpty()) {
+      return new Paginated<>(List.of(), pagination(pageResult.getTotalElements(), page, pageSize));
     }
-    return Comparator.comparing(CapsuleEntity::getCreatedAt, Comparator.reverseOrder());
+    List<UUID> capsuleIds = favs.stream().map(f -> f.getId().getCapsuleId()).toList();
+    Map<UUID, CapsuleEntity> capsuleMap = capsules.findAllById(capsuleIds).stream()
+        .collect(Collectors.toMap(CapsuleEntity::getId, Function.identity()));
+    Map<UUID, UserEntity> ownerMap = loadOwners(
+        capsuleMap.values().stream().map(CapsuleEntity::getOwnerId).toList());
+
+    List<CapsuleListItem> dto = new ArrayList<>(favs.size());
+    for (FavoriteEntity f : favs) {
+      CapsuleEntity c = capsuleMap.get(f.getId().getCapsuleId());
+      if (c == null) continue;
+      dto.add(mapper.listItem(c, ownerMap.get(c.getOwnerId()), true, f.getCreatedAt()));
+    }
+    return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
   }
 
-  private Set<String> favoriteIds(String viewerId) {
-    if (viewerId == null) return Set.of();
-    return favorites.findByIdUserIdOrderByCreatedAtDesc(viewerId).stream()
+  private Sort sortOf(String sort) {
+    if (sort.equals("hot")) {
+      return Sort.by(Sort.Order.desc("favoriteCount"), Sort.Order.desc("createdAt"));
+    }
+    return Sort.by(Sort.Order.desc("createdAt"));
+  }
+
+  private Map<UUID, UserEntity> loadOwners(List<UUID> ownerIds) {
+    if (ownerIds.isEmpty()) return Map.of();
+    Set<UUID> unique = new HashSet<>(ownerIds);
+    Map<UUID, UserEntity> map = new HashMap<>();
+    for (UserEntity u : users.findAllById(unique)) {
+      map.put(u.getId(), u);
+    }
+    return map;
+  }
+
+  private Set<UUID> loadFavoriteSet(String viewerId, List<UUID> capsuleIds) {
+    if (viewerId == null || capsuleIds.isEmpty()) return Set.of();
+    return favorites.findByIdUserIdAndIdCapsuleIdIn(UUID.fromString(viewerId), capsuleIds).stream()
         .map(f -> f.getId().getCapsuleId())
         .collect(Collectors.toSet());
   }
 
-  private <T> List<T> page(List<T> all, int page, int pageSize) {
-    int start = Math.min((page - 1) * pageSize, all.size());
-    int end = Math.min(start + pageSize, all.size());
-    return all.subList(start, end);
+  private String escapeLike(String input) {
+    return input.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 
   private Pagination pagination(long total, int page, int pageSize) {

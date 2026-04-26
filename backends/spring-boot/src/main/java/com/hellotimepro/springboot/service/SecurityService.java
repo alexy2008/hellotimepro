@@ -42,7 +42,7 @@ public class SecurityService {
     Instant now = Instant.now();
     Instant exp = now.plusSeconds(props.getAccessTokenTtlSeconds());
     return JWT.create()
-        .withSubject(user.getId())
+        .withSubject(user.getId().toString())
         .withClaim("nickname", user.getNickname())
         .withClaim("avatarId", user.getAvatarId())
         .withIssuedAt(Date.from(now))

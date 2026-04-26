@@ -5,18 +5,19 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "refresh_tokens")
 public class RefreshTokenEntity {
   @Id
-  private String id;
+  private UUID id;
   @Column(name = "user_id")
-  private String userId;
+  private UUID userId;
   @Column(name = "token_hash")
   private String tokenHash;
   @Column(name = "family_id")
-  private String familyId;
+  private UUID familyId;
   @Column(name = "expires_at")
   private OffsetDateTime expiresAt;
   @Column(name = "created_at")
@@ -24,14 +25,14 @@ public class RefreshTokenEntity {
   @Column(name = "revoked_at")
   private OffsetDateTime revokedAt;
 
-  public String getId() { return id; }
-  public void setId(String id) { this.id = id; }
-  public String getUserId() { return userId; }
-  public void setUserId(String userId) { this.userId = userId; }
+  public UUID getId() { return id; }
+  public void setId(UUID id) { this.id = id; }
+  public UUID getUserId() { return userId; }
+  public void setUserId(UUID userId) { this.userId = userId; }
   public String getTokenHash() { return tokenHash; }
   public void setTokenHash(String tokenHash) { this.tokenHash = tokenHash; }
-  public String getFamilyId() { return familyId; }
-  public void setFamilyId(String familyId) { this.familyId = familyId; }
+  public UUID getFamilyId() { return familyId; }
+  public void setFamilyId(UUID familyId) { this.familyId = familyId; }
   public OffsetDateTime getExpiresAt() { return expiresAt; }
   public void setExpiresAt(OffsetDateTime expiresAt) { this.expiresAt = expiresAt; }
   public OffsetDateTime getCreatedAt() { return createdAt; }

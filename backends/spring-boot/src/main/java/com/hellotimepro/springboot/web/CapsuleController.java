@@ -41,7 +41,7 @@ public class CapsuleController {
   public Envelope<CapsuleDetail> getByCode(
       @RequestHeader(value = "Authorization", required = false) String authorization,
       @PathVariable String code) {
-    String viewerId = auth.optional(authorization).map(UserEntity::getId).orElse(null);
+    String viewerId = auth.optional(authorization).map(u -> u.getId().toString()).orElse(null);
     return Envelope.ok(capsules.getByCode(code, viewerId));
   }
 }

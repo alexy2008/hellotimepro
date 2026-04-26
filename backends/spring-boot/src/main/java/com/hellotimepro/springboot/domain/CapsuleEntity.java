@@ -5,14 +5,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "capsules")
 public class CapsuleEntity {
   @Id
-  private String id;
+  private UUID id;
   @Column(name = "owner_id")
-  private String ownerId;
+  private UUID ownerId;
   private String code;
   private String title;
   private String content;
@@ -27,10 +28,10 @@ public class CapsuleEntity {
   @Column(name = "updated_at")
   private OffsetDateTime updatedAt;
 
-  public String getId() { return id; }
-  public void setId(String id) { this.id = id; }
-  public String getOwnerId() { return ownerId; }
-  public void setOwnerId(String ownerId) { this.ownerId = ownerId; }
+  public UUID getId() { return id; }
+  public void setId(UUID id) { this.id = id; }
+  public UUID getOwnerId() { return ownerId; }
+  public void setOwnerId(UUID ownerId) { this.ownerId = ownerId; }
   public String getCode() { return code; }
   public void setCode(String code) { this.code = code; }
   public String getTitle() { return title; }

@@ -5,12 +5,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
 public class UserEntity {
   @Id
-  private String id;
+  private UUID id;
   private String email;
   @Column(name = "password_hash")
   private String passwordHash;
@@ -22,8 +23,8 @@ public class UserEntity {
   @Column(name = "updated_at")
   private OffsetDateTime updatedAt;
 
-  public String getId() { return id; }
-  public void setId(String id) { this.id = id; }
+  public UUID getId() { return id; }
+  public void setId(UUID id) { this.id = id; }
   public String getEmail() { return email; }
   public void setEmail(String email) { this.email = email; }
   public String getPasswordHash() { return passwordHash; }

@@ -11,6 +11,7 @@ import com.hellotimepro.springboot.repository.FavoriteRepository;
 import com.hellotimepro.springboot.web.ApiException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +36,7 @@ public class FavoriteService {
     FavoriteId id = new FavoriteId(user.getId(), capsule.getId());
     FavoriteEntity existing = favorites.findById(id).orElse(null);
     if (existing != null) {
-      return new FavoriteResult(capsule.getId(), capsule.getFavoriteCount(), existing.getCreatedAt());
+      return new FavoriteResult(capsule.getId().toString(), capsule.getFavoriteCount(), existing.getCreatedAt());
     }
 
     OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
@@ -43,29 +44,30 @@ public class FavoriteService {
     favorite.setId(id);
     favorite.setCreatedAt(now);
     favorites.save(favorite);
-    capsule.setFavoriteCount(capsule.getFavoriteCount() + 1);
-    capsules.save(capsule);
-    return new FavoriteResult(capsule.getId(), capsule.getFavoriteCount(), now);
+    capsules.incrementFavoriteCount(capsule.getId());
+    int newCount = capsules.findById(capsule.getId())
+        .map(CapsuleEntity::getFavoriteCount)
+        .orElse(capsule.getFavoriteCount() + 1);
+    return new FavoriteResult(capsule.getId().toString(), newCount, now);
   }
 
   @Transactional
   public void removeFavorite(UserEntity user, String capsuleId) {
-    CapsuleEntity capsule = capsules.findById(capsuleId).orElse(null);
+    UUID uuid = UUID.fromString(capsuleId);
+    CapsuleEntity capsule = capsules.findById(uuid).orElse(null);
     if (capsule == null) return;
     FavoriteId id = new FavoriteId(user.getId(), capsule.getId());
     if (favorites.existsById(id)) {
       favorites.deleteById(id);
-      if (capsule.getFavoriteCount() > 0) {
-        capsule.setFavoriteCount(capsule.getFavoriteCount() - 1);
-        capsules.save(capsule);
-      }
+      capsules.decrementFavoriteCount(capsule.getId());
     }
   }
 
   private CapsuleEntity lockCapsule(String id) {
+    UUID uuid = UUID.fromString(id);
     if ("postgres".equals(props.getDbDriver())) {
-      return capsules.findByIdForUpdate(id).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
+      return capsules.findByIdForUpdate(uuid).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
     }
-    return capsules.findById(id).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
+    return capsules.findById(uuid).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
   }
 }

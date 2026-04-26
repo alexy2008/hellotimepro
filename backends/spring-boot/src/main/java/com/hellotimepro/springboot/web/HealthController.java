@@ -34,7 +34,7 @@ public class HealthController {
         new StackItem("language", "Java", Runtime.version().feature() + "", "/static/icons/java.svg"),
         new StackItem("framework", "Spring Boot", SpringBootVersion.getVersion(), "/static/icons/springboot.svg"),
         new StackItem("database", dbName, props.getDbDriver().equals("sqlite") ? "3" : "16", "/static/icons/" + dbIcon + ".svg"),
-        new StackItem("orm", "Hibernate", Version.getVersionString(), null)
+        new StackItem("orm", "Hibernate", Version.getVersionString(), "/static/icons/hibernate.svg")
     );
     long uptime = ManagementFactory.getRuntimeMXBean().getUptime() / 1000;
     HealthData data = new HealthData("ok", props.getServiceName(), props.getServiceVersion(),

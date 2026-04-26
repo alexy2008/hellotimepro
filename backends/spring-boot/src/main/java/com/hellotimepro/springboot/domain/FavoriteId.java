@@ -4,25 +4,26 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.UUID;
 
 @Embeddable
 public class FavoriteId implements Serializable {
   @Column(name = "user_id")
-  private String userId;
+  private UUID userId;
   @Column(name = "capsule_id")
-  private String capsuleId;
+  private UUID capsuleId;
 
   public FavoriteId() {}
 
-  public FavoriteId(String userId, String capsuleId) {
+  public FavoriteId(UUID userId, UUID capsuleId) {
     this.userId = userId;
     this.capsuleId = capsuleId;
   }
 
-  public String getUserId() { return userId; }
-  public void setUserId(String userId) { this.userId = userId; }
-  public String getCapsuleId() { return capsuleId; }
-  public void setCapsuleId(String capsuleId) { this.capsuleId = capsuleId; }
+  public UUID getUserId() { return userId; }
+  public void setUserId(UUID userId) { this.userId = userId; }
+  public UUID getCapsuleId() { return capsuleId; }
+  public void setCapsuleId(UUID capsuleId) { this.capsuleId = capsuleId; }
 
   @Override
   public boolean equals(Object o) {

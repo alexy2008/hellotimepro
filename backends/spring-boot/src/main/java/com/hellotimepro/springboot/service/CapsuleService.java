@@ -46,7 +46,7 @@ public class CapsuleService {
       String code = generateCode();
       if (capsules.existsByCode(code)) continue;
       CapsuleEntity capsule = new CapsuleEntity();
-      capsule.setId(UUID.randomUUID().toString());
+      capsule.setId(UUID.randomUUID());
       capsule.setOwnerId(owner.getId());
       capsule.setCode(code);
       capsule.setTitle(req.title());
@@ -56,7 +56,7 @@ public class CapsuleService {
       capsule.setFavoriteCount(0);
       capsule.setCreatedAt(now);
       capsule.setUpdatedAt(now);
-      return mapper.detail(capsules.saveAndFlush(capsule), owner, owner.getId(), true);
+      return mapper.detail(capsules.saveAndFlush(capsule), owner, owner.getId().toString(), true);
     }
     throw new IllegalStateException("生成唯一码失败");
   }
@@ -73,7 +73,7 @@ public class CapsuleService {
   }
 
   public CapsuleDetail getPlazaDetail(String id, String viewerId) {
-    CapsuleEntity capsule = capsules.findById(id).filter(CapsuleEntity::isInPlaza)
+    CapsuleEntity capsule = capsules.findById(UUID.fromString(id)).filter(CapsuleEntity::isInPlaza)
         .orElseThrow(() -> ApiException.notFound("胶囊不存在"));
     UserEntity owner = users.findById(capsule.getOwnerId())
         .orElseThrow(() -> ApiException.notFound("胶囊不存在"));
@@ -82,9 +82,10 @@ public class CapsuleService {
 
   @Transactional
   public void deleteOwn(UserEntity user, String id) {
-    CapsuleEntity capsule = capsules.findById(id).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
+    UUID uuid = UUID.fromString(id);
+    CapsuleEntity capsule = capsules.findById(uuid).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
     if (!capsule.getOwnerId().equals(user.getId())) throw ApiException.forbidden("无权删除他人胶囊");
-    favorites.deleteByIdCapsuleId(id);
+    favorites.deleteByIdCapsuleId(uuid);
     capsules.delete(capsule);
   }
 
