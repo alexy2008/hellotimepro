@@ -136,24 +136,65 @@ a:hover {
   box-shadow: var(--shadow-md);
 }
 
-/* 未开启：呼吸光晕 + 霓虹青边 */
-.cy-capsule--sealed {
+/* 未开启 / 已开启：共享底色、顶部横条，仅颜色不同；呼吸效果仅 hover 触发 */
+.cy-capsule--sealed,
+.cy-capsule--opened {
   background: var(--color-capsule-sealed-bg), var(--color-plaza-card-bg);
+  overflow: hidden;
+  padding-top: calc(var(--space-5) + 3px);
+}
+
+.cy-capsule--sealed {
   border-color: var(--color-capsule-sealed-border);
   box-shadow: var(--color-capsule-sealed-glow);
+}
+
+.cy-capsule--sealed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--color-capsule-sealed-border) 25%,
+    var(--color-capsule-sealed-accent) 50%,
+    var(--color-capsule-sealed-border) 75%,
+    transparent 100%);
+}
+
+.cy-capsule--opened {
+  border-color: var(--color-capsule-opened-border);
+  box-shadow: var(--color-capsule-opened-glow);
+}
+
+.cy-capsule--opened::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--color-capsule-opened-border) 25%,
+    var(--color-capsule-opened-accent) 50%,
+    var(--color-capsule-opened-border) 75%,
+    transparent 100%);
+}
+
+.cy-capsule--sealed:hover,
+.cy-capsule--opened:hover {
   animation: cy-breath var(--duration-breath) var(--ease-standard) infinite;
 }
 
 .cy-capsule--sealed:hover {
-  animation-play-state: paused;
   box-shadow: 0 0 36px rgba(20, 212, 240, 0.6);
 }
 
-/* 已开启：静态暖光 + 品红边 */
-.cy-capsule--opened {
-  background: var(--color-capsule-opened-bg), var(--color-plaza-card-bg);
-  border-color: var(--color-capsule-opened-border);
-  box-shadow: var(--color-capsule-opened-glow);
+.cy-capsule--opened:hover {
+  box-shadow: 0 0 36px rgba(94, 212, 154, 0.5);
 }
 
 /* ------------------------------------------------------------
@@ -375,7 +416,7 @@ a:hover {
 }
 
 .cy-badge--opened {
-  background: var(--color-capsule-opened-bg);
+  background: var(--color-capsule-opened-subtle);
   color: var(--color-capsule-opened-accent);
   border: 1px solid var(--color-capsule-opened-border);
 }

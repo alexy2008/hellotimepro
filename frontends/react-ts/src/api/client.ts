@@ -198,10 +198,6 @@ export const api = {
     request<CapsuleDetail>(`/api/v1/capsules/${encodeURIComponent(code)}`, {
       auth: true,
     }),
-  capsuleById: (id: string) =>
-    request<CapsuleDetail>(`/api/v1/plaza/capsules/${encodeURIComponent(id)}`, {
-      auth: true,
-    }),
 
   // ---- 广场
   plaza: (q: PlazaQuery = {}) => {

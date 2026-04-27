@@ -45,9 +45,17 @@ def _apply_query(stmt: Select, q: str | None) -> Select:
     )
 
 
+def _content_preview(c: Capsule, opened: bool) -> str | None:
+    if not opened or not c.content:
+        return None
+    raw = c.content.strip()
+    return raw[:80] + "…" if len(raw) > 80 else raw
+
+
 def _to_item(
     c: Capsule, owner: User, *, favorited_by_me: bool, favorited_at: datetime | None = None
 ) -> CapsuleListItem:
+    opened = c.open_at <= _now()
     return CapsuleListItem(
         id=c.id,
         code=c.code,
@@ -57,9 +65,10 @@ def _to_item(
         createdAt=c.created_at,
         inPlaza=c.in_plaza,
         favoriteCount=c.favorite_count,
-        isOpened=c.open_at <= _now(),
+        isOpened=opened,
         favoritedByMe=favorited_by_me,
         favoritedAt=favorited_at,
+        contentPreview=_content_preview(c, opened),
     )
 
 

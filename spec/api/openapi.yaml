@@ -248,7 +248,7 @@ components:
           description: 服务端计算：`openAt <= now`
 
     CapsuleList:
-      description: 广场 / "我创建的" / "我收藏的" 列表项；**不含 content**
+      description: 广场 / "我创建的" / "我收藏的" 列表项；含 `contentPreview`，**不含完整 content**
       allOf:
         - $ref: '#/components/schemas/CapsuleBase'
         - type: object
@@ -262,6 +262,11 @@ components:
               format: date-time
               nullable: true
               description: 仅在 `/me/favorites` 列表中出现（当前用户收藏该胶囊的时间）
+            contentPreview:
+              type: string
+              nullable: true
+              maxLength: 81
+              description: 已开启胶囊的正文前 80 字符（超出追加 `…`）；未开启或无内容返回 null
 
     CapsuleDetail:
       description: 按 code / 按 id 查询单个胶囊；未到期 `content=null`

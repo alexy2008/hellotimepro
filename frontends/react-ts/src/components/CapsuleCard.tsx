@@ -37,7 +37,7 @@ export function CapsuleCard({
           {opened ? "已开启" : "未开启"}
         </span>
         <Link
-          to={opened ? `/p/${capsule.id}` : `/c/${capsule.code}`}
+          to={`/c/${capsule.code}`}
           className="cy-capsule__code"
           style={{ textDecoration: "none" }}
         >
@@ -46,7 +46,7 @@ export function CapsuleCard({
       </div>
 
       <Link
-        to={opened ? `/p/${capsule.id}` : `/c/${capsule.code}`}
+        to={`/c/${capsule.code}`}
         style={{ textDecoration: "none", color: "inherit" }}
       >
         <h3 className="cy-capsule__title">{capsule.title}</h3>
@@ -57,6 +57,9 @@ export function CapsuleCard({
           ⏳ 还剩 {fmtNumber(cd.days)} 天 · {String(cd.hours).padStart(2, "0")}:
           {String(cd.minutes).padStart(2, "0")}:{String(cd.seconds).padStart(2, "0")}
         </p>
+      )}
+      {opened && capsule.contentPreview && (
+        <p className="cy-capsule__preview">{capsule.contentPreview}</p>
       )}
 
       <div className="cy-capsule__meta">

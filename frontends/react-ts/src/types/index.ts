@@ -62,6 +62,7 @@ export interface CapsuleBase {
 export interface CapsuleListItem extends CapsuleBase {
   favoritedByMe: boolean;
   favoritedAt?: string | null;
+  contentPreview?: string | null;
 }
 
 export interface CapsuleDetail extends CapsuleBase {

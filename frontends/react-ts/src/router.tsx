@@ -10,7 +10,6 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { CreatePage } from "@/pages/CreatePage";
 import { CapsuleByCodePage } from "@/pages/CapsuleByCodePage";
-import { CapsuleByIdPage } from "@/pages/CapsuleByIdPage";
 import { MeCreatedPage } from "@/pages/MeCreatedPage";
 import { MeFavoritesPage } from "@/pages/MeFavoritesPage";
 import { MeProfilePage } from "@/pages/MeProfilePage";
@@ -34,7 +33,6 @@ export const router = createBrowserRouter([
         ),
       },
       { path: "/c/:code", element: <CapsuleByCodePage /> },
-      { path: "/p/:id", element: <CapsuleByIdPage /> },
     ],
   },
   {

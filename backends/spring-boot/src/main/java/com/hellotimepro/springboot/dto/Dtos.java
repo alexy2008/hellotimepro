@@ -116,7 +116,8 @@ public final class Dtos {
       int favoriteCount,
       boolean isOpened,
       boolean favoritedByMe,
-      OffsetDateTime favoritedAt
+      OffsetDateTime favoritedAt,
+      String contentPreview
   ) {}
 
   public record FavoriteResult(String capsuleId, int favoriteCount, OffsetDateTime favoritedAt) {}

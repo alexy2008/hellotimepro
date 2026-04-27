@@ -117,7 +117,27 @@ export function CapsuleDetail({
       <h1 className="cy-capsule-detail__title">{capsule.title}</h1>
 
       {opened && capsule.content !== null ? (
-        <div className="cy-capsule-detail__content">{capsule.content}</div>
+        <>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-2)",
+              marginBottom: "var(--space-4)",
+              fontSize: "var(--font-size-sm)",
+              color: "var(--color-text-muted)",
+            }}
+          >
+            <span>🔓</span>
+            <span>
+              开启于{" "}
+              <strong style={{ color: "var(--color-capsule-opened-accent)" }}>
+                {fmtDateTime(capsule.openAt)}
+              </strong>
+            </span>
+          </div>
+          <div className="cy-capsule-detail__content">{capsule.content}</div>
+        </>
       ) : (
         <div className="cy-capsule-detail__sealed">
           <div style={{ fontSize: "var(--font-size-4xl)", opacity: 0.7 }}>🔒</div>

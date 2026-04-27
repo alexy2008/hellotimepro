@@ -25,6 +25,7 @@ class CapsuleBase(BaseModel):
 class CapsuleListItem(CapsuleBase):
     favoritedByMe: bool = False
     favoritedAt: datetime | None = None
+    contentPreview: str | None = None
 
 
 class CapsuleDetail(CapsuleBase):

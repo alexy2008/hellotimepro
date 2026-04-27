@@ -100,6 +100,7 @@
   --color-capsule-opened-bg:       linear-gradient(135deg,
                                      rgba(26, 168, 102, 0.14),
                                      rgba(94, 212, 154, 0.07));
+  --color-capsule-opened-subtle:   var(--success-900);
   --color-capsule-opened-border:   var(--success-500);
   --color-capsule-opened-accent:   var(--success-300);
   --color-capsule-opened-glow:     0 0 18px rgba(94, 212, 154, 0.38);
@@ -193,6 +194,7 @@
   --color-capsule-opened-bg:       linear-gradient(135deg,
                                      rgba(26, 168, 102, 0.08),
                                      rgba(94, 212, 154, 0.04));
+  --color-capsule-opened-subtle:   var(--success-100);
   --color-capsule-opened-border:   var(--success-600);
   --color-capsule-opened-accent:   var(--success-700);
   --color-capsule-opened-glow:     0 0 12px rgba(94, 212, 154, 0.20);

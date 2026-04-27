@@ -44,6 +44,11 @@ public class MapperService {
 
   public CapsuleListItem listItem(CapsuleEntity c, UserEntity owner, boolean favorited, OffsetDateTime favoritedAt) {
     boolean opened = c.getOpenAt().isBefore(now()) || c.getOpenAt().isEqual(now());
+    String preview = null;
+    if (opened && c.getContent() != null) {
+      String raw = c.getContent().strip();
+      preview = raw.length() > 80 ? raw.substring(0, 80) + "…" : raw;
+    }
     return new CapsuleListItem(
         c.getId().toString(),
         c.getCode(),
@@ -55,7 +60,8 @@ public class MapperService {
         c.getFavoriteCount(),
         opened,
         favorited,
-        favoritedAt);
+        favoritedAt,
+        preview);
   }
 
   private OffsetDateTime now() {
