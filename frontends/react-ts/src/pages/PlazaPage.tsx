@@ -34,9 +34,16 @@ export function PlazaPage() {
           </p>
           <div className="cy-hero-cta">
             <Link className="cy-btn cy-btn--primary cy-btn--hero" to={user ? "/create" : "/register"}>
-              创建我的胶囊 →
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/>
+              </svg>
+              创建我的胶囊
             </Link>
             <Link className="cy-btn cy-btn--success cy-btn--hero" to="/open">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+              </svg>
               用胶囊码开启
             </Link>
           </div>

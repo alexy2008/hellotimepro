@@ -118,6 +118,19 @@
                                 rgba(20, 212, 240, 0.15),
                                 rgba(255, 79, 160, 0.10),
                                 rgba(94, 212, 154, 0.08));
+
+  /* ===== 渐变（流光组件） ===================================== */
+  --gradient-primary-flow:    linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-signal-primary) 50%, var(--color-brand-primary) 100%);
+  --gradient-primary-flow-h:  linear-gradient(90deg, var(--color-brand-primary) 0%, var(--color-signal-primary) 50%, var(--color-brand-primary) 100%);
+  
+  --gradient-success-flow:    linear-gradient(135deg, var(--color-success-solid) 0%, var(--color-capsule-opened-accent) 50%, var(--color-success-solid) 100%);
+  --gradient-success-flow-h:  linear-gradient(90deg, var(--color-success-solid) 0%, var(--color-capsule-opened-accent) 50%, var(--color-success-solid) 100%);
+
+  --gradient-cyber-flow:      linear-gradient(135deg, var(--color-signal-primary) 0%, var(--color-accent-primary) 50%, var(--color-success-solid) 100%);
+  --gradient-cyber-flow-h:    linear-gradient(90deg, var(--color-signal-primary) 0%, var(--color-accent-primary) 50%, var(--color-success-solid) 100%);
+
+  --gradient-mint-flow:       linear-gradient(135deg, var(--color-success-solid) 0%, var(--color-brand-primary) 50%, var(--color-success-solid) 100%);
+  --gradient-mint-flow-h:     linear-gradient(90deg, var(--color-success-solid) 0%, var(--color-brand-primary) 50%, var(--color-success-solid) 100%);
 }
 
 /* ------------------------------------------------------------
@@ -210,6 +223,18 @@
                                 rgba(20, 212, 240, 0.10),
                                 rgba(255, 45, 145, 0.07),
                                 rgba(26, 168, 102, 0.06));
+
+  --gradient-primary-flow:    linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-signal-primary) 50%, var(--color-brand-primary) 100%);
+  --gradient-primary-flow-h:  linear-gradient(90deg, var(--color-brand-primary) 0%, var(--color-signal-primary) 50%, var(--color-brand-primary) 100%);
+  
+  --gradient-success-flow:    linear-gradient(135deg, var(--color-success-solid) 0%, var(--color-capsule-opened-accent) 50%, var(--color-success-solid) 100%);
+  --gradient-success-flow-h:  linear-gradient(90deg, var(--color-success-solid) 0%, var(--color-capsule-opened-accent) 50%, var(--color-success-solid) 100%);
+
+  --gradient-cyber-flow:      linear-gradient(135deg, var(--color-signal-primary) 0%, var(--color-accent-primary) 50%, var(--color-success-solid) 100%);
+  --gradient-cyber-flow-h:    linear-gradient(90deg, var(--color-signal-primary) 0%, var(--color-accent-primary) 50%, var(--color-success-solid) 100%);
+
+  --gradient-mint-flow:       linear-gradient(135deg, var(--color-success-solid) 0%, var(--color-brand-primary) 50%, var(--color-success-solid) 100%);
+  --gradient-mint-flow-h:     linear-gradient(90deg, var(--color-success-solid) 0%, var(--color-brand-primary) 50%, var(--color-success-solid) 100%);
 }
 
 /* ------------------------------------------------------------

@@ -139,13 +139,19 @@ a:hover {
 /* 未开启 / 已开启：共享底色、顶部横条，仅颜色不同；呼吸效果仅 hover 触发 */
 .cy-capsule--sealed,
 .cy-capsule--opened {
-  background: var(--color-capsule-sealed-bg), var(--color-plaza-card-bg);
+  position: relative;
   overflow: hidden;
-  padding-top: calc(var(--space-5) + 3px);
+  padding-top: calc(var(--space-5) + 4px);
+  border: 1px solid transparent;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .cy-capsule--sealed {
-  border-color: var(--color-capsule-sealed-border);
+  background: 
+    var(--color-capsule-sealed-bg) padding-box,
+    linear-gradient(var(--color-plaza-card-bg), var(--color-plaza-card-bg)) padding-box,
+    var(--gradient-cyber-flow) border-box;
   box-shadow: var(--color-capsule-sealed-glow);
 }
 
@@ -155,17 +161,17 @@ a:hover {
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--color-capsule-sealed-border) 25%,
-    var(--color-capsule-sealed-accent) 50%,
-    var(--color-capsule-sealed-border) 75%,
-    transparent 100%);
+  height: 4px;
+  background: var(--gradient-cyber-flow-h);
+  background-size: 200% 100%;
+  animation: cy-gradient-flow 4s linear infinite;
 }
 
 .cy-capsule--opened {
-  border-color: var(--color-capsule-opened-border);
+  background: 
+    var(--color-capsule-opened-bg) padding-box,
+    linear-gradient(var(--color-plaza-card-bg), var(--color-plaza-card-bg)) padding-box,
+    var(--gradient-mint-flow) border-box;
   box-shadow: var(--color-capsule-opened-glow);
 }
 
@@ -175,13 +181,10 @@ a:hover {
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--color-capsule-opened-border) 25%,
-    var(--color-capsule-opened-accent) 50%,
-    var(--color-capsule-opened-border) 75%,
-    transparent 100%);
+  height: 4px;
+  background: var(--gradient-mint-flow-h);
+  background-size: 200% 100%;
+  animation: cy-gradient-flow 4s linear infinite;
 }
 
 .cy-capsule--sealed:hover,
