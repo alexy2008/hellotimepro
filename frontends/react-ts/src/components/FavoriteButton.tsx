@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/stores/auth";
 import { usePlaza } from "@/stores/plaza";
@@ -23,6 +23,13 @@ export function FavoriteButton({ capsule, size = "sm", onChange }: Props) {
   const [count, setCount] = useState(capsule.favoriteCount);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // props 变化时同步本地 state——避免父组件外部更新（如详情页 / store patch）
+  // 后，本组件仍显示旧值。
+  useEffect(() => {
+    setActive(capsule.favoritedByMe);
+    setCount(capsule.favoriteCount);
+  }, [capsule.id, capsule.favoritedByMe, capsule.favoriteCount]);
 
   async function toggle() {
     setErr(null);

@@ -4,6 +4,7 @@ import { usePlaza } from "@/stores/plaza";
 import { useAuth } from "@/stores/auth";
 import { PlazaToolbar } from "@/components/PlazaToolbar";
 import { CapsuleGrid } from "@/components/CapsuleGrid";
+import { Pagination } from "@/components/Pagination";
 import { fmtNumber } from "@/utils/format";
 
 export function PlazaPage() {
@@ -70,37 +71,13 @@ export function PlazaPage() {
           }
         />
 
-        {pagination && pagination.totalPages > 1 && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "var(--space-3)",
-              margin: "var(--space-10) 0 var(--space-6)",
-            }}
-          >
-            <button
-              type="button"
-              className="cy-btn cy-btn--ghost cy-btn--sm"
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-            >
-              上一页
-            </button>
-            <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
-              第 {page} / {pagination.totalPages} 页 · 共 {fmtNumber(pagination.total)} 条
-            </span>
-            <button
-              type="button"
-              className="cy-btn cy-btn--ghost cy-btn--sm"
-              disabled={page >= pagination.totalPages}
-              onClick={() => setPage(page + 1)}
-            >
-              下一页
-            </button>
-          </div>
-        )}
+        <Pagination
+          page={page}
+          totalPages={pagination?.totalPages ?? 0}
+          onChange={setPage}
+          extra={pagination ? `共 ${fmtNumber(pagination.total)} 条` : undefined}
+          margin="var(--space-10) 0 var(--space-6)"
+        />
       </main>
     </>
   );

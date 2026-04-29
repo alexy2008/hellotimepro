@@ -32,6 +32,10 @@ interface PlazaState {
   patchFavorited: (capsuleId: string, favorited: boolean, count: number) => void;
 }
 
+// 请求序列号：fetch 内仅在自身是「最新发起」时才回写结果，避免乱序覆盖。
+// 用闭包变量而非 store state，避免触发额外的订阅 re-render。
+let fetchSeq = 0;
+
 export const usePlaza = create<PlazaState>()((set, get) => ({
   sort: "new",
   filter: "all",
@@ -62,6 +66,7 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
   },
 
   fetch: async () => {
+    const myId = ++fetchSeq;
     const { sort, filter, q, page, pageSize } = get();
     set({ loading: true, error: null });
     try {
@@ -72,12 +77,15 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
         page,
         pageSize,
       });
+      // 落后的请求直接丢弃，避免覆盖更新的结果
+      if (myId !== fetchSeq) return;
       set({
         items: data.items,
         pagination: data.pagination,
         loading: false,
       });
     } catch (e) {
+      if (myId !== fetchSeq) return;
       set({
         loading: false,
         error: e instanceof Error ? e.message : "加载失败",

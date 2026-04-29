@@ -30,23 +30,8 @@ export function CapsuleByCodePage() {
   );
 
   useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    api
-      .capsuleByCode(code.toUpperCase())
-      .then((c) => {
-        if (alive) setCap(c);
-      })
-      .catch((e) => {
-        if (alive) setErr(e instanceof ApiError ? e.message : "胶囊不存在");
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [code]);
+    void loadCapsule();
+  }, [loadCapsule]);
 
   return (
     <main className="cy-container">

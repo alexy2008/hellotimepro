@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/client";
-import type { CapsuleListItem, Pagination } from "@/types";
+import type { CapsuleListItem, Pagination as PaginationT } from "@/types";
 import { CapsuleGrid } from "@/components/CapsuleGrid";
+import { Pagination } from "@/components/Pagination";
 
 const PAGE_SIZE = 15;
 
 export function MeFavoritesPage() {
   const [items, setItems] = useState<CapsuleListItem[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [pagination, setPagination] = useState<PaginationT | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
@@ -51,37 +52,11 @@ export function MeFavoritesPage() {
         }
       />
 
-      {pagination && pagination.totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "var(--space-3)",
-            margin: "var(--space-8) 0",
-          }}
-        >
-          <button
-            type="button"
-            className="cy-btn cy-btn--ghost cy-btn--sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            上一页
-          </button>
-          <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
-            第 {page} / {pagination.totalPages} 页
-          </span>
-          <button
-            type="button"
-            className="cy-btn cy-btn--ghost cy-btn--sm"
-            disabled={page >= pagination.totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            下一页
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={pagination?.totalPages ?? 0}
+        onChange={setPage}
+      />
     </>
   );
 }

@@ -21,7 +21,8 @@ export function CapsuleCard({
   const opened = capsule.isOpened;
 
   // 倒计时（仅未开启卡片需要每秒刷新）
-  const [tick, setTick] = useState(0);
+  // setTick 仅用于触发 re-render，不向 DOM 暴露其值。
+  const [, setTick] = useState(0);
   useEffect(() => {
     if (opened) return;
     const t = window.setInterval(() => setTick((x) => x + 1), 1000);
@@ -53,7 +54,7 @@ export function CapsuleCard({
       </Link>
 
       {!opened && (
-        <p className="cy-capsule__countdown" data-tick={tick}>
+        <p className="cy-capsule__countdown">
           ⏳ 还剩 {fmtNumber(cd.days)} 天 · {String(cd.hours).padStart(2, "0")}:
           {String(cd.minutes).padStart(2, "0")}:{String(cd.seconds).padStart(2, "0")}
         </p>
