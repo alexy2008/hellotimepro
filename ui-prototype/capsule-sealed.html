@@ -23,10 +23,20 @@
       <button class="cy-theme-toggle" data-theme-toggle aria-label="切换主题">
         <span data-theme-toggle-icon>☾</span>
       </button>
-      <a class="cy-user-chip" href="me-created.html">
-        <span>specter</span>
-        <img src="../spec/avatars/specter.svg" alt="">
-      </a>
+      <div class="cy-user-menu">
+        <button class="cy-user-chip cy-user-chip--button">
+          <span>specter</span>
+          <img src="../spec/avatars/specter.svg" alt="">
+          <span class="cy-user-chip__chevron">▾</span>
+        </button>
+        <div class="cy-user-dropdown" style="display:none">
+          <a class="cy-user-dropdown__item" href="me-created.html">📝 我创建的</a>
+          <a class="cy-user-dropdown__item" href="me-favorites.html">♥ 我收藏的</a>
+          <a class="cy-user-dropdown__item" href="me-profile.html">⚙ 账号设置</a>
+          <span class="cy-user-dropdown__divider"></span>
+          <a class="cy-user-dropdown__item cy-user-dropdown__item--danger" href="login.html">登出</a>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -46,12 +56,41 @@
       <div style="color: var(--color-text-secondary); margin-top: var(--space-3); font-size: var(--font-size-sm); letter-spacing: 0.1em">
         这封信还在上锁，将在以下时刻开启
       </div>
-      <div class="cy-countdown" style="font-size: var(--font-size-5xl); margin: var(--space-4) 0">
-        3,507 <span style="font-size: 0.4em; color: var(--color-text-muted)">天</span>
-        04 <span style="font-size: 0.4em; color: var(--color-text-muted)">时</span>
-        22 <span style="font-size: 0.4em; color: var(--color-text-muted)">分</span>
-        18 <span style="font-size: 0.4em; color: var(--color-text-muted)">秒</span>
+
+      <div class="cy-cal">
+        <div class="cy-cal-unit">
+          <div class="cy-cal-card">
+            <div class="cy-cal-crease"></div>
+            <span class="cy-cal-num">3507</span>
+          </div>
+          <span class="cy-cal-label">天</span>
+        </div>
+        <span class="cy-cal-sep">:</span>
+        <div class="cy-cal-unit">
+          <div class="cy-cal-card">
+            <div class="cy-cal-crease"></div>
+            <span class="cy-cal-num">04</span>
+          </div>
+          <span class="cy-cal-label">时</span>
+        </div>
+        <span class="cy-cal-sep">:</span>
+        <div class="cy-cal-unit">
+          <div class="cy-cal-card">
+            <div class="cy-cal-crease"></div>
+            <span class="cy-cal-num">22</span>
+          </div>
+          <span class="cy-cal-label">分</span>
+        </div>
+        <span class="cy-cal-sep">:</span>
+        <div class="cy-cal-unit">
+          <div class="cy-cal-card">
+            <div class="cy-cal-crease"></div>
+            <span class="cy-cal-num">18</span>
+          </div>
+          <span class="cy-cal-label">秒</span>
+        </div>
       </div>
+
       <div style="color: var(--color-text-secondary); font-size: var(--font-size-base)">
         开启于 <strong style="color: var(--color-text-primary)">2036-01-01 00:00:00 (UTC+8)</strong>
       </div>

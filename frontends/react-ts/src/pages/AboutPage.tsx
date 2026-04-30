@@ -1,67 +1,193 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { Alert } from "@/components/Alert";
-import type { HealthData } from "@/types";
+import type { HealthData, StackItem } from "@/types";
+import techMetaRaw from "@spec/tech-meta.json";
 
-const BACKENDS = [
-  { name: "Spring Boot · Java", icon: "/static/icons/springboot.svg" },
-  { name: "FastAPI · Python", icon: "/static/icons/fastapi.svg" },
-  { name: "Gin · Go", icon: "/static/icons/gin.svg" },
-  { name: "Elysia · Bun", icon: "/static/icons/elysia.svg" },
-  { name: "NestJS · Node", icon: "/static/icons/nestjs.svg" },
-  { name: "ASP.NET Core · C#", icon: "/static/icons/aspnet.svg" },
-  { name: "Vapor · Swift", icon: "/static/icons/vapor.svg" },
-  { name: "Axum · Rust", icon: "/static/icons/axum.svg" },
-  { name: "Drogon · C++", icon: "/static/icons/drogon.svg" },
-  { name: "Ktor · Kotlin", icon: "/static/icons/ktor.svg" },
+const techMeta = techMetaRaw as Record<string, { tagline: string; features: string[] }>;
+
+const ROLE_LABEL: Record<string, string> = {
+  language: "语言",
+  framework: "框架",
+  database: "数据库",
+  runtime: "运行时",
+  styling: "样式",
+  template: "模板引擎",
+};
+
+function withMeta(item: Omit<StackItem, "tagline" | "features">): StackItem {
+  const m = techMeta[item.name];
+  return { ...item, tagline: m?.tagline ?? null, features: m?.features ?? null };
+}
+
+const FRONTEND_STACK: StackItem[] = [
+  withMeta({ role: "framework", name: "React", version: "19", iconUrl: "/static/icons/react.svg" }),
+  withMeta({ role: "language", name: "TypeScript", version: "5", iconUrl: "/static/icons/typescript.svg" }),
+  withMeta({
+    role: "styling",
+    name: "Tailwind CSS",
+    version: "4",
+    iconUrl: "/static/icons/tailwindcss.svg",
+  }),
 ];
 
-const FRONTENDS = [
-  { name: "Vue 3 (Composition)", icon: "/static/icons/vue.svg" },
-  { name: "React 19", icon: "/static/icons/react.svg" },
-  { name: "Angular 18", icon: "/static/icons/angular.svg" },
-  { name: "Svelte 5", icon: "/static/icons/svelte.svg" },
-  { name: "SolidJS", icon: "/static/icons/solidjs.svg" },
-];
+function TechCard({ item }: { item: StackItem }) {
+  const roleLabel = ROLE_LABEL[item.role] ?? item.role;
 
-const FULLSTACKS = [
-  { name: "Next.js · App Router", icon: "/static/icons/nextjs.svg" },
-  { name: "Nuxt 3", icon: "/static/icons/nuxt.svg" },
-  { name: "Spring MVC · Thymeleaf", icon: "/static/icons/springboot.svg" },
-  { name: "Laravel · Blade", icon: "/static/icons/laravel.svg" },
-  { name: "Rails · Hotwire", icon: "/static/icons/rails.svg" },
-];
-
-function StackGrid({ items }: { items: { name: string; icon: string }[] }) {
   return (
     <div
+      className="cy-card"
       style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-        gap: "var(--space-3)",
+        display: "flex",
+        gap: "var(--space-6)",
+        alignItems: "flex-start",
+        padding: "var(--space-6)",
       }}
     >
-      {items.map((it) => (
+      <div
+        style={{
+          width: 88,
+          height: 88,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--color-surface-2)",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--color-border-subtle)",
+        }}
+      >
+        {item.iconUrl ? (
+          <img src={item.iconUrl} alt={item.name} style={{ width: 60, height: 60 }} />
+        ) : (
+          <span style={{ fontSize: "var(--font-size-2xl)", color: "var(--color-text-muted)" }}>·</span>
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div
-          key={it.name}
-          className="cy-stack__item"
-          style={{ padding: "var(--space-3)", justifyContent: "flex-start" }}
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            flexWrap: "wrap",
+            gap: "var(--space-2)",
+            marginBottom: "var(--space-2)",
+          }}
         >
-          <img src={it.icon} alt="" /> {it.name}
+          <h3
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--font-size-xl)",
+              margin: 0,
+              color: "var(--color-text-primary)",
+            }}
+          >
+            {item.name}
+          </h3>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "var(--font-size-xs)",
+              padding: "2px 8px",
+              borderRadius: "var(--radius-full)",
+              background: "var(--color-surface-2)",
+              color: "var(--color-brand-primary)",
+              border: "1px solid var(--color-border-subtle)",
+            }}
+          >
+            v{item.version}
+          </span>
+          <span
+            style={{
+              fontSize: "var(--font-size-xs)",
+              padding: "2px 8px",
+              borderRadius: "var(--radius-full)",
+              background: "var(--color-surface-2)",
+              color: "var(--color-text-muted)",
+            }}
+          >
+            {roleLabel}
+          </span>
         </div>
-      ))}
+        {item.tagline && (
+          <p
+            style={{
+              color: "var(--color-text-secondary)",
+              margin: "0 0 var(--space-3)",
+              lineHeight: "var(--line-height-relaxed)",
+            }}
+          >
+            {item.tagline}
+          </p>
+        )}
+        {item.features && item.features.length > 0 && (
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: "var(--space-5)",
+              listStyle: "disc",
+              color: "var(--color-text-secondary)",
+              lineHeight: "var(--line-height-relaxed)",
+              fontSize: "var(--font-size-sm)",
+            }}
+          >
+            {item.features.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
+  );
+}
+
+function StackSection({ title, items }: { title: string; items: StackItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <section style={{ marginBottom: "var(--space-10)" }}>
+      <h2
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "var(--font-size-2xl)",
+          margin: "0 0 var(--space-5)",
+        }}
+      >
+        {title}
+      </h2>
+      <div style={{ display: "grid", gap: "var(--space-4)" }}>
+        {items.map((it) => (
+          <TechCard key={`${it.role}-${it.name}`} item={it} />
+        ))}
+      </div>
+    </section>
   );
 }
 
 export function AboutPage() {
   const [health, setHealth] = useState<HealthData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    api.health().then(setHealth).catch(() => {});
+    api
+      .health()
+      .then(setHealth)
+      .catch((e) => setError(String(e)));
   }, []);
 
+  const backendItems = useMemo(() => {
+    if (!health) return [];
+    const order = ["framework", "language", "database", "styling", "runtime", "template"];
+    return [...health.stack.items].sort(
+      (a, b) => order.indexOf(a.role) - order.indexOf(b.role),
+    );
+  }, [health]);
+
+  const backendKind = health?.stack.kind === "fullstack" ? "全栈" : "后端";
+
   return (
-    <main className="cy-container cy-container--narrow" style={{ margin: "var(--space-12) auto var(--space-16)" }}>
+    <main
+      className="cy-container cy-container--narrow"
+      style={{ margin: "var(--space-12) auto var(--space-16)" }}
+    >
       <h1
         style={{
           fontFamily: "var(--font-display)",
@@ -85,41 +211,42 @@ export function AboutPage() {
         style={{
           color: "var(--color-text-secondary)",
           fontSize: "var(--font-size-lg)",
-          margin: "0 0 var(--space-10)",
+          margin: "0 0 var(--space-8)",
           lineHeight: "var(--line-height-relaxed)",
         }}
       >
-        这是一个<strong style={{ color: "var(--color-text-primary)" }}>多技术栈对比学习项目</strong> —— 同一款时光胶囊 Web 应用，
-        由 10 个后端、5 个前端、5 个全栈框架各自独立实现一遍，像一张可切换的技术雷达。
+        多技术栈对比学习项目 —— 同一款时光胶囊 Web 应用，由若干前后端框架各自实现一遍。
+        本页只介绍<strong style={{ color: "var(--color-text-primary)" }}>当前正在运行的这一组栈</strong>，
+        后端信息从 <code>/api/v1/health</code> 实时上报。
       </p>
 
       <Alert variant="info" style={{ marginBottom: "var(--space-10)" }}>
-        当前页面是 <strong>React 参考前端实现</strong>。后端通过 :9080 反向代理动态切换，无需重启前端。
+        当前前端是 <strong>React + TypeScript</strong> 实现；后端通过 <code>:9080</code> 反向代理动态切换，无需重启前端。
       </Alert>
 
-      <section style={{ marginBottom: "var(--space-12)" }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--font-size-2xl)", margin: "0 0 var(--space-5)" }}>
-          后端 10 栈
-        </h2>
-        <StackGrid items={BACKENDS} />
-      </section>
+      <StackSection title="前端栈" items={FRONTEND_STACK} />
 
-      <section style={{ marginBottom: "var(--space-12)" }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--font-size-2xl)", margin: "0 0 var(--space-5)" }}>
-          前端 5 栈
-        </h2>
-        <StackGrid items={FRONTENDS} />
-      </section>
+      {error && (
+        <Alert variant="danger" style={{ marginBottom: "var(--space-6)" }}>
+          无法读取后端 /health 信息：{error}
+        </Alert>
+      )}
 
-      <section style={{ marginBottom: "var(--space-12)" }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--font-size-2xl)", margin: "0 0 var(--space-5)" }}>
-          全栈 5 框架
-        </h2>
-        <StackGrid items={FULLSTACKS} />
-      </section>
+      {health && (
+        <StackSection
+          title={`${backendKind}栈 · ${health.service} v${health.version}`}
+          items={backendItems}
+        />
+      )}
 
       <div className="cy-card" style={{ marginBottom: "var(--space-10)" }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--font-size-xl)", margin: "0 0 var(--space-4)" }}>
+        <h2
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "var(--font-size-xl)",
+            margin: "0 0 var(--space-4)",
+          }}
+        >
           三条硬约束
         </h2>
         <ul
@@ -127,6 +254,7 @@ export function AboutPage() {
             color: "var(--color-text-secondary)",
             margin: 0,
             paddingLeft: "var(--space-5)",
+            listStyle: "disc",
             lineHeight: "var(--line-height-relaxed)",
           }}
         >
@@ -153,7 +281,9 @@ export function AboutPage() {
           flexWrap: "wrap",
         }}
       >
-        <span>当前后端: <code>{health?.stack.items.find((it) => it.role === "framework")?.name ?? "—"}</code></span>
+        <span>
+          当前后端: <code>{health?.stack.items.find((it) => it.role === "framework")?.name ?? "—"}</code>
+        </span>
         <span>后端版本: <code>{health?.version ?? "—"}</code></span>
         <span>License: MIT</span>
       </div>

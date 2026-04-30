@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 
 import fastapi
-import sqlalchemy
 from fastapi import APIRouter
 
 from app.core.config import settings
@@ -18,33 +18,40 @@ from app.services.avatar_service import load_avatars
 router = APIRouter(tags=["Health"])
 
 _STARTED_AT = time.time()
+_TECH_META: dict = {}
+
+
+def _load_tech_meta() -> None:
+    global _TECH_META
+    path = settings.icons_source_dir.parent / "tech-meta.json"
+    if path.exists():
+        _TECH_META = json.loads(path.read_text(encoding="utf-8"))
+
+
+_load_tech_meta()
+
+
+def _meta(name: str) -> tuple[str | None, list[str] | None]:
+    entry = _TECH_META.get(name)
+    if not entry:
+        return None, None
+    return entry.get("tagline"), entry.get("features")
 
 
 def _build_stack() -> StackInfo:
     py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
     db_name = "PostgreSQL" if settings.db_driver == "postgres" else "SQLite"
     db_ver = "16" if settings.db_driver == "postgres" else "3"
-    items = [
-        StackItem(role="language", name="Python", version=py_ver, iconUrl="/static/icons/python.svg"),
-        StackItem(
-            role="framework",
-            name="FastAPI",
-            version=fastapi.__version__,
-            iconUrl="/static/icons/fastapi.svg",
-        ),
-        StackItem(
-            role="database",
-            name=db_name,
-            version=db_ver,
-            iconUrl=f"/static/icons/{db_name.lower()}.svg",
-        ),
-        StackItem(
-            role="orm",
-            name="SQLAlchemy",
-            version=sqlalchemy.__version__,
-            iconUrl=None,
-        ),
+
+    defs = [
+        ("language", "Python", py_ver, "/static/icons/python.svg"),
+        ("framework", "FastAPI", fastapi.__version__, "/static/icons/fastapi.svg"),
+        ("database", db_name, db_ver, f"/static/icons/{db_name.lower()}.svg"),
     ]
+    items = []
+    for role, name, version, icon_url in defs:
+        tagline, features = _meta(name)
+        items.append(StackItem(role=role, name=name, version=version, iconUrl=icon_url, tagline=tagline, features=features))
     return StackInfo(kind="backend", items=items)
 
 

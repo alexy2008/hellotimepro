@@ -1,0 +1,290 @@
+{
+  "React": {
+    "tagline": "由 Meta 创造的声明式 UI 库，组件化与单向数据流的事实标准",
+    "features": [
+      "函数式组件 + Hooks，状态与副作用就地表达",
+      "Fiber 调度器支持可中断渲染，交互优先",
+      "19 引入 Actions / use() / React Compiler，自动 memo 化",
+      "生态繁荣：Next.js、Remix、React Native 共享同一心智模型"
+    ]
+  },
+  "Vue": {
+    "tagline": "渐进式 JavaScript 框架，模板与响应式系统直观易上手",
+    "features": [
+      "Composition API + <script setup>，逻辑可组合可复用",
+      "基于 Proxy 的响应式系统，依赖自动追踪",
+      "单文件组件 .vue：模板 / 脚本 / 样式三段式",
+      "Vite 一等支持，HMR 与冷启动极快"
+    ]
+  },
+  "Angular": {
+    "tagline": "Google 出品的全功能企业级前端框架，Signals 驱动响应式",
+    "features": [
+      "内置 DI 容器、路由、表单、HTTP 客户端，开箱即用",
+      "TypeScript 一等公民，强类型贯穿全栈",
+      "17+ Signals 响应式原语，无需 Zone.js",
+      "AOT 编译 + 懒加载，首屏性能可控"
+    ]
+  },
+  "Svelte": {
+    "tagline": "编译时消失的前端框架，零运行时开销",
+    "features": [
+      "编译器将组件转成原生 DOM 操作，无虚拟 DOM",
+      "5 引入 Runes，响应式原语统一为 $state / $derived",
+      "语法极简，HTML-first 的组件模型",
+      "SvelteKit 提供一体化路由与 SSR"
+    ]
+  },
+  "SolidJS": {
+    "tagline": "细粒度响应式 + JSX，兼顾 React 的开发体验与 Svelte 的性能",
+    "features": [
+      "真细粒度响应式，DOM 更新精准到单节点",
+      "无虚拟 DOM，无需 diff 算法",
+      "createSignal / createEffect 原语简洁直观",
+      "SolidStart 提供 SSR / SSG / 边缘部署"
+    ]
+  },
+  "TypeScript": {
+    "tagline": "给 JavaScript 加上静态类型的工业级超集",
+    "features": [
+      "渐进式类型系统，可与现存 JS 无缝混合",
+      "强大的类型推断，泛型 / 联合 / 条件类型表达力极佳",
+      "IDE 支持一流：跳转、重命名、自动导入即时反馈",
+      "编译产物即标准 JS，零运行时开销"
+    ]
+  },
+  "Tailwind CSS": {
+    "tagline": "原子化 CSS 工具框架，用设计令牌快速组合稳定界面",
+    "features": [
+      "Utility-first 写法让布局、间距、状态样式直接贴近组件",
+      "v4 原生 CSS-first 配置，配合 Vite 插件构建更轻",
+      "可映射项目语义令牌，避免组件里散落硬编码色值",
+      "响应式、伪类与暗色模式变体内建，适合多前端统一 UI"
+    ]
+  },
+  "FastAPI": {
+    "tagline": "基于 Starlette + Pydantic 的现代异步 Python Web 框架",
+    "features": [
+      "类型注解即文档，自动生成 OpenAPI / Swagger UI",
+      "原生 async/await，由 Uvicorn (ASGI) 驱动",
+      "Pydantic v2 数据校验，性能逼近编译型语言",
+      "依赖注入系统简洁强大，路由即接口契约"
+    ]
+  },
+  "Spring Boot": {
+    "tagline": "Java 生态最主流的企业级 Web 框架，约定优于配置",
+    "features": [
+      "自动配置 + Starter 起步依赖，开箱即用",
+      "内嵌 Tomcat / Netty，jar 即应用",
+      "Spring Data JPA / Security / Actuator 一条龙",
+      "庞大企业生态，LTS 版本长期稳定"
+    ]
+  },
+  "Gin": {
+    "tagline": "Go 生态最流行的高性能 HTTP Web 框架",
+    "features": [
+      "零依赖 + httprouter，路由性能极高",
+      "中间件链简洁可组合",
+      "Go 的静态类型与并发原语天然适合 API 服务",
+      "单二进制部署，启动时间 < 10ms"
+    ]
+  },
+  "Elysia": {
+    "tagline": "为 Bun 量身打造的类型安全 Web 框架",
+    "features": [
+      "端到端类型安全，TypeScript-first API",
+      "基于 Bun 的超高性能 JS 运行时",
+      "插件化架构，Eden 客户端自动推导类型",
+      "内置验证、文档、WebSocket 支持"
+    ]
+  },
+  "NestJS": {
+    "tagline": "Angular 风格的 Node.js 企业级框架，装饰器驱动",
+    "features": [
+      "模块 / 控制器 / 服务三层架构，结构严谨",
+      "内置 DI 容器，可测试性极强",
+      "与 TypeORM / Prisma / GraphQL 深度集成",
+      "底层可换 Express 或 Fastify"
+    ]
+  },
+  "ASP.NET Core": {
+    "tagline": "微软跨平台高性能 Web 框架，C# 生态的现代旗舰",
+    "features": [
+      "Minimal API + Controller 双模式",
+      "内置 DI、中间件管道、Razor Pages",
+      "Kestrel 服务器性能跻身顶级",
+      "原生 AOT 编译，冷启动与内存极优"
+    ]
+  },
+  "Vapor": {
+    "tagline": "Swift 原生 Web 框架，类型安全且性能出色",
+    "features": [
+      "Swift 强类型系统，编译期排除大量错误",
+      "异步非阻塞 I/O，基于 Swift Concurrency (async/await)",
+      "Fluent ORM 支持多种数据库",
+      "与 Apple 生态无缝互通"
+    ]
+  },
+  "Axum": {
+    "tagline": "Rust 生态基于 Tokio + Tower 的异步 Web 框架",
+    "features": [
+      "零成本抽象，内存安全无 GC",
+      "Tower Service 中间件生态共享",
+      "类型驱动路由，提取器编译期校验",
+      "Tokio 生态深度集成：WebSocket、SSE、gRPC"
+    ]
+  },
+  "Drogon": {
+    "tagline": "C++ 异步 HTTP/WebSocket 框架，性能极限选手",
+    "features": [
+      "基于 epoll/kqueue 的异步非阻塞 I/O",
+      "Coroutine 支持简化异步代码",
+      "内置 ORM 与模板引擎",
+      "TechEmpower 基准测试中名列前茅"
+    ]
+  },
+  "Ktor": {
+    "tagline": "JetBrains 出品的 Kotlin 异步 Web 框架",
+    "features": [
+      "Kotlin DSL，路由与中间件声明极简",
+      "Coroutines 原生支持，异步代码如同同步",
+      "可部署为服务器端或 Kotlin Multiplatform",
+      "Exposed ORM 与 Kotlin 类型系统深度绑定"
+    ]
+  },
+  "Python": {
+    "tagline": "优雅、动态、解释型的通用编程语言",
+    "features": [
+      "语法简洁接近伪代码，学习曲线平缓",
+      "庞大的科学计算与 AI 生态：NumPy / PyTorch / Pandas",
+      "Type Hints (PEP 484) 让大型项目也保持类型安全",
+      "asyncio 原生协程，IO 密集任务表现出色"
+    ]
+  },
+  "Java": {
+    "tagline": "运行在 JVM 上的强类型面向对象语言，一次编写处处运行",
+    "features": [
+      "JVM 即时编译 (JIT) + 分代 GC，性能与稳定兼得",
+      "静态强类型 + 泛型，重构与大型协作友好",
+      "成熟企业生态：Spring / Hibernate / Kafka",
+      "21+ 引入虚拟线程 (Project Loom)，并发模型再升级"
+    ]
+  },
+  "Go": {
+    "tagline": "Google 设计的编译型静态语言，简洁与并发是其核心",
+    "features": [
+      "Goroutine + Channel，并发原语轻量直观",
+      "静态编译单二进制，部署极简",
+      "强制代码格式化 (gofmt)，团队一致性好",
+      "垃圾回收低延迟，适合高吞吐服务"
+    ]
+  },
+  "Kotlin": {
+    "tagline": "JetBrains 打造的现代 JVM 语言，Android 官方首选",
+    "features": [
+      "空安全类型系统，消灭 NPE",
+      "协程原生支持，异步代码简洁",
+      "与 Java 100% 互操作，迁移成本低",
+      "数据类、扩展函数、DSL 构建能力极强"
+    ]
+  },
+  "Rust": {
+    "tagline": "没有 GC 的系统级语言，所有权模型保证内存安全",
+    "features": [
+      "编译期所有权检查，无 GC 无 data race",
+      "零成本抽象，性能与 C/C++ 相当",
+      "Cargo 包管理 + 工具链一体化，体验极佳",
+      "WebAssembly 一等支持"
+    ]
+  },
+  "Swift": {
+    "tagline": "Apple 设计的现代安全语言，兼顾 Objective-C 生态",
+    "features": [
+      "值语义 + 可选类型，内存安全不依赖 GC",
+      "async/await 原生并发模型",
+      "ARC 自动内存管理，无 GC 停顿",
+      "Swift Macros 提供编译期代码生成"
+    ]
+  },
+  "C#": {
+    "tagline": "微软主导的多范式静态语言，.NET 生态的核心",
+    "features": [
+      "LINQ 让集合查询声明化",
+      "async/await 是语言级一等公民",
+      "AOT 编译 + NativeAOT 支持极低启动时间",
+      "跨平台：Windows / Linux / macOS / WASM"
+    ]
+  },
+  "C++": {
+    "tagline": "零开销抽象的系统级语言，性能工程的终极工具",
+    "features": [
+      "模板元编程与零成本抽象",
+      "精确控制内存布局与生命周期",
+      "C++20 引入 Coroutines / Concepts / Ranges",
+      "全平台原生编译，无运行时依赖"
+    ]
+  },
+  "PostgreSQL": {
+    "tagline": "功能丰富的开源关系型数据库，号称\"最先进的开源数据库\"",
+    "features": [
+      "完整 ACID + MVCC，强大的查询优化器",
+      "JSONB / 数组 / 全文检索 / GIS (PostGIS) 一应俱全",
+      "逻辑复制、分区表、并行查询",
+      "16 版强化逻辑复制并行性能与查询执行"
+    ]
+  },
+  "SQLite": {
+    "tagline": "嵌入式零配置 SQL 引擎，全球部署量最大的数据库",
+    "features": [
+      "单文件存储，无需独立进程",
+      "完整 SQL92 + 部分 SQL2016 语法",
+      "WAL 模式下并发读写性能优秀",
+      "约 15 万行 C 代码，DO-178B 级测试可靠性"
+    ]
+  },
+  "Hibernate": {
+    "tagline": "Java 生态最经典的 ORM 框架，JPA 规范的事实参考实现",
+    "features": [
+      "JPA / Criteria API，对象到关系的双向映射",
+      "懒加载、一二级缓存，N+1 治理工具齐备",
+      "HQL / 原生 SQL / Native Query 多种查询风格",
+      "与 Spring Data JPA 深度集成，Repository 即数据访问"
+    ]
+  },
+  "SQLAlchemy": {
+    "tagline": "Python 生态主流 ORM，被誉为最严谨的关系映射库",
+    "features": [
+      "Core (表达式) + ORM (对象) 双层 API，按需选择抽象",
+      "支持声明式与命令式两套映射风格",
+      "完善的会话 / 工作单元模式，事务边界清晰",
+      "2.0 全面拥抱 typing 与 async"
+    ]
+  },
+  "Exposed": {
+    "tagline": "JetBrains 出品的 Kotlin-first 轻量 ORM / SQL DSL",
+    "features": [
+      "DSL 模式与 DAO 模式二选一",
+      "Kotlin 类型系统全覆盖，查询编译期校验",
+      "协程原生支持",
+      "与 Ktor 深度集成"
+    ]
+  },
+  "Fluent": {
+    "tagline": "Vapor 配套的 Swift 原生 ORM",
+    "features": [
+      "Model 协议驱动，属性包装器声明字段",
+      "支持 PostgreSQL / MySQL / SQLite / MongoDB",
+      "Migration API 版本化数据库变更",
+      "Query Builder 类型安全无 SQL 注入"
+    ]
+  },
+  "Diesel": {
+    "tagline": "Rust 编译期验证 SQL 的 ORM / Query Builder",
+    "features": [
+      "SQL 语句编译期类型检查，运行时零错误",
+      "无运行时反射，零成本抽象",
+      "支持 PostgreSQL / MySQL / SQLite",
+      "Schema DSL 与迁移工具一体"
+    ]
+  }
+}

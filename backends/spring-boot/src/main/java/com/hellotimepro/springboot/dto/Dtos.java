@@ -122,7 +122,7 @@ public final class Dtos {
 
   public record FavoriteResult(String capsuleId, int favoriteCount, OffsetDateTime favoritedAt) {}
 
-  public record StackItem(String role, String name, String version, String iconUrl) {}
+  public record StackItem(String role, String name, String version, String iconUrl, String tagline, List<String> features) {}
 
   public record StackInfo(String kind, List<StackItem> items) {}
 

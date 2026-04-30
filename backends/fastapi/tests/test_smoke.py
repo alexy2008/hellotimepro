@@ -32,7 +32,10 @@ def test_health(client):
     assert body["success"] is True
     assert body["data"]["service"] == "hellotime-pro"
     assert body["data"]["stack"]["kind"] == "backend"
-    assert any(i["name"] == "FastAPI" for i in body["data"]["stack"]["items"])
+    items = body["data"]["stack"]["items"]
+    fastapi_item = next(i for i in items if i["name"] == "FastAPI")
+    assert fastapi_item["tagline"]
+    assert fastapi_item["features"]
 
 
 def test_avatars(client):

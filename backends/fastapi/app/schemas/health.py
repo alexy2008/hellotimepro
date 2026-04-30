@@ -12,6 +12,8 @@ class StackItem(BaseModel):
     name: str
     version: str
     iconUrl: str | None = None
+    tagline: str | None = None
+    features: list[str] | None = None
 
 
 class StackInfo(BaseModel):

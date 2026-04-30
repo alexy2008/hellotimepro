@@ -2,52 +2,67 @@
 import { computed, onMounted, ref } from "vue";
 import { api } from "@/api/client";
 import Alert from "@/components/Alert.vue";
-import type { HealthData } from "@/types";
+import type { HealthData, StackItem } from "@/types";
+import techMetaRaw from "@spec/tech-meta.json";
 
-const BACKENDS = [
-  { name: "Spring Boot · Java", icon: "/static/icons/springboot.svg" },
-  { name: "FastAPI · Python", icon: "/static/icons/fastapi.svg" },
-  { name: "Gin · Go", icon: "/static/icons/gin.svg" },
-  { name: "Elysia · Bun", icon: "/static/icons/elysia.svg" },
-  { name: "NestJS · Node", icon: "/static/icons/nestjs.svg" },
-  { name: "ASP.NET Core · C#", icon: "/static/icons/aspnet.svg" },
-  { name: "Vapor · Swift", icon: "/static/icons/vapor.svg" },
-  { name: "Axum · Rust", icon: "/static/icons/axum.svg" },
-  { name: "Drogon · C++", icon: "/static/icons/drogon.svg" },
-  { name: "Ktor · Kotlin", icon: "/static/icons/ktor.svg" },
-];
+const techMeta = techMetaRaw as Record<string, { tagline: string; features: string[] }>;
 
-const FRONTENDS = [
-  { name: "Vue 3 (Composition)", icon: "/static/icons/vue.svg" },
-  { name: "React 19", icon: "/static/icons/react.svg" },
-  { name: "Angular 18", icon: "/static/icons/angular.svg" },
-  { name: "Svelte 5", icon: "/static/icons/svelte.svg" },
-  { name: "SolidJS", icon: "/static/icons/solidjs.svg" },
-];
+function withMeta(item: Omit<StackItem, "tagline" | "features">): StackItem {
+  const m = techMeta[item.name];
+  return { ...item, tagline: m?.tagline ?? null, features: m?.features ?? null };
+}
 
-const FULLSTACKS = [
-  { name: "Next.js · App Router", icon: "/static/icons/nextjs.svg" },
-  { name: "Nuxt 3", icon: "/static/icons/nuxt.svg" },
-  { name: "Spring MVC · Thymeleaf", icon: "/static/icons/springboot.svg" },
-  { name: "Laravel · Blade", icon: "/static/icons/laravel.svg" },
-  { name: "Rails · Hotwire", icon: "/static/icons/rails.svg" },
+const ROLE_LABEL: Record<string, string> = {
+  language: "语言",
+  framework: "框架",
+  database: "数据库",
+  runtime: "运行时",
+  styling: "样式",
+  template: "模板引擎",
+};
+
+const FRONTEND_STACK: StackItem[] = [
+  withMeta({ role: "framework", name: "Vue", version: "3", iconUrl: "/static/icons/vue.svg" }),
+  withMeta({ role: "language", name: "TypeScript", version: "5", iconUrl: "/static/icons/typescript.svg" }),
+  withMeta({
+    role: "styling",
+    name: "Tailwind CSS",
+    version: "4",
+    iconUrl: "/static/icons/tailwindcss.svg",
+  }),
 ];
 
 const health = ref<HealthData | null>(null);
+const error = ref<string | null>(null);
 
 onMounted(async () => {
   try {
     health.value = await api.health();
-  } catch {
-    /* noop */
+  } catch (e) {
+    error.value = String(e);
   }
 });
 
-const currentBackend = computed(() => {
-  const it = health.value?.stack.items.find((it) => it.role === "framework");
-  return it?.name ?? "—";
+const backendItems = computed<StackItem[]>(() => {
+  if (!health.value) return [];
+  const order = ["framework", "language", "database", "styling", "runtime", "template"];
+  return [...health.value.stack.items].sort(
+    (a, b) => order.indexOf(a.role) - order.indexOf(b.role),
+  );
 });
+
+const backendKind = computed(() =>
+  health.value?.stack.kind === "fullstack" ? "全栈" : "后端",
+);
+
+const currentBackend = computed(
+  () => health.value?.stack.items.find((it) => it.role === "framework")?.name ?? "—",
+);
 const currentVersion = computed(() => health.value?.version ?? "—");
+
+function roleLabelOf(role: string): string {
+  return ROLE_LABEL[role] ?? role;
+}
 </script>
 
 <template>
@@ -66,66 +81,125 @@ const currentVersion = computed(() => health.value?.version ?? "—");
       </span>
     </h1>
     <p
-      style="color: var(--color-text-secondary); font-size: var(--font-size-lg); margin: 0 0 var(--space-10); line-height: var(--line-height-relaxed)"
+      style="color: var(--color-text-secondary); font-size: var(--font-size-lg); margin: 0 0 var(--space-8); line-height: var(--line-height-relaxed)"
     >
-      这是一个<strong style="color: var(--color-text-primary)">多技术栈对比学习项目</strong> —— 同一款时光胶囊 Web 应用，
-      由 10 个后端、5 个前端、5 个全栈框架各自独立实现一遍，像一张可切换的技术雷达。
+      多技术栈对比学习项目 —— 同一款时光胶囊 Web 应用，由若干前后端框架各自实现一遍。
+      本页只介绍<strong style="color: var(--color-text-primary)">当前正在运行的这一组栈</strong>，
+      后端信息从 <code>/api/v1/health</code> 实时上报。
     </p>
 
     <Alert variant="info" style="margin-bottom: var(--space-10)">
-      当前页面是 <strong>Vue 3 前端实现</strong>。后端通过 :9080 反向代理动态切换，无需重启前端。
+      当前前端是 <strong>Vue 3 + TypeScript</strong> 实现；后端通过 <code>:9080</code> 反向代理动态切换，无需重启前端。
     </Alert>
 
-    <section style="margin-bottom: var(--space-12)">
+    <!-- 前端栈 -->
+    <section style="margin-bottom: var(--space-10)">
       <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">
-        后端 10 栈
+        前端栈
       </h2>
-      <div
-        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-3)"
-      >
+      <div style="display: grid; gap: var(--space-4)">
         <div
-          v-for="it in BACKENDS"
-          :key="it.name"
-          class="cy-stack__item"
-          style="padding: var(--space-3); justify-content: flex-start"
+          v-for="item in FRONTEND_STACK"
+          :key="`${item.role}-${item.name}`"
+          class="cy-card"
+          style="display: flex; gap: var(--space-6); align-items: flex-start; padding: var(--space-6)"
         >
-          <img :src="it.icon" alt="" /> {{ it.name }}
+          <div
+            style="width: 88px; height: 88px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--color-surface-2); border-radius: var(--radius-lg); border: 1px solid var(--color-border-subtle)"
+          >
+            <img
+              v-if="item.iconUrl"
+              :src="item.iconUrl"
+              :alt="item.name"
+              style="width: 60px; height: 60px"
+            />
+            <span v-else style="font-size: var(--font-size-2xl); color: var(--color-text-muted)">·</span>
+          </div>
+          <div style="flex: 1; min-width: 0">
+            <div
+              style="display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2)"
+            >
+              <h3 style="font-family: var(--font-display); font-size: var(--font-size-xl); margin: 0; color: var(--color-text-primary)">
+                {{ item.name }}
+              </h3>
+              <span style="font-family: var(--font-mono); font-size: var(--font-size-xs); padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-surface-2); color: var(--color-brand-primary); border: 1px solid var(--color-border-subtle)">
+                v{{ item.version }}
+              </span>
+              <span style="font-size: var(--font-size-xs); padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-surface-2); color: var(--color-text-muted)">
+                {{ roleLabelOf(item.role) }}
+              </span>
+            </div>
+            <p
+              v-if="item.tagline"
+              style="color: var(--color-text-secondary); margin: 0 0 var(--space-3); line-height: var(--line-height-relaxed)"
+            >
+              {{ item.tagline }}
+            </p>
+            <ul
+              v-if="item.features?.length"
+              style="margin: 0; padding-left: var(--space-5); list-style: disc; color: var(--color-text-secondary); line-height: var(--line-height-relaxed); font-size: var(--font-size-sm)"
+            >
+              <li v-for="f in item.features" :key="f">{{ f }}</li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>
 
-    <section style="margin-bottom: var(--space-12)">
-      <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">
-        前端 5 栈
-      </h2>
-      <div
-        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-3)"
-      >
-        <div
-          v-for="it in FRONTENDS"
-          :key="it.name"
-          class="cy-stack__item"
-          style="padding: var(--space-3); justify-content: flex-start"
-        >
-          <img :src="it.icon" alt="" /> {{ it.name }}
-        </div>
-      </div>
-    </section>
+    <Alert v-if="error" variant="danger" style="margin-bottom: var(--space-6)">
+      无法读取后端 /health 信息：{{ error }}
+    </Alert>
 
-    <section style="margin-bottom: var(--space-12)">
+    <!-- 后端栈 -->
+    <section v-if="health" style="margin-bottom: var(--space-10)">
       <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">
-        全栈 5 框架
+        {{ backendKind }}栈 · {{ health.service }} v{{ health.version }}
       </h2>
-      <div
-        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-3)"
-      >
+      <div style="display: grid; gap: var(--space-4)">
         <div
-          v-for="it in FULLSTACKS"
-          :key="it.name"
-          class="cy-stack__item"
-          style="padding: var(--space-3); justify-content: flex-start"
+          v-for="item in backendItems"
+          :key="`${item.role}-${item.name}`"
+          class="cy-card"
+          style="display: flex; gap: var(--space-6); align-items: flex-start; padding: var(--space-6)"
         >
-          <img :src="it.icon" alt="" /> {{ it.name }}
+          <div
+            style="width: 88px; height: 88px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--color-surface-2); border-radius: var(--radius-lg); border: 1px solid var(--color-border-subtle)"
+          >
+            <img
+              v-if="item.iconUrl"
+              :src="item.iconUrl"
+              :alt="item.name"
+              style="width: 60px; height: 60px"
+            />
+            <span v-else style="font-size: var(--font-size-2xl); color: var(--color-text-muted)">·</span>
+          </div>
+          <div style="flex: 1; min-width: 0">
+            <div
+              style="display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2)"
+            >
+              <h3 style="font-family: var(--font-display); font-size: var(--font-size-xl); margin: 0; color: var(--color-text-primary)">
+                {{ item.name }}
+              </h3>
+              <span style="font-family: var(--font-mono); font-size: var(--font-size-xs); padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-surface-2); color: var(--color-brand-primary); border: 1px solid var(--color-border-subtle)">
+                v{{ item.version }}
+              </span>
+              <span style="font-size: var(--font-size-xs); padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-surface-2); color: var(--color-text-muted)">
+                {{ roleLabelOf(item.role) }}
+              </span>
+            </div>
+            <p
+              v-if="item.tagline"
+              style="color: var(--color-text-secondary); margin: 0 0 var(--space-3); line-height: var(--line-height-relaxed)"
+            >
+              {{ item.tagline }}
+            </p>
+            <ul
+              v-if="item.features?.length"
+              style="margin: 0; padding-left: var(--space-5); list-style: disc; color: var(--color-text-secondary); line-height: var(--line-height-relaxed); font-size: var(--font-size-sm)"
+            >
+              <li v-for="f in item.features" :key="f">{{ f }}</li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>
@@ -134,9 +208,7 @@ const currentVersion = computed(() => health.value?.version ?? "—");
       <h2 style="font-family: var(--font-display); font-size: var(--font-size-xl); margin: 0 0 var(--space-4)">
         三条硬约束
       </h2>
-      <ul
-        style="color: var(--color-text-secondary); margin: 0; padding-left: var(--space-5); line-height: var(--line-height-relaxed)"
-      >
+      <ul style="color: var(--color-text-secondary); margin: 0; padding-left: var(--space-5); list-style: disc; line-height: var(--line-height-relaxed)">
         <li>
           <strong style="color: var(--color-text-primary)">API 同源：</strong>所有后端实现同一份 <code>spec/api/openapi.yaml</code>。
         </li>

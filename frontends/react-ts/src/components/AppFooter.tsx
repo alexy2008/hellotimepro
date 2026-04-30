@@ -5,6 +5,7 @@ import type { HealthData } from "@/types";
 const FRONTEND_ITEMS = [
   { role: "frontend-framework", name: "React", iconUrl: "/static/icons/react.svg" },
   { role: "frontend-language", name: "TypeScript", iconUrl: "/static/icons/typescript.svg" },
+  { role: "frontend-styling", name: "Tailwind CSS", iconUrl: "/static/icons/tailwindcss.svg" },
 ];
 
 export function AppFooter() {

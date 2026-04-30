@@ -409,7 +409,7 @@ components:
       properties:
         role:
           type: string
-          description: language / framework / runtime / database / orm / template 等
+          description: language / framework / runtime / database / styling / template 等
         name:
           type: string
         version:
@@ -418,6 +418,16 @@ components:
           type: string
           nullable: true
           description: 相对该服务根的 SVG 图标路径，如 `/static/icons/fastapi.svg`
+        tagline:
+          type: string
+          nullable: true
+          description: 技术一句话定位，来自 spec/tech-meta.json
+        features:
+          type: array
+          nullable: true
+          description: 核心特性列表，来自 spec/tech-meta.json
+          items:
+            type: string
 
     HealthData:
       type: object

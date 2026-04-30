@@ -60,11 +60,32 @@
     });
   }
 
+  function wireUserDropdown() {
+    document.querySelectorAll(".cy-user-chip--button").forEach((btn) => {
+      const menu = btn.closest(".cy-user-menu");
+      const dropdown = menu?.querySelector(".cy-user-dropdown");
+      if (!dropdown) return;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = dropdown.style.display !== "none" && dropdown.style.display !== "";
+        dropdown.style.display = open ? "none" : "block";
+        btn.setAttribute("aria-expanded", String(!open));
+      });
+    });
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".cy-user-dropdown").forEach((d) => {
+        d.style.display = "none";
+        d.closest(".cy-user-menu")?.querySelector("[aria-expanded]")?.setAttribute("aria-expanded", "false");
+      });
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     wireToggles();
     wireSegments();
     wireFavorites();
+    wireUserDropdown();
   });
 
   // 立刻应用以避免 FOUC

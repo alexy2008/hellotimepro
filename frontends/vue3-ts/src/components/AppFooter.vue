@@ -6,6 +6,7 @@ import type { HealthData } from "@/types";
 const FRONTEND_ITEMS = [
   { role: "frontend-framework", name: "Vue 3", iconUrl: "/static/icons/vue.svg" },
   { role: "frontend-language", name: "TypeScript", iconUrl: "/static/icons/typescript.svg" },
+  { role: "frontend-styling", name: "Tailwind CSS", iconUrl: "/static/icons/tailwindcss.svg" },
 ];
 
 const health = ref<HealthData | null>(null);

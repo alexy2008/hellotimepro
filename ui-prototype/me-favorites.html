@@ -23,10 +23,20 @@
       <button class="cy-theme-toggle" data-theme-toggle aria-label="切换主题">
         <span data-theme-toggle-icon>☾</span>
       </button>
-      <a class="cy-user-chip" href="me-created.html">
-        <span>specter</span>
-        <img src="../spec/avatars/specter.svg" alt="">
-      </a>
+      <div class="cy-user-menu">
+        <button class="cy-user-chip cy-user-chip--button">
+          <span>specter</span>
+          <img src="../spec/avatars/specter.svg" alt="">
+          <span class="cy-user-chip__chevron">▾</span>
+        </button>
+        <div class="cy-user-dropdown" style="display:none">
+          <a class="cy-user-dropdown__item" href="me-created.html">📝 我创建的</a>
+          <a class="cy-user-dropdown__item is-active" href="me-favorites.html">♥ 我收藏的</a>
+          <a class="cy-user-dropdown__item" href="me-profile.html">⚙ 账号设置</a>
+          <span class="cy-user-dropdown__divider"></span>
+          <a class="cy-user-dropdown__item cy-user-dropdown__item--danger" href="login.html">登出</a>
+        </div>
+      </div>
     </div>
   </div>
 </header>

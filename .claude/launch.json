@@ -14,6 +14,12 @@
       "port": 7174
     },
     {
+      "name": "vue3-ts",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontends/vue3-ts", "run", "dev"],
+      "port": 7173
+    },
+    {
       "name": "hello-web",
       "runtimeExecutable": "./scripts/hello",
       "runtimeArgs": ["web", "--no-open", "--port", "9090"],

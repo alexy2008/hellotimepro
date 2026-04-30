@@ -83,6 +83,8 @@ export interface StackItem {
   name: string;
   version: string;
   iconUrl?: string | null;
+  tagline?: string | null;
+  features?: string[] | null;
 }
 
 export interface HealthData {
