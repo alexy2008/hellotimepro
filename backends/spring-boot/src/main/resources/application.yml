@@ -38,3 +38,10 @@ app:
   refresh-token-ttl-seconds: ${REFRESH_TOKEN_TTL_SECONDS:604800}
   login-rate-limit-per-minute: ${LOGIN_RATE_LIMIT_PER_MINUTE:10}
   repo-root: ${REPO_ROOT:../..}
+  llm:
+    enabled: ${LLM_ENABLED:false}
+    provider: ${LLM_PROVIDER:openai}
+    base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
+    api-key: ${LLM_API_KEY:}
+    model: ${LLM_MODEL:gpt-4.1-mini}
+    timeout-ms: ${LLM_TIMEOUT_MS:30000}

@@ -137,14 +137,15 @@ a:hover {
 }
 
 /* 未开启 / 已开启：共享底色、顶部横条，仅颜色不同；呼吸效果仅 hover 触发 */
+/* backdrop-filter 已移除：Chromium 在 overflow:hidden + backdrop-filter 同时存在时
+   会将 backdrop 绘制区域错误地用于 hit-testing，导致卡片范围外的鼠标事件被拦截，
+   造成相邻元素 mouseenter/mouseleave 失效。卡片背景为不透明色，移除无视觉影响。 */
 .cy-capsule--sealed,
 .cy-capsule--opened {
   position: relative;
   overflow: hidden;
   padding-top: calc(var(--space-5) + 4px);
   border: 1px solid transparent;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .cy-capsule--sealed {

@@ -95,6 +95,24 @@ export interface HealthData {
   stack: { kind: "backend" | "fullstack"; items: StackItem[] };
 }
 
+export interface StackNarrationRequest {
+  frontend: { name: string; items: StackItem[] };
+  backend: {
+    kind: "backend" | "fullstack";
+    service: string;
+    version: string;
+    items: StackItem[];
+  };
+  locale?: string;
+}
+
+export interface StackNarration {
+  title: string;
+  narrative: string;
+  generatedBy: string;
+  cached: boolean;
+}
+
 export type PlazaSort = "hot" | "new";
 export type PlazaFilter = "all" | "opened" | "unopened";
 

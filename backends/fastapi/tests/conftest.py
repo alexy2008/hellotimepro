@@ -39,6 +39,18 @@ def client():
         yield c
 
 
+@pytest.fixture
+def db():
+    """直接暴露 Session 供 service 单元测试使用。"""
+    from app.db.session import SessionLocal
+
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
 @pytest.fixture(autouse=True)
 def _reset_between_tests():
     """每个测试前清空业务表（保留 schema）。"""

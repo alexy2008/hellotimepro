@@ -824,6 +824,7 @@
 /* ---------- 日历翻动倒计时 ---------- */
 .cy-cal {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   justify-content: center;
   align-items: flex-end;
@@ -862,6 +863,10 @@
   transform-origin: center 50%;
 }
 
+.cy-cal-card--wide {
+  width: 120px;
+}
+
 /* 绑环孔 */
 .cy-cal-card::before,
 .cy-cal-card::after {
@@ -884,15 +889,13 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-signal-primary);
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
   position: relative;
   z-index: 1;
   text-align: center;
   padding-top: 14px;
-}
-
-.cy-cal-num--sm {
-  font-size: var(--font-size-2xl);
+  white-space: nowrap;
 }
 
 .cy-cal-crease {
@@ -926,6 +929,43 @@
 
 .cy-cal-card--fold   { animation: cy-cal-fold   0.2s ease-in  forwards; }
 .cy-cal-card--unfold { animation: cy-cal-unfold 0.2s ease-out forwards; }
+
+@media (max-width: 480px) {
+  .cy-cal {
+    row-gap: var(--space-3);
+  }
+
+  .cy-cal-unit--wide {
+    flex-basis: 100%;
+  }
+
+  .cy-cal-unit--wide + .cy-cal-sep {
+    display: none;
+  }
+
+  .cy-cal-card {
+    width: 64px;
+    height: 82px;
+  }
+
+  .cy-cal-card--wide {
+    width: 120px;
+  }
+
+  .cy-cal-sep {
+    margin-bottom: 26px;
+  }
+
+  .cy-cal-card::before,
+  .cy-cal-card::after {
+    top: 9px;
+    width: 11px;
+    height: 11px;
+  }
+
+  .cy-cal-card::before { left: 12px; }
+  .cy-cal-card::after  { right: 12px; }
+}
 
 /* ---------- 大版 CTA 链接按钮（hero 中） ---------- */
 .cy-btn--hero {

@@ -8,6 +8,7 @@
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
 cd "$HERE"
 
 if ! command -v uv >/dev/null 2>&1; then
@@ -19,7 +20,6 @@ uv sync --quiet
 
 # SQLite 默认路径
 if [[ "${DB_DRIVER:-postgres}" == "sqlite" && -z "${DB_URL:-}" ]]; then
-  REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
   mkdir -p "$REPO_ROOT/data/sqlite"
   export DB_URL="sqlite:///$REPO_ROOT/data/sqlite/hellotime.db"
 fi
@@ -34,6 +34,11 @@ fi
 
 # 升级 DB schema
 uv run alembic upgrade head
+
+# 注入演示数据（SEED_DEMO=false 可关闭，默认开启）
+if [[ "${SEED_DEMO:-true}" != "false" ]]; then
+  uv run python "$REPO_ROOT/spec/db/seed_demo.py" || true
+fi
 
 PORT="${PORT:-29010}"
 HOST="${HOST:-0.0.0.0}"

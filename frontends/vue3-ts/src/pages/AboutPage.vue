@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { api } from "@/api/client";
 import Alert from "@/components/Alert.vue";
-import type { HealthData, StackItem } from "@/types";
+import type { HealthData, StackItem, StackNarration } from "@/types";
 import techMetaRaw from "@spec/tech-meta.json";
 
 const techMeta = techMetaRaw as Record<string, { tagline: string; features: string[] }>;
@@ -33,13 +33,36 @@ const FRONTEND_STACK: StackItem[] = [
 ];
 
 const health = ref<HealthData | null>(null);
+const narration = ref<StackNarration | null>(null);
 const error = ref<string | null>(null);
+const narrationError = ref<string | null>(null);
+const narrationLoading = ref(true);
 
 onMounted(async () => {
   try {
-    health.value = await api.health();
+    const healthData = await api.health();
+    health.value = healthData;
+
+    try {
+      narrationLoading.value = true;
+      narration.value = await api.stackNarration({
+        frontend: { name: "Vue 3 + TypeScript", items: FRONTEND_STACK },
+        backend: {
+          kind: healthData.stack.kind,
+          service: healthData.service,
+          version: healthData.version,
+          items: healthData.stack.items,
+        },
+        locale: "zh-CN",
+      });
+    } catch (e) {
+      narrationError.value = String(e);
+    } finally {
+      narrationLoading.value = false;
+    }
   } catch (e) {
     error.value = String(e);
+    narrationLoading.value = false;
   }
 });
 
@@ -62,6 +85,19 @@ const currentVersion = computed(() => health.value?.version ?? "—");
 
 function roleLabelOf(role: string): string {
   return ROLE_LABEL[role] ?? role;
+}
+
+function generationSourceLabel(item: StackNarration | null): string {
+  if (!item) return "生成中";
+  if (item.generatedBy === "local-template") return "本地生成";
+  return item.cached ? "AI 缓存" : "AI 生成";
+}
+
+function generationSourceTitle(item: StackNarration | null): string | undefined {
+  if (!item || item.generatedBy === "local-template") return undefined;
+  return item.generatedBy.includes(":")
+    ? item.generatedBy.split(":").slice(1).join(":")
+    : item.generatedBy;
 }
 </script>
 
@@ -90,6 +126,29 @@ function roleLabelOf(role: string): string {
 
     <Alert variant="info" style="margin-bottom: var(--space-10)">
       当前前端是 <strong>Vue 3 + TypeScript</strong> 实现；后端通过 <code>:9080</code> 反向代理动态切换，无需重启前端。
+    </Alert>
+
+    <section v-if="narrationLoading || narration" class="cy-card" style="margin-bottom: var(--space-10)">
+      <div
+        style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-3)"
+      >
+        <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0">
+          {{ narration?.title ?? "生成中" }}
+        </h2>
+        <span
+          :title="generationSourceTitle(narration)"
+          style="color: var(--color-text-muted); font-size: var(--font-size-xs); white-space: nowrap"
+        >
+          {{ generationSourceLabel(narration) }}
+        </span>
+      </div>
+      <p style="color: var(--color-text-secondary); font-size: var(--font-size-lg); line-height: var(--line-height-relaxed); margin: 0">
+        {{ narration?.narrative ?? (narrationLoading ? "正在生成当前技术组合解读..." : "") }}
+      </p>
+    </section>
+
+    <Alert v-if="narrationError" variant="info" style="margin-bottom: var(--space-8)">
+      暂时无法生成当前组合解读：{{ narrationError }}
     </Alert>
 
     <!-- 前端栈 -->
@@ -131,16 +190,10 @@ function roleLabelOf(role: string): string {
             </div>
             <p
               v-if="item.tagline"
-              style="color: var(--color-text-secondary); margin: 0 0 var(--space-3); line-height: var(--line-height-relaxed)"
+              style="color: var(--color-text-secondary); margin: 0; line-height: var(--line-height-relaxed); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"
             >
               {{ item.tagline }}
             </p>
-            <ul
-              v-if="item.features?.length"
-              style="margin: 0; padding-left: var(--space-5); list-style: disc; color: var(--color-text-secondary); line-height: var(--line-height-relaxed); font-size: var(--font-size-sm)"
-            >
-              <li v-for="f in item.features" :key="f">{{ f }}</li>
-            </ul>
           </div>
         </div>
       </div>
@@ -189,16 +242,10 @@ function roleLabelOf(role: string): string {
             </div>
             <p
               v-if="item.tagline"
-              style="color: var(--color-text-secondary); margin: 0 0 var(--space-3); line-height: var(--line-height-relaxed)"
+              style="color: var(--color-text-secondary); margin: 0; line-height: var(--line-height-relaxed); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden"
             >
               {{ item.tagline }}
             </p>
-            <ul
-              v-if="item.features?.length"
-              style="margin: 0; padding-left: var(--space-5); list-style: disc; color: var(--color-text-secondary); line-height: var(--line-height-relaxed); font-size: var(--font-size-sm)"
-            >
-              <li v-for="f in item.features" :key="f">{{ f }}</li>
-            </ul>
           </div>
         </div>
       </div>

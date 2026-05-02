@@ -6,17 +6,22 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "refresh_tokens")
 public class RefreshTokenEntity {
   @Id
+  @JdbcTypeCode(SqlTypes.VARCHAR)
   private UUID id;
   @Column(name = "user_id")
+  @JdbcTypeCode(SqlTypes.VARCHAR)
   private UUID userId;
   @Column(name = "token_hash")
   private String tokenHash;
   @Column(name = "family_id")
+  @JdbcTypeCode(SqlTypes.VARCHAR)
   private UUID familyId;
   @Column(name = "expires_at")
   private OffsetDateTime expiresAt;

@@ -6,11 +6,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "users")
 public class UserEntity {
   @Id
+  @JdbcTypeCode(SqlTypes.VARCHAR)
   private UUID id;
   private String email;
   @Column(name = "password_hash")

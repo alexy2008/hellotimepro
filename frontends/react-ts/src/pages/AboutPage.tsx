@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { Alert } from "@/components/Alert";
-import type { HealthData, StackItem } from "@/types";
+import type { HealthData, StackItem, StackNarration } from "@/types";
 import techMetaRaw from "@spec/tech-meta.json";
 
 const techMeta = techMetaRaw as Record<string, { tagline: string; features: string[] }>;
@@ -112,31 +112,86 @@ function TechCard({ item }: { item: StackItem }) {
           <p
             style={{
               color: "var(--color-text-secondary)",
-              margin: "0 0 var(--space-3)",
+              margin: 0,
               lineHeight: "var(--line-height-relaxed)",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
             }}
           >
             {item.tagline}
           </p>
         )}
-        {item.features && item.features.length > 0 && (
-          <ul
-            style={{
-              margin: 0,
-              paddingLeft: "var(--space-5)",
-              listStyle: "disc",
-              color: "var(--color-text-secondary)",
-              lineHeight: "var(--line-height-relaxed)",
-              fontSize: "var(--font-size-sm)",
-            }}
-          >
-            {item.features.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-        )}
       </div>
     </div>
+  );
+}
+
+function generationSource(narration: StackNarration) {
+  if (narration.generatedBy === "local-template") {
+    return { label: "本地生成", title: undefined };
+  }
+  const model = narration.generatedBy.includes(":")
+    ? narration.generatedBy.split(":").slice(1).join(":")
+    : narration.generatedBy;
+  return {
+    label: narration.cached ? "AI 缓存" : "AI 生成",
+    title: model,
+  };
+}
+
+function StackNarrationPanel({
+  narration,
+  loading,
+}: {
+  narration: StackNarration | null;
+  loading: boolean;
+}) {
+  const source = narration ? generationSource(narration) : null;
+
+  return (
+    <section className="cy-card" style={{ marginBottom: "var(--space-10)" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: "var(--space-4)",
+          marginBottom: "var(--space-3)",
+        }}
+      >
+        <h2
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "var(--font-size-2xl)",
+            margin: 0,
+          }}
+        >
+          {narration?.title ?? "生成中"}
+        </h2>
+        <span
+          title={source?.title}
+          style={{
+            color: "var(--color-text-muted)",
+            fontSize: "var(--font-size-xs)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {source?.label ?? "生成中"}
+        </span>
+      </div>
+      <p
+        style={{
+          color: "var(--color-text-secondary)",
+          fontSize: "var(--font-size-lg)",
+          lineHeight: "var(--line-height-relaxed)",
+          margin: 0,
+        }}
+      >
+        {narration?.narrative ?? (loading ? "正在生成当前技术组合解读..." : "")}
+      </p>
+    </section>
   );
 }
 
@@ -164,13 +219,50 @@ function StackSection({ title, items }: { title: string; items: StackItem[] }) {
 
 export function AboutPage() {
   const [health, setHealth] = useState<HealthData | null>(null);
+  const [narration, setNarration] = useState<StackNarration | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [narrationError, setNarrationError] = useState<string | null>(null);
+  const [narrationLoading, setNarrationLoading] = useState(true);
 
   useEffect(() => {
-    api
-      .health()
-      .then(setHealth)
-      .catch((e) => setError(String(e)));
+    let active = true;
+
+    async function loadAbout() {
+      try {
+        const healthData = await api.health();
+        if (!active) return;
+        setHealth(healthData);
+
+        try {
+          setNarrationLoading(true);
+          const data = await api.stackNarration({
+            frontend: { name: "React + TypeScript", items: FRONTEND_STACK },
+            backend: {
+              kind: healthData.stack.kind,
+              service: healthData.service,
+              version: healthData.version,
+              items: healthData.stack.items,
+            },
+            locale: "zh-CN",
+          });
+          if (active) setNarration(data);
+        } catch (e) {
+          if (active) setNarrationError(String(e));
+        } finally {
+          if (active) setNarrationLoading(false);
+        }
+      } catch (e) {
+        if (active) {
+          setError(String(e));
+          setNarrationLoading(false);
+        }
+      }
+    }
+
+    loadAbout();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const backendItems = useMemo(() => {
@@ -223,6 +315,16 @@ export function AboutPage() {
       <Alert variant="info" style={{ marginBottom: "var(--space-10)" }}>
         当前前端是 <strong>React + TypeScript</strong> 实现；后端通过 <code>:9080</code> 反向代理动态切换，无需重启前端。
       </Alert>
+
+      {(narrationLoading || narration) && (
+        <StackNarrationPanel narration={narration} loading={narrationLoading} />
+      )}
+
+      {narrationError && (
+        <Alert variant="info" style={{ marginBottom: "var(--space-8)" }}>
+          暂时无法生成当前组合解读：{narrationError}
+        </Alert>
+      )}
 
       <StackSection title="前端栈" items={FRONTEND_STACK} />
 

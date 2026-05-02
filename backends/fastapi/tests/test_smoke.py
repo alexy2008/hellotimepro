@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 def _iso_future(seconds: int = 120) -> str:
-    return (datetime.now(timezone.utc) + timedelta(seconds=seconds)).isoformat()
+    return (datetime.now(UTC) + timedelta(seconds=seconds)).isoformat()
 
 
 def _register(client, email: str, nickname: str, avatar: str = "neo"):
@@ -36,6 +36,53 @@ def test_health(client):
     fastapi_item = next(i for i in items if i["name"] == "FastAPI")
     assert fastapi_item["tagline"]
     assert fastapi_item["features"]
+
+
+def test_stack_narration_falls_back_without_llm_key(client):
+    health = client.get("/api/v1/health").json()["data"]
+    r = client.post(
+        "/api/v1/stack-narration",
+        json={
+            "frontend": {
+                "name": "React + TypeScript",
+                "items": [
+                    {
+                        "role": "framework",
+                        "name": "React",
+                        "version": "19",
+                        "tagline": "组件化 UI 框架。",
+                    },
+                    {
+                        "role": "language",
+                        "name": "TypeScript",
+                        "version": "5",
+                        "tagline": "带类型的 JavaScript。",
+                    },
+                    {
+                        "role": "styling",
+                        "name": "Tailwind CSS",
+                        "version": "4",
+                        "tagline": "原子化样式工具。",
+                    },
+                ],
+            },
+            "backend": {
+                "kind": health["stack"]["kind"],
+                "service": health["service"],
+                "version": health["version"],
+                "items": health["stack"]["items"],
+            },
+            "locale": "zh-CN",
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["success"] is True
+    data = body["data"]
+    assert data["title"]
+    assert data["narrative"]
+    assert data["generatedBy"] == "local-template"
+    assert data["cached"] is False
 
 
 def test_avatars(client):

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # 支持两种驱动；切换仅需改两个变量。
     db_driver: str = Field(default="postgres", pattern="^(postgres|sqlite)$")
     db_url: str = Field(
-        default="postgresql+psycopg://hellotime:hellotime@127.0.0.1:55432/hellotime_pro"
+        default="postgresql+psycopg://hellotime:hellotime@127.0.0.1:5432/hellotime_pro"
     )
 
     # --- JWT / 密码 ---
@@ -42,6 +42,14 @@ class Settings(BaseSettings):
 
     # --- 限流 ---
     login_rate_limit_per_minute: int = 10
+
+    # --- 大模型叙述生成 ---
+    llm_enabled: bool = False
+    llm_provider: str = "openai"
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_api_key: str = ""
+    llm_model: str = "gpt-4.1-mini"
+    llm_timeout_ms: int = 30000
 
 
 settings = Settings()

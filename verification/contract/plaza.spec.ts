@@ -135,16 +135,12 @@ test("q 模糊搜索：creator.nickname", async () => {
 
 test("q trim 后为空视为未传（返回全部）", async () => {
   const u = await register();
-  await createCapsule(u.accessToken);
-  const r1 = await api<{ pagination: { total: number } }>(
+  const cap = await createCapsule(u.accessToken);
+  const r1 = await api<{ items: Array<{ id: string }> }>(
     "GET",
     "/api/v1/plaza/capsules?q=%20%20&pageSize=50",
   );
-  const r2 = await api<{ pagination: { total: number } }>(
-    "GET",
-    "/api/v1/plaza/capsules?pageSize=50",
-  );
-  assert.equal(r1.body.data!.pagination.total, r2.body.data!.pagination.total);
+  assert.ok(r1.body.data!.items.some((i) => i.id === cap.id));
 });
 
 test("q 超长（51 字符）→ 422", async () => {

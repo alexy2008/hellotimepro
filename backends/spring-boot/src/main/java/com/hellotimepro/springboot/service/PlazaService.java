@@ -54,7 +54,7 @@ public class PlazaService {
     if (normalizedQuery != null && normalizedQuery.length() > 50) {
       throw ApiException.validation("q 长度不得超过 50", "q");
     }
-    String qPattern = normalizedQuery == null ? null : "%" + escapeLike(normalizedQuery) + "%";
+    String qPattern = normalizedQuery == null ? null : "%" + normalizedQuery + "%";
 
     Pageable pageable = PageRequest.of(page - 1, pageSize, sortOf(sort));
     Page<CapsuleEntity> pageResult = capsules.findPlazaPage(filter, now(), qPattern, pageable);
@@ -124,10 +124,6 @@ public class PlazaService {
     return favorites.findByIdUserIdAndIdCapsuleIdIn(UUID.fromString(viewerId), capsuleIds).stream()
         .map(f -> f.getId().getCapsuleId())
         .collect(Collectors.toSet());
-  }
-
-  private String escapeLike(String input) {
-    return input.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 
   private Pagination pagination(long total, int page, int pageSize) {

@@ -457,6 +457,62 @@ components:
               items:
                 $ref: '#/components/schemas/StackItem'
 
+    StackNarrationFrontend:
+      type: object
+      required: [name, items]
+      properties:
+        name:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/StackItem'
+
+    StackNarrationBackend:
+      type: object
+      required: [kind, service, version, items]
+      properties:
+        kind:
+          type: string
+          enum: [backend, fullstack]
+        service:
+          type: string
+        version:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/StackItem'
+
+    StackNarrationRequest:
+      type: object
+      required: [frontend, backend]
+      properties:
+        frontend:
+          $ref: '#/components/schemas/StackNarrationFrontend'
+        backend:
+          $ref: '#/components/schemas/StackNarrationBackend'
+        locale:
+          type: string
+          default: zh-CN
+
+    StackNarration:
+      type: object
+      required: [title, narrative, generatedBy, cached]
+      properties:
+        title:
+          type: string
+        narrative:
+          type: string
+          description: 融合式技术组合解读，不按前端/后端/数据库分段
+        generatedBy:
+          type: string
+          description: 生成来源，如 openai:gpt-4.1-mini 或 local-template
+        cached:
+          type: boolean
+
   # ============================================================
   # 公共参数
   # ============================================================
@@ -631,6 +687,31 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/Avatar'
+
+  /api/v1/stack-narration:
+    post:
+      tags: [Health]
+      summary: 生成当前技术组合的融合式解读
+      description: 大模型未配置或调用失败时，后端必须返回本地模板结果
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StackNarrationRequest'
+      responses:
+        '200':
+          description: 技术组合解读
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/StackNarration'
 
   # ---------- 鉴权 ----------
 

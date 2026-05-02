@@ -6,13 +6,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "capsules")
 public class CapsuleEntity {
   @Id
+  @JdbcTypeCode(SqlTypes.VARCHAR)
   private UUID id;
   @Column(name = "owner_id")
+  @JdbcTypeCode(SqlTypes.VARCHAR)
   private UUID ownerId;
   private String code;
   private String title;

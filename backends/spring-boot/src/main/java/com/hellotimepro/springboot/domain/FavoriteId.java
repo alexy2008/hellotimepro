@@ -5,12 +5,16 @@ import jakarta.persistence.Embeddable;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Embeddable
 public class FavoriteId implements Serializable {
   @Column(name = "user_id")
+  @JdbcTypeCode(SqlTypes.VARCHAR)
   private UUID userId;
   @Column(name = "capsule_id")
+  @JdbcTypeCode(SqlTypes.VARCHAR)
   private UUID capsuleId;
 
   public FavoriteId() {}

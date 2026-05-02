@@ -12,6 +12,7 @@ public class AppProperties {
   private int refreshTokenTtlSeconds = 604800;
   private int loginRateLimitPerMinute = 10;
   private String repoRoot = "../..";
+  private Llm llm = new Llm();
 
   public String getServiceName() { return serviceName; }
   public void setServiceName(String serviceName) { this.serviceName = serviceName; }
@@ -29,4 +30,28 @@ public class AppProperties {
   public void setLoginRateLimitPerMinute(int loginRateLimitPerMinute) { this.loginRateLimitPerMinute = loginRateLimitPerMinute; }
   public String getRepoRoot() { return repoRoot; }
   public void setRepoRoot(String repoRoot) { this.repoRoot = repoRoot; }
+  public Llm getLlm() { return llm; }
+  public void setLlm(Llm llm) { this.llm = llm; }
+
+  public static class Llm {
+    private boolean enabled = false;
+    private String provider = "openai";
+    private String baseUrl = "https://api.openai.com/v1";
+    private String apiKey = "";
+    private String model = "gpt-4.1-mini";
+    private int timeoutMs = 30000;
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
+    public String getBaseUrl() { return baseUrl; }
+    public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+    public String getApiKey() { return apiKey; }
+    public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+    public String getModel() { return model; }
+    public void setModel(String model) { this.model = model; }
+    public int getTimeoutMs() { return timeoutMs; }
+    public void setTimeoutMs(int timeoutMs) { this.timeoutMs = timeoutMs; }
+  }
 }

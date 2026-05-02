@@ -122,6 +122,8 @@ Makefile
 /playwright-report/
 /test-results/
 /verification/**/node_modules/
+/verification/**/report/
+/verification/**/test-results/
 
 # --- Dev-manager 状态 ---
 .hello-state.json

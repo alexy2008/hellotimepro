@@ -7,6 +7,7 @@ const props = defineProps<{
 }>();
 
 const str = computed(() => String(props.value).padStart(2, "0"));
+const isLong = computed(() => str.value.length > 2);
 const shown = ref(str.value);
 const phase = ref<"idle" | "fold" | "unfold">("idle");
 
@@ -27,12 +28,12 @@ function handleAnimationEnd() {
 </script>
 
 <template>
-  <div class="cy-cal-unit">
+  <div :class="['cy-cal-unit', isLong ? 'cy-cal-unit--wide' : '']">
     <div
-      :class="['cy-cal-card', phase !== 'idle' ? `cy-cal-card--${phase}` : '']"
+      :class="['cy-cal-card', isLong ? 'cy-cal-card--wide' : '', phase !== 'idle' ? `cy-cal-card--${phase}` : '']"
       @animationend="handleAnimationEnd"
     >
-      <div :class="['cy-cal-num', shown.length > 2 ? 'cy-cal-num--sm' : '']">
+      <div class="cy-cal-num">
         {{ shown }}
       </div>
       <div class="cy-cal-crease" />

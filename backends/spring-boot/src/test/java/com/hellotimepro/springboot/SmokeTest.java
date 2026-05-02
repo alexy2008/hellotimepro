@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -49,6 +50,34 @@ class SmokeTest {
 
     JsonNode avatars = get("/api/v1/avatars");
     assertThat(avatars.path("data")).hasSize(10);
+  }
+
+  @Test
+  void stackNarrationFallsBackWithoutLlmKey() throws Exception {
+    JsonNode health = get("/api/v1/health").path("data");
+    JsonNode result = post("/api/v1/stack-narration", Map.of(
+        "frontend", Map.of(
+            "name", "React + TypeScript",
+            "items", List.of(
+                Map.of("role", "framework", "name", "React", "version", "19"),
+                Map.of("role", "language", "name", "TypeScript", "version", "5"),
+                Map.of("role", "styling", "name", "Tailwind CSS", "version", "4")
+            )
+        ),
+        "backend", Map.of(
+            "kind", health.path("stack").path("kind").asText(),
+            "service", health.path("service").asText(),
+            "version", health.path("version").asText(),
+            "items", mapper.convertValue(health.path("stack").path("items"), Object.class)
+        ),
+        "locale", "zh-CN"
+    ), null, HttpStatus.OK);
+
+    JsonNode data = result.path("data");
+    assertThat(data.path("title").asText()).isNotBlank();
+    assertThat(data.path("narrative").asText()).isNotBlank();
+    assertThat(data.path("generatedBy").asText()).isEqualTo("local-template");
+    assertThat(data.path("cached").asBoolean()).isFalse();
   }
 
   @Test

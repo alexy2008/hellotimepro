@@ -25,6 +25,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi
 - **Styling**: Tailwind CSS v4 + semantic tokens from `spec/styles/tokens.css`. Hardcoded color/spacing values prohibited.
 - **Database**: Default Postgres, SQLite via `DB_DRIVER=sqlite` env var. All backends/fullstacks must support both.
 - **Denormalization**: `favorite_count` on capsules must be maintained via transactions/triggers per stack idiom.
+- **Git commits**: Commit messages must be written in Chinese unless the user explicitly requests otherwise.
 
 ## Architecture
 - **Monorepo**: `backends/` (10, :29000–:29090), `frontends/` (5 SPA, :7173–:7180), `fullstacks/` (5, :7177–:7182)

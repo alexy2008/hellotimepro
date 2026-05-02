@@ -6,6 +6,7 @@ import { FavoriteButton } from "./FavoriteButton";
 
 function CalendarUnit({ value, label }: { value: number; label: string }) {
   const str = String(value).padStart(2, "0");
+  const isLong = str.length > 2;
   const latestStr = useRef(str);
   const [shown, setShown] = useState(str);
   const [phase, setPhase] = useState<"idle" | "fold" | "unfold">("idle");
@@ -26,12 +27,14 @@ function CalendarUnit({ value, label }: { value: number; label: string }) {
   }
 
   return (
-    <div className="cy-cal-unit">
+    <div className={`cy-cal-unit${isLong ? " cy-cal-unit--wide" : ""}`}>
       <div
-        className={`cy-cal-card${phase !== "idle" ? ` cy-cal-card--${phase}` : ""}`}
+        className={`cy-cal-card${isLong ? " cy-cal-card--wide" : ""}${
+          phase !== "idle" ? ` cy-cal-card--${phase}` : ""
+        }`}
         onAnimationEnd={handleAnimationEnd}
       >
-        <div className={`cy-cal-num${shown.length > 2 ? " cy-cal-num--sm" : ""}`}>{shown}</div>
+        <div className="cy-cal-num">{shown}</div>
         <div className="cy-cal-crease" />
       </div>
       <div className="cy-cal-label">{label}</div>

@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HelloTime Pro · dev-manager</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg0:#0e0e1c;--bg1:#161630;--bg2:#1e1e38;--bg3:#262644;
+  --border0:#25254a;--border1:#353570;
+  --text:#f5f5fa;--text2:#c8c8e0;--muted:#7a7aa0;
+  --brand:#6b46ff;--brand-h:#8a6dff;--brand-rgb:107,70,255;
+  --sig:#14d4f0;--sig-h:#5fe6f5;--sig-rgb:20,212,240;
+  --acc:#ff2d91;--acc-h:#ff5faa;--acc-rgb:255,45,145;
+  --ok:#1aa866;--ok-h:#5ed49a;
+  --warn:#ffae3d;--err:#ff5470;
+  --sans:"Inter","PingFang SC",-apple-system,"Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+  --disp:"Orbitron",var(--sans);
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--text);font-family:var(--sans);min-height:100vh;
+  background:
+    radial-gradient(900px 560px at 0 -5%,rgba(107,70,255,.30),transparent 60%),
+    radial-gradient(900px 540px at 100% 0,rgba(20,212,240,.22),transparent 60%),
+    radial-gradient(700px 400px at 60% 105%,rgba(255,45,145,.18),transparent 60%),
+    var(--bg0);}
+.shell{max-width:1380px;margin:0 auto;padding:18px clamp(12px,2.5vw,28px) 64px}
+
+/* header */
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.hdr-status{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.hdr-chip{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border0);border-radius:8px;padding:6px 12px;font-size:13px;line-height:1.4}
+.hdr-chip .lbl{color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-right:2px}
+.hdr-chip .val{color:var(--text);font-weight:500;font-size:13px}
+.hdr-chip .val.sig{color:var(--sig-h)}
+.hdr-chip .val.dim{color:var(--muted);font-style:italic}
+.hdr-chip .val.db{color:var(--sig-h)}
+h1{margin:0;font-family:var(--disp);font-size:clamp(17px,2vw,24px);letter-spacing:.07em;
+  background:linear-gradient(135deg,var(--sig-h) 0%,var(--acc) 50%,var(--ok-h) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;}
+.sub{color:var(--muted);font-size:13px}
+.ctl{display:flex;gap:7px;flex-wrap:wrap}
+
+/* panel */
+/* config modal */
+.cfg-bg{position:fixed;inset:0;background:rgba(6,6,12,.76);display:none;
+  align-items:center;justify-content:center;z-index:1300;padding:20px}
+.cfg-bg.open{display:flex}
+.cfg-box{width:min(500px,100%);background:var(--bg1);border:1px solid var(--border1);
+  border-radius:13px;box-shadow:0 24px 64px rgba(0,0,0,.6);
+  max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.cfg-head{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--border0);flex-shrink:0}
+.cfg-head h3{margin:0;font-size:14px}
+.cfg-body{overflow-y:auto}
+.cfg-sec{padding:16px}
+.cfg-div{height:1px;background:var(--border0)}
+.dbform{display:grid;gap:6px;margin-top:10px}
+.dbfields{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dbfields.pg4{grid-template-columns:2fr 1fr}
+.dblabel{font-size:12px;color:var(--muted);margin-bottom:2px}
+input.dbi{width:100%;background:var(--bg2);border:1px solid var(--border0);border-radius:6px;
+  color:var(--text);font-size:13px;padding:5px 8px;box-sizing:border-box;outline:none;font-family:var(--mono)}
+input.dbi:focus{border-color:var(--sig);box-shadow:0 0 0 2px rgba(var(--sig-rgb),.18)}
+.dbrow{display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap}
+.dbtab{display:none}.dbtab.active{display:block}
+.plabel{margin:0 0 9px;font-size:12px;font-weight:700;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+.row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:12.5px;margin:7px 0 0}
+
+/* badge */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:12px;
+  background:var(--bg2);border:1px solid var(--border0);color:var(--text2);}
+.b-sig{color:var(--sig-h);border-color:rgba(var(--sig-rgb),.4);background:rgba(var(--sig-rgb),.08)}
+.b-ok{color:var(--ok-h);border-color:rgba(94,212,154,.4);background:rgba(26,168,102,.10)}
+.b-ext{color:var(--warn);border-color:rgba(255,174,61,.4);background:rgba(255,174,61,.10)}
+.b-err{color:var(--err);border-color:rgba(255,84,112,.4);background:rgba(255,84,112,.10)}
+.b-dim{color:var(--muted)}
+
+/* controls */
+select,button,input{font:inherit;color:inherit;background:var(--bg2);
+  border:1px solid var(--border0);border-radius:8px;padding:5px 10px;transition:all 140ms ease}
+select:hover,button:hover{border-color:var(--border1)}
+select:focus,button:focus{outline:2px solid var(--brand);outline-offset:1px}
+button{cursor:pointer}
+button.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+button.pri:hover{background:var(--brand-h);border-color:var(--brand-h)}
+button.ghost{background:transparent}
+button.ghost:hover{background:var(--bg2)}
+button.bdanger{color:var(--err);border-color:rgba(255,84,112,.4)}
+button.bdanger:hover{background:rgba(255,84,112,.12)}
+button.bopen{color:var(--sig-h);border-color:rgba(var(--sig-rgb),.35)}
+button.bopen:hover{background:rgba(var(--sig-rgb),.10)}
+button.bhealth{color:#aaa;border-color:rgba(150,150,200,.3);font-size:12px;padding:2px 7px}
+button.bhealth:hover{color:var(--sig-h);border-color:rgba(var(--sig-rgb),.4);background:rgba(var(--sig-rgb),.08)}
+button.brestart{color:var(--warn);border-color:rgba(255,174,61,.4)}
+button.brestart:hover{background:rgba(255,174,61,.12)}
+button[disabled]{opacity:.45;cursor:not-allowed}
+
+/* section */
+.section{margin-top:20px}
+.section[data-kind=backend]{--sr:var(--brand-rgb);--sc:var(--brand)}
+.section[data-kind=frontend]{--sr:var(--sig-rgb);--sc:var(--sig)}
+.section[data-kind=fullstack]{--sr:var(--acc-rgb);--sc:var(--acc)}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.sh h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--text2);
+  text-transform:uppercase;display:flex;align-items:center;gap:7px}
+.sbar{width:3px;height:13px;border-radius:2px;flex-shrink:0;
+  background:linear-gradient(180deg,rgba(var(--sr),1),rgba(var(--sr),.3));
+  box-shadow:0 0 7px rgba(var(--sr),.55);}
+.scount{color:var(--muted);font-size:12px}
+
+/* grid: 5 col */
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+@media(max-width:1250px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:960px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
+
+/* card */
+.card{
+  background:rgba(22,22,48,.52);
+  backdrop-filter:blur(16px) saturate(160%);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:11px;
+  padding:11px 12px 10px;display:flex;flex-direction:column;gap:7px;
+  transition:border-color 160ms,box-shadow 220ms,transform 220ms;
+  position:relative;overflow:hidden;
+}
+.card:not(.unimpl):hover{
+  border-color:rgba(var(--sr),.45);
+  box-shadow:0 0 0 1px rgba(var(--sr),.15),0 10px 26px rgba(0,0,0,.42);
+  transform:translateY(-2px);
+}
+.card.managed{border-color:rgba(94,212,154,.28);box-shadow:0 0 0 1px rgba(94,212,154,.12),0 8px 20px rgba(0,0,0,.3)}
+.card.managed:hover{border-color:rgba(var(--sr),.5);box-shadow:0 0 0 1px rgba(var(--sr),.2),0 12px 28px rgba(0,0,0,.42)}
+.card.external{border-color:rgba(255,174,61,.28);box-shadow:0 0 0 1px rgba(255,174,61,.10)}
+.card.unimpl{opacity:.45}
+/* top color bar */
+.card-bar{
+  position:absolute;top:0;left:0;right:0;height:3px;border-radius:11px 11px 0 0;
+  opacity:0;transition:opacity 260ms;
+}
+.card.managed .card-bar{
+  background:linear-gradient(90deg,rgba(var(--sr),.05) 0%,rgba(var(--sr),1) 30%,var(--ok-h) 60%,rgba(var(--sr),.05) 100%);
+  box-shadow:0 0 8px rgba(var(--sr),.5);
+  opacity:1;
+}
+.card.external .card-bar{
+  background:linear-gradient(90deg,rgba(255,174,61,.05) 0%,rgba(255,174,61,1) 30%,#ffd060 60%,rgba(255,174,61,.05) 100%);
+  box-shadow:0 0 8px rgba(255,174,61,.5);
+  opacity:1;
+}
+.card:not(.unimpl):hover .card-bar{
+  opacity:1;
+  background:linear-gradient(90deg,rgba(var(--sr),.05) 0%,rgba(var(--sr),.9) 30%,rgba(var(--sr),.9) 70%,rgba(var(--sr),.05) 100%);
+}
+.shine{position:absolute;inset:-1px;border-radius:11px;pointer-events:none;
+  background:linear-gradient(135deg,transparent 25%,rgba(var(--sr),.07) 50%,transparent 75%);
+  opacity:0;transition:opacity 260ms}
+.card:not(.unimpl):hover .shine,.card.managed .shine,.card.external .shine{opacity:1}
+
+/* card header: icon + name/port */
+.ch{display:flex;align-items:center;gap:9px;padding-bottom:7px;
+  border-bottom:1px solid var(--border0)}
+.icon{width:34px;height:34px;flex-shrink:0;border-radius:8px;
+  border:1px solid rgba(var(--ic-rgb,128,128,128),.3);
+  background:rgba(var(--ic-rgb,128,128,128),.10);
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.icon svg{width:22px;height:22px}
+.ci{flex:1;min-width:0}
+.cname{font-weight:700;font-size:14.5px;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cport{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:1px}
+.cport a{color:var(--sig-h)}
+.cport a:hover{color:var(--sig)}
+
+/* status + actions row */
+.cs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:22px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.dot.run{background:var(--ok-h);box-shadow:0 0 6px rgba(94,212,154,.65);animation:pulse 2.2s ease-in-out infinite}
+.dot.ext{background:var(--warn);animation:pulse 2.2s ease-in-out infinite}
+.dot.ud{background:transparent;border:1px dashed var(--muted)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.uptime{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+/* actions */
+.ca{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto}
+.ca button{padding:3px 8px;font-size:12px}
+
+/* health modal */
+.hm{position:fixed;inset:0;background:rgba(6,6,12,.76);display:none;
+  align-items:center;justify-content:center;z-index:1300;padding:20px}
+.hm.open{display:flex}
+.hmbox{width:min(680px,100%);background:var(--bg1);border:1px solid var(--border1);
+  border-radius:13px;box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden}
+.hmhead{padding:11px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border0)}
+.hmhead h3{margin:0;font-size:14px}
+.hmbody{padding:14px 16px}
+.hm-meta{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.hm-meta .badge{font-size:12.5px}
+.hm-lat{font-size:12.5px;color:var(--muted)}
+.hm-err{padding:14px 16px;color:var(--err);font-size:13px}
+.hm-stack{width:100%;border-collapse:collapse;font-size:13px}
+.hm-stack tr{border-bottom:1px solid var(--border0)}
+.hm-stack tr:last-child{border-bottom:none}
+.hm-stack td{padding:7px 10px;color:var(--text2)}
+.hm-stack td:first-child{color:var(--muted);width:80px;text-transform:uppercase;font-size:12px;letter-spacing:.04em}
+.hm-stack td:last-child{color:var(--text);font-weight:500}
+.hm-name{color:var(--text);font-weight:700;margin-bottom:3px}
+.hm-desc{color:var(--text2);font-size:12.5px;line-height:1.5;margin-top:2px}
+.hm-features{margin:5px 0 0;padding-left:16px;color:var(--muted);font-size:12px;line-height:1.45}
+
+/* log modal */
+.modal-bg{position:fixed;inset:0;background:rgba(6,6,12,.76);display:none;
+  align-items:center;justify-content:center;z-index:1200;padding:20px}
+.modal-bg.open{display:flex}
+.modal{width:min(980px,100%);max-height:82vh;display:flex;flex-direction:column;
+  background:var(--bg1);border:1px solid var(--border1);border-radius:13px;
+  box-shadow:0 24px 64px rgba(0,0,0,.55)}
+.mhead{padding:11px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border0)}
+.mhead h3{margin:0;font-size:14px}
+.mbody{flex:1;overflow:auto;background:#04040a}
+pre.log{margin:0;padding:14px;font-family:var(--mono);font-size:13px;line-height:1.6;
+  color:var(--text2);white-space:pre-wrap;word-break:break-all}
+.mfoot{padding:8px 16px;border-top:1px solid var(--border0);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.mfoot label{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+
+/* toasts */
+.toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:6px;z-index:1400}
+.toast{padding:8px 13px;border-radius:9px;font-size:13px;background:var(--bg2);border:1px solid var(--border1);
+  animation:slIn 200ms ease;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast.ok{border-color:rgba(94,212,154,.5);color:var(--ok-h)}
+.toast.err{border-color:rgba(255,84,112,.5);color:var(--err)}
+@keyframes slIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+
+a{color:var(--sig-h);text-decoration:none}
+a:hover{color:var(--sig);text-decoration:underline}
+.ldot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--ok-h);
+  margin-right:5px;vertical-align:middle;animation:pulse 2.2s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<header>
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <h1>HELLOTIME · PRO</h1>
+    <span class="sub">dev-manager v2 &nbsp;·&nbsp; <span class="ldot"></span><span id="liveLabel">实时</span></span>
+  </div>
+  <div class="ctl">
+    <div class="hdr-status">
+      <div class="hdr-chip"><span class="lbl">转发</span><span class="val dim" id="hdrProxy">未设置</span></div>
+      <div class="hdr-chip"><span class="lbl">数据库</span><span class="val db" id="hdrDb">—</span></div>
+    </div>
+    <button class="ghost" id="btnConfig">配置</button>
+    <button class="ghost" id="btnRestart">重启所有</button>
+    <button class="bdanger" id="btnStopAll">停止所有</button>
+  </div>
+</header>
+
+<div id="sections"></div>
+</div>
+
+<!-- config modal -->
+<div class="cfg-bg" id="cfgModal">
+  <div class="cfg-box">
+    <div class="cfg-head">
+      <h3>配置</h3>
+      <button class="ghost" id="cfgClose">关闭</button>
+    </div>
+    <div class="cfg-body">
+      <div class="cfg-sec">
+        <p class="plabel">:9080 反代目标</p>
+        <div class="row">
+          <select id="proxySel"></select>
+          <button class="pri" id="btnSwitch">切换</button>
+          <span class="badge b-dim" id="proxyState">未设置</span>
+        </div>
+        <p class="hint">前端通过 <code style="color:var(--text2)">:9080</code> 访问后端，切换无需重启前端。</p>
+      </div>
+      <div class="cfg-div"></div>
+      <div class="cfg-sec">
+        <p class="plabel">DB_DRIVER</p>
+        <div class="row">
+          <select id="dbSel"><option value="postgres">postgres</option><option value="sqlite">sqlite</option></select>
+          <button class="pri" id="btnDb">应用</button>
+          <span class="badge b-dim" id="dbState">postgres</span>
+        </div>
+        <p class="hint">切换后须重启已运行的服务才会生效。</p>
+      </div>
+      <div class="cfg-div"></div>
+      <div class="cfg-sec">
+        <p class="plabel">数据库连接</p>
+        <div class="dbform">
+          <div class="dbtab" id="dbTabPg">
+            <div class="dbfields pg4">
+              <div><div class="dblabel">主机</div><input class="dbi" id="pgHost" placeholder="127.0.0.1"/></div>
+              <div><div class="dblabel">端口</div><input class="dbi" id="pgPort" placeholder="55432"/></div>
+            </div>
+            <div style="margin-top:6px"><div class="dblabel">数据库名</div><input class="dbi" id="pgDb" placeholder="hellotime_pro"/></div>
+            <div class="dbfields" style="margin-top:6px">
+              <div><div class="dblabel">用户名</div><input class="dbi" id="pgUser" placeholder="hellotime"/></div>
+              <div><div class="dblabel">密码</div><input class="dbi" id="pgPass" type="password" placeholder="••••••••"/></div>
+            </div>
+          </div>
+          <div class="dbtab" id="dbTabSqlite">
+            <div><div class="dblabel">文件路径（相对项目根目录）</div><input class="dbi" id="sqlitePath" placeholder="data/sqlite/hellotime.db"/></div>
+          </div>
+        </div>
+        <div class="dbrow">
+          <button class="pri" id="btnDbConfig">保存连接</button>
+          <span class="badge b-dim" id="dbConfigState"></span>
+        </div>
+      </div>
+      <div class="cfg-div"></div>
+      <div class="cfg-sec">
+        <p class="plabel">大模型 API</p>
+        <div class="row">
+          <label style="display:flex;align-items:center;gap:6px;color:var(--text2);font-size:13px">
+            <input type="checkbox" id="llmEnabled" />
+            启用运行时组合解读
+          </label>
+          <span class="badge b-dim" id="llmKeyState">未配置 Key</span>
+        </div>
+        <div class="dbform">
+          <div class="dbfields">
+            <div><div class="dblabel">Provider</div><input class="dbi" id="llmProvider" placeholder="openai"/></div>
+            <div><div class="dblabel">Model</div><input class="dbi" id="llmModel" placeholder="gpt-4.1-mini"/></div>
+          </div>
+          <div style="margin-top:6px"><div class="dblabel">Base URL</div><input class="dbi" id="llmBaseUrl" placeholder="https://api.openai.com/v1"/></div>
+          <div class="dbfields" style="margin-top:6px">
+            <div><div class="dblabel">API Key（留空保持不变）</div><input class="dbi" id="llmApiKey" type="password" placeholder="sk-..."/></div>
+            <div><div class="dblabel">Timeout ms</div><input class="dbi" id="llmTimeoutMs" placeholder="8000"/></div>
+          </div>
+        </div>
+        <div class="dbrow">
+          <button class="pri" id="btnLlmConfig">保存大模型配置</button>
+          <span class="badge b-dim" id="llmConfigState"></span>
+        </div>
+        <p class="hint">配置会在启动后端时注入为 <code style="color:var(--text2)">LLM_*</code> 环境变量；关于页不直接接触 API Key。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- health modal -->
+<div class="hm" id="healthModal">
+  <div class="hmbox">
+    <div class="hmhead">
+      <h3 id="hmTitle">技术栈检查</h3>
+      <button class="ghost" id="hmClose">关闭</button>
+    </div>
+    <div id="hmBody"></div>
+  </div>
+</div>
+
+<!-- log modal -->
+<div class="modal-bg" id="logModal">
+  <div class="modal">
+    <div class="mhead"><h3 id="logTitle">日志</h3><button class="ghost" id="logClose">关闭</button></div>
+    <div class="mbody"><pre class="log" id="logPre"></pre></div>
+    <div class="mfoot">
+      <label><input type="checkbox" id="logFollow" checked/> 自动刷新（2s）</label>
+      <div class="row">
+        <span class="badge b-dim" id="logMeta"></span>
+        <button class="ghost" id="logClear">清空</button>
+        <button class="ghost" id="logRefresh">刷新</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+const $  = (s,r=document) => r.querySelector(s);
+const $$ = (s,r=document) => Array.from(r.querySelectorAll(s));
+const KL = {backend:"后端",frontend:"前端",fullstack:"全栈"};
+const ROLE_LABELS = {
+  language: "语言",
+  framework: "框架",
+  database: "数据库",
+  runtime: "运行时",
+  styling: "样式",
+  template: "模板"
+};
+
+/* ── Tech SVG icons ── */
+/* viewBox="0 0 24 24", injected into .icon>svg */
+const ICONS = {
+  spring: [`<g fill="none"><path d="M19 5.8C15.8 2.6 10.8 2 7 4.2 4 6 2.5 9.5 3 13c.4 2.8 2 5.2 4.3 6.6 2 1.3 4.5 1.7 6.8 1 2.5-.7 4.5-2.6 5.5-5 .8-2 .8-4.3-.2-6.2-.7-1.4-1.8-2.5-2-4.2z" stroke="#6db33f" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#6db33f" opacity=".6"/><path d="M12 9.5c0-1.5.5-3 1.5-4" stroke="#6db33f" stroke-width="1.3" stroke-linecap="round" opacity=".7"/></g>`, "#6db33f"],
+  fastapi: [`<circle cx="12" cy="12" r="10.5" fill="rgba(0,150,136,.12)" stroke="#009688" stroke-width="1.2"/><path d="M14.5 4.5 7 13h5l-1.5 6.5L20 10h-5.5z" fill="#009688"/>`, "#009688"],
+  gin: [`<rect x="2" y="5" width="20" height="14" rx="3.5" fill="rgba(0,173,215,.1)" stroke="#00acd7" stroke-width="1.3"/><text x="4" y="17" font-family="monospace" font-weight="800" font-size="13.5" fill="#00acd7">Go</text>`, "#00acd7"],
+  elysia: [`<circle cx="12" cy="10.5" r="7.5" fill="rgba(245,216,160,.1)" stroke="#f5b842" stroke-width="1.3"/><circle cx="12" cy="10.5" r="3.5" fill="#f5b842" opacity=".7"/><circle cx="9" cy="4.5" r="2.5" fill="#f5b842" opacity=".9"/>`, "#f5b842"],
+  nest: [`<path d="M7 14.5C5.8 13 5.5 11 6 9.2 6.6 7 8.3 5.3 10.5 4.5L14 3C16.5 2.3 19 3.5 20.5 5.5c1 1.5 1.3 3.5.5 5.2-.6 1.3-1.8 2.3-3 2.8" stroke="#e0234e" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M17 9.5C18.2 11 18.5 13 18 14.8 17.4 17 15.7 18.7 13.5 19.5L10 21C7.5 21.7 5 20.5 3.5 18.5c-1-1.5-1.3-3.5-.5-5.2.6-1.3 1.8-2.3 3-2.8" stroke="#e0234e" stroke-width="2" fill="none" stroke-linecap="round"/>`, "#e0234e"],
+  aspnet: [`<path d="M12 2 21.5 6v12L12 22 2.5 18V6z" fill="rgba(81,43,212,.12)" stroke="#512bd4" stroke-width="1.3"/><text x="7.5" y="16.5" font-family="monospace" font-weight="700" font-size="10.5" fill="#512bd4">C#</text>`, "#512bd4"],
+  vapor: [`<path d="M19.8 7C18.3 4.5 15.5 3 12.5 3.2 9.3 3.4 6.5 5.3 5 8.2 3.7 10.7 3.8 13.8 5.2 16.2c.8 1.3 2 2.3 3.3 2.8 0 0-1.5-3 1.5-5.8 0 0 .5 3.5 4 4.8 0 0-1.8-2.3-.5-4.5 0 0 2.5 3.5 6 2C21.8 14.5 22.3 10.5 19.8 7z" fill="#f05138"/>`, "#f05138"],
+  axum: [`<g stroke="#ce412b" stroke-width="1.4" fill="none"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="2.5" fill="#ce412b" stroke="none"/><line x1="12" y1="2.5" x2="12" y2="5.5"/><line x1="12" y1="18.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5.5" y2="12"/><line x1="18.5" y1="12" x2="21.5" y2="12"/><line x1="4.7" y1="4.7" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="19.3" y2="19.3"/><line x1="19.3" y1="4.7" x2="17.2" y2="6.8"/><line x1="6.8" y1="17.2" x2="4.7" y2="19.3"/></g>`, "#ce412b"],
+  drogon: [`<rect x="2" y="5" width="20" height="14" rx="3.5" fill="rgba(98,149,203,.12)" stroke="#6295cb" stroke-width="1.3"/><text x="3.5" y="17" font-family="monospace" font-weight="700" font-size="12.5" fill="#6295cb">C++</text>`, "#6295cb"],
+  ktor: [`<polygon points="2,2 13.5,12 2,22" fill="none" stroke="#7f52ff" stroke-width="1.5" stroke-linejoin="round"/><polygon points="13.5,2 22,2 22,22 13.5,22" fill="rgba(127,82,255,.15)" stroke="#7f52ff" stroke-width="1.3" stroke-linejoin="round"/>`, "#7f52ff"],
+  vue: [`<polygon points="12,20.5 1.5,3.5 6.5,3.5 12,13.5 17.5,3.5 22.5,3.5" fill="#42b883"/><polygon points="12,13.5 7,3.5 9.5,3.5 12,8.5 14.5,3.5 17,3.5" fill="#35495e"/>`, "#42b883"],
+  react: [`<g stroke="#61dafb" stroke-width="1.25" fill="none"><ellipse cx="12" cy="12" rx="10.5" ry="4.2"/><ellipse cx="12" cy="12" rx="10.5" ry="4.2" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10.5" ry="4.2" transform="rotate(120 12 12)"/></g><circle cx="12" cy="12" r="1.8" fill="#61dafb"/>`, "#61dafb"],
+  angular: [`<polygon points="12,2 22,5.5 20.5,18.5 12,22.5 3.5,18.5 2,5.5" fill="#dd0031"/><polygon points="12,4.5 20,7.2 18.8,18 12,21.2 5.2,18 4,7.2" fill="#c3002f"/><path d="M9 16.5 12 8l3 8.5M10.3 14h3.4" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`, "#dd0031"],
+  svelte: [`<path d="M20.5 7.5c-1.2-3-4.5-4.8-7.8-4-2.8.7-5 3-5.5 5.8-.4 2.2.2 4.5 1.8 6.2" stroke="#ff3e00" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M3.5 16.5c1.2 3 4.5 4.8 7.8 4 2.8-.7 5-3 5.5-5.8.4-2.2-.2-4.5-1.8-6.2" stroke="#ff3e00" stroke-width="2.2" fill="none" stroke-linecap="round"/>`, "#ff3e00"],
+  solid: [`<path d="M21 8c-.8-2.8-3.5-4.5-6.5-4.5H9C6 3.5 3.5 6 3.5 9c0 2.2 1.3 4.1 3.2 5l5 2.3c1.5.7 2.5 2.2 2.3 3.8-.2 1.8-1.8 3-3.5 3H7" stroke="#446b9e" stroke-width="2.2" fill="none" stroke-linecap="round"/>`, "#446b9e"],
+  next: [`<circle cx="12" cy="12" r="10.5" fill="#111" stroke="rgba(255,255,255,.2)" stroke-width="1"/><path d="M8 16.5 15.5 7.5M15.5 7.5V16.5" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`, "#e2e8f0"],
+  nuxt: [`<polygon points="12,3.5 22,19.5 2,19.5" fill="none" stroke="#00dc82" stroke-width="1.5" stroke-linejoin="round"/><polygon points="12,7.5 19.5,19.5 4.5,19.5" fill="rgba(0,220,130,.15)" stroke="none"/>`, "#00dc82"],
+  "spring-mvc": [`<g fill="none"><path d="M18.5 6C15.5 2.8 10.5 2.3 7 4.5 4.2 6.3 2.8 9.8 3.5 13.2c.5 2.7 2.2 5 4.5 6.3 2 1.2 4.5 1.5 6.8.8 2.3-.7 4.2-2.5 5.2-4.8.8-2 .8-4.2-.2-6.2-.7-1.4-1.8-2.5-2-4z" stroke="#6db33f" stroke-width="1.4" stroke-linecap="round"/><path d="M12 10c0-1.5.4-2.8 1.2-3.8" stroke="#6db33f" stroke-width="1.3" stroke-linecap="round" opacity=".65"/><circle cx="12" cy="13" r="2.2" fill="#6db33f" opacity=".55"/></g>`, "#6db33f"],
+  rails: [`<path d="M12 3 20.5 8.5v7L12 21 3.5 15.5v-7z" fill="rgba(204,0,0,.12)" stroke="#cc0000" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 6.5 17.5 10v4L12 17.5 6.5 14v-4z" fill="rgba(204,0,0,.15)" stroke="#cc0000" stroke-width=".8" stroke-linejoin="round"/><circle cx="12" cy="12" r="2" fill="#cc0000"/>`, "#cc0000"],
+  laravel: [`<path d="M22 8.5l-5-4.5-5 3.5v5l5 3 5-3V8.5zM12 7.5 7 4 2 7v5l5 3 5-3V7.5z" fill="none" stroke="#ff2d20" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 12.5v5l5 3M12 12.5l-5 3" stroke="#ff2d20" stroke-width="1.2" fill="none"/>`, "#ff2d20"],
+};
+
+function iconEl(name){
+  const t = ICONS[name] || [`<text x="3" y="17" font-family="monospace" font-weight="700" font-size="13" fill="#888">${name.slice(0,2).toUpperCase()}</text>`, "#888"];
+  const ic = document.createElement("div");
+  ic.className = "icon";
+  const rgb = hexToRgb(t[1].replace("#",""));
+  ic.style.setProperty("--ic-rgb", rgb);
+  ic.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${t[0]}</svg>`;
+  return ic;
+}
+
+function hexToRgb(h){
+  const n = parseInt(h, 16);
+  return [(n>>16)&255,(n>>8)&255,n&255].join(",");
+}
+
+let snap = null, logTarget = null, logTimer = null;
+
+function fmtUp(s){
+  if(!s) return "";
+  if(s<60) return s+"s";
+  const m=Math.floor(s/60);
+  if(m<60) return `${m}m${s%60}s`;
+  return `${Math.floor(m/60)}h${m%60}m`;
+}
+
+function toast(msg,k="ok"){
+  const el=document.createElement("div");
+  el.className="toast "+k; el.textContent=msg;
+  $("#toasts").appendChild(el);
+  setTimeout(()=>el.remove(), 3200);
+}
+
+async function api(path,opts={}){
+  const r=await fetch(path,{headers:{"Content-Type":"application/json"},...opts});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return r.json();
+}
+
+async function refresh(){
+  try{
+    const j=await api("/api/snapshot");
+    snap=j.data; render();
+  }catch(e){ $("#liveLabel").textContent="离线"; }
+}
+
+function render(){
+  if(!snap) return;
+  $("#liveLabel").textContent = "实时";
+  const backends = snap.stacks.filter(s=>s.kind==="backend");
+
+  const sel=$("#proxySel");
+  if(sel.options.length===0){
+    backends.forEach(b=>{
+      const o=document.createElement("option");
+      o.value=b.name; o.textContent=`${b.name} · :${b.port}`;
+      sel.appendChild(o);
+    });
+  }
+  if(snap.proxy_target) sel.value=snap.proxy_target;
+  const px=$("#proxyState");
+  if(snap.proxy_target){
+    const t=backends.find(b=>b.name===snap.proxy_target);
+    px.textContent=t?`${snap.proxy_target} · :${t.port}`:snap.proxy_target;
+    px.className="badge b-sig";
+  }else{
+    px.textContent="未设置"; px.className="badge b-dim";
+  }
+  $("#dbSel").value=snap.db_driver;
+  $("#dbState").textContent=snap.db_driver;
+  syncDbTabs(snap.db_driver);
+  // header status chips
+  const hp=$("#hdrProxy");
+  if(snap.proxy_target){
+    const t=snap.stacks.find(s=>s.name===snap.proxy_target);
+    hp.textContent=snap.proxy_target+(t?` :${t.port}`:"");
+    hp.className="val sig";
+  }else{
+    hp.textContent="未设置"; hp.className="val dim";
+  }
+  const cfg2=snap.db_config||{};
+  const dbDetail=snap.db_driver==="sqlite"
+    ?(cfg2.sqlite_path||"").replace(/.*\//,"")
+    :`${cfg2.pg_host||""}:${cfg2.pg_port||""}/${cfg2.pg_db||""}`;
+  $("#hdrDb").textContent=snap.db_driver+" · "+dbDetail;
+  const cfg=snap.db_config||{};
+  if(!$("#pgHost").matches(":focus")) $("#pgHost").value=cfg.pg_host||"";
+  if(!$("#pgPort").matches(":focus")) $("#pgPort").value=cfg.pg_port||"";
+  if(!$("#pgDb").matches(":focus"))   $("#pgDb").value=cfg.pg_db||"";
+  if(!$("#pgUser").matches(":focus")) $("#pgUser").value=cfg.pg_user||"";
+  if(!$("#pgPass").matches(":focus")) $("#pgPass").value=cfg.pg_pass||"";
+  if(!$("#sqlitePath").matches(":focus")) $("#sqlitePath").value=cfg.sqlite_path||"";
+  const llm=snap.llm_config||{};
+  $("#llmEnabled").checked=!!llm.enabled;
+  if(!$("#llmProvider").matches(":focus")) $("#llmProvider").value=llm.provider||"openai";
+  if(!$("#llmModel").matches(":focus")) $("#llmModel").value=llm.model||"";
+  if(!$("#llmBaseUrl").matches(":focus")) $("#llmBaseUrl").value=llm.base_url||"";
+  if(!$("#llmTimeoutMs").matches(":focus")) $("#llmTimeoutMs").value=llm.timeout_ms||"";
+  if(!$("#llmApiKey").matches(":focus")) $("#llmApiKey").value="";
+  $("#llmApiKey").placeholder=llm.api_key_configured?"已配置，留空保持不变":"sk-...";
+  $("#llmKeyState").textContent=llm.api_key_configured?"Key 已配置":"未配置 Key";
+  $("#llmKeyState").className="badge "+(llm.api_key_configured?"b-ok":"b-dim");
+
+  const groups={backend:[],frontend:[],fullstack:[]};
+  snap.stacks.forEach(s=>groups[s.kind].push(s));
+  Object.keys(groups).forEach(k=>groups[k].sort((a,b)=>a.port-b.port));
+
+  const root=$("#sections");
+  const sy=window.scrollY;
+  root.innerHTML="";
+  ["backend","frontend","fullstack"].forEach(kind=>{
+    const list=groups[kind]; if(!list.length) return;
+    const sec=document.createElement("section");
+    sec.className="section"; sec.dataset.kind=kind;
+    const running=list.filter(s=>s.running).length;
+    const ext=list.filter(s=>!s.running&&s.port_open).length;
+    const impl=list.filter(s=>s.implemented).length;
+    const sh=document.createElement("div"); sh.className="sh";
+    sh.innerHTML=`<h2><span class="sbar"></span>${KL[kind]}</h2><span class="scount">${running} 管理运行${ext?" · "+ext+" 外部":""} · ${impl} 已实现 · ${list.length} 登记</span>`;
+    const grid=document.createElement("div"); grid.className="grid";
+    list.forEach(s=>grid.appendChild(buildCard(s,kind)));
+    sec.appendChild(sh); sec.appendChild(grid);
+    root.appendChild(sec);
+  });
+  window.scrollTo(0,sy);
+}
+
+function buildCard(s,kind){
+  const card=document.createElement("div");
+  const managed=s.running;
+  const external=!s.running&&s.port_open;
+  let cls="card";
+  if(managed) cls+=" managed";
+  else if(external) cls+=" external";
+  if(!s.implemented) cls+=" unimpl";
+  card.className=cls;
+
+  const bar=document.createElement("div"); bar.className="card-bar"; card.appendChild(bar);
+  const shine=document.createElement("div"); shine.className="shine"; card.appendChild(shine);
+
+  /* header */
+  const ch=document.createElement("div"); ch.className="ch";
+  ch.appendChild(iconEl(s.name));
+  const ci=document.createElement("div"); ci.className="ci";
+  const active=managed||external;
+  const portHtml=active
+    ?`<a href="http://127.0.0.1:${s.port}" target="_blank" rel="noopener">:${s.port}</a>`
+    :":"+s.port;
+  ci.innerHTML=`<div class="cname">${s.name}</div><div class="cport">${portHtml}</div>`;
+  ch.appendChild(ci);
+  card.appendChild(ch);
+
+  /* status */
+  const cs=document.createElement("div"); cs.className="cs";
+  if(managed){
+    cs.innerHTML=`<span class="dot run"></span><span class="badge b-ok">运行中</span><span class="uptime">${fmtUp(s.uptime_s)}</span><span class="badge b-dim">pid&nbsp;${s.pid}</span>`;
+  }else if(external){
+    cs.innerHTML=`<span class="dot ext"></span><span class="badge b-ext">外部运行</span>`;
+  }else if(s.implemented){
+    cs.innerHTML=`<span class="dot"></span><span class="badge b-dim">未启动</span>`;
+  }else{
+    cs.innerHTML=`<span class="dot ud"></span><span class="badge b-dim">未实现</span>`;
+  }
+  card.appendChild(cs);
+
+  /* actions */
+  const ca=document.createElement("div"); ca.className="ca";
+  if(managed){
+    btn(ca,"bdanger","stop","停止");
+    btn(ca,"brestart","restart","重启");
+    btn(ca,"ghost","logs","日志");
+  }else if(external){
+    btn(ca,"bdanger","stop-ext","停止");
+    btn(ca,"ghost","logs","日志");
+  }else if(s.implemented){
+    btn(ca,"pri","start","启动");
+    btn(ca,"ghost","logs","日志");
+  }else{
+    const b=document.createElement("button"); b.disabled=true; b.className="ghost"; b.textContent="未实现"; ca.appendChild(b);
+  }
+  if((kind==="frontend"||kind==="fullstack")&&(managed||external)){
+    btn(ca,"bopen","open","打开");
+  }
+  if(kind==="backend"&&(s.implemented||external)){
+    btn(ca,"bhealth","health","检查");
+  }
+  $$("button[data-act]",ca).forEach(b=>b.addEventListener("click",()=>onAct(s,b.dataset.act,card)));
+  card.appendChild(ca);
+  return card;
+}
+
+function btn(parent,cls,act,label){
+  const b=document.createElement("button"); b.className=cls; b.dataset.act=act; b.textContent=label;
+  parent.appendChild(b);
+}
+
+async function onAct(s,act,card){
+  try{
+    if(act==="start"){
+      const j=await api(`/api/start/${encodeURIComponent(s.name)}`,{method:"POST"});
+      toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+    }else if(act==="stop"){
+      const j=await api(`/api/stop/${encodeURIComponent(s.name)}`,{method:"POST"});
+      toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+    }else if(act==="stop-ext"){
+      const j=await api(`/api/stop-external/${encodeURIComponent(s.name)}`,{method:"POST"});
+      toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+    }else if(act==="restart"){
+      const b=$("button[data-act=restart]",card);
+      if(b){b.disabled=true;b.textContent="重启中…"}
+      try{
+        const j=await api(`/api/restart/${encodeURIComponent(s.name)}`,{method:"POST"});
+        toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+      }finally{
+        if(b){b.disabled=false;b.textContent="重启"}
+      }
+    }else if(act==="logs"){
+      openLogs(s.name);
+    }else if(act==="open"){
+      window.open(`http://127.0.0.1:${s.port}`,"_blank");
+    }else if(act==="health"){
+      const b=$("button[data-act=health]",card);
+      if(b){b.disabled=true; b.textContent="检查中…"}
+      try{
+        const j=await api(`/api/health/${encodeURIComponent(s.name)}`);
+        showHealth(s.name, j.data);
+      }finally{
+        if(b){b.disabled=false; b.textContent="检查"}
+      }
+    }
+  }catch(e){ toast("请求失败："+e.message,"err"); }
+}
+
+function showHealth(name, data){
+  $("#hmTitle").textContent = "技术栈检查 · "+name;
+  const box=$("#hmBody");
+  if(!data.ok){
+    box.innerHTML=`<div class="hm-err">连接失败：${esc(data.error||"未知错误")}</div>`;
+  }else{
+    const bd=data.body||{};
+    const d=data.health || bd.data || bd;
+    if(bd.success===false || !d){
+      box.innerHTML=`<div class="hm-err">健康检查返回异常：${esc(bd.message||bd.errorCode||"无 data")}</div>`;
+      $("#healthModal").classList.add("open");
+      return;
+    }
+    const items=(d.stack&&d.stack.items)||[];
+    const status=d.status||"ok";
+    const uptime=d.uptimeSeconds!=null?fmtUptime(d.uptimeSeconds):"—";
+    const service=d.service?`${esc(d.service)} v${esc(d.version||"—")}`:"";
+    const rows=items.map(it=>`<tr>
+      <td>${esc(ROLE_LABELS[it.role]||it.role||"—")}</td>
+      <td>
+        <div class="hm-name">${esc(it.name||"—")}</div>
+        ${it.tagline?`<div class="hm-desc">${esc(it.tagline)}</div>`:""}
+        ${Array.isArray(it.features)&&it.features.length?`<ul class="hm-features">${it.features.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
+      </td>
+      <td>${esc(it.version||"—")}</td>
+    </tr>`).join("");
+    box.innerHTML=`<div class="hmbody">
+      <div class="hm-meta">
+        <span class="badge ${status==="ok"?"b-ok":"b-err"}">${status}</span>
+        ${service?`<span class="hm-lat">${service}</span>`:""}
+        <span class="hm-lat">${data.latency_ms}ms</span>
+        <span class="hm-lat">运行 ${uptime}</span>
+      </div>
+      ${rows?`<table class="hm-stack">
+        <tr><td>角色</td><td>名称</td><td>版本</td></tr>
+        ${rows}
+      </table>`:"<div class='hm-err'>后端未返回技术栈信息</div>"}
+    </div>`;
+  }
+  $("#healthModal").classList.add("open");
+}
+function esc(v){
+  return String(v).replace(/[&<>"']/g, ch => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  }[ch]));
+}
+function fmtUptime(s){
+  if(s<60) return s+"s";
+  if(s<3600) return Math.floor(s/60)+"m "+Math.floor(s%60)+"s";
+  return Math.floor(s/3600)+"h "+Math.floor((s%3600)/60)+"m";
+}
+
+function openLogs(name){
+  logTarget=name;
+  $("#logTitle").textContent="日志 · "+name;
+  $("#logModal").classList.add("open");
+  loadLog();
+  if(logTimer) clearInterval(logTimer);
+  logTimer=setInterval(()=>{ if($("#logFollow").checked) loadLog(); },2000);
+}
+function closeLogs(){
+  $("#logModal").classList.remove("open");
+  logTarget=null;
+  if(logTimer){clearInterval(logTimer);logTimer=null}
+}
+async function loadLog(){
+  if(!logTarget) return;
+  try{
+    const j=await api(`/api/logs/${encodeURIComponent(logTarget)}?n=400`);
+    const pre=$("#logPre");
+    const atBottom=pre.scrollTop+pre.clientHeight>=pre.scrollHeight-8;
+    pre.textContent=j.data.content||"（暂无日志）";
+    if(atBottom) pre.scrollTop=pre.scrollHeight;
+    $("#logMeta").textContent=`${j.data.n} 行 · ${(j.data.content||"").length} 字符`;
+  }catch(e){$("#logPre").textContent="读取失败："+e.message}
+}
+
+$("#btnSwitch").addEventListener("click",async()=>{
+  const backend=$("#proxySel").value;
+  const j=await api("/api/switch",{method:"POST",body:JSON.stringify({backend})});
+  toast(j.result.msg,j.result.ok?"ok":"err"); refresh();
+});
+$("#btnDb").addEventListener("click",async()=>{
+  const driver=$("#dbSel").value;
+  const j=await api("/api/db-driver",{method:"POST",body:JSON.stringify({driver})});
+  toast(j.result.msg,j.result.ok?"ok":"err"); syncDbTabs(driver); refresh();
+});
+$("#dbSel").addEventListener("change",()=>syncDbTabs($("#dbSel").value));
+function syncDbTabs(driver){
+  $("#dbTabPg").classList.toggle("active", driver==="postgres");
+  $("#dbTabSqlite").classList.toggle("active", driver==="sqlite");
+}
+$("#btnDbConfig").addEventListener("click",async()=>{
+  const body={
+    pg_host:$("#pgHost").value, pg_port:$("#pgPort").value,
+    pg_db:$("#pgDb").value, pg_user:$("#pgUser").value, pg_pass:$("#pgPass").value,
+    sqlite_path:$("#sqlitePath").value,
+  };
+  const j=await api("/api/db-config",{method:"POST",body:JSON.stringify(body)});
+  const st=$("#dbConfigState");
+  st.textContent=j.result.ok?"已保存":"保存失败";
+  st.className="badge "+(j.result.ok?"b-ok":"b-err");
+  toast(j.result.msg,j.result.ok?"ok":"err");
+  setTimeout(()=>{st.textContent="";st.className="badge b-dim";},3000);
+});
+$("#btnLlmConfig").addEventListener("click",async()=>{
+  const body={
+    enabled:$("#llmEnabled").checked,
+    provider:$("#llmProvider").value,
+    base_url:$("#llmBaseUrl").value,
+    api_key:$("#llmApiKey").value,
+    model:$("#llmModel").value,
+    timeout_ms:$("#llmTimeoutMs").value,
+  };
+  const j=await api("/api/llm-config",{method:"POST",body:JSON.stringify(body)});
+  const st=$("#llmConfigState");
+  st.textContent=j.result.ok?"已保存":"保存失败";
+  st.className="badge "+(j.result.ok?"b-ok":"b-err");
+  toast(j.result.msg,j.result.ok?"ok":"err");
+  if(j.result.ok) $("#llmApiKey").value="";
+  refresh();
+  setTimeout(()=>{st.textContent="";st.className="badge b-dim";},3000);
+});
+$("#btnRestart").addEventListener("click",async()=>{
+  if(!confirm("重启所有正在运行的服务？")) return;
+  const j=await api("/api/restart-all",{method:"POST"});
+  toast(j.result.msg,"ok"); refresh();
+});
+$("#btnStopAll").addEventListener("click",async()=>{
+  if(!confirm("停止所有正在运行的服务？")) return;
+  const j=await api("/api/stop-all",{method:"POST"});
+  toast(j.result.msg,"ok"); refresh();
+});
+$("#hmClose").addEventListener("click",()=>$("#healthModal").classList.remove("open"));
+$("#btnConfig").addEventListener("click",()=>$("#cfgModal").classList.add("open"));
+$("#cfgClose").addEventListener("click",()=>$("#cfgModal").classList.remove("open"));
+$("#cfgModal").addEventListener("click",e=>{ if(e.target.id==="cfgModal") $("#cfgModal").classList.remove("open"); });
+$("#healthModal").addEventListener("click",e=>{ if(e.target.id==="healthModal") $("#healthModal").classList.remove("open"); });
+$("#logClose").addEventListener("click",closeLogs);
+$("#logModal").addEventListener("click",e=>{ if(e.target.id==="logModal") closeLogs(); });
+$("#logRefresh").addEventListener("click",loadLog);
+$("#logClear").addEventListener("click",async()=>{
+  if(!logTarget) return;
+  try{
+    const j=await api(`/api/clear-log/${encodeURIComponent(logTarget)}`,{method:"POST"});
+    if(j.result.ok){ $("#logPre").textContent=""; $("#logMeta").textContent=""; }
+    toast(j.result.msg,j.result.ok?"ok":"err");
+  }catch(e){ toast("清空失败："+e.message,"err"); }
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeLogs(); $("#healthModal").classList.remove("open"); $("#cfgModal").classList.remove("open"); } });
+
+refresh();
+setInterval(()=>{ if(!$("#cfgModal").classList.contains("open")) refresh(); },2000);
+</script>
+</body>
+</html>
