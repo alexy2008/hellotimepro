@@ -48,63 +48,73 @@
 
 ### M0 · 设计与基础设施（1–2 周）
 
+**状态**：已完成并验收（2026-05-02）。
+
 **目标**：spec 完整、工具链可运行、视觉原型可看。
 
 **交付物**
 
-- [ ] `spec/api/openapi.yaml`：完整路径 + schema + 错误模型
-- [ ] `spec/db/schema.sql`：PostgreSQL 方言，单一事实基准
-- [ ] `spec/styles/tokens.css` + `spec/tokens/tokens.json`：双向同步
-- [ ] `spec/avatars/*.svg` 10 个 + `catalog.json`
-- [ ] `spec/icons/` 技术栈 SVG 图标（覆盖所有 20 个实现涉及的技术）
-- [ ] `ui-prototype/` 静态 HTML（首页广场 / 登录 / 注册 / 创建胶囊 / 我的 / 关于）
-- [ ] `scripts/hello`（`start / stop / status / switch / doctor` 可用）
-- [ ] `docker-compose.yml`（Postgres 服务，端口 55432）
-- [ ] `docs/` 本套三份文档
-- [ ] `verification/contract/*.spec.ts` 用例列表（可不实现，先列齐）
+- [x] `spec/api/openapi.yaml`：完整路径 + schema + 错误模型
+- [x] `spec/db/schema.sql`：PostgreSQL 方言，单一事实基准
+- [x] `spec/styles/tokens.css` + `spec/tokens/tokens.json`：双向同步
+- [x] `spec/avatars/*.svg` 10 个 + `catalog.json`
+- [x] `spec/icons/` 技术栈 SVG 图标（覆盖所有 20 个实现涉及的技术）
+- [x] `ui-prototype/` 静态 HTML（首页广场 / 登录 / 注册 / 创建胶囊 / 我的 / 关于）
+- [x] `scripts/hello`（`start / stop / status / switch / doctor` 可用）
+- [x] `docker-compose.yml`（Postgres 服务，端口 55432）
+- [x] `docs/` 本套三份文档
+- [x] `verification/contract/*.spec.ts` 用例列表（可不实现，先列齐）
 
 **不做**：任何实际后端 / 前端代码
 
 **通过条件**
 
-- `ui-prototype/` 所有页面可在浏览器打开，视觉确认无大问题
-- `docker compose up -d postgres` + `./scripts/hello doctor` 可运行
-- 设计原型已经被项目 owner 确认
+- [x] `ui-prototype/` 所有页面可在浏览器打开，视觉确认无大问题
+- [x] `docker compose up -d postgres` + `./scripts/hello doctor` 可运行
+- [x] 设计原型已经被项目 owner 确认
 
 ---
 
 ### M1 · 参考栈（2–3 周）
 
+**状态**：已完成并验收（2026-05-02）。
+
 **目标**：FastAPI + React 跑通全部功能，成为后续实现的行为标准。
 
 **交付物**
 
-- [ ] `backends/fastapi/`
-  - 完整 `/api/v1/*` 实现
-  - Alembic 迁移，schema 与 `spec/db/schema.sql` 100% 对齐
-  - PG + SQLite 双驱动通过
-  - 单元测试覆盖核心 service
-  - `./run` `./build` `./test`
-  - README（安装 / 运行 / 切换驱动 / 实现特色）
-- [ ] `frontends/react-ts/`
-  - 全部 12 条路由实现
-  - 所有必要组件（见 `02-design.md §9.4`）
-  - Zustand 管理 auth / capsule / plaza store
-  - 鉴权全流程（登录 / 登出 / 自动 refresh / 改密）
-  - 广场 sort / filter / 分页
-  - 收藏（匿名时跳提示）
-  - 主题切换持久化
-  - `./run` `./build` `./test`
-  - README
-- [ ] `verification/scripts/verify-contract.sh fastapi` 绿
-- [ ] `verification/scripts/verify-ui-smoke.sh react-ts` 绿
+- [x] `backends/fastapi/`
+  - [x] 完整 `/api/v1/*` 实现
+  - [x] Alembic 迁移，schema 与 `spec/db/schema.sql` 100% 对齐
+  - [x] PG + SQLite 双驱动通过
+  - [x] 单元测试覆盖核心 service
+  - [x] `./run` `./build` `./test`
+  - [x] README（安装 / 运行 / 切换驱动 / 实现特色）
+- [x] `frontends/react-ts/`
+  - [x] 全部 12 条路由实现
+  - [x] 所有必要组件（见 `02-design.md §9.4`）
+  - [x] Zustand 管理 auth / capsule / plaza store
+  - [x] 鉴权全流程（登录 / 登出 / 自动 refresh / 改密）
+  - [x] 广场 sort / filter / 分页
+  - [x] 收藏（匿名时跳提示）
+  - [x] 主题切换持久化
+  - [x] `./run` `./build` `./test`
+  - [x] README
+- [x] `verification/scripts/verify-contract.sh fastapi` 绿
+- [x] `verification/scripts/verify-ui-smoke.sh react-ts` 绿
 
 **通过条件**
 
-- 新开发者按 README 可在 30 分钟内把 FastAPI + React 跑起来
-- 契约验证全绿
-- UI 冒烟跑通完整主流程（注册 → 创建公开胶囊 → 登出 → 匿名浏览 → 登录另一用户收藏 → 进"我收藏的"）
-- PG 和 SQLite 模式各至少跑通一次
+- [x] 新开发者按 README 可在 30 分钟内把 FastAPI + React 跑起来
+- [x] 契约验证全绿
+- [x] UI 冒烟跑通完整主流程（注册 → 创建公开胶囊 → 登出 → 登录另一用户收藏 → 进"我收藏的"）
+- [x] PG 和 SQLite 模式各至少跑通一次
+
+**验收记录**
+
+- 2026-05-02：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi` 通过，93/93。
+- 2026-05-02：`./verification/scripts/verify-contract.sh fastapi` 通过，PostgreSQL 93/93。
+- 2026-05-02：`./verification/scripts/verify-ui-smoke.sh react-ts` 通过，Playwright 4/4。
 
 ---
 

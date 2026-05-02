@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# 生产构建：拉取依赖 + 静态编译二进制。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v go >/dev/null 2>&1; then
+  echo "需要 Go，请先安装：https://go.dev/doc/install" >&2
+  exit 1
+fi
+
+echo "→ 拉取/验证依赖..."
+go mod tidy
+go mod verify
+
+echo "→ 构建..."
+CGO_ENABLED=1 go build -o bin/hellotime-gin ./cmd/server/.
+
+echo "✓ 构建完成：bin/hellotime-gin"
+echo "  运行：GIN_ROOT=$HERE ./bin/hellotime-gin"

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# 启动 HelloTime Pro Gin 后端（端口 29020）。
+#
+#   DB_DRIVER=postgres (默认) 需要 `docker compose up -d postgres`
+#   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime.db
+#
+# 启动前自动运行迁移（嵌入在二进制中）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+export GIN_ROOT="$HERE"
+export REPO_ROOT
+
+if ! command -v go >/dev/null 2>&1; then
+  echo "需要 Go，请先安装：https://go.dev/doc/install" >&2
+  exit 1
+fi
+
+# SQLite 默认路径
+if [[ "${DB_DRIVER:-postgres}" == "sqlite" && -z "${DB_URL:-}" ]]; then
+  mkdir -p "$REPO_ROOT/data/sqlite"
+  export DB_URL="sqlite:///$REPO_ROOT/data/sqlite/hellotime.db"
+fi
+
+# 标准化 PostgreSQL URL
+if [[ "${DB_URL:-}" == postgresql://* ]]; then
+  : # 已是标准格式，gorm/pgx 直接接受
+elif [[ "${DB_URL:-}" == postgres://* ]]; then
+  export DB_URL="postgresql${DB_URL#postgres}"
+fi
+
+PORT="${PORT:-29020}"
+export PORT
+
+# 注入演示数据（SEED_DEMO=false 可关闭）
+if [[ "${SEED_DEMO:-true}" != "false" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$REPO_ROOT/spec/db/seed_demo.py" || true
+  fi
+fi
+
+exec go run ./cmd/server/. "$@"

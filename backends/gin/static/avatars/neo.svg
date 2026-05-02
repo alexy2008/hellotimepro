@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Neo">
+  <defs>
+    <radialGradient id="neo-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#221060"/>
+      <stop offset="100%" stop-color="#06060c"/>
+    </radialGradient>
+    <linearGradient id="neo-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8467ff"/>
+      <stop offset="100%" stop-color="#40e4ff"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="62" fill="url(#neo-bg)"/>
+  <circle cx="64" cy="64" r="62" fill="none" stroke="#6b46ff" stroke-width="1.5" opacity="0.6"/>
+  <!-- 三角矩阵 -->
+  <polygon points="64,28 100,90 28,90" fill="none" stroke="url(#neo-grad)" stroke-width="3" stroke-linejoin="round"/>
+  <polygon points="64,44 86,82 42,82" fill="none" stroke="#40e4ff" stroke-width="2" opacity="0.7"/>
+  <circle cx="64" cy="70" r="4" fill="#40e4ff"/>
+  <line x1="64" y1="28" x2="64" y2="66" stroke="#8467ff" stroke-width="1.5" opacity="0.5"/>
+</svg>

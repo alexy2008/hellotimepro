@@ -113,9 +113,15 @@ HelloTime Pro 是 [HelloTimeByClaude](https://github.com/<owner>/HelloTimeByClau
 
 ## 当前状态
 
-本仓库目前处于 **M0 · 设计与基础设施** 阶段：文档先行，实现尚未开始。
+本仓库目前已完成 **M0 · 设计与基础设施** 和 **M1 · 参考栈（FastAPI + React）** 验收。
 
-下一步：选定参考栈并打通 M1（见 [`docs/03-roadmap.md`](docs/03-roadmap.md)）。
+已验收的参考栈验证：
+
+- `DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi`
+- `./verification/scripts/verify-contract.sh fastapi`
+- `./verification/scripts/verify-ui-smoke.sh react-ts`
+
+下一步：进入 M2 第一批扩散，继续推进 Spring Boot / Gin / Vue 等实现（见 [`docs/03-roadmap.md`](docs/03-roadmap.md)）。
 
 ## 许可
 

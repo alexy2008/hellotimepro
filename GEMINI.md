@@ -1,6 +1,6 @@
-# CLAUDE.md
+# GEMINI.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Gemini CLI when working with code in this repository.
 
 ## Project Overview
 
@@ -102,7 +102,7 @@ Tailwind CSS v4 + semantic design tokens. All color/spacing references must use 
 | :9090 | Dev manager UI |
 | :55432 | PostgreSQL |
 
-## Key Design Decisions (from `docs/02-design.md`)
+## Key Design Decisions
 
 - **Deletion**: Users can delete their own capsules at any time; capsule content and unlock date are immutable after creation.
 - **Out of scope**: password reset, OAuth, file uploads, comments, email notifications.
