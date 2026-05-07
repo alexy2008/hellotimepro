@@ -36,8 +36,34 @@ const openLocal = ref(presetTime("1h"));
 const inPlaza = ref(true);
 const busy = ref(false);
 const err = ref<string | null>(null);
+const aiBusy = ref(false);
+const aiInfo = ref<string | null>(null);
+const aiGenerated = ref(false);
 
 const contentLen = computed(() => content.value.length);
+
+async function aiGenerate() {
+  const t = title.value.trim();
+  if (!t) {
+    err.value = "请先填写胶囊标题";
+    return;
+  }
+  err.value = null;
+  aiInfo.value = null;
+  aiBusy.value = true;
+  try {
+    const s = await api.suggestCapsule({ title: t });
+    content.value = s.content;
+    openLocal.value = isoToLocalInput(s.openAt);
+    aiGenerated.value = true;
+    const source = s.generatedBy === "local-template" ? "本地模板（LLM 未启用）" : s.generatedBy;
+    aiInfo.value = `已为你生成正文，建议 ${s.openInDays} 天后开启 · 来源：${source}`;
+  } catch (e) {
+    err.value = e instanceof ApiError ? e.message : "AI 生成失败，请稍后重试";
+  } finally {
+    aiBusy.value = false;
+  }
+}
 
 async function submit() {
   err.value = null;
@@ -77,14 +103,30 @@ async function submit() {
             标题
             <span style="color: var(--color-text-muted); font-weight: 400">· 最多 60 字</span>
           </label>
-          <input
-            id="title"
-            v-model="title"
-            class="cy-input"
-            type="text"
-            :maxlength="60"
-            required
-          />
+          <div style="display:flex; gap: var(--space-2); align-items: stretch">
+            <input
+              id="title"
+              v-model="title"
+              class="cy-input"
+              type="text"
+              :maxlength="60"
+              required
+              style="flex: 1"
+            />
+            <button
+              type="button"
+              class="cy-btn cy-btn--ghost"
+              :disabled="aiBusy || !title.trim()"
+              :title="'基于标题，让 AI 生成胶囊正文与建议开启时间'"
+              style="white-space: nowrap"
+              @click="aiGenerate"
+            >
+              {{ aiBusy ? "生成中…" : aiGenerated ? "✨ 重新生成" : "✨ AI 生成" }}
+            </button>
+          </div>
+          <span v-if="aiInfo" class="cy-field__hint" style="color: var(--color-text-secondary)">
+            {{ aiInfo }}
+          </span>
         </div>
 
         <div class="cy-field">

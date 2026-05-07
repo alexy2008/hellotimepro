@@ -24,77 +24,119 @@ public class LlmClientService {
     this.mapper = mapper;
   }
 
+  /** 结构化 JSON 生成的 schema 描述。 */
+  public record SchemaSpec(
+      String schemaName,
+      Map<String, Object> schema,
+      String systemPrompt,
+      int maxOutputTokens,
+      int maxTokens
+  ) {}
+
+  private static final SchemaSpec STACK_NARRATION_SPEC = new SchemaSpec(
+      "stack_narration",
+      Map.of(
+          "type", "object",
+          "additionalProperties", false,
+          "required", List.of("title", "narrative"),
+          "properties", Map.of(
+              "title", Map.of("type", "string"),
+              "narrative", Map.of("type", "string")
+          )
+      ),
+      "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。JSON 必须包含字符串字段 title 和 narrative。",
+      600,
+      600
+  );
+
+  private static final SchemaSpec CAPSULE_SUGGESTION_SPEC = new SchemaSpec(
+      "capsule_suggestion",
+      Map.of(
+          "type", "object",
+          "additionalProperties", false,
+          "required", List.of("content", "openInDays"),
+          "properties", Map.of(
+              "content", Map.of("type", "string"),
+              "openInDays", Map.of("type", "integer", "minimum", 1, "maximum", 3650)
+          )
+      ),
+      "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。JSON 必须包含字符串字段 content 和整数字段 openInDays。",
+      900,
+      900
+  );
+
   public Map<String, String> generateStructuredNarration(String prompt) {
+    JsonNode node = generateStructuredJson(prompt, STACK_NARRATION_SPEC);
+    return Map.of(
+        "title", node.path("title").asText(""),
+        "narrative", node.path("narrative").asText("")
+    );
+  }
+
+  /** 返回 {content: string, openInDays: int}。调用方负责解析。 */
+  public JsonNode generateCapsuleSuggestion(String prompt) {
+    return generateStructuredJson(prompt, CAPSULE_SUGGESTION_SPEC);
+  }
+
+  private JsonNode generateStructuredJson(String prompt, SchemaSpec spec) {
     var llm = props.getLlm();
     if (!llm.isEnabled() || llm.getApiKey() == null || llm.getApiKey().isBlank()) {
       throw new LlmClientException("LLM is disabled or missing API key");
     }
 
     try {
-      return generateWithResponses(prompt);
+      return generateWithResponses(prompt, spec);
     } catch (LlmClientException e) {
       if (e.status != 400 && e.status != 404 && e.status != 405) {
         throw e;
       }
     }
-    return generateWithChatCompletions(prompt);
+    return generateWithChatCompletions(prompt, spec);
   }
 
-  private Map<String, String> generateWithResponses(String prompt) {
-    Map<String, Object> schema = new LinkedHashMap<>();
-    schema.put("type", "object");
-    schema.put("additionalProperties", false);
-    schema.put("required", List.of("title", "narrative"));
-    schema.put("properties", Map.of(
-        "title", Map.of("type", "string"),
-        "narrative", Map.of("type", "string")
-    ));
-
+  private JsonNode generateWithResponses(String prompt, SchemaSpec spec) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("model", props.getLlm().getModel());
     payload.put("input", prompt);
-    payload.put("max_output_tokens", 600);
+    payload.put("max_output_tokens", spec.maxOutputTokens());
     payload.put("text", Map.of("format", Map.of(
         "type", "json_schema",
-        "name", "stack_narration",
+        "name", spec.schemaName(),
         "strict", true,
-        "schema", schema
+        "schema", spec.schema()
     )));
 
     JsonNode body = postJson(responsesUrl(), payload);
     String text = extractResponsesText(body);
-    return parseJsonObject(text);
+    return parseJsonNode(text);
   }
 
-  private Map<String, String> generateWithChatCompletions(String prompt) {
+  private JsonNode generateWithChatCompletions(String prompt, SchemaSpec spec) {
     try {
-      return generateWithChatCompletions(prompt, true);
+      return generateWithChatCompletions(prompt, spec, true);
     } catch (LlmClientException e) {
       if (e.status != 400) {
         throw e;
       }
-      return generateWithChatCompletions(prompt, false);
+      return generateWithChatCompletions(prompt, spec, false);
     }
   }
 
-  private Map<String, String> generateWithChatCompletions(String prompt, boolean disableThinking) {
+  private JsonNode generateWithChatCompletions(String prompt, SchemaSpec spec, boolean disableThinking) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("model", props.getLlm().getModel());
     payload.put("messages", List.of(
-        Map.of(
-            "role", "system",
-            "content", "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。JSON 必须包含字符串字段 title 和 narrative。"
-        ),
+        Map.of("role", "system", "content", spec.systemPrompt()),
         Map.of("role", "user", "content", prompt)
     ));
-    payload.put("max_tokens", 600);
+    payload.put("max_tokens", spec.maxTokens());
     if (disableThinking) {
       payload.put("thinking", Map.of("type", "disabled"));
     }
 
     JsonNode body = postJson(chatCompletionsUrl(), payload);
     String text = extractChatText(body);
-    return parseJsonObject(text);
+    return parseJsonNode(text);
   }
 
   private JsonNode postJson(String url, Map<String, Object> payload) {
@@ -174,13 +216,13 @@ public class LlmClientService {
     throw new LlmClientException("LLM chat response did not contain message content");
   }
 
-  private Map<String, String> parseJsonObject(String raw) {
+  private JsonNode parseJsonNode(String raw) {
     String text = raw.strip();
     if (text.startsWith("```")) {
       text = text.replaceAll("^```[a-zA-Z]*\\s*", "").replaceAll("\\s*```$", "").strip();
     }
     try {
-      return toStringMap(mapper.readTree(text));
+      return ensureObject(mapper.readTree(text));
     } catch (IOException first) {
       int start = text.indexOf('{');
       int end = text.lastIndexOf('}');
@@ -188,21 +230,18 @@ public class LlmClientService {
         throw new LlmClientException("LLM output was not valid JSON", first);
       }
       try {
-        return toStringMap(mapper.readTree(text.substring(start, end + 1)));
+        return ensureObject(mapper.readTree(text.substring(start, end + 1)));
       } catch (IOException second) {
         throw new LlmClientException("LLM output was not valid JSON", second);
       }
     }
   }
 
-  private Map<String, String> toStringMap(JsonNode node) {
+  private JsonNode ensureObject(JsonNode node) {
     if (!node.isObject()) {
       throw new LlmClientException("LLM output JSON was not an object");
     }
-    return Map.of(
-        "title", node.path("title").asText(""),
-        "narrative", node.path("narrative").asText("")
-    );
+    return node;
   }
 
   public static class LlmClientException extends RuntimeException {

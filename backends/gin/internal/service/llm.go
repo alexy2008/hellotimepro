@@ -170,27 +170,64 @@ func postJSON(url string, payload map[string]any) (map[string]any, error) {
 	return result, nil
 }
 
+// ---------- 结构化 JSON 生成参数 ----------
+
+// LLMSchemaSpec 描述一次结构化 JSON 生成所需的 schema/system 信息。
+type LLMSchemaSpec struct {
+	SchemaName      string         // 用于 /responses API 的 json_schema 名称
+	Schema          map[string]any // JSON Schema（type=object, properties=...）
+	SystemPrompt    string         // /chat/completions 的 system 消息
+	MaxOutputTokens int            // /responses 的 max_output_tokens
+	MaxTokens       int            // /chat/completions 的 max_tokens
+}
+
+var stackNarrationSpec = LLMSchemaSpec{
+	SchemaName: "stack_narration",
+	Schema: map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"title", "narrative"},
+		"properties": map[string]any{
+			"title":     map[string]any{"type": "string"},
+			"narrative": map[string]any{"type": "string"},
+		},
+	},
+	SystemPrompt: "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。" +
+		"JSON 必须包含字符串字段 title 和 narrative。",
+	MaxOutputTokens: 600,
+	MaxTokens:       600,
+}
+
+var capsuleSuggestionSpec = LLMSchemaSpec{
+	SchemaName: "capsule_suggestion",
+	Schema: map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"content", "openInDays"},
+		"properties": map[string]any{
+			"content":    map[string]any{"type": "string"},
+			"openInDays": map[string]any{"type": "integer", "minimum": 1, "maximum": 3650},
+		},
+	},
+	SystemPrompt: "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。" +
+		"JSON 必须包含字符串字段 content 和整数字段 openInDays。",
+	MaxOutputTokens: 900,
+	MaxTokens:       900,
+}
+
 // ---------- /responses API ----------
 
-func generateWithResponses(prompt string) (map[string]any, error) {
+func generateWithResponses(prompt string, spec LLMSchemaSpec) (map[string]any, error) {
 	payload := map[string]any{
 		"model":             config.App.LLMModel,
 		"input":             prompt,
-		"max_output_tokens": 600,
+		"max_output_tokens": spec.MaxOutputTokens,
 		"text": map[string]any{
 			"format": map[string]any{
 				"type":   "json_schema",
-				"name":   "stack_narration",
+				"name":   spec.SchemaName,
 				"strict": true,
-				"schema": map[string]any{
-					"type":                 "object",
-					"additionalProperties": false,
-					"required":             []string{"title", "narrative"},
-					"properties": map[string]any{
-						"title":     map[string]any{"type": "string"},
-						"narrative": map[string]any{"type": "string"},
-					},
-				},
+				"schema": spec.Schema,
 			},
 		},
 	}
@@ -207,18 +244,14 @@ func generateWithResponses(prompt string) (map[string]any, error) {
 
 // ---------- /chat/completions API ----------
 
-func chatPayload(prompt string, disableThinking bool) map[string]any {
+func chatPayload(prompt string, spec LLMSchemaSpec, disableThinking bool) map[string]any {
 	payload := map[string]any{
 		"model": config.App.LLMModel,
 		"messages": []map[string]any{
-			{
-				"role": "system",
-				"content": "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。" +
-					"JSON 必须包含字符串字段 title 和 narrative。",
-			},
+			{"role": "system", "content": spec.SystemPrompt},
 			{"role": "user", "content": prompt},
 		},
-		"max_tokens": 600,
+		"max_tokens": spec.MaxTokens,
 	}
 	if disableThinking {
 		payload["thinking"] = map[string]any{"type": "disabled"}
@@ -226,13 +259,13 @@ func chatPayload(prompt string, disableThinking bool) map[string]any {
 	return payload
 }
 
-func generateWithChatCompletions(prompt string) (map[string]any, error) {
-	body, err := postJSON(chatCompletionsURL(), chatPayload(prompt, true))
+func generateWithChatCompletions(prompt string, spec LLMSchemaSpec) (map[string]any, error) {
+	body, err := postJSON(chatCompletionsURL(), chatPayload(prompt, spec, true))
 	if err != nil {
 		var llmE *LLMClientError
 		if errors.As(err, &llmE) && llmE.Status == 400 {
 			// 部分模型不接受 thinking 参数，去掉后重试
-			body, err = postJSON(chatCompletionsURL(), chatPayload(prompt, false))
+			body, err = postJSON(chatCompletionsURL(), chatPayload(prompt, spec, false))
 			if err != nil {
 				return nil, err
 			}
@@ -249,20 +282,30 @@ func generateWithChatCompletions(prompt string) (map[string]any, error) {
 
 // ---------- 统一入口 ----------
 
-// GenerateStructuredNarration 向 LLM 请求 {title, narrative} JSON 对象。
-// 先尝试 /responses，若收到 400/404/405 则回退到 /chat/completions。
-func GenerateStructuredNarration(prompt string) (map[string]any, error) {
+// generateStructuredJSON 通用的结构化 JSON 生成入口。
+func generateStructuredJSON(prompt string, spec LLMSchemaSpec) (map[string]any, error) {
 	if !config.App.LLMEnabled || strings.TrimSpace(config.App.LLMAPIKey) == "" {
 		return nil, llmClientErr("LLM is disabled or missing API key")
 	}
 
-	result, err := generateWithResponses(prompt)
+	result, err := generateWithResponses(prompt, spec)
 	if err == nil {
 		return result, nil
 	}
 	var llmE *LLMClientError
 	if errors.As(err, &llmE) && (llmE.Status == 400 || llmE.Status == 404 || llmE.Status == 405) {
-		return generateWithChatCompletions(prompt)
+		return generateWithChatCompletions(prompt, spec)
 	}
 	return nil, err
+}
+
+// GenerateStructuredNarration 向 LLM 请求 {title, narrative} JSON 对象。
+// 先尝试 /responses，若收到 400/404/405 则回退到 /chat/completions。
+func GenerateStructuredNarration(prompt string) (map[string]any, error) {
+	return generateStructuredJSON(prompt, stackNarrationSpec)
+}
+
+// GenerateCapsuleSuggestion 向 LLM 请求 {content, openInDays} JSON 对象。
+func GenerateCapsuleSuggestion(prompt string) (map[string]any, error) {
+	return generateStructuredJSON(prompt, capsuleSuggestionSpec)
 }

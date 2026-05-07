@@ -513,6 +513,41 @@ components:
         cached:
           type: boolean
 
+    CapsuleSuggestionRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+        locale:
+          type: string
+          default: zh-CN
+
+    CapsuleSuggestion:
+      type: object
+      required: [content, openInDays, openAt, generatedBy, cached]
+      properties:
+        content:
+          type: string
+          description: 建议的胶囊正文，≤5000 字
+        openInDays:
+          type: integer
+          minimum: 1
+          maximum: 3650
+          description: LLM 建议的开启天数（相对当前时间）
+        openAt:
+          type: string
+          format: date-time
+          description: 后端基于 now + openInDays 合成的开启时刻（UTC）
+        generatedBy:
+          type: string
+          description: 生成来源，如 openai:gpt-4.1-mini 或 local-template
+        cached:
+          type: boolean
+          description: 该端点不缓存，固定为 false
+
   # ============================================================
   # 公共参数
   # ============================================================
@@ -712,6 +747,39 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/StackNarration'
+
+  /api/v1/capsule-suggestion:
+    post:
+      tags: [Capsules]
+      summary: 由标题生成胶囊内容与开启时间建议
+      description: |
+        - 基于标题调用 LLM 生成正文（content）和建议的开启天数（openInDays）。
+        - 后端基于当前时间 + openInDays 合成 openAt（UTC ISO-8601）。
+        - 大模型未配置或调用失败时，后端必须返回本地模板兜底结果。
+        - 不缓存：每次调用都重新生成，便于"重新生成"按钮使用。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CapsuleSuggestionRequest'
+      responses:
+        '200':
+          description: 胶囊建议
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CapsuleSuggestion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
 
   # ---------- 鉴权 ----------
 

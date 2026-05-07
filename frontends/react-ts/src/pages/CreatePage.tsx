@@ -37,8 +37,35 @@ export function CreatePage() {
   const [inPlaza, setInPlaza] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiInfo, setAiInfo] = useState<string | null>(null);
+  const [aiGenerated, setAiGenerated] = useState(false);
 
   const contentLen = useMemo(() => content.length, [content]);
+
+  async function aiGenerate() {
+    const t = title.trim();
+    if (!t) {
+      setErr("请先填写胶囊标题");
+      return;
+    }
+    setErr(null);
+    setAiInfo(null);
+    setAiBusy(true);
+    try {
+      const s = await api.suggestCapsule({ title: t });
+      setContent(s.content);
+      setOpenLocal(isoToLocalInput(s.openAt));
+      setAiGenerated(true);
+      const days = s.openInDays;
+      const source = s.generatedBy === "local-template" ? "本地模板（LLM 未启用）" : s.generatedBy;
+      setAiInfo(`已为你生成正文，建议 ${days} 天后开启 · 来源：${source}`);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "AI 生成失败，请稍后重试");
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -84,15 +111,33 @@ export function CreatePage() {
               标题{" "}
               <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>· 最多 60 字</span>
             </label>
-            <input
-              className="cy-input"
-              id="title"
-              type="text"
-              maxLength={60}
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "stretch" }}>
+              <input
+                className="cy-input"
+                id="title"
+                type="text"
+                maxLength={60}
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="cy-btn cy-btn--ghost"
+                onClick={aiGenerate}
+                disabled={aiBusy || !title.trim()}
+                title="基于标题，让 AI 生成胶囊正文与建议开启时间"
+                style={{ whiteSpace: "nowrap" }}
+              >
+                {aiBusy ? "生成中…" : aiGenerated ? "✨ 重新生成" : "✨ AI 生成"}
+              </button>
+            </div>
+            {aiInfo && (
+              <span className="cy-field__hint" style={{ color: "var(--color-text-secondary)" }}>
+                {aiInfo}
+              </span>
+            )}
           </div>
 
           <div className="cy-field">

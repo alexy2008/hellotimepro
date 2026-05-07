@@ -148,6 +148,8 @@ import type {
   AuthTokens,
   Avatar,
   CapsuleDetail,
+  CapsuleSuggestion,
+  CapsuleSuggestionRequest,
   CreateCapsuleRequest,
   HealthData,
   LoginRequest,
@@ -166,6 +168,13 @@ export const api = {
 
   stackNarration: (body: StackNarrationRequest) =>
     request<StackNarration>("/api/v1/stack-narration", {
+      method: "POST",
+      body,
+      auth: false,
+    }),
+
+  suggestCapsule: (body: CapsuleSuggestionRequest) =>
+    request<CapsuleSuggestion>("/api/v1/capsule-suggestion", {
       method: "POST",
       body,
       auth: false,

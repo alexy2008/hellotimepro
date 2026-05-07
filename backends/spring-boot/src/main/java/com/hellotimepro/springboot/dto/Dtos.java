@@ -144,4 +144,17 @@ public final class Dtos {
   ) {}
 
   public record StackNarration(String title, String narrative, String generatedBy, boolean cached) {}
+
+  public record CapsuleSuggestionRequest(
+      @NotBlank @Size(min = 1, max = 60) String title,
+      String locale
+  ) {}
+
+  public record CapsuleSuggestion(
+      String content,
+      int openInDays,
+      OffsetDateTime openAt,
+      String generatedBy,
+      boolean cached
+  ) {}
 }

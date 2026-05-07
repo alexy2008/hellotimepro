@@ -92,27 +92,50 @@ def _post_json(url: str, payload: dict[str, Any]) -> dict:
         raise LlmClientError(str(e)) from e
 
 
-def _generate_with_responses(prompt: str) -> dict:
+_NARRATION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["title", "narrative"],
+    "properties": {
+        "title": {"type": "string"},
+        "narrative": {"type": "string"},
+    },
+}
+_NARRATION_SYSTEM = (
+    "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。"
+    "JSON 必须包含字符串字段 title 和 narrative。"
+)
+
+_CAPSULE_SUGGESTION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["content", "openInDays"],
+    "properties": {
+        "content": {"type": "string"},
+        "openInDays": {"type": "integer", "minimum": 1, "maximum": 3650},
+    },
+}
+_CAPSULE_SUGGESTION_SYSTEM = (
+    "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。"
+    "JSON 必须包含字符串字段 content 和整数字段 openInDays。"
+)
+
+
+def _generate_with_responses(
+    prompt: str, *, schema_name: str, schema: dict, max_output_tokens: int
+) -> dict:
     body = _post_json(
         _responses_url(),
         {
             "model": settings.llm_model,
             "input": prompt,
-            "max_output_tokens": 600,
+            "max_output_tokens": max_output_tokens,
             "text": {
                 "format": {
                     "type": "json_schema",
-                    "name": "stack_narration",
+                    "name": schema_name,
                     "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "required": ["title", "narrative"],
-                        "properties": {
-                            "title": {"type": "string"},
-                            "narrative": {"type": "string"},
-                        },
-                    },
+                    "schema": schema,
                 }
             },
         },
@@ -123,33 +146,37 @@ def _generate_with_responses(prompt: str) -> dict:
         raise LlmClientError("LLM output was not valid JSON") from e
 
 
-def _chat_payload(prompt: str, *, disable_thinking: bool) -> dict[str, Any]:
+def _chat_payload(
+    prompt: str, *, system: str, max_tokens: int, disable_thinking: bool
+) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "model": settings.llm_model,
         "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。"
-                    "JSON 必须包含字符串字段 title 和 narrative。"
-                ),
-            },
+            {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
-        "max_tokens": 600,
+        "max_tokens": max_tokens,
     }
     if disable_thinking:
         payload["thinking"] = {"type": "disabled"}
     return payload
 
 
-def _generate_with_chat_completions(prompt: str) -> dict:
+def _generate_with_chat_completions(
+    prompt: str, *, system: str, max_tokens: int
+) -> dict:
     try:
-        body = _post_json(_chat_completions_url(), _chat_payload(prompt, disable_thinking=True))
+        body = _post_json(
+            _chat_completions_url(),
+            _chat_payload(prompt, system=system, max_tokens=max_tokens, disable_thinking=True),
+        )
     except LlmClientError as e:
         if e.status != 400:
             raise
-        body = _post_json(_chat_completions_url(), _chat_payload(prompt, disable_thinking=False))
+        body = _post_json(
+            _chat_completions_url(),
+            _chat_payload(prompt, system=system, max_tokens=max_tokens, disable_thinking=False),
+        )
 
     try:
         return _parse_json_object(_extract_chat_text(body))
@@ -157,14 +184,42 @@ def _generate_with_chat_completions(prompt: str) -> dict:
         raise LlmClientError("LLM chat output was not valid JSON") from e
 
 
-def generate_structured_narration(prompt: str) -> dict:
+def _generate_structured_json(
+    prompt: str,
+    *,
+    schema_name: str,
+    schema: dict,
+    system: str,
+    max_tokens: int = 600,
+) -> dict:
     if not settings.llm_enabled or not settings.llm_api_key.strip():
         raise LlmClientError("LLM is disabled or missing API key")
 
     try:
-        return _generate_with_responses(prompt)
+        return _generate_with_responses(
+            prompt, schema_name=schema_name, schema=schema, max_output_tokens=max_tokens
+        )
     except LlmClientError as e:
         if e.status not in {400, 404, 405}:
             raise
 
-    return _generate_with_chat_completions(prompt)
+    return _generate_with_chat_completions(prompt, system=system, max_tokens=max_tokens)
+
+
+def generate_structured_narration(prompt: str) -> dict:
+    return _generate_structured_json(
+        prompt,
+        schema_name="stack_narration",
+        schema=_NARRATION_SCHEMA,
+        system=_NARRATION_SYSTEM,
+    )
+
+
+def generate_capsule_suggestion(prompt: str) -> dict:
+    return _generate_structured_json(
+        prompt,
+        schema_name="capsule_suggestion",
+        schema=_CAPSULE_SUGGESTION_SCHEMA,
+        system=_CAPSULE_SUGGESTION_SYSTEM,
+        max_tokens=900,
+    )

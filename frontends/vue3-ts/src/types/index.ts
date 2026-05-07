@@ -113,6 +113,19 @@ export interface StackNarration {
   cached: boolean;
 }
 
+export interface CapsuleSuggestionRequest {
+  title: string;
+  locale?: string;
+}
+
+export interface CapsuleSuggestion {
+  content: string;
+  openInDays: number;
+  openAt: string;
+  generatedBy: string;
+  cached: boolean;
+}
+
 export type PlazaSort = "hot" | "new";
 export type PlazaFilter = "all" | "opened" | "unopened";
 
