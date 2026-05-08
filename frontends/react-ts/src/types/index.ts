@@ -92,26 +92,9 @@ export interface HealthData {
   service: "hellotime-pro";
   version: string;
   uptimeSeconds: number;
-  stack: { kind: "backend" | "fullstack"; items: StackItem[] };
+  stack: { kind: "backend" | "fullstack"; summary?: string; items: StackItem[] };
 }
 
-export interface StackNarrationRequest {
-  frontend: { name: string; items: StackItem[] };
-  backend: {
-    kind: "backend" | "fullstack";
-    service: string;
-    version: string;
-    items: StackItem[];
-  };
-  locale?: string;
-}
-
-export interface StackNarration {
-  title: string;
-  narrative: string;
-  generatedBy: string;
-  cached: boolean;
-}
 
 export interface CapsuleSuggestionRequest {
   title: string;

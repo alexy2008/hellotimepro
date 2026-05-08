@@ -124,26 +124,9 @@ public final class Dtos {
 
   public record StackItem(String role, String name, String version, String iconUrl, String tagline, List<String> features) {}
 
-  public record StackInfo(String kind, List<StackItem> items) {}
+  public record StackInfo(String kind, String summary, List<StackItem> items) {}
 
   public record HealthData(String status, String service, String version, long uptimeSeconds, StackInfo stack) {}
-
-  public record StackNarrationFrontend(String name, @NotNull @Size(min = 1) List<StackItem> items) {}
-
-  public record StackNarrationBackend(
-      @NotBlank String kind,
-      @NotBlank String service,
-      @NotBlank String version,
-      @NotNull @Size(min = 1) List<StackItem> items
-  ) {}
-
-  public record StackNarrationRequest(
-      @NotNull StackNarrationFrontend frontend,
-      @NotNull StackNarrationBackend backend,
-      String locale
-  ) {}
-
-  public record StackNarration(String title, String narrative, String generatedBy, boolean cached) {}
 
   public record CapsuleSuggestionRequest(
       @NotBlank @Size(min = 1, max = 60) String title,

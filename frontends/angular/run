@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# 启动 Angular 前端开发服务器（端口 7175）。
+#
+# 后端代理目标默认指向 :9080（hello switch 切换的反代），
+# 也可以通过环境变量直连某后端：
+#   BACKEND_PROXY=http://localhost:29010 ./run
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "需要 Node 20+ 与 npm，请先安装。" >&2
+  exit 1
+fi
+
+if [[ ! -d node_modules ]]; then
+  echo "首次运行：npm install"
+  npm install --silent
+fi
+
+# 根据 BACKEND_PROXY 生成代理配置（Angular CLI 需要静态 JSON 文件）
+BACKEND_PROXY="${BACKEND_PROXY:-http://localhost:9080}"
+cat > proxy.conf.local.json << EOF
+{
+  "/api": { "target": "$BACKEND_PROXY", "changeOrigin": true },
+  "/static": { "target": "$BACKEND_PROXY", "changeOrigin": true }
+}
+EOF
+
+exec npm run dev -- "$@"

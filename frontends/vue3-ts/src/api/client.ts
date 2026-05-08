@@ -156,8 +156,6 @@ import type {
   PaginatedCapsules,
   PlazaQuery,
   RegisterRequest,
-  StackNarration,
-  StackNarrationRequest,
   UpdateProfileRequest,
   ChangePasswordRequest,
   User,
@@ -165,13 +163,6 @@ import type {
 
 export const api = {
   health: () => request<HealthData>("/api/v1/health", { auth: false }),
-
-  stackNarration: (body: StackNarrationRequest) =>
-    request<StackNarration>("/api/v1/stack-narration", {
-      method: "POST",
-      body,
-      auth: false,
-    }),
 
   suggestCapsule: (body: CapsuleSuggestionRequest) =>
     request<CapsuleSuggestion>("/api/v1/capsule-suggestion", {

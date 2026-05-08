@@ -7,8 +7,8 @@
  *   3. 登出后访问受保护页跳到 /login
  *
  * 前置条件（由 verify-ui-smoke.sh 保证）：
- *   - React 前端运行在 FRONTEND_URL（默认 :7174）
- *   - FastAPI 后端运行在 :29010，前端代理指向它
+ *   - 目标前端运行在 FRONTEND_URL
+ *   - 后端已启动，并由默认代理入口（通常 :9080）转发
  */
 import { test, expect, type Page } from "@playwright/test";
 import { randomBytes } from "node:crypto";
@@ -53,7 +53,7 @@ async function createCapsule(page: Page, title: string) {
 test("注册并进入广场", async ({ page }) => {
   const s = rand();
   await register(page, {
-    email: `smoke_${s}@example.com`,
+    email: `smoke_${s}@ui-smoke.hellotimepro.dev`,
     password: "Test1234!",
     nickname: `烟雾${s}`,
   });
@@ -69,7 +69,7 @@ test("创建胶囊后广场可见", async ({ page }) => {
   const title = `冒烟胶囊_${s}`;
 
   await register(page, {
-    email: `creator_${s}@example.com`,
+    email: `creator_${s}@ui-smoke.hellotimepro.dev`,
     password: "Test1234!",
     nickname: `创建者${s}`,
   });
@@ -91,7 +91,7 @@ test("用户 B 收藏用户 A 的胶囊", async ({ browser }) => {
   const ctxA = await browser.newContext();
   const pageA = await ctxA.newPage();
   await register(pageA, {
-    email: `ua_${s}@example.com`,
+    email: `ua_${s}@ui-smoke.hellotimepro.dev`,
     password: "Test1234!",
     nickname: `甲${s}`,
   });
@@ -102,7 +102,7 @@ test("用户 B 收藏用户 A 的胶囊", async ({ browser }) => {
   const ctxB = await browser.newContext();
   const pageB = await ctxB.newPage();
   await register(pageB, {
-    email: `ub_${s}@example.com`,
+    email: `ub_${s}@ui-smoke.hellotimepro.dev`,
     password: "Test1234!",
     nickname: `乙${s}`,
   });
@@ -130,7 +130,7 @@ test("用户 B 收藏用户 A 的胶囊", async ({ browser }) => {
 test("登出后访问受保护页跳转到登录", async ({ page }) => {
   const s = rand();
   await register(page, {
-    email: `lo_${s}@example.com`,
+    email: `lo_${s}@ui-smoke.hellotimepro.dev`,
     password: "Test1234!",
     nickname: `登出${s}`,
   });
@@ -142,11 +142,8 @@ test("登出后访问受保护页跳转到登录", async ({ page }) => {
   // 等下拉菜单出现
   const logoutBtn = page.getByRole("menuitem", { name: "登出" });
   await logoutBtn.waitFor({ timeout: 3000 });
-  // 同时等待 logout 触发的 window.location.assign("/") 页面重载
-  await Promise.all([
-    page.waitForNavigation({ waitUntil: "load", timeout: 8000 }),
-    logoutBtn.click(),
-  ]);
+  await logoutBtn.click();
+  await expect(page.getByRole("link", { name: "登录" })).toBeVisible({ timeout: 8000 });
 
   // 访问受保护页 → 应跳 /login
   await page.goto("/create");

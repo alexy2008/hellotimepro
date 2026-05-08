@@ -492,7 +492,7 @@ srv.listen(128)
 while True:
     c, _ = srv.accept()
     try:
-        b = socket.create_connection(('127.0.0.1', target_port), timeout=5)
+        b = socket.create_connection(('127.0.0.1', target_port), timeout=None)
         threading.Thread(target=pipe, args=(c, b), daemon=True).start()
         threading.Thread(target=pipe, args=(b, c), daemon=True).start()
     except Exception:

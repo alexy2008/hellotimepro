@@ -181,23 +181,6 @@ type LLMSchemaSpec struct {
 	MaxTokens       int            // /chat/completions 的 max_tokens
 }
 
-var stackNarrationSpec = LLMSchemaSpec{
-	SchemaName: "stack_narration",
-	Schema: map[string]any{
-		"type":                 "object",
-		"additionalProperties": false,
-		"required":             []string{"title", "narrative"},
-		"properties": map[string]any{
-			"title":     map[string]any{"type": "string"},
-			"narrative": map[string]any{"type": "string"},
-		},
-	},
-	SystemPrompt: "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。" +
-		"JSON 必须包含字符串字段 title 和 narrative。",
-	MaxOutputTokens: 600,
-	MaxTokens:       600,
-}
-
 var capsuleSuggestionSpec = LLMSchemaSpec{
 	SchemaName: "capsule_suggestion",
 	Schema: map[string]any{
@@ -297,12 +280,6 @@ func generateStructuredJSON(prompt string, spec LLMSchemaSpec) (map[string]any, 
 		return generateWithChatCompletions(prompt, spec)
 	}
 	return nil, err
-}
-
-// GenerateStructuredNarration 向 LLM 请求 {title, narrative} JSON 对象。
-// 先尝试 /responses，若收到 400/404/405 则回退到 /chat/completions。
-func GenerateStructuredNarration(prompt string) (map[string]any, error) {
-	return generateStructuredJSON(prompt, stackNarrationSpec)
 }
 
 // GenerateCapsuleSuggestion 向 LLM 请求 {content, openInDays} JSON 对象。

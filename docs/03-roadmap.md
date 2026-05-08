@@ -122,26 +122,28 @@
 
 **目标**：6 个实现（2 后端 + 2 前端 + 2 全栈）同时推进，以 M1 为基准达到"契约绿"。
 
+**状态**：后端 + 前端已实现，全栈待启动（2026-05-08）。
+
 #### 后端
 
-| 实现 | 要点 |
-|---|---|
-| `backends/spring-boot/` | Java 21 + Spring Data JPA + Flyway；分层与 FastAPI 对应关系最清晰，Java 系读者首选参考 |
-| `backends/gin/` | Go + GORM + golang-migrate；高并发场景下的极简后端展示 |
+| 实现 | 要点 | 状态 |
+|---|---|---|
+| `backends/spring-boot/` | Java 21 + Spring Data JPA + Flyway；分层与 FastAPI 对应关系最清晰，Java 系读者首选参考 | ✅ 已实现 |
+| `backends/gin/` | Go + GORM + golang-migrate；高并发场景下的极简后端展示 | ✅ 已实现 |
 
 #### 前端
 
-| 实现 | 要点 |
-|---|---|
-| `frontends/vue3-ts/` | Vue 3 + Pinia；组合式 API + composables 的标准写法 |
-| `frontends/angular-ts/` | Angular + NgRx Signal Store；Signals + standalone components |
+| 实现 | 要点 | 状态 |
+|---|---|---|
+| `frontends/vue3-ts/` | Vue 3 + Pinia；组合式 API + composables 的标准写法 | ✅ 已实现 |
+| `frontends/angular/` | Angular 19 + NgRx Signal Store；Signals + standalone components | ✅ 已实现 |
 
 #### 全栈
 
-| 实现 | 要点 |
-|---|---|
-| `fullstacks/next-ts/` | Next.js 15 App Router + Server Actions + Drizzle + Route Handlers |
-| `fullstacks/nuxt-ts/` | Nuxt 3 Nitro + `useAsyncData` + Drizzle + 约定式路由 |
+| 实现 | 要点 | 状态 |
+|---|---|---|
+| `fullstacks/next-ts/` | Next.js 15 App Router + Server Actions + Drizzle + Route Handlers | ⬜ 待启动 |
+| `fullstacks/nuxt-ts/` | Nuxt 3 Nitro + `useAsyncData` + Drizzle + 约定式路由 | ⬜ 待启动 |
 
 **每个实现的 DoD**（同 §5 Definition of Done）
 
@@ -150,6 +152,14 @@
 - 6 个实现独立分支，互不阻塞
 - spec 有歧义时开 spec 专用 PR，不在实现里自决
 - 全栈的 `/api/v1/*` 契约与后端共用同一套 `verify-contract.sh`
+
+**已完成的横切改进**（影响所有现有实现，2026-05-08）
+
+- **移除 POST `/stack-narration`**：从 Gin / FastAPI / Spring Boot 三个后端删除 AI 栈叙述端点及相关服务代码，AI 叙述不贴合实际、已废弃
+- **`GET /health` 新增 `stack.summary`**：各后端自持一段真实实现描述，由 `/health` 返回给前端，无需 AI 生成
+- **关于页面重构**：React / Vue / Angular 三套前端统一改为"简短产品介绍 + 图标行 + 一段话"布局，前端段落硬编码，后端段落读取 `health.stack.summary`
+- **代理 socket 超时修复**：`scripts/hello` 内嵌 Python TCP 代理从 `timeout=5` 改为 `timeout=None`，修复 AI 生成胶囊内容时的 socket hang up
+- **AI 生成胶囊内容**：React / Vue / Angular 创建页均已接入 `POST /api/v1/capsule-suggestion`，支持由标题 AI 生成正文与开启时间
 
 ---
 

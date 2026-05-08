@@ -8,7 +8,6 @@ from app.api.v1 import (
     health,
     me,
     plaza,
-    stack_narration,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -18,5 +17,4 @@ router.include_router(me.router)
 router.include_router(capsules.router)
 router.include_router(plaza.router)
 router.include_router(favorites.router)
-router.include_router(stack_narration.router)
 router.include_router(capsule_suggestion.router)

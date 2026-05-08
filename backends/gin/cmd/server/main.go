@@ -47,7 +47,6 @@ func main() {
 
 	v1.GET("/health", handler.GetHealth)
 	v1.GET("/avatars", handler.GetAvatars)
-	v1.POST("/stack-narration", handler.PostStackNarration)
 	v1.POST("/capsule-suggestion", handler.PostCapsuleSuggestion)
 
 	auth := v1.Group("/auth")

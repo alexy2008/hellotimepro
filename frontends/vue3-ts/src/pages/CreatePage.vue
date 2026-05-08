@@ -12,7 +12,7 @@ function presetTime(spec: "1m" | "1h" | "tomorrow9" | "1y" | "y2030"): string {
   const now = new Date();
   switch (spec) {
     case "1m":
-      now.setSeconds(now.getSeconds() + 70);
+      now.setSeconds(now.getSeconds() + 130);
       break;
     case "1h":
       now.setHours(now.getHours() + 1);

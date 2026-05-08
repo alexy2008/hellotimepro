@@ -12,7 +12,8 @@
 #   4. 轮询 /api/v1/health，直到就绪或超时
 #   5. BASE_URL=... node --test verification/contract
 #   6. 清理测试创建的用户（@hellotime-contract.com）
-#   7. hello stop <target>（trap 保证必停）
+#   7. 重注入演示数据（spec/db/seed_demo.sql）
+#   8. hello stop <target>（trap 保证必停）
 #
 # 退出码：0 全绿；非 0 = 测试失败或启动失败。
 set -euo pipefail
@@ -104,6 +105,25 @@ if [[ -z "${DB_URL:-}" ]]; then
   fi
 fi
 
+# DB_URL 中的凭据优先：若外部注入了不同的用户/密码（如 postgres 超级用户），
+# 解析覆盖 _PG_* 变量，让后续 psql 命令使用实际有效的连接参数。
+if [[ "$DB_DRIVER" == "postgres" ]] && command -v python3 >/dev/null 2>&1; then
+  _url_parts=()
+  while IFS= read -r _l; do _url_parts+=("$_l"); done < <(python3 - "$DB_URL" <<'PYEOF'
+import re, sys
+m = re.match(r'postgresql(?:\+\w+)?://([^:@]+):([^@]*)@([^:/]+):(\d+)/([^?]+)', sys.argv[1])
+if m: print('\n'.join(m.groups()))
+PYEOF
+  )
+  if [[ ${#_url_parts[@]} -eq 5 ]]; then
+    _PG_USER="${_url_parts[0]}"
+    _PG_PASS="${_url_parts[1]}"
+    _PG_HOST="${_url_parts[2]}"
+    _PG_PORT="${_url_parts[3]}"
+    _PG_DB="${_url_parts[4]}"
+  fi
+fi
+
 # --- reset_db -------------------------------------------------------------
 reset_db() {
   if [[ "$DB_DRIVER" == "sqlite" ]]; then
@@ -148,6 +168,42 @@ cleanup_test_data() {
   fi
 }
 
+# --- seed_demo_data -------------------------------------------------------
+# 将演示数据重新注入数据库（先删后插，保证幂等）。
+# 演示账号域：@demo.hellotimepro.dev；密码：HelloTime2026!
+seed_demo_data() {
+  local seed_file="$ROOT/spec/db/seed_demo.sql"
+  if [[ ! -f "$seed_file" ]]; then
+    echo "⚠ 演示 seed 文件不存在，跳过: $seed_file"
+    return
+  fi
+  echo "→ 注入演示数据…"
+  if [[ "$DB_DRIVER" == "sqlite" ]]; then
+    if command -v sqlite3 >/dev/null 2>&1 && [[ -f "$_SQLITE_ABS" ]]; then
+      sqlite3 "$_SQLITE_ABS" \
+        "DELETE FROM users WHERE email LIKE '%@demo.hellotimepro.dev';" 2>/dev/null || true
+      sqlite3 "$_SQLITE_ABS" < "$seed_file" 2>/dev/null || true
+      echo "✓ 演示数据已注入（SQLite）"
+    else
+      echo "⚠ sqlite3 不可用或数据库文件不存在，跳过"
+    fi
+  else
+    if command -v psql >/dev/null 2>&1; then
+      PGPASSWORD="$_PG_PASS" psql \
+        -h "$_PG_HOST" -p "$_PG_PORT" -U "$_PG_USER" -d "$_PG_DB" \
+        -c "DELETE FROM users WHERE email LIKE '%@demo.hellotimepro.dev';" \
+        >/dev/null 2>&1 || true
+      PGPASSWORD="$_PG_PASS" psql \
+        -h "$_PG_HOST" -p "$_PG_PORT" -U "$_PG_USER" -d "$_PG_DB" \
+        -v ON_ERROR_STOP=0 \
+        -f "$seed_file" >/dev/null 2>&1
+      echo "✓ 演示数据已注入（Postgres）"
+    else
+      echo "⚠ psql 不可用，跳过演示数据注入"
+    fi
+  fi
+}
+
 # --- 生命周期 -------------------------------------------------------------
 cleanup() {
   "$HELLO" stop "$TARGET" >/dev/null 2>&1 || true
@@ -181,11 +237,14 @@ reset_db
 wait_health
 
 echo "→ 运行 node --test verification/contract"
+set +e
 BASE_URL="$BASE_URL" node --test "$ROOT"/verification/contract/*.spec.ts
 rc=$?
+set -e
 
-# 无论测试成功与否，都清理测试数据（保留演示数据）
+# 无论测试成功与否，都清理测试数据并重注入演示数据
 cleanup_test_data
+seed_demo_data
 
 echo
 if [[ $rc -eq 0 ]]; then

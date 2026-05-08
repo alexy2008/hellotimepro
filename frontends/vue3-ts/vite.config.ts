@@ -20,7 +20,8 @@ export default defineConfig({
     host: "0.0.0.0",
     proxy: {
       // API 与后端静态资源（头像 / 图标）一并代理
-      "/api": { target: BACKEND_PROXY, changeOrigin: true },
+      // proxyTimeout 延长至 60s，以容纳 LLM 接口（capsule-suggestion、stack-narration）的响应时间
+      "/api": { target: BACKEND_PROXY, changeOrigin: true, proxyTimeout: 60_000 },
       "/static": { target: BACKEND_PROXY, changeOrigin: true },
     },
   },

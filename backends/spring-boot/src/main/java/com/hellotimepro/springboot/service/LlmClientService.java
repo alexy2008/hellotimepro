@@ -33,22 +33,6 @@ public class LlmClientService {
       int maxTokens
   ) {}
 
-  private static final SchemaSpec STACK_NARRATION_SPEC = new SchemaSpec(
-      "stack_narration",
-      Map.of(
-          "type", "object",
-          "additionalProperties", false,
-          "required", List.of("title", "narrative"),
-          "properties", Map.of(
-              "title", Map.of("type", "string"),
-              "narrative", Map.of("type", "string")
-          )
-      ),
-      "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。JSON 必须包含字符串字段 title 和 narrative。",
-      600,
-      600
-  );
-
   private static final SchemaSpec CAPSULE_SUGGESTION_SPEC = new SchemaSpec(
       "capsule_suggestion",
       Map.of(
@@ -64,14 +48,6 @@ public class LlmClientService {
       900,
       900
   );
-
-  public Map<String, String> generateStructuredNarration(String prompt) {
-    JsonNode node = generateStructuredJson(prompt, STACK_NARRATION_SPEC);
-    return Map.of(
-        "title", node.path("title").asText(""),
-        "narrative", node.path("narrative").asText("")
-    );
-  }
 
   /** 返回 {content: string, openInDays: int}。调用方负责解析。 */
   public JsonNode generateCapsuleSuggestion(String prompt) {

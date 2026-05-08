@@ -18,6 +18,7 @@ class StackItem(BaseModel):
 
 class StackInfo(BaseModel):
     kind: Literal["backend", "fullstack"]
+    summary: str = ""
     items: list[StackItem]
 
 

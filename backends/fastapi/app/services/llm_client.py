@@ -92,20 +92,6 @@ def _post_json(url: str, payload: dict[str, Any]) -> dict:
         raise LlmClientError(str(e)) from e
 
 
-_NARRATION_SCHEMA = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["title", "narrative"],
-    "properties": {
-        "title": {"type": "string"},
-        "narrative": {"type": "string"},
-    },
-}
-_NARRATION_SYSTEM = (
-    "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。"
-    "JSON 必须包含字符串字段 title 和 narrative。"
-)
-
 _CAPSULE_SUGGESTION_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -204,15 +190,6 @@ def _generate_structured_json(
             raise
 
     return _generate_with_chat_completions(prompt, system=system, max_tokens=max_tokens)
-
-
-def generate_structured_narration(prompt: str) -> dict:
-    return _generate_structured_json(
-        prompt,
-        schema_name="stack_narration",
-        schema=_NARRATION_SCHEMA,
-        system=_NARRATION_SYSTEM,
-    )
 
 
 def generate_capsule_suggestion(prompt: str) -> dict:
