@@ -1,0 +1,28 @@
+/* ============================================================
+ * Next.js 全栈样式入口
+ *
+ * 共享 spec/styles 的 palette / tokens / cyber 样式，与所有前端实现保持视觉一致。
+ * 组件层禁止直接消费色阶，必须使用 --color-* 语义令牌或 cy-* class。
+ * ============================================================ */
+
+@import "tailwindcss";
+
+@import "../../../../spec/styles/palette.css";
+@import "../../../../spec/styles/tokens.css";
+@import "../../../../spec/styles/cyber.css";
+
+@import "../styles/layout.css";
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-surface-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}

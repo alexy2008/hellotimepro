@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# 启动 Nuxt 全栈服务器（端口 7178，含 API + UI）。
+#
+#   DB_DRIVER=postgres (默认) 需要 docker compose up -d postgres
+#   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime.db
+#
+# 启动前自动：
+#   1) npm install（首次）
+#   2) 同步 spec 静态资产到 public/
+#   3) 执行迁移（drizzle/{driver}/0001_init.sql）
+#   4) 构建并启动 Nitro node-server
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "需要 Node 20+ 与 npm。" >&2
+  exit 1
+fi
+
+if [[ ! -d node_modules ]]; then
+  echo "首次运行：npm install"
+  npm install --silent
+fi
+
+SPEC_DIR="$REPO_ROOT/spec"
+mkdir -p public/static/icons public/static/avatars
+rsync -a --delete "$SPEC_DIR/icons/" public/static/icons/ 2>/dev/null || cp -R "$SPEC_DIR/icons/." public/static/icons/
+rsync -a --delete "$SPEC_DIR/avatars/" public/static/avatars/ 2>/dev/null || cp -R "$SPEC_DIR/avatars/." public/static/avatars/
+cp "$SPEC_DIR/assets/logo.svg" public/logo.svg
+
+DRIVER="${DB_DRIVER:-postgres}"
+if [[ "$DRIVER" == "sqlite" ]]; then
+  mkdir -p "$REPO_ROOT/data/sqlite"
+  : "${DB_URL:=file:$REPO_ROOT/data/sqlite/hellotime-nuxt.db}"
+fi
+export DB_DRIVER="$DRIVER" DB_URL="${DB_URL:-}"
+npx tsx scripts/migrate.ts
+
+export PORT="${PORT:-7178}"
+npm run build
+exec npm run start -- "$@"

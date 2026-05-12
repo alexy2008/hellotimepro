@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# 启动 Next.js 全栈开发服务器（端口 7177，含 API + UI）。
+#
+#   DB_DRIVER=postgres (默认) 需要 docker compose up -d postgres
+#   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime.db
+#
+# 启动前自动：
+#   1) npm install（首次）
+#   2) 同步 spec/avatars 与 spec/icons 到 public/static
+#   3) 执行迁移（drizzle/{driver}/0001_init.sql）
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "需要 Node 20+ 与 npm。" >&2
+  exit 1
+fi
+
+if [[ ! -d node_modules ]]; then
+  echo "首次运行：npm install"
+  npm install --silent
+fi
+
+# 同步静态资源
+SPEC_DIR="$REPO_ROOT/spec"
+mkdir -p public/static/icons public/static/avatars
+rsync -a --delete "$SPEC_DIR/icons/" public/static/icons/  2>/dev/null || cp -R "$SPEC_DIR/icons/." public/static/icons/
+rsync -a --delete "$SPEC_DIR/avatars/" public/static/avatars/ 2>/dev/null || cp -R "$SPEC_DIR/avatars/." public/static/avatars/
+
+# 数据库迁移
+DRIVER="${DB_DRIVER:-postgres}"
+if [[ "$DRIVER" == "sqlite" ]]; then
+  mkdir -p "$REPO_ROOT/data/sqlite"
+  : "${DB_URL:=file:$REPO_ROOT/data/sqlite/hellotime-next.db}"
+fi
+export DB_DRIVER="$DRIVER" DB_URL="${DB_URL:-}"
+npx tsx scripts/migrate.ts
+
+# 启动 dev
+exec npm run dev -- "$@"

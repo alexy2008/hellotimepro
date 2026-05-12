@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# 生产构建。
+set -euo pipefail
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+if [[ ! -d node_modules ]]; then npm install --silent; fi
+
+SPEC_DIR="$REPO_ROOT/spec"
+mkdir -p public/static/icons public/static/avatars
+cp -R "$SPEC_DIR/icons/." public/static/icons/
+cp -R "$SPEC_DIR/avatars/." public/static/avatars/
+
+exec npm run build

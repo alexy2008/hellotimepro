@@ -1,0 +1,64 @@
+{
+  "$schema": "./icons.schema.json",
+  "meta": {
+    "name": "HelloTime Pro Stack Icons",
+    "version": "0.1.0",
+    "updated": "2026-04-20",
+    "viewBox": "0 0 24 24",
+    "note": "本索引登记所有 spec/icons/*.svg；每个后端 / 全栈从中挑选需要的复制或软链到自己的 /static/icons/"
+  },
+  "icons": [
+    { "id": "python",       "file": "python.svg",       "name": "Python",       "role": ["language"] },
+    { "id": "typescript",   "file": "typescript.svg",   "name": "TypeScript",   "role": ["language"] },
+    { "id": "javascript",   "file": "javascript.svg",   "name": "JavaScript",   "role": ["language"] },
+    { "id": "java",         "file": "java.svg",         "name": "Java",         "role": ["language"] },
+    { "id": "kotlin",       "file": "kotlin.svg",       "name": "Kotlin",       "role": ["language"] },
+    { "id": "go",           "file": "go.svg",           "name": "Go",           "role": ["language"] },
+    { "id": "rust",         "file": "rust.svg",         "name": "Rust",         "role": ["language"] },
+    { "id": "csharp",       "file": "csharp.svg",       "name": "C#",           "role": ["language"] },
+    { "id": "swift",        "file": "swift.svg",        "name": "Swift",        "role": ["language"] },
+    { "id": "cpp",          "file": "cpp.svg",          "name": "C++",          "role": ["language"] },
+    { "id": "ruby",         "file": "ruby.svg",         "name": "Ruby",         "role": ["language"] },
+    { "id": "php",          "file": "php.svg",          "name": "PHP",          "role": ["language"] },
+
+    { "id": "fastapi",      "file": "fastapi.svg",      "name": "FastAPI",      "role": ["framework"] },
+    { "id": "springboot",   "file": "springboot.svg",   "name": "Spring Boot",  "role": ["framework"] },
+    { "id": "gin",          "file": "gin.svg",          "name": "Gin",          "role": ["framework"] },
+    { "id": "elysia",       "file": "elysia.svg",       "name": "Elysia",       "role": ["framework"] },
+    { "id": "nestjs",       "file": "nestjs.svg",       "name": "NestJS",       "role": ["framework"] },
+    { "id": "aspnet",       "file": "aspnet.svg",       "name": "ASP.NET Core", "role": ["framework"] },
+    { "id": "vapor",        "file": "vapor.svg",        "name": "Vapor",        "role": ["framework"] },
+    { "id": "axum",         "file": "axum.svg",         "name": "Axum",         "role": ["framework"] },
+    { "id": "drogon",       "file": "drogon.svg",       "name": "Drogon",       "role": ["framework"] },
+    { "id": "ktor",         "file": "ktor.svg",         "name": "Ktor",         "role": ["framework"] },
+
+    { "id": "react",        "file": "react.svg",        "name": "React",        "role": ["framework"] },
+    { "id": "vue",          "file": "vue.svg",          "name": "Vue",          "role": ["framework"] },
+    { "id": "angular",      "file": "angular.svg",      "name": "Angular",      "role": ["framework"] },
+    { "id": "svelte",       "file": "svelte.svg",       "name": "Svelte",       "role": ["framework"] },
+    { "id": "solidjs",      "file": "solidjs.svg",      "name": "SolidJS",      "role": ["framework"] },
+
+    { "id": "nextjs",       "file": "nextjs.svg",       "name": "Next.js",      "role": ["framework", "fullstack"] },
+    { "id": "nuxt",         "file": "nuxt.svg",         "name": "Nuxt",         "role": ["framework", "fullstack"] },
+    { "id": "laravel",      "file": "laravel.svg",      "name": "Laravel",      "role": ["framework", "fullstack"] },
+    { "id": "rails",        "file": "rails.svg",        "name": "Rails",        "role": ["framework", "fullstack"] },
+
+    { "id": "nodejs",       "file": "nodejs.svg",       "name": "Node.js",      "role": ["runtime"] },
+    { "id": "bun",          "file": "bun.svg",          "name": "Bun",          "role": ["runtime"] },
+    { "id": "dotnet",       "file": "dotnet.svg",       "name": ".NET",         "role": ["runtime"] },
+
+    { "id": "postgresql",   "file": "postgresql.svg",   "name": "PostgreSQL",   "role": ["database"] },
+    { "id": "sqlite",       "file": "sqlite.svg",       "name": "SQLite",       "role": ["database"] },
+
+    { "id": "tailwindcss",  "file": "tailwindcss.svg",  "name": "Tailwind CSS", "role": ["styling"] }
+  ],
+  "missing": {
+    "note": "以下技术当前无对应图标，实现若需引用可先置 iconUrl=null，由前端降级为文字；可在 spec 专用 PR 中后补",
+    "candidates": [
+      "sqlalchemy", "alembic", "drizzle", "gorm", "efcore", "fluent",
+      "sqlx", "exposed", "jpa", "hibernate", "flyway", "typeorm",
+      "thymeleaf", "blade", "erb", "htmx", "turbo", "alpinejs",
+      "pinia", "zustand", "ngrx", "vite", "spring-mvc"
+    ]
+  }
+}

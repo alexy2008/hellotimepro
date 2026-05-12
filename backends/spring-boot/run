@@ -9,6 +9,25 @@ cd "$HERE"
 export REPO_ROOT
 export DB_DRIVER="${DB_DRIVER:-postgres}"
 
+# 子进程不继承 shell 的版本管理器 PATH（vmr/sdkman/...），逐个尝试常见位置。
+if ! command -v mvn >/dev/null 2>&1; then
+  for _d in \
+      "$HOME/.vmr/versions/maven_versions"/*/bin \
+      "$HOME/.sdkman/candidates/maven/current/bin" \
+      /opt/homebrew/opt/maven/bin \
+      /usr/local/opt/maven/bin \
+      "$HOME/.m2/wrapper/dists"/*/*/bin; do
+    if [[ -x "$_d/mvn" ]]; then
+      export PATH="$_d:$PATH"
+      break
+    fi
+  done
+fi
+if ! command -v mvn >/dev/null 2>&1; then
+  echo "✗ 找不到 mvn。请先安装 Maven，或激活 vmr/sdkman。" >&2
+  exit 2
+fi
+
 if [[ "$DB_DRIVER" == "sqlite" ]]; then
   mkdir -p "$REPO_ROOT/data/sqlite"
   DB_URL="${DB_URL:-sqlite:///$REPO_ROOT/data/sqlite/hellotime.db}"

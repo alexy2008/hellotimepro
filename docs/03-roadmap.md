@@ -122,44 +122,66 @@
 
 **目标**：6 个实现（2 后端 + 2 前端 + 2 全栈）同时推进，以 M1 为基准达到"契约绿"。
 
-**状态**：后端 + 前端已实现，全栈待启动（2026-05-08）。
+**状态**：✅ **已完成并验收（2026-05-11）**——6 个实现全部就位，所有后端 / 全栈在 PostgreSQL 和 SQLite 上契约 92/92 通过，5 套前端 UI 冒烟 4/4 通过（含全栈 next / nuxt）。
 
 #### 后端
 
-| 实现 | 要点 | 状态 |
-|---|---|---|
-| `backends/spring-boot/` | Java 21 + Spring Data JPA + Flyway；分层与 FastAPI 对应关系最清晰，Java 系读者首选参考 | ✅ 已实现 |
-| `backends/gin/` | Go + GORM + golang-migrate；高并发场景下的极简后端展示 | ✅ 已实现 |
+| 实现 | 要点 | 契约 PG | 契约 SQLite |
+|---|---|---|---|
+| `backends/spring-boot/` | Java 21 + Spring Data JPA + Flyway；分层与 FastAPI 对应关系最清晰，Java 系读者首选参考 | ✅ 92/92 | ✅ 92/92 |
+| `backends/gin/` | Go + GORM + golang-migrate；高并发场景下的极简后端展示 | ✅ 92/92 | ✅ 92/92 |
 
 #### 前端
 
-| 实现 | 要点 | 状态 |
-|---|---|---|
-| `frontends/vue3-ts/` | Vue 3 + Pinia；组合式 API + composables 的标准写法 | ✅ 已实现 |
-| `frontends/angular/` | Angular 19 + NgRx Signal Store；Signals + standalone components | ✅ 已实现 |
+| 实现 | 要点 | 实现 | UI 冒烟 |
+|---|---|---|---|
+| `frontends/vue3-ts/` | Vue 3 + Pinia；组合式 API + composables 的标准写法 | ✅ | ✅ 4/4 |
+| `frontends/angular/` | Angular 19 + NgRx Signal Store；Signals + standalone components | ✅ | ✅ 4/4 |
 
 #### 全栈
 
-| 实现 | 要点 | 状态 |
-|---|---|---|
-| `fullstacks/next-ts/` | Next.js 15 App Router + Server Actions + Drizzle + Route Handlers | ⬜ 待启动 |
-| `fullstacks/nuxt-ts/` | Nuxt 3 Nitro + `useAsyncData` + Drizzle + 约定式路由 | ⬜ 待启动 |
+| 实现 | 要点 | 契约 PG | 契约 SQLite | UI 冒烟 |
+|---|---|---|---|---|
+| `fullstacks/next/` | Next.js 15 App Router + Drizzle + 同源 API Routes | ✅ 92/92 | ✅ 92/92 | ✅ 4/4 |
+| `fullstacks/nuxt/` | Nuxt 3 + Nitro + Drizzle + 约定式路由 | ✅ 92/92 | ✅ 92/92 | ✅ 4/4 |
 
-**每个实现的 DoD**（同 §5 Definition of Done）
+#### 已完成的横切改进（影响所有现有实现）
 
-**并行策略**
+- **2026-05-08 · 移除 POST `/stack-narration`**：从 Gin / FastAPI / Spring Boot 三个后端删除 AI 栈叙述端点及相关服务代码，AI 叙述不贴合实际、已废弃。
+- **2026-05-08 · `GET /health` 新增 `stack.summary`**：各后端自持一段真实实现描述，由 `/health` 返回给前端，无需 AI 生成。
+- **2026-05-08 · 关于页面重构**：React / Vue / Angular 三套前端统一改为"简短产品介绍 + 图标行 + 一段话"布局。
+- **2026-05-08 · 代理 socket 超时修复**：`scripts/hello` 内嵌 Python TCP 代理从 `timeout=5` 改为 `timeout=None`，修复 AI 生成胶囊内容时的 socket hang up。
+- **2026-05-08 · AI 生成胶囊内容**：React / Vue / Angular 创建页接入 `POST /api/v1/capsule-suggestion`。
+- **2026-05-11 · Next.js Postgres schema 对齐 spec**：原迁移把 UUID/TIMESTAMPTZ 降级为 TEXT，违反 spec/db/schema.sql 的"PG 用原生类型、SQLite 才降级"约定；重写迁移至 22 表/索引/扩展 + 7 个 CHECK 约束完全等价。
+- **2026-05-11 · Next.js open redirect 修复**：登录 `?next=` 参数加 `safeNext()` 校验，拒绝 `//evil`、`/\evil`、`https://...`、`javascript:...` 等跨域跳转。
+- **2026-05-11 · Next.js typecheck 不再依赖 `.next/types`**：从 `tsconfig.json` 移除生成路径，干净 checkout 上 `tsc --noEmit` 直接可用。
 
-- 6 个实现独立分支，互不阻塞
-- spec 有歧义时开 spec 专用 PR，不在实现里自决
-- 全栈的 `/api/v1/*` 契约与后端共用同一套 `verify-contract.sh`
+#### M2.1 遗留问题修复（2026-05-12）
 
-**已完成的横切改进**（影响所有现有实现，2026-05-08）
+> 以下修复在 M2 验收后统一处理，清单对应 M2 已知问题 1–2。
 
-- **移除 POST `/stack-narration`**：从 Gin / FastAPI / Spring Boot 三个后端删除 AI 栈叙述端点及相关服务代码，AI 叙述不贴合实际、已废弃
-- **`GET /health` 新增 `stack.summary`**：各后端自持一段真实实现描述，由 `/health` 返回给前端，无需 AI 生成
-- **关于页面重构**：React / Vue / Angular 三套前端统一改为"简短产品介绍 + 图标行 + 一段话"布局，前端段落硬编码，后端段落读取 `health.stack.summary`
-- **代理 socket 超时修复**：`scripts/hello` 内嵌 Python TCP 代理从 `timeout=5` 改为 `timeout=None`，修复 AI 生成胶囊内容时的 socket hang up
-- **AI 生成胶囊内容**：React / Vue / Angular 创建页均已接入 `POST /api/v1/capsule-suggestion`，支持由标题 AI 生成正文与开启时间
+- **SQLite per-impl 文件隔离**：原先所有实现共用 `data/sqlite/hellotime.db`，多实现并发时会互踩 schema / 数据。现 `scripts/hello` 的 `_sqlite_path_for(target, base)` 为每个实现生成独立文件（`hellotime-<impl>.db`）；`verify-contract.sh` 和 `verify-ui-smoke.sh` 同步派生 per-impl 路径，彻底消除竞争。
+- **Gin SQLite 401 "用户不存在"**（双 bug 根因）：
+  - *Bug A · 双斜杠路径*：原 `sqliteFilePath()` 用 `url.Parse` 解析 `sqlite:////abs/path`，得到 `//abs/path`（前导双斜杠）。SQLite VFS 把 `//path` 和 `/path` 视为两个不同 lock 域，gin 写在一个域，读在另一个，INSERT 成功但 SELECT 始终返回 0 行。修复：手工剥离 `sqlite://` 前缀后再吃掉一个斜杠。
+  - *Bug B · 时间列类型*：SQLite 迁移把所有 TIMESTAMP 列声明为 `TEXT`。`mattn/go-sqlite3` 只在列 declared type 含 `DATETIME` / `TIMESTAMP` 关键字时才自动把存储字符串解析为 `time.Time`；TEXT 列触发 `Scan: storing string into *time.Time` 错误，GORM 将其转为 `ErrRecordNotFound` → 每次鉴权 401。修复：迁移文件所有时间列改为 `DATETIME`。
+- **Spring Boot mvn 找不到**：`hello start spring` 派生的子进程不继承 vmr / sdkman PATH 扩展，导致 `mvn: not found`。修复：在 `backends/spring-boot/run` 加 mvn 路径探测循环，覆盖 vmr、sdkman、Homebrew、`~/.m2/wrapper` 四个常见安装位置。
+- **Nuxt Postgres schema 对齐 spec**：Nuxt 原迁移将所有列降为 TEXT / INTEGER，PG 契约测试后共享数据库里的 timestamp 字段变成裸字符串，FastAPI 读取时 SQLAlchemy `DateTime(timezone=True)` 报 `AttributeError: 'str' has no attribute 'tzinfo'`。修复：完全重写 `fullstacks/nuxt/drizzle/pg/0001_init.sql` 及对应 `schema-pg.ts`，与 Next.js / spec 保持一致（UUID / TIMESTAMPTZ / VARCHAR / CHAR 原生类型，全部 CHECK 约束与索引）。
+- **verify-ui-smoke.sh 支持全栈（next / nuxt）**：原脚本只覆盖 react / vue / angular 纯前端，全栈实现需自带 API 而无需后端代理。现引入 `_is_fullstack()` 分支：全栈直接 `hello start <target>`，前端继续通过 `BACKEND_PROXY` 指向 `:9080`；SQLite 清理路径也按 `_SQLITE_OWNER` 正确派生（全栈用自身 target，前端用 proxy_target）。
+
+#### 验收记录
+
+- 2026-05-11：`DB_DRIVER=postgres ./verification/scripts/verify-contract.sh {spring,gin,next,nuxt}` 全部通过，92/92。
+- 2026-05-11：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh {spring,next,nuxt}` 全部通过，92/92。
+- 2026-05-11：`./verification/scripts/verify-ui-smoke.sh {react-ts,vue3-ts,angular}` 第 1 个测试稳定通过；测试 2-4 在最近一次创建页 UI 重构后出现回归。
+- 2026-05-12（M2.1）：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh gin` 通过，92/92。
+- 2026-05-12（M2.1）：`./verification/scripts/verify-ui-smoke.sh {react-ts,vue3-ts,angular,next,nuxt}` 全部通过，各 4/4。
+- 2026-05-12（M2.1）：`DB_DRIVER={postgres,sqlite} ./verification/scripts/verify-contract.sh {fastapi,spring,gin,next,nuxt}` 全矩阵 10/10 通过。
+
+#### M2 已知问题（已关闭 / 遗留）
+
+1. ~~**Gin SQLite 与多实现共享 `hellotime.db`**~~：✅ 已修复（M2.1 · 2026-05-12）。per-impl 文件 + URL 解析 + DATETIME 列类型三处修复后全绿。
+2. ~~**UI 冒烟测试 2-4 在前端上 timeout**~~：✅ 已修复（M2.1 · 2026-05-12）。react / vue / angular / next / nuxt 各 4/4 通过。
+3. **`favorite_count` 并发漂移 / `refresh` token 并发重放窗口**（Next.js 实现）：services 层 SELECT→INSERT/DELETE→UPDATE 三段不是事务。按项目 [质量策略](../.claude/projects/-Users-alex-AiWork-HelloTimeProByClaude/memory/project_quality_policy.md) "教学项目不修生产级并发"暂不动，代码顶部已加注释说明生产化做法（transaction / `UPDATE ... WHERE revoked_at IS NULL RETURNING`）。
 
 ---
 

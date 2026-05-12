@@ -7,10 +7,12 @@
 #   ./verification/scripts/verify-ui-smoke.sh vue          # hello list 登记名
 #   ./verification/scripts/verify-ui-smoke.sh vue3-ts      # 目录别名，等同于 vue
 #   ./verification/scripts/verify-ui-smoke.sh angular
+#   ./verification/scripts/verify-ui-smoke.sh next         # 全栈同源实现（Next.js）
+#   ./verification/scripts/verify-ui-smoke.sh nuxt         # 全栈同源实现（Nuxt 3）
 #
 # 流程：
-#   1. 以默认后端入口启动前端（BACKEND_PROXY，默认 http://127.0.0.1:9080）
-#   2. 等待前端健康
+#   1. 启动前端或同源全栈实现（前端默认 BACKEND_PROXY=http://127.0.0.1:9080）
+#   2. 等待 UI 健康
 #   3. 运行 Playwright 冒烟测试
 #   4. 清理测试创建的用户（@ui-smoke.hellotimepro.dev）
 #   5. trap 保证 stop 前端
@@ -21,7 +23,7 @@ set -euo pipefail
 _RAW_TARGET="${1:-}"
 if [[ -z "$_RAW_TARGET" ]]; then
   echo "用法: $0 <frontend>" >&2
-  echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular" >&2
+  echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / next / nuxt" >&2
   exit 2
 fi
 
@@ -48,13 +50,21 @@ case "$_RAW_TARGET" in
 esac
 
 case "$TARGET" in
-  react|vue|angular) ;;
+  react|vue|angular|next|nuxt) ;;
   *)
     echo "✗ 暂不支持的前端: $_RAW_TARGET" >&2
-    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular" >&2
+    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / next / nuxt" >&2
     exit 2
     ;;
 esac
+
+# 全栈同源实现集合（自带 API，不需要后端代理）
+_is_fullstack() {
+  case "$1" in
+    next|nuxt) return 0 ;;
+    *)        return 1 ;;
+  esac
+}
 
 # ── 依赖检查 ─────────────────────────────────────────────────────────────────
 
@@ -99,6 +109,7 @@ print(cfg.get("pg_db",   "hellotime_pro"))
 print(cfg.get("pg_user", "hellotime"))
 print(cfg.get("pg_pass", "hellotime"))
 print(cfg.get("sqlite_path", "data/sqlite/hellotime.db"))
+print(d.get("proxy_target", ""))
 PYEOF
 }
 
@@ -106,7 +117,7 @@ if command -v python3 >/dev/null 2>&1; then
   _cfg=()
   while IFS= read -r _line; do _cfg+=("$_line"); done < <(_read_state_cfg)
 else
-  _cfg=(postgres 127.0.0.1 5432 hellotime_pro hellotime hellotime data/sqlite/hellotime.db)
+  _cfg=(postgres 127.0.0.1 5432 hellotime_pro hellotime hellotime data/sqlite/hellotime.db "")
 fi
 
 _DB_DRIVER="${DB_DRIVER:-${_cfg[0]:-postgres}}"
@@ -115,7 +126,32 @@ _PG_PORT="${_cfg[2]:-5432}"
 _PG_DB="${_cfg[3]:-hellotime_pro}"
 _PG_USER="${_cfg[4]:-hellotime}"
 _PG_PASS="${_cfg[5]:-hellotime}"
-_SQLITE_REL="${_cfg[6]:-data/sqlite/hellotime.db}"
+_SQLITE_BASE_REL="${_cfg[6]:-data/sqlite/hellotime.db}"
+_PROXY_TARGET="${_cfg[7]:-}"
+
+# 决定 SQLite 文件指向哪个 impl：
+#   - 全栈（next/nuxt）：自己持有 SQLite → 用自身 target 名
+#   - 前端（react/vue/angular）：API 走代理转发到后端 → 用 state.proxy_target
+_SQLITE_OWNER="$TARGET"
+if ! _is_fullstack "$TARGET"; then
+  _SQLITE_OWNER="${_PROXY_TARGET:-fastapi}"
+fi
+
+# 派生 per-impl 路径（与 scripts/hello _sqlite_path_for / verify-contract 保持一致）
+_sqlite_dir="${_SQLITE_BASE_REL%/*}"
+_sqlite_file="${_SQLITE_BASE_REL##*/}"
+if [[ "$_sqlite_file" == *.* ]]; then
+  _sqlite_name="${_sqlite_file%.*}"
+  _sqlite_ext="${_sqlite_file##*.}"
+else
+  _sqlite_name="$_sqlite_file"
+  _sqlite_ext="db"
+fi
+if [[ "$_sqlite_dir" == "$_SQLITE_BASE_REL" ]]; then
+  _SQLITE_REL="${_sqlite_name}-${_SQLITE_OWNER}.${_sqlite_ext}"
+else
+  _SQLITE_REL="${_sqlite_dir}/${_sqlite_name}-${_SQLITE_OWNER}.${_sqlite_ext}"
+fi
 [[ "$_SQLITE_REL" == /* ]] && _SQLITE_ABS="$_SQLITE_REL" || _SQLITE_ABS="$ROOT/$_SQLITE_REL"
 
 # 若 DB_URL 已注入，从中解析出真实连接参数（用户/密码可能不同于 state 默认值）
@@ -171,8 +207,13 @@ trap cleanup EXIT
 
 # ── 启动前端（代理指向默认后端入口）──────────────────────────────────────────
 
-echo "→ 启动前端 ${TARGET}（默认后端入口 → ${BACKEND_PROXY_URL}）"
-BACKEND_PROXY="$BACKEND_PROXY_URL" "$HELLO" start "$TARGET"
+if _is_fullstack "$TARGET"; then
+  echo "→ 启动全栈 ${TARGET}（API + UI 同源）"
+  "$HELLO" start "$TARGET"
+else
+  echo "→ 启动前端 ${TARGET}（默认后端入口 → ${BACKEND_PROXY_URL}）"
+  BACKEND_PROXY="$BACKEND_PROXY_URL" "$HELLO" start "$TARGET"
+fi
 
 echo "→ 等待前端就绪…"
 for i in $(seq 1 30); do

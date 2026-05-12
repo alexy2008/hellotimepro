@@ -83,7 +83,24 @@ _PG_PORT="${_cfg[2]:-5432}"
 _PG_DB="${_cfg[3]:-hellotime_pro}"
 _PG_USER="${_cfg[4]:-hellotime}"
 _PG_PASS="${_cfg[5]:-hellotime}"
-_SQLITE_REL="${_cfg[6]:-data/sqlite/hellotime.db}"
+_SQLITE_BASE_REL="${_cfg[6]:-data/sqlite/hellotime.db}"
+
+# 约定：state.sqlite_path 是基名，每个 impl 用 hellotime-<target>.db 独占一份文件，
+# 避免多 impl 共用同一 SQLite 时 schema/数据互相覆盖。与 scripts/hello _sqlite_path_for 保持一致。
+_sqlite_dir="${_SQLITE_BASE_REL%/*}"
+_sqlite_file="${_SQLITE_BASE_REL##*/}"
+if [[ "$_sqlite_file" == *.* ]]; then
+  _sqlite_name="${_sqlite_file%.*}"
+  _sqlite_ext="${_sqlite_file##*.}"
+else
+  _sqlite_name="$_sqlite_file"
+  _sqlite_ext="db"
+fi
+if [[ "$_sqlite_dir" == "$_SQLITE_BASE_REL" ]]; then
+  _SQLITE_REL="${_sqlite_name}-${TARGET}.${_sqlite_ext}"
+else
+  _SQLITE_REL="${_sqlite_dir}/${_sqlite_name}-${TARGET}.${_sqlite_ext}"
+fi
 
 # 环境变量优先覆盖
 DB_DRIVER="${DB_DRIVER:-$_STATE_DRIVER}"

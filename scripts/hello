@@ -189,11 +189,25 @@ class State:
             print(yellow(f"⚠ 状态文件损坏（{e}），重置。"))
             return cls()
 
-def _build_db_url(driver: str, cfg: DbConfig) -> str:
+def _sqlite_path_for(target: str | None, base: str) -> str:
+    """
+    把 `<base_dir>/hellotime.db` 派生为 `<base_dir>/hellotime-<target>.db`。
+
+    约定：每个实现独占一份 SQLite 文件，避免 schema/data 混入相互踩。
+    state.db_config.sqlite_path 仅作"基名/模板"。
+    """
+    if target:
+        d, fname = os.path.split(base)
+        name, ext = os.path.splitext(fname)
+        fname = f"{name}-{target}{ext}"
+        base = os.path.join(d, fname) if d else fname
+    if not os.path.isabs(base):
+        base = str(ROOT / base)
+    return base
+
+def _build_db_url(driver: str, cfg: DbConfig, target: str | None = None) -> str:
     if driver == "sqlite":
-        path = cfg.sqlite_path
-        if not os.path.isabs(path):
-            path = str(ROOT / path)
+        path = _sqlite_path_for(target, cfg.sqlite_path)
         return f"sqlite:///{path}"
     return f"postgresql://{cfg.pg_user}:{cfg.pg_pass}@{cfg.pg_host}:{cfg.pg_port}/{cfg.pg_db}"
 
@@ -373,7 +387,7 @@ def op_start(name: str) -> dict:
     try:
         llm = state.llm_config
         db_driver = os.environ.get("DB_DRIVER") or state.db_driver
-        db_url = os.environ.get("DB_URL") or _build_db_url(db_driver, state.db_config)
+        db_url = os.environ.get("DB_URL") or _build_db_url(db_driver, state.db_config, name)
         proc = subprocess.Popen(
             ["./run"],
             cwd=stack_dir,

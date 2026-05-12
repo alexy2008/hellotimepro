@@ -1,0 +1,107 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect } from "react";
+import { useAuthStore } from "@/stores/auth-store";
+import { usePlazaStore } from "@/stores/plaza-store";
+import { PlazaToolbar } from "@/components/plaza-toolbar";
+import { CapsuleGrid } from "@/components/capsule-grid";
+import { Pagination } from "@/components/pagination";
+import { fmtNumber } from "@/lib/format";
+
+export default function PlazaPage() {
+  const fetchPlaza = usePlazaStore((s) => s.fetch);
+  const items = usePlazaStore((s) => s.items);
+  const loading = usePlazaStore((s) => s.loading);
+  const pagination = usePlazaStore((s) => s.pagination);
+  const page = usePlazaStore((s) => s.page);
+  const setPage = usePlazaStore((s) => s.setPage);
+
+  const user = useAuthStore((s) => s.user);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+
+  useEffect(() => {
+    // 等鉴权 hydrate 完再请求，让 favoritedByMe 投影正确
+    if (isHydrated) void fetchPlaza();
+  }, [isHydrated, fetchPlaza]);
+
+  return (
+    <>
+      <section className="cy-hero-block">
+        <div className="cy-container">
+          <h1 className="cy-hero-title">
+            封存此刻 <span className="cy-hero-title__highlight">开启未来</span>
+          </h1>
+          <p className="cy-hero-subtitle">
+            写下此刻最真实的想法，设定一个解封时刻——可以是明年生日、十年后的某个清晨，或任何你觉得值得等待的瞬间。时间到了，它才会被打开。
+          </p>
+          <div className="cy-hero-cta">
+            <Link
+              className="cy-btn cy-btn--primary cy-btn--hero"
+              href={user ? "/create" : "/register"}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />
+              </svg>
+              创建我的胶囊
+            </Link>
+            <Link className="cy-btn cy-btn--success cy-btn--hero" href="/open">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+              </svg>
+              用胶囊码开启
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <main className="cy-container">
+        <PlazaToolbar />
+        <CapsuleGrid
+          items={items}
+          loading={loading}
+          emptyHint={
+            <div className="cy-empty">
+              <div className="cy-empty__emoji">🌌</div>
+              <p>广场暂无胶囊 —— 来当第一个写信给未来的人？</p>
+              <Link
+                className="cy-btn cy-btn--primary cy-btn--sm"
+                href={user ? "/create" : "/register"}
+                style={{ marginTop: "var(--space-3)" }}
+              >
+                {user ? "创建胶囊" : "注册并创建"}
+              </Link>
+            </div>
+          }
+        />
+
+        <Pagination
+          page={page}
+          totalPages={pagination?.totalPages ?? 0}
+          onChange={setPage}
+          extra={pagination ? `共 ${fmtNumber(pagination.total)} 条` : undefined}
+          margin="var(--space-10) 0 var(--space-6)"
+        />
+      </main>
+    </>
+  );
+}

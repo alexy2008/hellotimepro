@@ -5,7 +5,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -70,16 +69,27 @@ func normalizePgURL(raw string) string {
 	return raw
 }
 
-// sqliteFilePath 从 sqlite:///path 提取文件路径。
+// sqliteFilePath 把 SQLAlchemy 风格的 sqlite URL 转成本地路径。
+//
+//	sqlite:///rel/path.db    → rel/path.db     (3 个 /，相对路径)
+//	sqlite:////abs/path.db   → /abs/path.db    (4 个 /，绝对路径)
+//	sqlite://file.db         → file.db
+//	/abs/path.db             → /abs/path.db    (已是路径，原样返回)
+//
+// 老实现 url.Parse + u.Host + u.Path 在 4-斜杠绝对路径下会得到 "//abs/path"
+// 双前导斜杠，macOS 上 SQLite VFS 会把它和 "/abs/path" 当作两个不同的数据库做
+// 锁协调——结果是 INSERT 落在一个 lock 域，SELECT 在另一个，读不到自己刚写的
+// 行。表现为 register 成功但所有 RequireAuth 端点 "用户不存在"。
 func sqliteFilePath(raw string) string {
-	u, err := url.Parse(raw)
-	if err != nil {
+	const scheme = "sqlite://"
+	if !strings.HasPrefix(raw, scheme) {
 		return raw
 	}
-	if u.Scheme == "sqlite" {
-		return u.Host + u.Path
+	rest := raw[len(scheme):] // 至少以 "/" 开头（3 斜杠相对）或 "//" 开头（4 斜杠绝对）
+	if strings.HasPrefix(rest, "/") {
+		return rest[1:] // 吃掉一个斜杠
 	}
-	return raw
+	return rest
 }
 
 func runMigrations(db *gorm.DB, driver string) error {

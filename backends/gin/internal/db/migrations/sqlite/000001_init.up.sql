@@ -1,15 +1,27 @@
 -- HelloTime Pro · SQLite 初始 schema
 -- 版本：000001
--- UUID 用 TEXT，TIMESTAMPTZ 用 TEXT（ISO 8601），BOOLEAN 用 INTEGER
+--
+-- 与 spec/db/schema.sql 同构（方言降级）：
+--   - UUID 用 TEXT（应用层生成 36 字符 UUID 字符串）
+--   - BOOLEAN 用 INTEGER（0/1）
+--   - **TIMESTAMPTZ 用 DATETIME**（关键！）
+--
+-- 时间列类型必须声明为 DATETIME / TIMESTAMP（而非裸 TEXT）。
+-- 因为 mattn/go-sqlite3 驱动只有看到列的 declared type 是这几个时间关键字才会
+-- 把存储的字符串自动解析回 time.Time。声明为 TEXT 会让 GORM scan 报：
+--   sql: Scan error ... storing driver.Value type string into type *time.Time
+-- 表现为：register 成功（INSERT 走的是 string，没问题），但任何 SELECT 进
+-- model.User 都失败，所有 RequireAuth 的端点返回 401 "用户不存在"。
+-- SQLite 本身是动态类型，DATETIME / TEXT 在存储层等价；这只是个声明。
 
 CREATE TABLE IF NOT EXISTS users (
-    id             TEXT PRIMARY KEY,
-    email          TEXT NOT NULL,
-    password_hash  TEXT NOT NULL,
-    nickname       TEXT NOT NULL,
-    avatar_id      TEXT NOT NULL,
-    created_at     TEXT NOT NULL,
-    updated_at     TEXT NOT NULL,
+    id             TEXT     PRIMARY KEY,
+    email          TEXT     NOT NULL,
+    password_hash  TEXT     NOT NULL,
+    nickname       TEXT     NOT NULL,
+    avatar_id      TEXT     NOT NULL,
+    created_at     DATETIME NOT NULL,
+    updated_at     DATETIME NOT NULL,
 
     CONSTRAINT users_email_format_chk
         CHECK (email = lower(email) AND instr(email, '@') > 1),
@@ -21,16 +33,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_uk    ON users (email);
 CREATE UNIQUE INDEX IF NOT EXISTS users_nickname_uk ON users (nickname);
 
 CREATE TABLE IF NOT EXISTS capsules (
-    id              TEXT    PRIMARY KEY,
-    owner_id        TEXT    NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    code            TEXT    NOT NULL,
-    title           TEXT    NOT NULL,
-    content         TEXT    NOT NULL,
-    open_at         TEXT    NOT NULL,
-    in_plaza        INTEGER NOT NULL DEFAULT 1,
-    favorite_count  INTEGER NOT NULL DEFAULT 0,
-    created_at      TEXT    NOT NULL,
-    updated_at      TEXT    NOT NULL,
+    id              TEXT     PRIMARY KEY,
+    owner_id        TEXT     NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    code            TEXT     NOT NULL,
+    title           TEXT     NOT NULL,
+    content         TEXT     NOT NULL,
+    open_at         DATETIME NOT NULL,
+    in_plaza        INTEGER  NOT NULL DEFAULT 1,
+    favorite_count  INTEGER  NOT NULL DEFAULT 0,
+    created_at      DATETIME NOT NULL,
+    updated_at      DATETIME NOT NULL,
 
     CONSTRAINT capsules_code_format_chk
         CHECK (length(code) = 8 AND code GLOB '[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]'),
@@ -51,9 +63,9 @@ CREATE        INDEX IF NOT EXISTS capsules_plaza_new_ix     ON capsules (in_plaz
 CREATE        INDEX IF NOT EXISTS capsules_plaza_open_at_ix ON capsules (in_plaza, open_at);
 
 CREATE TABLE IF NOT EXISTS favorites (
-    user_id     TEXT NOT NULL REFERENCES users (id)    ON DELETE CASCADE,
-    capsule_id  TEXT NOT NULL REFERENCES capsules (id) ON DELETE CASCADE,
-    created_at  TEXT NOT NULL,
+    user_id     TEXT     NOT NULL REFERENCES users (id)    ON DELETE CASCADE,
+    capsule_id  TEXT     NOT NULL REFERENCES capsules (id) ON DELETE CASCADE,
+    created_at  DATETIME NOT NULL,
     PRIMARY KEY (user_id, capsule_id)
 );
 
@@ -61,13 +73,13 @@ CREATE INDEX IF NOT EXISTS favorites_user_created_ix ON favorites (user_id, crea
 CREATE INDEX IF NOT EXISTS favorites_capsule_ix      ON favorites (capsule_id);
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
-    id          TEXT PRIMARY KEY,
-    user_id     TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    token_hash  TEXT NOT NULL,
-    family_id   TEXT NOT NULL,
-    expires_at  TEXT NOT NULL,
-    created_at  TEXT NOT NULL,
-    revoked_at  TEXT
+    id          TEXT     PRIMARY KEY,
+    user_id     TEXT     NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    token_hash  TEXT     NOT NULL,
+    family_id   TEXT     NOT NULL,
+    expires_at  DATETIME NOT NULL,
+    created_at  DATETIME NOT NULL,
+    revoked_at  DATETIME
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS refresh_tokens_hash_uk    ON refresh_tokens (token_hash);

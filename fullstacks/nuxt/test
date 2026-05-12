@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# 仅做类型检查；契约层走 verification/scripts/verify-contract.sh。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if [[ ! -d node_modules ]]; then
+  npm install --silent
+fi
+
+exec npm run typecheck
