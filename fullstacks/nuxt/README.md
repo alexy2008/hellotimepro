@@ -31,3 +31,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh nuxt
 - `server/services/`: framework-independent domain/application services.
 - `server/db/`: PostgreSQL/SQLite Drizzle schemas and runtime driver switch.
 - `drizzle/`: idempotent SQL migrations for both drivers.
+
+## Design Notes
+
+- Auth storage follows the teaching-friendly header token path: access token stays in Pinia memory, while refresh token and user are persisted in `localStorage`. This keeps the Nuxt implementation aligned with the SPA clients and avoids cookie CSRF handling, at the cost of accepting the XSS exposure called out in `docs/02-design.md §7.2`.

@@ -6,7 +6,7 @@ import { ERR } from "@/lib/server/errors";
 import type { FavoriteResult } from "@/types";
 
 /*
- * 并发取舍说明（教学项目，按 CLAUDE.md "生产级安全/并发问题不作为修复优先项"）
+ * 并发取舍说明（教学项目，见 docs/03-roadmap.md 的 M2 已知问题）
  *
  * 当前 addFavorite / removeFavorite 是「SELECT → INSERT/DELETE → UPDATE 计数」
  * 三段非事务，存在并发漂移：

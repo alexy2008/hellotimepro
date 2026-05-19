@@ -1,4 +1,4 @@
--- HelloTime Pro · Next.js 全栈 · SQLite 初始化脚本
+-- HelloTime Pro · Nuxt 3 全栈 · SQLite 初始化脚本
 
 CREATE TABLE IF NOT EXISTS users (
     id              TEXT     PRIMARY KEY,

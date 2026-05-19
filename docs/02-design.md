@@ -376,8 +376,8 @@ HelloTimeProByClaude/
 ### 7.2 存储策略（前端）
 
 - 默认方案：**access token 存内存**，**refresh token 存 HttpOnly + Secure + SameSite=Lax Cookie**
-- 教学目的下，各前端可以选用"双 token 都放 `localStorage`"的更简单方案，但必须在该前端的 README 里明确权衡（XSS 风险）
-- 参考实现（Nuxt）采用默认方案
+- 教学目的下，各前端 / 全栈可以选用"access token 存内存，refresh token + user 放 `localStorage`"的更简单方案，但必须在该实现的 README 里明确权衡（XSS 风险）
+- 采用 HttpOnly Cookie 的实现必须额外处理 CSRF；采用纯 header token 的实现不需要 cookie CSRF，但要接受 XSS 风险权衡
 
 ### 7.3 Rotate + Family
 

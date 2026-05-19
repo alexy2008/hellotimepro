@@ -47,7 +47,7 @@ def test_llm_client_falls_back_to_chat_completions(monkeypatch):
                     {
                         "message": {
                             "content": json.dumps(
-                                {"title": "组合解读", "narrative": "融合式说明"}
+                                {"content": "写给未来的一段话", "openInDays": 30}
                             )
                         }
                     }
@@ -57,10 +57,10 @@ def test_llm_client_falls_back_to_chat_completions(monkeypatch):
 
     monkeypatch.setattr(llm_client, "urlopen", fake_urlopen)
 
-    result = llm_client.generate_structured_narration("prompt")
+    result = llm_client.generate_capsule_suggestion("prompt")
 
     assert calls == [
         "https://example.test/api/v3/responses",
         "https://example.test/api/v3/chat/completions",
     ]
-    assert result == {"title": "组合解读", "narrative": "融合式说明"}
+    assert result == {"content": "写给未来的一段话", "openInDays": 30}

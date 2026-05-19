@@ -146,7 +146,7 @@ router.include_router(me.router)
 router.include_router(capsules.router)
 router.include_router(plaza.router)
 router.include_router(favorites.router)
-router.include_router(stack_narration.router)
+router.include_router(capsule_suggestion.router)
 ```
 
 所以 `auth.py` 中的 `/auth/login`，最终完整路径是：
@@ -553,15 +553,15 @@ if lock and settings.db_driver == "postgres":
 - 检查昵称冲突。
 - 检查头像 ID 是否在头像目录中。
 
-### 10.6 头像与技术栈叙述
+### 10.6 头像与胶囊建议
 
 `avatar_service.py` 从 `spec/avatars/catalog.json` 读取头像目录，并用 `lru_cache` 缓存。
 
-`stack_narration_service.py` 用于生成技术栈叙述：
+`capsule_suggestion_service.py` 用于根据标题生成胶囊正文和建议开启时间：
 
 - 如果配置了 LLM，会调用 `llm_client.py`。
 - 如果未启用 LLM 或没有 key，会返回本地模板 fallback。
-- 结果按请求内容、模型、prompt 版本做内存缓存。
+- 结果不缓存，便于前端“重新生成”按钮每次拿到新建议。
 
 ## 11. 安全工具：`app/core/security.py`
 
@@ -612,7 +612,7 @@ class Settings(BaseSettings):
 | `JWT_SECRET` | JWT 签名密钥 |
 | `ACCESS_TOKEN_TTL_SECONDS` | access token 过期时间 |
 | `REFRESH_TOKEN_TTL_SECONDS` | refresh token 过期时间 |
-| `LLM_ENABLED` | 是否启用技术栈叙述 LLM |
+| `LLM_ENABLED` | 是否启用胶囊建议 LLM |
 | `LLM_API_KEY` | LLM API key |
 
 类属性使用 snake_case，例如 `db_driver`，环境变量通常写成大写，例如 `DB_DRIVER`。

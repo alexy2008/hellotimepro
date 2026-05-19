@@ -3,6 +3,19 @@ import { getCtx } from "~/server/db";
 import { ERR } from "~/server/lib/errors";
 import type { FavoriteResult } from "~/types";
 
+/*
+ * 并发取舍说明（教学项目，见 docs/03-roadmap.md 的 M2 已知问题）
+ *
+ * 当前 addFavorite / removeFavorite 是「SELECT → INSERT/DELETE → UPDATE 计数」
+ * 三段非事务，和 Next.js 全栈实现保持同构。favorite_count 的 += 1 / -= 1
+ * SQL 表达式本身是原子的，但 favorites 行变更与计数更新之间没有事务边界；
+ * 极端并发下可能出现复合主键冲突或计数漂移。
+ *
+ * 生产化做法：用 `db.transaction(...)` 包住三段；Postgres 可对 capsules 行
+ * SELECT ... FOR UPDATE；或改成 INSERT ... ON CONFLICT DO NOTHING RETURNING ...
+ * 让“是否真的插入”成为计数更新的唯一依据。
+ */
+
 export async function addFavorite(
   userId: string,
   capsuleId: string,

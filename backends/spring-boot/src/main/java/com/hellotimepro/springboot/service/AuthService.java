@@ -79,6 +79,9 @@ public class AuthService {
 
   @Transactional(noRollbackFor = ApiException.class)
   public AuthTokens refresh(String rawRefresh) {
+    // refresh token 轮转必须线性消费旧 token。Postgres 用行锁保护同一个
+    // token_hash；SQLite 依赖单写事务。noRollbackFor 保证重放分支的 family
+    // revoke 即使随后抛 401 也会提交。
     String tokenHash = security.hashRefreshToken(rawRefresh);
     RefreshTokenEntity row = findRefreshTokenForRotation(tokenHash)
         .orElseThrow(() -> ApiException.unauthorized("refresh token 无效"));
@@ -135,6 +138,7 @@ public class AuthService {
 
   private java.util.Optional<RefreshTokenEntity> findRefreshTokenForRotation(String tokenHash) {
     if ("postgres".equals(props.getDbDriver())) {
+      // SELECT ... FOR UPDATE：同一个 refresh token 只能被一个请求完成轮转。
       return refreshTokens.findByTokenHashForUpdate(tokenHash);
     }
     return refreshTokens.findByTokenHash(tokenHash);

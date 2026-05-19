@@ -1,4 +1,4 @@
-"""OpenAI-compatible LLM client used by stack narration."""
+"""OpenAI-compatible LLM client used by capsule suggestions."""
 
 from __future__ import annotations
 

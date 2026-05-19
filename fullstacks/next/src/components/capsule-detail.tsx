@@ -103,12 +103,18 @@ export function CapsuleDetail({
   }, [capsule.openAt, onExpired, opened]);
 
   const cd = countdownTo(capsule.openAt, now);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   function copyCode() {
     void navigator.clipboard.writeText(capsule.code);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
   }
   function copyLink() {
     void navigator.clipboard.writeText(window.location.href);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }
 
   return (
@@ -220,10 +226,10 @@ export function CapsuleDetail({
         </div>
         <div style={{ display: "flex", gap: "var(--space-3)" }}>
           <button type="button" className="cy-btn cy-btn--ghost" onClick={copyCode}>
-            📎 复制 8 位码
+            {codeCopied ? "✓ 已复制!" : "📎 复制 8 位码"}
           </button>
           <button type="button" className="cy-btn cy-btn--ghost" onClick={copyLink}>
-            🔗 分享链接
+            {linkCopied ? "✓ 已复制!" : "🔗 分享链接"}
           </button>
           <FavoriteButton
             capsule={capsule}

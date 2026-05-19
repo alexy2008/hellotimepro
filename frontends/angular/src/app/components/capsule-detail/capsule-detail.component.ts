@@ -67,8 +67,8 @@ interface CalUnit { value: number; label: string }
           <strong style="color:var(--color-text-primary)">{{ capsule().creator.nickname }}</strong>
         </div>
         <div style="display:flex;gap:var(--space-3)">
-          <button type="button" class="cy-btn cy-btn--ghost" (click)="copyCode()">📎 复制 8 位码</button>
-          <button type="button" class="cy-btn cy-btn--ghost" (click)="copyLink()">🔗 分享链接</button>
+          <button type="button" class="cy-btn cy-btn--ghost" (click)="copyCode()">{{ codeCopied() ? '✓ 已复制!' : '📎 复制 8 位码' }}</button>
+          <button type="button" class="cy-btn cy-btn--ghost" (click)="copyLink()">{{ linkCopied() ? '✓ 已复制!' : '🔗 分享链接' }}</button>
           <app-favorite-button [capsule]="capsule()" size="md"
             (onChange)="onFavChange($event)" />
         </div>
@@ -99,6 +99,8 @@ export class CapsuleDetailComponent implements OnInit, OnChanges, OnDestroy {
 
   cd = signal(countdownTo(''));
   autoOpening = signal(false);
+  codeCopied = signal(false);
+  linkCopied = signal(false);
   calUnits = signal<CalUnit[]>([]);
 
   private ticker: ReturnType<typeof setInterval> | null = null;
@@ -160,8 +162,16 @@ export class CapsuleDetailComponent implements OnInit, OnChanges, OnDestroy {
 
   pad(n: number) { return String(n).padStart(2, '0'); }
 
-  copyCode() { void navigator.clipboard.writeText(this.capsule().code); }
-  copyLink() { void navigator.clipboard.writeText(window.location.href); }
+  copyCode() {
+    void navigator.clipboard.writeText(this.capsule().code);
+    this.codeCopied.set(true);
+    setTimeout(() => this.codeCopied.set(false), 2000);
+  }
+  copyLink() {
+    void navigator.clipboard.writeText(window.location.href);
+    this.linkCopied.set(true);
+    setTimeout(() => this.linkCopied.set(false), 2000);
+  }
 
   onFavChange(e: { favorited: boolean; count: number }) {
     this.onChange.emit({

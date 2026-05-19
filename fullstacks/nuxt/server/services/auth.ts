@@ -14,7 +14,7 @@ import { allowedAvatarIds } from "./avatars";
 import type { UserOut, AuthTokens } from "~/types";
 
 // 简单内存限流：邮箱 → 最近失败时间戳数组
-// 挂到 globalThis 上，避免 Next.js dev 模式因 HMR 重新加载模块时重置状态
+// 挂到 globalThis 上，避免 Nuxt/Nitro 开发热更新重新加载模块时重置状态
 declare global {
   // eslint-disable-next-line no-var
   var __helloTimeLoginFailures: Map<string, number[]> | undefined;
@@ -150,6 +150,19 @@ export async function login(input: { email: string; password: string }): Promise
   return issueTokenPair(user);
 }
 
+/*
+ * 并发取舍说明（教学项目，见 docs/03-roadmap.md 的 M2 已知问题）
+ *
+ * 当前 refresh() 是「SELECT → 检查 revokedAt → UPDATE 旧 token → INSERT 新 token」
+ * 四步非原子，和 Next.js 全栈实现保持同构。两个并发 refresh(同 rawToken)
+ * 可能都读到 revokedAt=null，并各自签发一对新 token。
+ *
+ * 生产化做法：用条件 UPDATE + RETURNING 抢占旧 token：
+ *   UPDATE refresh_tokens SET revoked_at = now()
+ *    WHERE id = $1 AND revoked_at IS NULL
+ *   RETURNING id;
+ * rowCount=1 的请求继续签新 token；rowCount=0 的请求按重放处理并撤销 family。
+ */
 export async function refresh(rawToken: string): Promise<AuthTokens> {
   const tokenHash = hashRefreshToken(rawToken);
   const { db, t } = await getCtx();

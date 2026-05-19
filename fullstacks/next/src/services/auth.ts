@@ -153,7 +153,7 @@ export async function login(input: { email: string; password: string }): Promise
 }
 
 /*
- * 并发取舍说明（教学项目，按 CLAUDE.md "生产级安全/并发问题不作为修复优先项"）
+ * 并发取舍说明（教学项目，见 docs/03-roadmap.md 的 M2 已知问题）
  *
  * 当前 refresh() 是「SELECT → 检查 revokedAt → UPDATE 旧 token → INSERT 新 token」
  * 四步非原子。两个并发 refresh(同 rawToken) 都会看到 revokedAt=null，各自走完

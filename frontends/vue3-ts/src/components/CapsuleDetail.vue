@@ -67,11 +67,18 @@ watch(
 
 onUnmounted(clearExpiredTimer);
 
+const codeCopied = ref(false);
+const linkCopied = ref(false);
+
 function copyCode() {
   void navigator.clipboard.writeText(props.capsule.code);
+  codeCopied.value = true;
+  setTimeout(() => { codeCopied.value = false; }, 2000);
 }
 function copyLink() {
   void navigator.clipboard.writeText(window.location.href);
+  linkCopied.value = true;
+  setTimeout(() => { linkCopied.value = false; }, 2000);
 }
 
 function onFavChange(fav: boolean, count: number) {
@@ -155,10 +162,10 @@ function onFavChange(fav: boolean, count: number) {
       </div>
       <div style="display:flex;gap:var(--space-3)">
         <button type="button" class="cy-btn cy-btn--ghost" @click="copyCode">
-          📎 复制 8 位码
+          {{ codeCopied ? "✓ 已复制!" : "📎 复制 8 位码" }}
         </button>
         <button type="button" class="cy-btn cy-btn--ghost" @click="copyLink">
-          🔗 分享链接
+          {{ linkCopied ? "✓ 已复制!" : "🔗 分享链接" }}
         </button>
         <FavoriteButton
           :capsule="capsule"
