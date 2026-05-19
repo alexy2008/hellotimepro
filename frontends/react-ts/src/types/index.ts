@@ -83,8 +83,6 @@ export interface StackItem {
   name: string;
   version: string;
   iconUrl?: string | null;
-  tagline?: string | null;
-  features?: string[] | null;
 }
 
 export interface HealthData {
@@ -92,7 +90,7 @@ export interface HealthData {
   service: "hellotime-pro";
   version: string;
   uptimeSeconds: number;
-  stack: { kind: "backend" | "fullstack"; summary?: string; items: StackItem[] };
+  stack: { kind: "backend" | "fullstack"; summary: string; items: StackItem[] };
 }
 
 

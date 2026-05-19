@@ -209,9 +209,8 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 .hm-stack td{padding:7px 10px;color:var(--text2)}
 .hm-stack td:first-child{color:var(--muted);width:80px;text-transform:uppercase;font-size:12px;letter-spacing:.04em}
 .hm-stack td:last-child{color:var(--text);font-weight:500}
-.hm-name{color:var(--text);font-weight:700;margin-bottom:3px}
-.hm-desc{color:var(--text2);font-size:12.5px;line-height:1.5;margin-top:2px}
-.hm-features{margin:5px 0 0;padding-left:16px;color:var(--muted);font-size:12px;line-height:1.45}
+.hm-name{color:var(--text);font-weight:700}
+.hm-summary{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,.03);border-radius:7px;border-left:2px solid rgba(var(--sig-rgb),.4)}
 
 /* log modal */
 .modal-bg{position:fixed;inset:0;background:rgba(6,6,12,.76);display:none;
@@ -595,7 +594,7 @@ function buildCard(s,kind){
   if((kind==="frontend"||kind==="fullstack")&&(managed||external)){
     btn(ca,"bopen","open","打开");
   }
-  if(kind==="backend"&&(s.implemented||external)){
+  if((kind==="backend"||kind==="fullstack")&&(s.implemented||external)){
     btn(ca,"bhealth","health","检查");
   }
   $$("button[data-act]",ca).forEach(b=>b.addEventListener("click",()=>onAct(s,b.dataset.act,card)));
@@ -662,13 +661,10 @@ function showHealth(name, data){
     const status=d.status||"ok";
     const uptime=d.uptimeSeconds!=null?fmtUptime(d.uptimeSeconds):"—";
     const service=d.service?`${esc(d.service)} v${esc(d.version||"—")}`:"";
+    const summary=(d.stack&&d.stack.summary)||"";
     const rows=items.map(it=>`<tr>
       <td>${esc(ROLE_LABELS[it.role]||it.role||"—")}</td>
-      <td>
-        <div class="hm-name">${esc(it.name||"—")}</div>
-        ${it.tagline?`<div class="hm-desc">${esc(it.tagline)}</div>`:""}
-        ${Array.isArray(it.features)&&it.features.length?`<ul class="hm-features">${it.features.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
-      </td>
+      <td><div class="hm-name">${esc(it.name||"—")}</div></td>
       <td>${esc(it.version||"—")}</td>
     </tr>`).join("");
     box.innerHTML=`<div class="hmbody">
@@ -678,6 +674,7 @@ function showHealth(name, data){
         <span class="hm-lat">${data.latency_ms}ms</span>
         <span class="hm-lat">运行 ${uptime}</span>
       </div>
+      ${summary?`<div class="hm-summary">${esc(summary)}</div>`:""}
       ${rows?`<table class="hm-stack">
         <tr><td>角色</td><td>名称</td><td>版本</td></tr>
         ${rows}

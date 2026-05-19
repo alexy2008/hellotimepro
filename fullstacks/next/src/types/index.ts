@@ -147,8 +147,6 @@ export interface StackItem {
   name: string;
   version: string;
   iconUrl?: string | null;
-  tagline?: string | null;
-  features?: string[] | null;
 }
 
 export interface HealthData {
@@ -156,7 +154,7 @@ export interface HealthData {
   service: string;
   version: string;
   uptimeSeconds: number;
-  stack: { kind: "fullstack"; summary?: string; items: StackItem[] };
+  stack: { kind: "fullstack"; summary: string; items: StackItem[] };
 }
 
 export class ApiError extends Error {

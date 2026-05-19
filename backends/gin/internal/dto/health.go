@@ -6,8 +6,6 @@ type StackItem struct {
 	Name     string   `json:"name"`
 	Version  string   `json:"version"`
 	IconURL  *string  `json:"iconUrl"`
-	Tagline  *string  `json:"tagline,omitempty"`
-	Features []string `json:"features,omitempty"`
 }
 
 // StackInfo 技术栈整体信息。
