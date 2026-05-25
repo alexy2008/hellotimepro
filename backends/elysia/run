@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PORT="${PORT:-29030}"
+
+if [[ ! -d node_modules ]]; then
+  bun install
+fi
+
+exec bun src/main.ts
