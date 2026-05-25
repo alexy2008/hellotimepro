@@ -1,0 +1,31 @@
+{
+  "name": "hellotime-pro-svelte-ts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "HelloTime Pro · Svelte 5 + TypeScript 前端实现（Runes + svelte-routing）",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 7176",
+    "build": "svelte-check --tsconfig ./tsconfig.app.json && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 7176",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "svelte-check --tsconfig ./tsconfig.app.json"
+  },
+  "dependencies": {
+    "svelte": "^5.16.0",
+    "svelte-routing": "^2.13.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@tsconfig/svelte": "^5.0.4",
+    "@types/node": "^22.10.0",
+    "happy-dom": "^16.0.0",
+    "svelte-check": "^4.1.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.8"
+  }
+}

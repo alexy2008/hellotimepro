@@ -7,6 +7,8 @@
 #   ./verification/scripts/verify-ui-smoke.sh vue          # hello list 登记名
 #   ./verification/scripts/verify-ui-smoke.sh vue3-ts      # 目录别名，等同于 vue
 #   ./verification/scripts/verify-ui-smoke.sh angular
+#   ./verification/scripts/verify-ui-smoke.sh svelte       # hello list 登记名
+#   ./verification/scripts/verify-ui-smoke.sh svelte-ts    # 目录别名（同 svelte）
 #   ./verification/scripts/verify-ui-smoke.sh next         # 全栈同源实现（Next.js）
 #   ./verification/scripts/verify-ui-smoke.sh nuxt         # 全栈同源实现（Nuxt 3）
 #
@@ -23,7 +25,7 @@ set -euo pipefail
 _RAW_TARGET="${1:-}"
 if [[ -z "$_RAW_TARGET" ]]; then
   echo "用法: $0 <frontend>" >&2
-  echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / next / nuxt" >&2
+  echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / next / nuxt" >&2
   exit 2
 fi
 
@@ -44,16 +46,17 @@ done
 
 # 别名映射：目录名 → hello list 登记名
 case "$_RAW_TARGET" in
-  react-ts) TARGET="react" ;;
-  vue3-ts)  TARGET="vue" ;;
-  *)        TARGET="$_RAW_TARGET" ;;
+  react-ts)   TARGET="react" ;;
+  vue3-ts)    TARGET="vue" ;;
+  svelte-ts)  TARGET="svelte" ;;
+  *)          TARGET="$_RAW_TARGET" ;;
 esac
 
 case "$TARGET" in
-  react|vue|angular|next|nuxt) ;;
+  react|vue|angular|svelte|next|nuxt) ;;
   *)
     echo "✗ 暂不支持的前端: $_RAW_TARGET" >&2
-    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / next / nuxt" >&2
+    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / next / nuxt" >&2
     exit 2
     ;;
 esac
