@@ -189,30 +189,74 @@
 
 **目标**：剩余 13 个实现全部达到"契约绿"。
 
-#### 后端（8 个，建议推进顺序）
+**状态**：🔄 **进行中（2026-05-25）** — 13 个实现中 3 个已完成（2 后端 + 1 前端），10 个待开始。
 
-1. **Elysia**（Bun + TS，与 NestJS 风格近，TypeScript 开发者顺手）
-2. **NestJS**（分层与 FastAPI / Spring Boot 对应，TS 社区标准企业框架）
-3. **Ktor**（Kotlin + Exposed / JPA；有 Spring Boot 作参照后更顺）
-4. **ASP.NET Core**（C# + EF Core；文档完备，写法独特值得一看）
-5. **Axum**（Rust + sqlx；类型安全极致，适合展示所有权模型）
-6. **Vapor**（Swift + Fluent；仅 macOS，排后是因为受限而不是难）
-7. **Drogon**（C++20 + CMake；v1 工具链已趟通，排最后因编译循环慢）
+#### 后端（8 个）
+
+| 实现 | 要点 | 契约 PG | 契约 SQLite |
+|---|---|---|---|
+| `backends/elysia/` | Bun + Elysia + TypeScript；原生 SQL + 轻量方言适配；与 NestJS 同为 TypeScript 生态，风格更函数式 | ✅ 92/92 | ✅ 92/92 |
+| `backends/nest/` | NestJS 11 + TypeORM + Passport JWT；分层与 FastAPI / Spring Boot 对应，TS 社区标准企业框架 | ✅ 92/92 | ✅ 92/92 |
+| `backends/ktor/`（待） | Kotlin + Exposed / JPA；有 Spring Boot 作参照后更顺 | — | — |
+| `backends/aspnet/`（待） | ASP.NET Core + EF Core；C#，文档完备，写法独特值得一看 | — | — |
+| `backends/axum/`（待） | Rust + sqlx；类型安全极致，适合展示所有权模型 | — | — |
+| `backends/vapor/`（待） | Swift + Fluent；仅 macOS，排后是因为受限而不是难 | — | — |
+| `backends/drogon/`（待） | C++20 + CMake；v1 工具链已趟通，排最后因编译循环慢 | — | — |
 
 #### 前端（2 个）
 
-| 实现 | 要点 |
-|---|---|
-| `frontends/svelte-ts/` | Svelte 5 runes（`$state / $derived / $effect`）+ `svelte-routing` |
-| `frontends/solid-ts/` | SolidJS `createSignal / createResource`；细粒度响应式与 React 的心智对比 |
+| 实现 | 要点 | UI 冒烟 |
+|---|---|---|
+| `frontends/svelte/` | Svelte 5 Runes（`$state / $derived / $effect`）+ svelte-routing；`.svelte.ts` class 单例；Snippet 取代 slot；完整 TECHNICAL_GUIDE | ✅ 4/4 |
+| `frontends/solid-ts/`（待） | SolidJS `createSignal / createResource`；细粒度响应式与 React 的心智对比 | — |
 
 #### 全栈（3 个）
 
-| 实现 | 要点 |
-|---|---|
-| `fullstacks/rails/` | ERB + Turbo + Hotwire；Rails 约定优于配置的全栈典范 |
-| `fullstacks/laravel/` | Blade + Alpine.js；PHP 现代全栈的最佳代表 |
-| `fullstacks/spring-boot-mvc/` | Thymeleaf + HTMX；Java 系服务端渲染，与前后端分离形成强对比 |
+| 实现 | 要点 | 契约 PG | 契约 SQLite | UI 冒烟 |
+|---|---|---|---|---|
+| `fullstacks/rails/`（待） | ERB + Turbo + Hotwire；Rails 约定优于配置的全栈典范 | — | — | — |
+| `fullstacks/laravel/`（待） | Blade + Alpine.js；PHP 现代全栈的最佳代表 | — | — | — |
+| `fullstacks/spring-boot-mvc/`（待） | Thymeleaf + HTMX；Java 系服务端渲染，与前后端分离形成强对比 | — | — | — |
+
+#### 已完成的横切改进
+
+##### Elysia 落地记录（2026-05-24）
+
+- 目录 `backends/elysia/`（端口 29030），Bun 运行时，原生 SQL 适配 PG / SQLite。
+- PostgreSQL schema 使用 `UUID` 列类型（`gen_random_uuid()` 默认值）；SQLite 使用 `TEXT`——与 spec 对齐。
+- 关键坑（已修复）：
+  - `parseSqlitePath` 用 `"sqlite://".length`（9 位）剥离 `sqlite:///` 前缀，绝对路径变成 `//abs/path`；修复为 `.slice("sqlite:///".length)`（10 位）。
+  - `readClaims` 在公开端点（广场、按码查胶囊）上遇到过期 token 会抛出 401，导致匿名浏览失败；重构为两个函数：`readClaims`（可选鉴权，错误一律返回 null）和 `requireClaims`（强制鉴权，保留 expired / invalid 精准错误码）。
+  - 注册冲突检测用松散 `.includes("email")` 字符串搜索；改为精确匹配索引名正则 `/users_email_uk|users\.email/i`。
+  - 创建胶囊的重试循环 catch 了所有异常，DB 错误被伪装成"唯一码碰撞"；改为只捕获 `/capsules_code_uk|capsules\.code/i` 匹配的唯一码冲突，其他异常立即抛出。
+  - `refresh()` 查-校验-插入三步非事务（TOCTOU）；加 TODO 注释注明生产化做法。
+
+##### NestJS 落地记录（2026-05-24）
+
+- 目录 `backends/nest/`（端口 29040），NestJS 11 + TypeORM + Passport JWT。
+- 双驱动适配通过 `DB_DRIVER` 环境变量切换；时间列用 `ValueTransformer` 处理 SQLite 字符串到 `Date` 的互转。
+- TECHNICAL_GUIDE.md 已就位，覆盖 NestJS 分层（Controller / Service / Module / Guard / Interceptor）、TypeORM Entity 设计、SQLite/PG 双驱动适配细节。
+
+##### Svelte 落地记录（2026-05-24 / 2026-05-25）
+
+- 目录 `frontends/svelte`（端口 7176），不带 `-ts` 后缀但全程 TypeScript。
+- 关键坑：`.svelte.ts` 单例 store 必须用**带 `.ts` 后缀**的导入路径（`@/stores/auth.svelte.ts`），否则 Vite + `@sveltejs/vite-plugin-svelte` 会同时把 `auth.svelte` 解析为"Svelte 组件"和"TS 模块"两条加载链，得到**两个不同的 store 实例**——hydrate 写入的 user 在 AppHeader 里读不到。
+- 路由用一组**扁平** `<Route>` 列举所有路径并各自包裹 `MainLayout` / `MeLayout`，而不是嵌套 `<Route>`。嵌套写法在 svelte-routing 2.13 + Svelte 5 下会触发 `effect_update_depth_exceeded`（递归更新）。
+- `svelte.config.js` **不开** `compilerOptions.runes: true`：svelte-routing 的 `Link.svelte` 还在用 legacy `$$restProps`，全局开 runes 会让它构建失败。
+- 2026-05-25 spec 一致性修复（Codex review 5 条）：路由 `/c/:code` → `/capsules/:code` + 新增 `/plaza/:id`；已开启胶囊补删除按钮；收藏页取消收藏后移除列表项；已登录访问 `/login` / `/register` 重定向首页；匿名收藏跳转携带 `?from=` 参数。
+- TECHNICAL_GUIDE.md（833 行）已就位，含 Svelte 5 Runes 核心概念、`.svelte.ts` 陷阱说明、vs React vs Vue 对照表。
+- `verify-ui-smoke.sh` 已加入 `svelte / svelte-ts` 别名支持。
+
+#### 验收记录
+
+- 2026-05-24：`./verification/scripts/verify-contract.sh elysia` 通过，PostgreSQL 92/92。
+- 2026-05-24：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh elysia` 通过，SQLite 92/92。
+- 2026-05-24：`./verification/scripts/verify-contract.sh nest` 通过，PostgreSQL 92/92。
+- 2026-05-24：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh nest` 通过，SQLite 92/92。
+- 2026-05-24：`./verification/scripts/verify-ui-smoke.sh svelte` 通过，Playwright 4/4。
+- 2026-05-25：elysia bug fix 后复验 PG + SQLite 各 92/92 全绿。
+- 2026-05-25：`./verification/scripts/verify-ui-smoke.sh svelte`（spec fix 后复验） 通过，4/4。
+- 2026-05-25：`./verification/scripts/verify-contract.sh nest`（PG）、`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh nest`（SQLite） 复验，各 92/92。
 
 ---
 
