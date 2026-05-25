@@ -75,7 +75,7 @@ export class CapsulesService {
     title: string;
     content: string;
     openAt: string;
-    inPlaza: boolean;
+    inPlaza?: boolean;
   }) {
     const openAt = new Date(dto.openAt);
     if (isNaN(openAt.getTime())) {
@@ -86,7 +86,12 @@ export class CapsulesService {
     if (openAt <= minOpenAt) {
       throw validationError('开启时间必须在当前时间 60 秒后', 'openAt');
     }
+    const maxOpenAt = new Date(now.getTime() + 10 * 365.25 * 24 * 3600 * 1000);
+    if (openAt > maxOpenAt) {
+      throw validationError('开启时间不能超过当前时间 10 年', 'openAt');
+    }
 
+    const inPlaza = dto.inPlaza ?? true;
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = generateCode();
       const capsule = this.capsuleRepo.create({
@@ -96,7 +101,7 @@ export class CapsulesService {
         title: dto.title,
         content: dto.content,
         openAt,
-        inPlaza: dto.inPlaza,
+        inPlaza,
         favoriteCount: 0,
         createdAt: now,
         updatedAt: now,

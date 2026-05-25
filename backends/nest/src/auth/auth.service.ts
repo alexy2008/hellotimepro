@@ -181,6 +181,8 @@ export class AuthService {
   }
 
   async refresh(rawRefresh: string): Promise<AuthTokens> {
+    // 教学注释：生产环境应用行锁（SELECT ... FOR UPDATE）或原子操作
+    // （UPDATE ... WHERE revoked_at IS NULL RETURNING *）消除并发 refresh 的双发窗口。
     const tokenHash = this.hashRefreshToken(rawRefresh);
     const row = await this.tokenRepo.findOne({ where: { tokenHash } });
     if (!row) throw unauthorized('refresh token 无效');

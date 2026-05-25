@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsString, Length } from 'class-validator';
+import { IsBoolean, IsDateString, IsOptional, IsString, Length } from 'class-validator';
 
 export class CreateCapsuleDto {
   @IsString()
@@ -12,6 +12,7 @@ export class CreateCapsuleDto {
   @IsDateString()
   openAt: string;
 
+  @IsOptional()
   @IsBoolean()
-  inPlaza: boolean;
+  inPlaza?: boolean;
 }

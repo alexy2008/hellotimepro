@@ -33,6 +33,8 @@ export class FavoritesService {
       };
     }
 
+    // 教学注释：生产环境应将 INSERT favorites + UPDATE favorite_count 包在同一事务中，
+    // 避免进程中断导致计数漂移。TypeORM 做法：DataSource.transaction(em => { ... })。
     const now = new Date();
     const fav = this.favoriteRepo.create({ userId, capsuleId, createdAt: now });
     await this.favoriteRepo.save(fav);

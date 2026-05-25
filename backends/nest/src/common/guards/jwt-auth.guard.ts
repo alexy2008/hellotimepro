@@ -12,7 +12,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     if (err || !user) {
       const msg =
         info?.name === 'TokenExpiredError'
-          ? 'access token 已过期'
+          ? 'access_token_expired'
           : '未登录或凭证无效';
       throw unauthorized(msg);
     }
