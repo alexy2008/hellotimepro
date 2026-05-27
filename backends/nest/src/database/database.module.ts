@@ -49,7 +49,7 @@ function parsePostgresUrl(dbUrl: string): object {
             database: dbPath,
             entities,
             migrations: [`${migrationDir}/*.{ts,js}`],
-            migrationsRun: true,
+            migrationsRun: false,
             synchronize: false,
             logging: false,
             prepareDatabase: (db: any) => {
@@ -66,7 +66,7 @@ function parsePostgresUrl(dbUrl: string): object {
           ssl: false,
           entities,
           migrations: [`${migrationDir}/*.{ts,js}`],
-          migrationsRun: true,
+          migrationsRun: false,
           synchronize: false,
           logging: false,
         } as any;

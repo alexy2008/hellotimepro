@@ -12,9 +12,15 @@ const APP_STACK: StackItem[] = [
 ];
 
 const APP_SUMMARY =
-  "基于 Nuxt 3 pages/layouts 组织路由与页面，Vue 3 Composition API + <script setup> 聚合交互逻辑，" +
-  "Pinia 管理 auth、theme、plaza 三个状态域，Nitro server/api 提供同源 REST 接口，" +
-  "样式通过 Tailwind CSS v4 语义 token 统一约束。";
+  "基于 Nuxt 3 + Vue 3 + TypeScript 核心骨架，" +
+  "选用 Pinia 进行客户端状态管理，Tailwind CSS v4 配合 Design Tokens 定制跨端样式规范。" +
+  "依托 Nuxt 文件系统路由与高性能 Nitro 服务端引擎，" +
+  "将基于 Vue 3 组合式 API 的前端界面与后端 API 端点无缝集成至单个 Node 进程中，" +
+  "天然免去跨域与多套服务部署的繁琐逻辑。" +
+  "利用 Nuxt 强大的自动导入机制，开发者无需手动引入 Vue、Pinia、自定义组件或组合式函数即可直接调用，" +
+  "极大缩减了样板代码。" +
+  "Pinia 构建模块化单例状态管理，配合基于 jose 的 HS256 JWT 及 Refresh Token 轮转机制实现安全的身份凭证管理。" +
+  "设计令牌以项目共用的 CSS 变量形式完美契合暗亮色主题，带来高品质的跨端响应式页面呈现。";
 
 const { data: health, error } = await useAsyncData<HealthData>("health", () => api.health(), {
   server: false,

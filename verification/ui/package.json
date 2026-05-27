@@ -1,7 +1,7 @@
 {
   "name": "hellotime-ui-smoke",
   "private": true,
-  "description": "UI 冒烟测试：Playwright 驱动 React 前端跑主流程",
+  "description": "UI 冒烟测试：Playwright 驱动各前端实现验证核心流程",
   "scripts": {
     "test": "playwright test",
     "install-browsers": "playwright install chromium"

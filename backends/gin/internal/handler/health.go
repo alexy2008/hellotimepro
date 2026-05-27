@@ -56,14 +56,15 @@ func buildStack() dto.StackInfo {
 		},
 	}
 
-	summary := "基于 Go + Gin 构建，中间件链可组合，路由分组按权限隔离，" +
-		"ShouldBindJSON 统一参数解析，GORM 双驱动热切换 " + dbName + " / SQLite，" +
-		"刷新令牌族追踪（family_id + revoked）防重放攻击。"
-	if config.App.DBDriver == "sqlite" {
-		summary = "基于 Go + Gin 构建，中间件链可组合，路由分组按权限隔离，" +
-			"ShouldBindJSON 统一参数解析，GORM 抽象层屏蔽 SQLite / PostgreSQL 差异，" +
-			"适合本地开发与 CI 验证场景。"
-	}
+	summary := "基于 Go + Gin + GORM 核心骨架，使用仓库级 scripts/db 维护数据库 schema，" +
+		"golang-jwt 结合 bcrypt 提供安全的 JWT 与密码处理，同时支持 PostgreSQL 与 SQLite 双数据库驱动切换。" +
+		"利用 Go 语言轻量级协程和原生高并发的优势，配合 Gin 的 HTTP 路由与中间件链，" +
+		"实现极低的请求延迟与优异的吞吐量。" +
+		"GORM 通过简洁的结构体标签实现强大的表关系映射与自动数据映射，大幅简化数据持久化代码。" +
+		"在 SQLite 模式下对路径与锁行为进行了精细设计，" +
+		"服务启动过程只负责连接已准备好的数据库，不承担建表或演示数据导入。" +
+		"项目在内部划分了配置层、核心工具层、数据模型层、数据载体层以及业务逻辑层，" +
+		"实现了严格的展示与业务分离。"
 
 	return dto.StackInfo{Kind: "backend", Summary: summary, Items: items}
 }

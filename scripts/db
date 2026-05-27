@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# HelloTime Pro database maintenance entrypoint.
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+DB_DIR="$ROOT/spec/db"
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "需要 uv 才能执行数据库维护：https://docs.astral.sh/uv/" >&2
+  exit 127
+fi
+
+cd "$DB_DIR"
+exec uv run --quiet python db_maintenance.py "$@"

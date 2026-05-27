@@ -4,7 +4,7 @@
 #   DB_DRIVER=postgres (默认) 需要 PostgreSQL
 #   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime-nest.db
 #
-# 启动前自动 npm install（已安装则跳过）并构建。
+# 只启动服务；数据库初始化/重建/seed 请使用 scripts/db。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,13 +32,6 @@ fi
 if [[ ! -d node_modules ]]; then
   echo "[nest] 安装依赖..."
   npm install --prefer-offline 2>/dev/null || npm install
-fi
-
-# 注入演示数据（SEED_DEMO=false 可关闭）
-if [[ "${SEED_DEMO:-true}" != "false" ]]; then
-  if command -v python3 >/dev/null 2>&1; then
-    python3 "$REPO_ROOT/spec/db/seed_demo.py" || true
-  fi
 fi
 
 PORT="${PORT:-29040}"

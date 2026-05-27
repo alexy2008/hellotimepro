@@ -25,9 +25,17 @@ function buildStack(): { kind: "fullstack"; summary: string; items: StackItem[] 
         "DB_DRIVER 环境变量热切换 SQLite/PostgreSQL，无需修改业务代码",
       ];
 
-  const summary = isSqlite
-    ? "基于 Nuxt 3 + Nitro + TypeScript 全栈实现，server/api 提供 /api/v1/* REST 接口，Drizzle ORM 同一份查询代码同时驱动 SQLite / PostgreSQL，bcryptjs + jose 实现 JWT 双令牌鉴权，Zod 校验请求体，适合本地开发与 CI 验证。"
-    : "基于 Nuxt 3 + Nitro + TypeScript 全栈实现，server/api 提供 /api/v1/* REST 接口，Drizzle ORM + node-postgres 承载业务数据，bcryptjs + jose 实现 JWT 双令牌鉴权，Zod 校验请求体，refresh token 族追踪防重放，前后端共享同一仓库与类型定义。";
+  const summary =
+    "基于 Nuxt 3 + Nitro + TypeScript 全栈实现，" +
+    "server/api 提供 /api/v1/* REST 接口，" +
+    "选用 Drizzle ORM 作为双数据库抽象层，bcryptjs + jose 实现 JWT 双令牌鉴权，" +
+    "Zod 校验请求体，同时支持 PostgreSQL 与 SQLite 双数据库驱动切换。" +
+    "Nitro 服务端引擎将文件路由直接映射为 RESTful 端点，" +
+    "server 目录的代码天然隔离于客户端 bundle 之外，无需额外的编译标记即可保证敏感逻辑安全。" +
+    "Drizzle ORM 通过动态导入技术在服务端根据环境变量无缝适配 PostgreSQL 和 SQLite 驱动，" +
+    "同一份业务代码在不同数据库方言下无感运行。" +
+    "Refresh Token 家族轮转与重放检测提供严密的身份安全防范。" +
+    "前后端共享同一仓库、同一类型定义，构建产物为单一可执行 Node 应用。";
 
   const items: StackItem[] = [
     {

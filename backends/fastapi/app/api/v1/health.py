@@ -25,17 +25,17 @@ def _build_stack() -> StackInfo:
     db_name = "PostgreSQL" if settings.db_driver == "postgres" else "SQLite"
     db_ver = "16" if settings.db_driver == "postgres" else "3"
 
-    if db_name == "SQLite":
-        summary = (
-            "基于 Python + FastAPI 构建，Pydantic v2 严格验证请求/响应，"
-            "SQLAlchemy 抽象层屏蔽 SQLite / PostgreSQL 差异，"
-            "依赖注入提供 DB session、当前用户等上下文，JWT 双令牌鉴权。"
-        )
-    else:
-        summary = (
-            "基于 Python + FastAPI 构建，Pydantic v2 严格验证请求/响应，"
-            "SQLAlchemy + PostgreSQL 承载业务数据，Alembic 管理迁移，"
-            "依赖注入提供 DB session、当前用户等上下文，JWT 双令牌鉴权。"
+    summary = (
+            "基于 Python + FastAPI + SQLAlchemy 核心骨架，选用 Pydantic 进行数据校验与 Schema 定义，"
+            "Alembic 管理数据库迁移，同时支持 PostgreSQL 与 SQLite 双数据库驱动切换。"
+            "依托 Python 的异步生态，搭配 Uvicorn 运行，提供高并发的请求处理性能，"
+            "框架天然集成 OpenAPI 规范，可自动生成交互式 API 调试文档。"
+            "接口边界上的输入与输出数据完全通过 Pydantic Schema 进行结构化声明与校验，"
+            "在请求到达业务逻辑前即完成严格的字段校验与类型转换。"
+            "SQLAlchemy ORM 配置了跨驱动连接池与方言支持，"
+            "无需修改核心代码即可通过环境变量一键在 PostgreSQL 与 SQLite 之间无缝切换。"
+            "项目严格遵循呈现层、应用层、领域层、基础设施层的经典四层架构，"
+            "路由逻辑、数据校验、业务逻辑与数据模型各司其职，保证了极佳的模块化与可维护性。"
         )
 
     items = [

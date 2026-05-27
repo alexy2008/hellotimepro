@@ -19,13 +19,28 @@ Each implementation has its own `./run`, `./build`, and `./test` scripts. Use th
 ./scripts/hello logs <name>
 ./scripts/hello restart-all
 
-docker compose up -d postgres       # Postgres on :55432
+# Database maintenance is explicit and implementation-agnostic.
+# Backend run scripts only start services.
+./scripts/db status
+./scripts/db init
+./scripts/db reset --seed
+./scripts/db seed --force
+
+# PostgreSQL is managed locally and configured through the Web UI / data/.hello-state.json.
+# Use that configuration for Postgres work; do not probe or start Docker unless explicitly asked.
 
 # Verification
 DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi
 ./verification/scripts/verify-contract.sh fastapi
 ./verification/scripts/verify-ui-smoke.sh react-ts
 ```
+
+### Verification Notes
+
+- Backend contract verification currently covers 92 black-box API cases.
+- UI smoke verification currently covers 20 Playwright cases across auth, capsule creation/opening, plaza search/favorites, profile, protected routes, and public pages.
+- `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte>` explicitly runs `./scripts/db init` before starting the target frontend; it does not reset or seed data.
+- Latest four-frontend run on local PostgreSQL + Gin proxy passed: React 20/20 (18s), Vue 20/20 (22s), Angular 20/20 (26s), Svelte 20/20 (17s).
 
 ## Architecture
 
@@ -66,6 +81,14 @@ DB_DRIVER=postgres   # default
 DB_DRIVER=sqlite
 DB_URL=<connection string>
 ```
+
+Database schema/data lifecycle is handled outside backend implementations:
+
+- `./scripts/db init` creates schema from `spec/db`.
+- `./scripts/db reset --seed` rebuilds schema and imports demo data.
+- `./scripts/db seed` imports demo data idempotently.
+- Backend `run` scripts must not create/reset schema, run migrations, seed data, or call repo-level maintenance scripts.
+- PostgreSQL connection details come from Web UI / `data/.hello-state.json`; do not attempt Docker startup/probing by default.
 
 ### Authentication
 

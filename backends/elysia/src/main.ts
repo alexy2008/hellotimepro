@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { Elysia } from "elysia";
 import { listAvatars } from "./avatars";
 import { env } from "./config";
-import { dbKind, migrate } from "./db";
+import { dbKind } from "./db";
 import { ok, route, routeEmpty, errorResponse } from "./envelope";
 import { parse } from "./validation";
 import {
@@ -56,7 +56,16 @@ async function stackInfo() {
   return {
     kind: "backend",
     summary:
-      "基于 Bun + Elysia + TypeScript 的后端实现，使用轻量路由层、Zod 请求校验、jose JWT 双令牌鉴权，并通过同一套 SQL 适配 PostgreSQL 与 SQLite。",
+      "基于 Bun + Elysia + TypeScript 核心骨架，选用 Zod 作为数据校验工具，" +
+      "jose 进行 JWT 处理，bcryptjs 处理密码哈希，同时支持 PostgreSQL 与 SQLite 双数据库驱动切换。" +
+      "依托 Bun 原生高性能运行时与内置 HTTP 服务器，提供卓越的 I/O 并发处理性能，" +
+      "Elysia 框架极其轻量且专为 Bun 优化，提供流畅的链式路由注册与类型安全的数据响应。" +
+      "通过 Zod Schema 进行请求体的强类型验证，在请求到达业务层前拦截不合法输入。" +
+      "项目摒弃复杂的重量级 ORM，选用轻量级 SQL 原生连接，" +
+      "自制了跨数据库占位符自动适配与连接池包装，" +
+      "通过环境变量即可一键在 PostgreSQL 异步池与 Bun 内置的高速 SQLite 之间无缝切换。" +
+      "项目严格按照呈现层、应用层、领域层与基础设施层进行四层架构划分，" +
+      "业务代码与底层路由及数据库客户端互不耦合。",
     items: [
       {
         role: "language",
@@ -94,8 +103,6 @@ function staticFile(kind: "avatars" | "icons", file: string) {
     headers: { "content-type": "image/svg+xml; charset=utf-8" },
   });
 }
-
-await migrate();
 
 const app = new Elysia()
   .onError(({ error }) => errorResponse(error))

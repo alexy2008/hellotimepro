@@ -6,11 +6,21 @@
 - Vue 3、TypeScript、Vite、Vue Router、Pinia、Tailwind 分别在做什么。
 - 想新增一个页面、状态或接口调用时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 Vue 的几个核心概念（SFC、Composition API、响应式、模板指令）；第 5 节快速过 TypeScript；第 6～13 节按一次「打开页面」的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
->
-> 如果你已经读过这个项目的 React 版技术手册，建议从 **§4 (响应式 vs 重渲染)** 与 **§9 (Pinia setup store)** 看起——这是两套生态最不同的地方。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 Vue 的几个核心概念（SFC、Composition API、响应式、模板指令）；第 6 节快速过 TypeScript；第 7～14 节按一次「打开页面」的生命周期分层细讲；第 15 节给出常见改动的步骤清单。
 
-## 1. 先建立整体地图
+> 如果你已经读过这个项目的 React 版技术手册，建议从 **§5 (响应式 vs 重渲染)** 与 **§10 (Pinia setup store)** 看起——这是两套生态最不同的地方。
+
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 Vue 3 前端实现基于 **Vue 3 + TypeScript + Vite** 核心骨架，并选用 **Vue Router** 控制路由、**Pinia** 进行轻量级状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制视觉系统。其具体选型考量与设计特色如下：
+
+* **Vue 3 与 Vue Router（细粒度响应式与单页体验）**：利用 Vue 3 的 Composition API 和细粒度响应式系统，实现更直观的逻辑复用。配合 Vue Router 的全局守卫与嵌套路由，用户在切换页面时无需刷新浏览器即可获得流畅的单页应用（SPA）体验。
+* **TypeScript（强类型约束与契约对齐）**：通过静态类型检查，使前端数据结构与后端的 OpenAPI 合约（`openapi.yaml`）保持高度一致。在编写代码阶段即可拦截绝大多数因字段拼写错误或未处理空值（null/undefined）导致的运行时异常。
+* **Vite 构建（极速的开发与编译体验）**：基于原生 ESM 的极速热更新（HMR）特性，能实现代码改动的即时响应，大幅提升开发效率，并在生产环境下输出高度优化的静态资源。
+* **Pinia（轻量且高效的状态管理）**：避开繁重的旧版 Vuex 架构，选用 setup 风格的 Pinia 进行状态管理。其响应式 ref 字段和直接突变的 action 机制十分符合 Vue 3 的心智模型，同时非常易于在 Vue 组件外部进行调用。
+* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：将颜色、字号等样式规范抽离为跨前端通用的设计令牌（CSS 变量）。配合 Tailwind v4 使得暗/亮主题切换和视觉一致性的维护变得十分高效。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。Vue 前端的职责是：
 
@@ -78,7 +88,7 @@ api.plaza({...}) → fetch("/api/v1/plaza/capsules")
 
 > Vue 的核心心智模型：**你不直接操作 DOM，你修改响应式变量；Vue 负责把这些变更精确地映射到 DOM 上**。这是和原生 JS 写法最大的差别。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 ```bash
 cd frontends/vue3-ts
@@ -102,7 +112,7 @@ vue-tsc -b       # Vue 风味的 tsc，会理解 .vue 文件里的 <script lang=
 vite build       # 打包到 dist/（HTML + 1 个 JS bundle + CSS + 静态资源）
 ```
 
-## 3. 入口链路：`index.html` → `main.ts` → `App.vue`
+## 4. 入口链路：`index.html` → `main.ts` → `App.vue`
 
 ### 3.1 `index.html`：SPA 的唯一 HTML
 
@@ -199,7 +209,7 @@ watch(
 
 整个 App.vue 做的事跟 React 版完全对应：挂载时 hydrate auth/theme，一旦有 refresh token 就拉一次 `/me`，然后渲染路由出口 `<RouterView />`。
 
-## 4. Vue 的核心概念
+## 5. Vue 的核心概念
 
 Vue 没有「魔法」，但有 **四个核心概念** 是 HTML/JS 老兵第一次写 Vue 时最容易困惑的地方。看懂它们，剩下都是 JS + 模板语法。
 
@@ -346,7 +356,7 @@ emit("change", false, next);     // 通知父组件
 
 Slot 是「让父组件往子组件里塞模板片段」的机制，对照 React 是 `children`/render-props。`CapsuleCard` 也有一个具名 slot `right` 用来替换右下角按钮。
 
-## 5. TypeScript 快速概览
+## 6. TypeScript 快速概览
 
 `.ts` 与 `.vue`（内含 `<script lang="ts">`）文件本质是带类型注解的 JavaScript。Vue/Vite/编译器会把它们去掉类型转成 JS。读代码时几乎可以「把冒号后面的内容当注释」忽略。
 
@@ -362,7 +372,7 @@ Vue 的 `defineProps` / `defineEmits` 都接受 TS 泛型，编辑器自动补�
 
 > 类型不影响运行行为。删掉所有 TS 注解，代码行为不变；类型的价值在于编辑器和 CI 提前发现「字段拼错」「忘了处理 null」等错误。
 
-## 6. 路由层：`router/index.ts`
+## 7. 路由层：`router/index.ts`
 
 ```ts
 export const router = createRouter({
@@ -424,7 +434,7 @@ router.replace(route.query.from ?? "/me/created");                // 不留历�
 
 `router.beforeEach` 是「全局前置守卫」，每次路由变化（包括首次进入）都触发。返回 `true` 放行，返回 `{ path, query }` 重定向。**它在 Pinia 装好之后才能调用 `useAuthStore()`**——所以放在 `main.ts` 的 `app.use(pinia)` 之后即可。
 
-## 7. 关键模式：守卫与布局
+## 8. 关键模式：守卫与布局
 
 ### 7.1 `MainLayout.vue` / `MeLayout.vue`：共享外壳
 
@@ -447,9 +457,9 @@ router.replace(route.query.from ?? "/me/created");                // 不留历�
 3. 不满足 → 重定向 `/login?from=/me/created`。
 4. `LoginPage` 登录成功后 `router.replace(route.query.from ?? "/me/created")` 回跳。
 
-只允许有 `refreshToken` 的用户进入是为了「页面刷新场景」：access token 在内存里丢了，refresh token 还在 localStorage，下一次 API 调用会自动 refresh，用户无感（详见 §8.2）。
+只允许有 `refreshToken` 的用户进入是为了「页面刷新场景」：access token 在内存里丢了，refresh token 还在 localStorage，下一次 API 调用会自动 refresh，用户无感（详见 §9.2）。
 
-## 8. 数据层：`api/client.ts`
+## 9. 数据层：`api/client.ts`
 
 跟 React 版几乎一致——这套代码刻意写成与框架无关，方便各前端复用思路。
 
@@ -528,7 +538,7 @@ export function wireAuthApi() {
 
 > 注意 React 版能在模块顶层调 `configureApi(...)`，因为 Zustand store 用 `create()` 直接返回 hook、无需「app 实例」。Vue 的 Pinia store 必须在 `app.use(createPinia())` 之后才能 `useXxxStore()`——所以包成 `wireAuthApi()`，在 `main.ts` 显式触发。这是两套生态的微妙差异。
 
-## 9. 状态层：Pinia
+## 10. 状态层：Pinia
 
 [Pinia](https://pinia.vuejs.org/) 是 Vue 官方推荐的状态管理库（取代了旧的 Vuex）。本项目用 **setup 风格**——store 写起来就跟一个 Composition 函数完全一样。
 
@@ -613,7 +623,7 @@ async function fetch() {
 
 用户快速切 sort/filter 时连发好几个请求，网络响应顺序不一定与发起顺序一致。`fetchSeq` 保证「只有最后发起的那个请求才能写状态」。
 
-## 10. 页面层与组件层
+## 11. 页面层与组件层
 
 ### 10.1 一个页面的典型骨架
 
@@ -694,7 +704,7 @@ emit("update:modelValue", next);
 | **展示** | `CapsuleCard`、`Alert`、`Pagination` | 接 props + slot，几乎无内部 state |
 | **交互** | `FavoriteButton`、`PlazaToolbar`、`AvatarPicker` | 有内部 state + 副作用 |
 
-## 11. 工具与组合函数
+## 12. 工具与组合函数
 
 `utils/format.ts` 是与 Vue 无关的纯函数：
 
@@ -723,7 +733,7 @@ watch(debounced, (v) => { if (v !== plaza.q) plaza.setQ(v); });
 
 `draft` 是即时跟随键入的 ref，`debounced` 是 300ms 之后才更新的 ref，`watch` 把它推给 store。**关注点完全分离**——这是 composable 的价值。
 
-## 12. 样式层：Tailwind + 设计令牌
+## 13. 样式层：Tailwind + 设计令牌
 
 ```css
 /* src/styles/index.css */
@@ -751,7 +761,7 @@ watch(debounced, (v) => { if (v !== plaza.q) plaza.setQ(v); });
 
 包一层 `<Transition name="cy-fade">`，Vue 会自动在 `v-if` 切换时给元素加 `cy-fade-enter-active`、`cy-fade-enter-from`、`cy-fade-leave-to` 等 class，配合 `<style>` 里的 CSS 过渡，下拉菜单淡入淡出。**无需手动管理动画时序**。
 
-## 13. 测试：vitest
+## 14. 测试：vitest
 
 ```bash
 ./test
@@ -759,7 +769,7 @@ watch(debounced, (v) => { if (v !== plaza.q) plaza.setQ(v); });
 
 跑的是 `*.test.ts` 文件。本项目目前有 `api/client.test.ts` 和 `utils/format.test.ts`。组件测试需要 `@vue/test-utils` + happy-dom，依赖里 happy-dom 已有（用于 vitest 的 jsdom 替代品）。
 
-## 14. 常见改动指南
+## 15. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -774,7 +784,7 @@ watch(debounced, (v) => { if (v !== plaza.q) plaza.setQ(v); });
 | 改主题色 / 间距 | 修改 `spec/styles/tokens.css`，所有前端同步生效 |
 | 想在组件外读 store | `useAuthStore().xxx`（Pinia 装好之后任何地方都能调） |
 
-## 15. 学到这里之后
+## 16. 学到这里之后
 
 读到这里，你已经掌握了 Vue 3 SPA 最常见的 80%：SFC、Composition API、`ref` + 响应式、模板指令（v-if/v-for/v-model/v-bind/v-on）、props/emits/slots、Pinia setup store、Vue Router 嵌套路由 + beforeEach 守卫、组合函数（composable）、TypeScript 类型注解、Vite 入口与代理、设计令牌主题。
 

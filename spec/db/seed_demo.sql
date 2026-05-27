@@ -20,7 +20,7 @@ BEGIN;
 INSERT INTO users (id, email, password_hash, nickname, avatar_id, created_at, updated_at)
 VALUES
   (
-    '00000001-0000-0000-0000-000000000001',
+    '02b648cf-3b6d-506f-aa4d-0f73d91d3d82',
     'moxiang@demo.hellotimepro.dev',
     crypt('HelloTime2026!', gen_salt('bf', 10)),
     '暮光像素',
@@ -29,7 +29,7 @@ VALUES
     '2025-08-01 01:00:00+00'
   ),
   (
-    '00000001-0000-0000-0000-000000000002',
+    'da8a17d9-b37c-561e-a63d-1dd49631793d',
     'laochenbug@demo.hellotimepro.dev',
     crypt('HelloTime2026!', gen_salt('bf', 10)),
     '老陈不想加班',
@@ -38,7 +38,7 @@ VALUES
     '2025-08-31 16:00:00+00'
   ),
   (
-    '00000001-0000-0000-0000-000000000003',
+    '3278ab60-4efc-5080-b0a9-4d5eff2901c6',
     'ontheway@demo.hellotimepro.dev',
     crypt('HelloTime2026!', gen_salt('bf', 10)),
     '在路上的方',
@@ -47,7 +47,7 @@ VALUES
     '2026-04-28 08:00:00+00'
   ),
   (
-    '00000001-0000-0000-0000-000000000004',
+    '63d34edb-5c35-5f45-ad91-c26ff9511a25',
     'chenchen@demo.hellotimepro.dev',
     crypt('HelloTime2026!', gen_salt('bf', 10)),
     '晨晨赶考ing',
@@ -56,7 +56,7 @@ VALUES
     '2026-01-01 00:00:00+00'
   ),
   (
-    '00000001-0000-0000-0000-000000000005',
+    '4fb47d4b-87d3-58ab-9a25-6a5ab458f107',
     'twokidsdad@demo.hellotimepro.dev',
     crypt('HelloTime2026!', gen_salt('bf', 10)),
     '两娃奶爸吴',
@@ -65,7 +65,7 @@ VALUES
     '2024-08-12 08:00:00+00'
   ),
   (
-    '00000001-0000-0000-0000-000000000006',
+    'f25ac787-3af8-56fb-8ed0-970d3508e14b',
     'chap7forever@demo.hellotimepro.dev',
     crypt('HelloTime2026!', gen_salt('bf', 10)),
     '永远第七章',
@@ -74,7 +74,7 @@ VALUES
     '2026-04-30 08:00:00+00'
   ),
   (
-    '00000001-0000-0000-0000-000000000007',
+    '9166fbec-385d-53dd-941f-8d4cf9fb851f',
     'notprofitable@demo.hellotimepro.dev',
     crypt('HelloTime2026!', gen_salt('bf', 10)),
     '还没盈利的我',
@@ -83,7 +83,7 @@ VALUES
     '2026-04-01 08:00:00+00'
   ),
   (
-    '00000001-0000-0000-0000-000000000008',
+    'b2b8348c-1aa0-522d-b1e7-dee9296872b5',
     'teacherlaobo@demo.hellotimepro.dev',
     crypt('HelloTime2026!', gen_salt('bf', 10)),
     '退休班主任老白',
@@ -101,8 +101,8 @@ VALUES
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000001',
-  '00000001-0000-0000-0000-000000000004',
+  '35c6c629-cd80-59b4-b16a-6e1fc1784b07',
+  '63d34edb-5c35-5f45-ad91-c26ff9511a25',
   'GRAD2025',
   '给一年后毕业纪念日的自己',
   '现在是凌晨两点，室友都睡着了，我把台灯调到最暗，坐在铺满答辩稿的床上写这封信。
@@ -127,8 +127,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000002',
-  '00000001-0000-0000-0000-000000000002',
+  '6fb1739d-4bb1-55a2-bd00-b766c6c525fb',
+  'da8a17d9-b37c-561e-a63d-1dd49631793d',
   'DIET0901',
   '半年后，我体重几斤？',
   '今天 168 斤。朋友圈已经被健身房的人刷屏三年了，我终于也办了张卡。
@@ -153,8 +153,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000003',
-  '00000001-0000-0000-0000-000000000003',
+  'c4873f6b-5e51-50e1-8833-1d0aab676c5c',
+  '3278ab60-4efc-5080-b0a9-4d5eff2901c6',
   'TREK0715',
   '西藏回来的我，还是原来那个人吗',
   '明天我就要一个人去西藏了。不跟团，没有攻略，只有一个 65L 的包。
@@ -178,8 +178,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000004',
-  '00000001-0000-0000-0000-000000000007',
+  '9e635344-1dbb-5e05-911c-51372188c9b4',
+  '9166fbec-385d-53dd-941f-8d4cf9fb851f',
   'BIZA0401',
   'HelloTime 创业一周年，我们还在吗',
   '今天公司执照下来了。就我一个人，租了个共享工位，座位费 800 块一个月。
@@ -204,8 +204,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000005',
-  '00000001-0000-0000-0000-000000000008',
+  '80494a5a-5fc3-5b59-a8c4-b8a2ccb2ce6e',
+  'b2b8348c-1aa0-522d-b1e7-dee9296872b5',
   'RETIR901',
   '适应了吗，老白？',
   '教了三十七年书，今天最后一次清空了讲台上的东西。
@@ -230,8 +230,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000006',
-  '00000001-0000-0000-0000-000000000005',
+  '3eca735c-9e1d-5bd5-aefe-9541edbeceaf',
+  '4fb47d4b-87d3-58ab-9a25-6a5ab458f107',
   'DAD16315',
   '吴小风，爸爸写给你的第一封信',
   '儿子，你现在 10 岁了。
@@ -259,8 +259,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000007',
-  '00000001-0000-0000-0000-000000000006',
+  'cc83368a-e7d6-54f2-af8f-a5a330b83c35',
+  'f25ac787-3af8-56fb-8ed0-970d3508e14b',
   'STEAK214',
   '情人节早上打开：去年双 11 我做了什么',
   '今天是 11 月 11 日，零点整，我一个人在厨房煮了一锅红烧肉。
@@ -285,8 +285,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000008',
-  '00000001-0000-0000-0000-000000000003',
+  'a4ab6dbc-46ea-574f-a69e-d2c51d6047f1',
+  '3278ab60-4efc-5080-b0a9-4d5eff2901c6',
   'FUTURE16',
   '写给 2026 年读到这封信的陌生人',
   '你好，陌生人。
@@ -311,8 +311,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000009',
-  '00000001-0000-0000-0000-000000000004',
+  '4c398190-2571-56bd-87c7-3945abd1f18b',
+  '63d34edb-5c35-5f45-ad91-c26ff9511a25',
   'EXAM1225',
   '成绩出来了，你上岸了吗',
   '今天考研最后一科结束了，走出考场的时候我的腿是软的。
@@ -341,8 +341,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000010',
-  '00000001-0000-0000-0000-000000000001',
+  '804b06f9-6692-5dae-982c-c48901a23a9a',
+  '02b648cf-3b6d-506f-aa4d-0f73d91d3d82',
   'HOME2601',
   '新家一周年，你把它变成家了吗',
   '搬家第一晚，我睡在空荡荡的新公寓地板上，因为床还没到。
@@ -367,8 +367,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000011',
-  '00000001-0000-0000-0000-000000000005',
+  'e57ac49f-ce91-5438-965f-d2bdcfe82894',
+  '4fb47d4b-87d3-58ab-9a25-6a5ab458f107',
   'GIRL0812',
   '吴小鱼，你成年了',
   '小鱼，你今年 18 岁了。
@@ -395,8 +395,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000012',
-  '00000001-0000-0000-0000-000000000006',
+  '1165a012-2fa1-538d-9140-8544f95e8807',
+  'f25ac787-3af8-56fb-8ed0-970d3508e14b',
   'NOVEL031',
   '2031 年，那本书写完了吗',
   '今天把第一章发给了写作群的朋友，他们说"很有意思，继续写"。
@@ -424,8 +424,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000013',
-  '00000001-0000-0000-0000-000000000007',
+  '8f571080-953d-5672-a331-486b8d1feffe',
+  '9166fbec-385d-53dd-941f-8d4cf9fb851f',
   'BIZ3YEAR',
   '三年了，还在做这件事吗',
   '公司成立三年了。我在今天写下这封信，不是因为什么里程碑，就是突然觉得需要记录一下此刻。
@@ -450,8 +450,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000014',
-  '00000001-0000-0000-0000-000000000002',
+  'e782357c-b9eb-5dca-a7f9-8576313a3843',
+  'da8a17d9-b37c-561e-a63d-1dd49631793d',
   'ALUMNI15',
   '大学毕业 15 年，我们还是朋友吗',
   '昨晚跟大学室友视频，聊了三个小时。最后他说"等哪天聚聚"，我们都知道这句话的意思——可能是三年后，可能是十年后，可能再也没有。
@@ -474,8 +474,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000015',
-  '00000001-0000-0000-0000-000000000003',
+  '53bde065-58df-55fd-80fc-335d51f2c64a',
+  '3278ab60-4efc-5080-b0a9-4d5eff2901c6',
   'JAPAN027',
   '一年后，日本那段路走了吗',
   '今天买好了去日本的机票，四国岛遍路——1200 公里的朝圣之路，古人走完要 50 天。
@@ -502,8 +502,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000016',
-  '00000001-0000-0000-0000-000000000008',
+  '47c1e915-c172-5e2e-a2e6-a47b5778ed7a',
+  'b2b8348c-1aa0-522d-b1e7-dee9296872b5',
   'MEMOIR28',
   '两年后，那本回忆录开始写了吗',
   '同事劝我把三十七年的教学故事写下来，说一定有人想看。
@@ -530,8 +530,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000017',
-  '00000001-0000-0000-0000-000000000004',
+  '6ef7b903-c8bc-52be-aaec-56b6d83af268',
+  '63d34edb-5c35-5f45-ad91-c26ff9511a25',
   'NY270101',
   '2027 年的你，兑现了多少？',
   '今天是 2026 年第一天，我给自己列了个清单：
@@ -556,8 +556,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000018',
-  '00000001-0000-0000-0000-000000000001',
+  '4c65d17d-553c-5509-8025-8f7514afb590',
+  '02b648cf-3b6d-506f-aa4d-0f73d91d3d82',
   'LOVE2028',
   '两年后情人节，你身边有人了吗',
   '今天情人节，我一个人去看了场电影。
@@ -581,8 +581,8 @@ VALUES (
 INSERT INTO capsules
   (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
 VALUES (
-  '00000002-0000-0000-0000-000000000019',
-  '00000001-0000-0000-0000-000000000006',
+  '47add7e0-8f38-5005-8ebf-1be574d0010f',
+  'f25ac787-3af8-56fb-8ed0-970d3508e14b',
   'PLAZA430',
   '四年后读到这行字的人，你好',
   '你好，陌生人。
@@ -619,33 +619,33 @@ VALUES (
 INSERT INTO favorites (user_id, capsule_id, created_at)
 VALUES
   -- 暮光像素 收藏: 给儿子的信, 写给陌生人
-  ('00000001-0000-0000-0000-000000000001', '00000002-0000-0000-0000-000000000006', '2026-03-15 10:00:00+00'),
-  ('00000001-0000-0000-0000-000000000001', '00000002-0000-0000-0000-000000000008', '2026-01-02 09:00:00+00'),
+  ('02b648cf-3b6d-506f-aa4d-0f73d91d3d82', '3eca735c-9e1d-5bd5-aefe-9541edbeceaf', '2026-03-15 10:00:00+00'),
+  ('02b648cf-3b6d-506f-aa4d-0f73d91d3d82', 'a4ab6dbc-46ea-574f-a69e-d2c51d6047f1', '2026-01-02 09:00:00+00'),
 
   -- 老陈不想加班 收藏: 创业一周年
-  ('00000001-0000-0000-0000-000000000002', '00000002-0000-0000-0000-000000000004', '2026-04-02 08:00:00+00'),
+  ('da8a17d9-b37c-561e-a63d-1dd49631793d', '9e635344-1dbb-5e05-911c-51372188c9b4', '2026-04-02 08:00:00+00'),
 
   -- 在路上的方 收藏: 红烧肉, 给儿子的信
-  ('00000001-0000-0000-0000-000000000003', '00000002-0000-0000-0000-000000000007', '2026-02-14 10:00:00+00'),
-  ('00000001-0000-0000-0000-000000000003', '00000002-0000-0000-0000-000000000006', '2026-03-16 08:00:00+00'),
+  ('3278ab60-4efc-5080-b0a9-4d5eff2901c6', 'cc83368a-e7d6-54f2-af8f-a5a330b83c35', '2026-02-14 10:00:00+00'),
+  ('3278ab60-4efc-5080-b0a9-4d5eff2901c6', '3eca735c-9e1d-5bd5-aefe-9541edbeceaf', '2026-03-16 08:00:00+00'),
 
   -- 晨晨赶考ing 收藏: 写给陌生人
-  ('00000001-0000-0000-0000-000000000004', '00000002-0000-0000-0000-000000000008', '2026-01-03 14:00:00+00'),
+  ('63d34edb-5c35-5f45-ad91-c26ff9511a25', 'a4ab6dbc-46ea-574f-a69e-d2c51d6047f1', '2026-01-03 14:00:00+00'),
 
   -- 两娃奶爸吴 收藏: 写给陌生人
-  ('00000001-0000-0000-0000-000000000005', '00000002-0000-0000-0000-000000000008', '2026-01-05 09:00:00+00'),
+  ('4fb47d4b-87d3-58ab-9a25-6a5ab458f107', 'a4ab6dbc-46ea-574f-a69e-d2c51d6047f1', '2026-01-05 09:00:00+00'),
 
   -- 永远第七章 收藏: 西藏出发前, 给儿子的信
-  ('00000001-0000-0000-0000-000000000006', '00000002-0000-0000-0000-000000000003', '2026-01-01 20:00:00+00'),
-  ('00000001-0000-0000-0000-000000000006', '00000002-0000-0000-0000-000000000006', '2026-03-15 12:00:00+00'),
+  ('f25ac787-3af8-56fb-8ed0-970d3508e14b', 'c4873f6b-5e51-50e1-8833-1d0aab676c5c', '2026-01-01 20:00:00+00'),
+  ('f25ac787-3af8-56fb-8ed0-970d3508e14b', '3eca735c-9e1d-5bd5-aefe-9541edbeceaf', '2026-03-15 12:00:00+00'),
 
   -- 还没盈利的我 收藏: 毕业前夜, 给儿子的信
-  ('00000001-0000-0000-0000-000000000007', '00000002-0000-0000-0000-000000000001', '2026-04-14 18:00:00+00'),
-  ('00000001-0000-0000-0000-000000000007', '00000002-0000-0000-0000-000000000006', '2026-03-15 11:00:00+00'),
+  ('9166fbec-385d-53dd-941f-8d4cf9fb851f', '35c6c629-cd80-59b4-b16a-6e1fc1784b07', '2026-04-14 18:00:00+00'),
+  ('9166fbec-385d-53dd-941f-8d4cf9fb851f', '3eca735c-9e1d-5bd5-aefe-9541edbeceaf', '2026-03-15 11:00:00+00'),
 
   -- 退休班主任老白 收藏: 给儿子的信, 红烧肉
-  ('00000001-0000-0000-0000-000000000008', '00000002-0000-0000-0000-000000000006', '2026-03-15 16:00:00+00'),
-  ('00000001-0000-0000-0000-000000000008', '00000002-0000-0000-0000-000000000007', '2026-02-15 08:00:00+00');
+  ('b2b8348c-1aa0-522d-b1e7-dee9296872b5', '3eca735c-9e1d-5bd5-aefe-9541edbeceaf', '2026-03-15 16:00:00+00'),
+  ('b2b8348c-1aa0-522d-b1e7-dee9296872b5', 'cc83368a-e7d6-54f2-af8f-a5a330b83c35', '2026-02-15 08:00:00+00');
 
 
 COMMIT;

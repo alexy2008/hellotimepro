@@ -6,7 +6,16 @@
 - FastAPI、Pydantic、SQLAlchemy、Alembic 分别负责什么。
 - 想新增一个接口、字段或业务规则时，应该改哪些文件。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 FastAPI 后端实现基于 **Python + FastAPI + SQLAlchemy** 核心骨架，并选用 **Pydantic** 进行数据校验与 Schema 定义、**Alembic** 管理数据库迁移、**pytest** 驱动自动化测试，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+
+* **FastAPI（高性能异步 Web 框架与自动文档）**：依托 Python 的异步（async/await）生态，搭配 Uvicorn 运行，提供极高的并发请求处理性能。框架天然集成 OpenAPI 规范，能根据代码定义自动且实时生成交互式 API 调试文档（Swagger UI）。
+* **Pydantic（严格的输入校验与类型契约）**：接口边界上的输入与输出数据完全通过 Pydantic Schema 进行结构化声明与校验。在请求到达业务逻辑前即完成严格的字段校验与类型转换，提供安全可靠的类型安全边界。
+* **SQLAlchemy（灵活的双数据库引擎）**：采用 SQLAlchemy ORM 作为数据库访问层，并配置了跨驱动连接池与方言支持。使后端无需修改任何核心代码，即可通过环境变量一键在生产级 PostgreSQL 与轻量级 SQLite 之间进行无缝切换。
+* **分层解耦的架构设计**：项目严格遵循**呈现层 -> 应用层 -> 领域层 -> 基础设施层**的经典四层架构。路由逻辑（Routers）、数据校验（Schemas）、业务逻辑（Services）与数据模型（Models）各司其职，保证了极佳的模块化与可维护性。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。FastAPI 后端的职责是：
 
@@ -54,7 +63,7 @@ app/models/*.py
 PostgreSQL 或 SQLite
 ```
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 开发运行：
 
@@ -91,7 +100,7 @@ cd backends/fastapi
 5. 默认注入演示数据。
 6. 用 `uvicorn app.main:app` 启动 FastAPI。
 
-## 3. 入口：`app/main.py`
+## 4. 入口：`app/main.py`
 
 `app/main.py` 是整个 Web 应用的入口。最重要的是 `create_app()`：
 
@@ -132,7 +141,7 @@ raise errors.unauthorized("缺少 access token")
 }
 ```
 
-## 4. 路由层：`app/api/v1`
+## 5. 路由层：`app/api/v1`
 
 路由层负责把 HTTP 的世界翻译成 Python 函数调用。它不应该塞太多业务细节。
 
@@ -185,7 +194,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)) -> Envelope[Au
 2. 调用 service。
 3. 把 service 返回值包成 `Envelope`。
 
-## 5. Schema 层：`app/schemas`
+## 6. Schema 层：`app/schemas`
 
 Schema 是接口边界上的数据结构，使用 Pydantic 定义。可以把它理解成“输入输出的类型说明 + 校验规则”。
 
@@ -235,7 +244,7 @@ class Envelope(BaseModel, Generic[T]):
 }
 ```
 
-## 6. 依赖注入：`app/deps.py`
+## 7. 依赖注入：`app/deps.py`
 
 FastAPI 的 `Depends()` 是初学者最容易陌生的部分。可以把它理解成：“在执行路由函数前，先帮我准备好某个对象”。
 
@@ -277,7 +286,7 @@ payload["sub"] 转 UUID
 select(User).where(User.id == user_id)
 ```
 
-## 7. 数据库连接：`app/db`
+## 8. 数据库连接：`app/db`
 
 本实现支持 PostgreSQL 和 SQLite。切换依赖环境变量：
 
@@ -334,7 +343,7 @@ db.commit()
 - `db.rollback()`：回滚事务。
 - `db.refresh(obj)`：从数据库重新加载对象的最新值。
 
-## 8. ORM 模型：`app/models`
+## 9. ORM 模型：`app/models`
 
 ORM 模型把数据库表映射成 Python 类。
 
@@ -367,7 +376,7 @@ class User(Base):
 
 注意：`models` 描述“数据库长什么样”，`schemas` 描述“API 输入输出长什么样”。二者不要混淆。
 
-## 9. 迁移：`alembic`
+## 10. 迁移：`alembic`
 
 ORM 模型是 Python 代码里的表结构描述，真正创建数据库表的是 Alembic 迁移。
 
@@ -394,7 +403,7 @@ alembic/versions/0001_initial.py
 3. 新增 Alembic migration。
 4. 补测试。
 
-## 10. 业务层：`app/services`
+## 11. 业务层：`app/services`
 
 Service 是本项目的业务核心。路由层尽量薄，真正的规则都放在 service。
 
@@ -563,7 +572,7 @@ if lock and settings.db_driver == "postgres":
 - 如果未启用 LLM 或没有 key，会返回本地模板 fallback。
 - 结果不缓存，便于前端“重新生成”按钮每次拿到新建议。
 
-## 11. 安全工具：`app/core/security.py`
+## 12. 安全工具：`app/core/security.py`
 
 这个文件不关心 HTTP，只提供安全相关的底层函数：
 
@@ -588,7 +597,7 @@ payload = {
 
 `sub` 是 subject，通常表示当前 token 属于哪个用户。
 
-## 12. 配置：`app/core/config.py`
+## 13. 配置：`app/core/config.py`
 
 配置使用 `pydantic-settings`：
 
@@ -617,7 +626,7 @@ class Settings(BaseSettings):
 
 类属性使用 snake_case，例如 `db_driver`，环境变量通常写成大写，例如 `DB_DRIVER`。
 
-## 13. 错误处理：`app/core/errors.py`
+## 14. 错误处理：`app/core/errors.py`
 
 业务代码统一抛 `APIError`，不要在 service 里直接构造 FastAPI 的 `HTTPException`。
 
@@ -642,7 +651,7 @@ raise errors.not_found("胶囊不存在")
 
 好处是：业务层只表达“发生了什么业务错误”，入口层统一决定“怎么变成 API 响应”。
 
-## 14. 测试：`tests`
+## 15. 测试：`tests`
 
 测试默认使用 SQLite，不依赖外部 PostgreSQL。
 
@@ -669,7 +678,7 @@ register → login → create capsule → plaza → favorite
 2. 再看 `test_capsule_create_and_query`，理解未开启胶囊为什么没有 content。
 3. 再看 `test_refresh_rotate_and_logout`，理解 refresh token 为什么不能重复使用。
 
-## 15. 从一个真实请求读代码：注册
+## 16. 从一个真实请求读代码：注册
 
 请求：
 
@@ -727,7 +736,7 @@ raise errors.conflict("邮箱已被注册", field="email")
 
 然后 `main.py` 转成 409 JSON 响应。
 
-## 16. 从一个真实请求读代码：创建胶囊
+## 17. 从一个真实请求读代码：创建胶囊
 
 创建胶囊要求登录，所以会走 `current_user_required()`。
 
@@ -777,7 +786,7 @@ _to_detail()
 
 这类校验放在 schema 层，是因为它属于“请求格式和边界”的一部分。
 
-## 17. 如何新增一个接口
+## 18. 如何新增一个接口
 
 假设要新增“检查当前用户 token 是否有效”的接口 `GET /api/v1/auth/session`，一般步骤如下。
 
@@ -800,7 +809,7 @@ def session(user: User = Depends(current_user_required)) -> Envelope[UserOut]:
 
 第五步，确认契约。如果这是公开 API，需要同步更新 `spec/api/openapi.yaml`。
 
-## 18. 如何新增一个数据库字段
+## 19. 如何新增一个数据库字段
 
 假设要给胶囊新增 `mood` 字段：
 
@@ -820,7 +829,7 @@ def session(user: User = Depends(current_user_required)) -> Envelope[UserOut]:
 - `alembic`：数据库迁移。
 - `tests`：行为保证。
 
-## 19. 初学者常见困惑
+## 20. 初学者常见困惑
 
 ### 为什么有了 Pydantic schema，还要 SQLAlchemy model？
 
@@ -847,7 +856,7 @@ HTTP 204 的语义是 No Content，响应体应该为空。`main.py` 里还专�
 
 分页响应需要 `total` 和 `totalPages`。因此要先统计符合条件的总数，再查询当前页的数据。
 
-## 20. 推荐阅读顺序
+## 21. 推荐阅读顺序
 
 第一次读代码建议按这个顺序：
 

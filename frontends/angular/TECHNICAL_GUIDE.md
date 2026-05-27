@@ -6,11 +6,21 @@
 - Angular、TypeScript、NgRx Signal Store、Angular Router、装饰器、依赖注入分别在做什么。
 - 想新增一个页面、状态或接口调用时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 Angular 的几个核心概念（装饰器、依赖注入、Signals、模板语法）；第 5 节快速过 TypeScript；第 6～13 节按一次「打开页面」的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
->
-> 如果你已经读过这个项目的 React 或 Vue 版技术手册，**§4 (装饰器+DI)**、**§9 (NgRx Signal Store)** 与 **§10 (模板的新控制流 @if/@for)** 是 Angular 与其他两套最不一样的地方。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 Angular 的几个核心概念（装饰器、依赖注入、Signals、模板语法）；第 6 节快速过 TypeScript；第 7～14 节按一次「打开页面」的生命周期分层细讲；第 15 节给出常见改动的步骤清单。
 
-## 1. 先建立整体地图
+> 如果你已经读过这个项目的 React 或 Vue 版技术手册，**§5 (装饰器+DI)**、**§10 (NgRx Signal Store)** 与 **§11 (模板的新控制流 @if/@for)** 是 Angular 与其他两套最不一样的地方。
+
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 Angular 前端实现基于 **Angular 19 + TypeScript** 核心骨架，并选用 **Angular Router** 控制路由、**NgRx Signal Store** 进行企业级响应式状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制视觉系统。其具体选型考量与设计特色如下：
+
+* **Angular 19（企业级单页应用架构）**：利用 Angular 强大的依赖注入（DI）系统、模块化服务（Services）与独立组件（Standalone Components）设计，提供业界最严谨的架构范式。配合 Angular Router 实现高性能、零刷新的单页应用（SPA）。
+* **Angular Signals（细粒度响应式更新）**：原生集成最新的 **Signals** 响应式系统。通过细粒度依赖追踪，实现模板与数据之间的精准重绘，彻底告别传统的 zone.js 暴力脏检查。
+* **TypeScript（高度集成的语言优势）**：作为 Angular 的一等公民，TypeScript 在项目中被深度集成。通过静态类型检查使前端数据结构与后端的 OpenAPI 合约保持高度一致，在编写代码阶段拦截绝大多数运行时异常。
+* **NgRx Signal Store（极具结构性的状态管理）**：选用轻量但功能强大的 NgRx Signal Store。其内置生命周期钩子（如 `onInit`）能在服务初始化时自动执行状态水合，比 React/Vue 的手动触发更加优雅，同时为企业级应用提供了极佳的可扩展性。
+* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：将颜色、字号等样式规范抽离为跨前端通用的设计令牌（CSS 变量）。配合 Tailwind v4 使得暗/亮主题切换和视觉一致性的维护变得十分高效。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。Angular 前端的职责是：
 
@@ -80,7 +90,7 @@ ApiService.plaza({...}) → fetch("/api/v1/plaza/capsules")
 
 > Angular 的核心心智模型：**所有依赖通过 `inject()` 拿到**，**状态用 signal 表达**，**模板里直接调用 signal 函数读值**。`@Component` 装饰器把 TS 类、HTML 模板、CSS 样式绑定到一起，CLI 编译时把这些信息生成成执行代码。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 ```bash
 cd frontends/angular
@@ -104,7 +114,7 @@ ng build                        # 产物到 dist/
 # CLI 内部用 @angular/build:application：esbuild 编译 TS、内联模板/样式、tree-shake
 ```
 
-## 3. 入口链路：`index.html` → `main.ts` → `AppComponent`
+## 4. 入口链路：`index.html` → `main.ts` → `AppComponent`
 
 ### 3.1 `index.html`：SPA 的唯一 HTML
 
@@ -188,7 +198,7 @@ export class AppComponent implements OnInit {
 3. `ngOnInit` 是 Angular 生命周期钩子，组件首次创建后调用一次。
 4. 模板 `<router-outlet />`：路由出口，由当前匹配的页面替换。
 
-## 4. Angular 的核心概念
+## 5. Angular 的核心概念
 
 Angular 没有「魔法」，但有 **五个核心概念** 是 HTML/JS 老兵第一次写 Angular 时最容易困惑的地方。
 
@@ -326,7 +336,7 @@ Angular 17+ 推出了模板新语法，逐步替代旧的 `*ngIf` / `*ngFor`：
 - 嵌套自然，不需要旁路 `<ng-container>`。
 - `@if (auth.user(); as user) { {{ user.nickname }} }` 是「绑定别名」，相当于 if + 局部变量。
 
-## 5. TypeScript 快速概览
+## 6. TypeScript 快速概览
 
 `.ts` 文件本质是带类型注解的 JavaScript。Angular CLI 用 TS 编译器把它转成 JS。读代码时几乎可以「把冒号后面的内容当注释」忽略。
 
@@ -339,7 +349,7 @@ e instanceof ApiError                                 // 运行时类型守卫
 
 Angular **强制依赖 TypeScript**：装饰器元数据、模板类型检查（`strictTemplates`）、`input.required<T>()` 等核心 API 都用了 TS 类型。生产构建不像 React/Vue 可以裸 JS——Angular 项目几乎一定是 TS。
 
-## 6. 路由层：`app.routes.ts`
+## 7. 路由层：`app.routes.ts`
 
 ```ts
 export const routes: Routes = [
@@ -388,7 +398,7 @@ export const routes: Routes = [
 this.router.navigate(['/me/created'], { replaceUrl: true });
 ```
 
-## 7. 关键模式：守卫与布局
+## 8. 关键模式：守卫与布局
 
 ### 7.1 `MainLayoutComponent` / `MeLayoutComponent`：共享外壳
 
@@ -424,9 +434,9 @@ export const authGuard: CanActivateFn = (_route, state) => {
 ```
 
 - Angular 14+ 推荐 **函数式守卫**（`CanActivateFn`）：一个普通函数，配合 `inject()` 获取依赖。比旧式的 `@Injectable class Guard implements CanActivate` 简洁多了。
-- 允许只有 `refreshToken` 的用户进入——下一次 API 调用会自动 refresh（详见 §8.2）。
+- 允许只有 `refreshToken` 的用户进入——下一次 API 调用会自动 refresh（详见 §9.2）。
 
-## 8. 数据层：`api/api.service.ts`
+## 9. 数据层：`api/api.service.ts`
 
 跟 React/Vue 版几乎对等的逻辑，区别是用 `@Injectable` 类封装：
 
@@ -475,7 +485,7 @@ export class ApiService {
 - **自动 refresh**：与 React/Vue 版完全一致——`refreshing` 单例 Promise 去重，重放原请求时打 `_retry` 标记防死循环。
 - **`configure(...)` 解耦循环依赖**：`ApiService` 不能 `inject(AuthStore)`（store 反过来注入了 service），所以由 AuthStore 的 `onInit` hook 主动调用 `api.configure({...})`。
 
-## 9. 状态层：NgRx Signal Store
+## 10. 状态层：NgRx Signal Store
 
 [`@ngrx/signals`](https://ngrx.io/guide/signals) 是 NgRx 的现代化 store——基于 signals，没有 reducer/action 样板代码。本项目用它做四个 store：`AuthStore`、`PlazaStore`、`ThemeStore`、`CapsuleStore`。
 
@@ -600,7 +610,7 @@ async function doFetch() {
 }
 ```
 
-## 10. 页面层与组件层
+## 11. 页面层与组件层
 
 ### 10.1 一个页面的典型骨架
 
@@ -749,7 +759,7 @@ export class AppHeaderComponent {
 - `#menuRef` 是「模板引用变量」，被 `@ViewChild('menuRef')` 抓住。
 - `@HostListener('document:keydown', ...)` 让 Angular 帮你 add/remove 全局事件监听器，组件销毁时自动清理——比 React 的 `useEffect` 手动 add/remove 还省一行。
 
-## 11. 工具函数：`utils/format.ts` 等
+## 12. 工具函数：`utils/format.ts` 等
 
 纯函数，没有 Angular 依赖，直接 import 用：
 
@@ -782,7 +792,7 @@ ngOnDestroy() {
 
 每秒 `set` 一次 signal，模板里 `{{ cd().days }}` 自动重渲染。已开启的胶囊不设 interval。
 
-## 12. 样式层：Tailwind + 设计令牌
+## 13. 样式层：Tailwind + 设计令牌
 
 ```css
 /* src/styles/index.css */
@@ -800,11 +810,11 @@ ngOnDestroy() {
 - 内联 `style="..."` 或 `[style.color]="..."` 仅用于一次性微调。
 - **Angular 默认开启 `ViewEncapsulation.Emulated`**：组件 `styles: [...]` 里写的 CSS 会被加属性选择器（如 `[_ngcontent-abc-123]`）做作用域隔离，不会泄漏到其他组件。本项目大部分组件没写组件级样式，全靠全局 `cy-*` 类。
 
-## 13. 测试
+## 14. 测试
 
 `./test` 当前只跑 `tsc --noEmit -p tsconfig.app.json`（类型检查）——教学项目暂未加单元测试。生产 Angular 项目通常用 [Jest](https://jestjs.io/) 或 [Karma](https://karma-runner.github.io/) + Angular Testing Library。
 
-## 14. 常见改动指南
+## 15. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -819,7 +829,7 @@ ngOnDestroy() {
 | 全局监听键盘 / 点击 | 组件类加 `@HostListener('document:keydown', ['$event'])` 方法，自动清理 |
 | 想在 service 之外读 store | 任何 `@Injectable` 服务里都能 `inject(AuthStore)`；DI 容器全局共享 |
 
-## 15. 学到这里之后
+## 16. 学到这里之后
 
 读到这里，你已经掌握了 Angular SPA 最常见的 80%：装饰器 + 元数据、`inject()` 依赖注入、Standalone Component + `imports` 数组、Signals 三件套（`signal` / `computed` / `effect`）、新控制流 `@if`/`@for`、`input()`/`output()` signal API、`<router-outlet>` + 函数式守卫 + 懒加载、NgRx Signal Store（`signalStore` / `withState` / `withMethods` / `withHooks`）、内容投影 `<ng-content>`、`@HostListener`/`@ViewChild`。
 

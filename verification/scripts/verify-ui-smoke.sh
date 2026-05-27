@@ -198,6 +198,19 @@ cleanup_smoke_data() {
   fi
 }
 
+ensure_db_schema() {
+  echo "→ 确保测试数据库 schema 已初始化…"
+  if [[ "$_DB_DRIVER" == "sqlite" ]]; then
+    DB_DRIVER="sqlite" DB_URL="sqlite:///$_SQLITE_ABS" "$ROOT/scripts/db" init
+  else
+    if [[ -n "${DB_URL:-}" ]]; then
+      DB_DRIVER="$_DB_DRIVER" DB_URL="$DB_URL" "$ROOT/scripts/db" init
+    else
+      DB_DRIVER="$_DB_DRIVER" "$ROOT/scripts/db" init
+    fi
+  fi
+}
+
 # ── 生命周期 ─────────────────────────────────────────────────────────────────
 
 cleanup() {
@@ -207,6 +220,9 @@ trap cleanup EXIT
 
 # 先停掉旧实例
 "$HELLO" stop "$TARGET"  >/dev/null 2>&1 || true
+
+# UI 验证入口负责显式准备 schema；后端 run 脚本只负责启动服务。
+ensure_db_schema
 
 # ── 启动前端（代理指向默认后端入口）──────────────────────────────────────────
 

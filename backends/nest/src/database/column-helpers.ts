@@ -24,12 +24,12 @@ export function uuidColumn(): ColumnOptions {
   if (isSqlite()) {
     return { type: 'text' } as ColumnOptions;
   }
-  return { type: 'varchar', length: 36 } as ColumnOptions;
+  return { type: 'uuid' } as ColumnOptions;
 }
 
-export function primaryUuidColumn(): { type: 'varchar' | 'text'; length?: number } {
+export function primaryUuidColumn(): { type: 'uuid' | 'text'; length?: number } {
   if (isSqlite()) {
     return { type: 'text' };
   }
-  return { type: 'varchar', length: 36 };
+  return { type: 'uuid' };
 }

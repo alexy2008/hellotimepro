@@ -9,15 +9,15 @@ spec/db/seed_demo.py · HelloTime Pro 演示数据注入脚本
   2. data/.hello-state.json（hello webui 写入的运行时配置）
   3. 代码内置默认值
 
-依赖（fastapi venv 已内置）：
+依赖（spec/db/pyproject.toml）：
   bcrypt>=4.0   sqlalchemy>=2.0   psycopg（postgres only）
 
 用法：
-  # 从 fastapi 目录用 uv run（推荐，依赖齐全）
-  cd backends/fastapi && uv run python ../../spec/db/seed_demo.py
+  # 推荐：从共享数据库维护入口运行
+  ./scripts/db seed
 
   # 或直接指定连接串
-  DB_DRIVER=sqlite DB_URL=sqlite:///data/sqlite/hellotime.db python spec/db/seed_demo.py
+  DB_DRIVER=sqlite DB_URL=sqlite:///data/sqlite/hellotime.db ./scripts/db seed
 """
 
 from __future__ import annotations
@@ -81,15 +81,25 @@ def resolve_db_config() -> tuple[str, str]:
 
 
 # ── UUID 格式化 ─────────────────────────────────────────────────────────────
-# SQLAlchemy Uuid() 在 SQLite 里以 32 位无横线 hex 存储，PG 用标准格式。
+# 演示数据的 UUID 由 uuid5 从固定命名空间 + 序号派生，保证可复现且符合
+# RFC 4122 标准（版本 5）。与 spec/db/seed_demo.sql 使用相同的命名空间
+# 和输入，两份文件产出完全一致的 ID。
+#
+# SQLite 端：FastAPI / SQLAlchemy Uuid() 在 SQLite 里以 32 位无横线 hex 存储，
+# 因此 SQLite 模式下返回 u.hex 而非带横线的标准字符串。
+
+_SEED_NS = uuid.UUID('a1b2c3d4-e5f6-4a7b-8c9d-e0f1a2b3c4d5')
+
 
 def _uid(n: int, is_pg: bool) -> str:
-    u = uuid.UUID(f"00000001-0000-0000-0000-{n:012d}")
+    old = uuid.UUID(f"00000001-0000-0000-0000-{n:012d}")
+    u = uuid.uuid5(_SEED_NS, str(old))
     return str(u) if is_pg else u.hex
 
 
 def _cid(n: int, is_pg: bool) -> str:
-    u = uuid.UUID(f"00000002-0000-0000-0000-{n:012d}")
+    old = uuid.UUID(f"00000002-0000-0000-0000-{n:012d}")
+    u = uuid.uuid5(_SEED_NS, str(old))
     return str(u) if is_pg else u.hex
 
 

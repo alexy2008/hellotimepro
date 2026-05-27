@@ -6,11 +6,21 @@
 - Next.js、App Router、Drizzle ORM、jose、Zustand 分别在做什么。
 - 想新增一个页面或 API 端点时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 Next.js App Router 的几个核心思想（文件系统路由、Server vs Client、Route Handler、`server-only`）；第 5～12 节按一次请求的生命周期分前后端两半细讲；第 13 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 Next.js App Router 的几个核心思想（文件系统路由、Server vs Client、Route Handler、`server-only`）；第 6～9 节按一次请求的生命周期分层细讲；第 10 节对比全栈与 SPA 差异；第 11 节给出常见改动的步骤清单。
 >
 > 如果你已经读过这个项目里 **React SPA + FastAPI 后端** 两份指南，这份的核心问题就是：「在同一个 Next 进程里同时承担两边的职责，目录、依赖、运行模型有什么不一样」。这是「全栈框架」最值得理解的地方。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 Next.js 全栈实现基于 **Next.js (App Router) + React + TypeScript** 核心骨架，并选用 **Drizzle ORM** 作为双数据库抽象层、**Zustand** 进行客户端状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制跨端样式规范。其具体选型考量与设计特色如下：
+
+* **Next.js App Router（全栈一体化与声明式路由）**：利用 Next.js 的文件系统路由，将前端 React 声明式 UI 与后端的 REST API 端点（Route Handlers）无缝打包在单一 Node 进程中。这不仅消除了跨进程调用与跨域（CORS）配置的开销，也实现了极佳的开发与部署一致性。
+* **RSC 与编译期防火墙（高效与安全性）**：通过 React Server Components (RSC) 的服务端执行优势以及 `"server-only"` 编译标记，确保数据库连接、敏感密钥等服务端逻辑在构建阶段被严格隔离，绝不泄露至浏览器端，同时提供编译期的安全防火墙。
+* **Drizzle ORM（双数据库适配与类型安全）**：采用轻量级、类型安全的 Drizzle ORM，通过动态导入技术无缝适配 PostgreSQL (node-postgres) 和 SQLite (better-sqlite3) 双数据库引擎。其「TypeScript 即 SQL」的设计理念，确保了从数据库 Schema 到业务查询的全链路类型安全。
+* **Zustand 与 JWT 轮转（轻量状态与安全凭证）**：使用 Zustand 维护客户端状态，并配合 HS256 JWT（基于 jose 库的 Web Crypto 实现）及 Refresh Token 家族轮转机制，在保证轻量化状态管理的同时，实现了金融级的身份安全防范。
+* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：通过通用的设计令牌（CSS 变量）与 Tailwind CSS v4 的新一代编译器，提供无缝的暗/亮主题切换和极具现代感、响应式的视觉系统。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。**全栈 Next.js 实现把「前端 SPA」和「后端 REST API」打包成同一个 Node 进程**，前端和后端共享 TypeScript 类型、共享数据库连接、共享一份构建产物：
 
@@ -92,9 +102,9 @@ fullstacks/next/
   │ ◄────────  { favoriteCount: 6 }  ───────┃
 ```
 
-> **关键洞察**：在这个项目里，浏览器**仍然**通过 HTTP `/api/v1/*` 调用后端——不是因为不得不，而是 **刻意选了这条边界**，让客户端组件代码与同仓库的 React-SPA 几乎完全一样，便于教学对比。如果想，Server Component 完全可以 `import { listPlaza } from "@/services/plaza"` 跳过 HTTP 直接读 DB（详见 §4.4）。
+> **关键洞察**：在这个项目里，浏览器**仍然**通过 HTTP `/api/v1/*` 调用后端——不是因为不得不，而是 **刻意选了这条边界**，让客户端组件代码与同仓库的 React-SPA 几乎完全一样，便于教学对比。如果想，Server Component 完全可以 `import { listPlaza } from "@/services/plaza"` 跳过 HTTP 直接读 DB（详见 §5.4）。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 ```bash
 cd fullstacks/next
@@ -113,7 +123,7 @@ DB_DRIVER=sqlite ./run         # 零依赖跑 SQLite
 
 **注意**：与 React SPA 不同，**没有 `vite.config.ts` 的 proxy 配置**，因为前端和 API 是同一个 origin。也没有独立后端进程要起。
 
-## 3. 入口与三类文件：`layout.tsx` / `page.tsx` / `route.ts`
+## 4. 入口与三类文件：`layout.tsx` / `page.tsx` / `route.ts`
 
 App Router 的核心约定是 **文件夹即路由**，每个文件夹用 **特殊文件名** 表达不同角色：
 
@@ -214,7 +224,7 @@ export async function PATCH(req: NextRequest) {
 
 `GET /api/v1/me` 与 `PATCH /api/v1/me` 共用同一个文件、共用同一段鉴权逻辑。每个方法是独立函数，请求只匹配到对应的那个。
 
-## 4. Next.js App Router 的核心思想
+## 5. Next.js App Router 的核心思想
 
 ### 4.1 文件系统路由：URL 不需要写代码
 
@@ -288,7 +298,7 @@ export default async function PlazaPage() {
 
 > 本项目刻意没走这条路：所有页面都通过 `/api/v1/*` 调用，保持和 React/Vue/Angular SPA 一致的客户端体验，便于多栈对比。但读者应该知道「能走 RSC + 直接 DB 访问」是 Next.js 全栈的最大杠杆。
 
-## 5. 数据层：Drizzle ORM + 双数据库
+## 6. 数据层：Drizzle ORM + 双数据库
 
 ### 5.1 `src/db/index.ts`：按环境动态选驱动
 
@@ -377,7 +387,7 @@ for (const f of files) {
 - 每条迁移都用 `CREATE TABLE IF NOT EXISTS`，幂等。**注意**：`IF NOT EXISTS` 是「整条 CREATE 语句」的开关，已经存在的表里 **不会** 追加新 CHECK 约束。修改 schema 的正确做法是写新的 `0002_xxx.sql` 用 `ALTER TABLE`。
 - `./run` 在启动前会自动跑一次，开发者不用手动 `npm run db:migrate`。
 
-## 6. 服务端架构：`route.ts` → `services/*` → `db/*`
+## 7. 服务端架构：`route.ts` → `services/*` → `db/*`
 
 每个 Route Handler 都是这个三段式：
 
@@ -467,10 +477,10 @@ export async function login(body: { email: string; password: string }): Promise<
 特点：
 
 - 业务函数是 **普通 async 函数**——可以被 Route Handler 调用，也可以被未来的 Server Component / Server Action 调用。
-- 限流字典挂在 `globalThis.__helloTimeLoginFailures` 上（同 §5.1 的 HMR-safe 模式）。
+- 限流字典挂在 `globalThis.__helloTimeLoginFailures` 上（同 §6.1 的 HMR-safe 模式）。
 - refresh token 轮转、重放检测的算法与 FastAPI/Spring Boot 版本一致——这部分代码看起来跟 Gin 或 Spring 实现的伪代码可以一对一比对。
 
-## 7. 客户端：`api-client.ts` + `stores/*`
+## 8. 客户端：`api-client.ts` + `stores/*`
 
 虽然「同一进程」，浏览器侧仍然得通过 HTTP 调 `/api/v1/*`——浏览器 JS 不能直接调用 Node 函数。
 
@@ -521,7 +531,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 - App Router 用的路由 hooks 在 `next/navigation` 包里（旧 Pages Router 是 `next/router`，别混淆）。
 - 守卫策略和 React SPA 的 `AuthGate` 完全一致——`refreshToken` 在就允许进，后续 fetch 自动 refresh。
 
-## 8. 样式：Tailwind v4 + 设计令牌
+## 9. 样式：Tailwind v4 + 设计令牌
 
 ```css
 /* src/app/globals.css （由 src/app/layout.tsx 顶层 import）*/
@@ -541,7 +551,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
 唯一与 SPA 版的差异：CSS 入口由 `layout.tsx` import，Next 会在 build 时合并、SSR 时把 `<link rel="stylesheet">` 注入到 `<head>`。
 
-## 9. 「全栈」相对于「SPA + 独立后端」的差异要点
+## 10. 「全栈」相对于「SPA + 独立后端」的差异要点
 
 读到这里，可以总结这套全栈架构相对独立 FastAPI + React SPA 的关键差异：
 
@@ -556,7 +566,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 | 「直接读 DB」的能力 | 前端不可能 | RSC / Server Action 可以（本项目刻意不走） |
 | HMR 单例 | 各自 reload 进程 | 需 `globalThis` 缓存防泄漏 |
 
-## 10. 常见改动指南
+## 11. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -571,7 +581,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 | 改 DB | `DB_DRIVER=sqlite ./run` |
 | 改主题色 / 间距 | 修改 `spec/styles/tokens.css`，所有前端同步生效 |
 
-## 11. 学到这里之后
+## 12. 学到这里之后
 
 你已经掌握了 Next.js App Router 全栈最常见的 80%：文件系统路由（`page.tsx` / `layout.tsx` / `route.ts` / `[param]`）、Server vs Client Component、`"server-only"` 编译期防火墙、Route Handler 写法（导出 HTTP 方法函数）、Drizzle ORM 双数据库、`withApi` 响应包装、`requireClaims` 鉴权、Zustand 客户端状态、`globalThis` 单例的 HMR 防御。
 

@@ -6,9 +6,18 @@
 - Spring Boot、Spring MVC、Spring Data JPA、Hibernate、Flyway、Jackson、Bean Validation 分别在做什么。
 - 想新增一个接口、字段或业务规则时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 Spring 的几个核心思想（IoC / 注解驱动 / AOP）；第 5～12 节按一次请求的生命周期分层细讲；第 13 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口；第 5 节集中讲 Spring 的几个核心思想（IoC / 注解驱动 / AOP）；第 6～13 节按一次请求的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 Spring Boot 后端实现基于 **Java 17 + Spring Boot 3 + Spring Data JPA** 核心骨架，并选用 **Hibernate** 作为 JPA 提供商、**Flyway** 管理数据库迁移、**Jackson** 负责 JSON 序列化、**Jakarta Bean Validation** 实现声明式数据校验，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+
+* **Spring Boot 3 与 IoC/DI（强大的依赖注入与自动装配）**：利用 Spring 核心的控制反转（IoC）与依赖注入（DI）容器，以单例模式管理 service、controller 和 repository 组件。通过 Spring Boot 强大的自动配置（Auto-Configuration）开箱即用，极大地提高了企业级后端系统的装配效率。
+* **Spring Data JPA 与方言自适应（声明式数据访问与自适应时间列）**：选用 Spring Data JPA 作为持久层，通过方法名自动解析生成 SQL 查询。针对跨库（PostgreSQL 和 SQLite）在时间列时区支持上的硬件差异，自制了全局的 `OffsetDateTimeStringConverter` 属性转换器，并配置了 JPA 级别悲观锁（`PESSIMISTIC_WRITE`），确保了行级并发一致性。
+* **Jakarta Bean Validation 与控制器路由（注解驱动拦截）**：通过在 DTO（记录类 record）属性上贴附 `@NotBlank`、`@Size`、`@Pattern` 等 Bean Validation 标准注解，配合 `@Valid` 开启请求边界拦截。结合 `@RestController` 和 `@PostMapping` 等注解声明式处理路由映射，简洁直观。
+* **声明式事务管理与异常拦截（AOP 实践）**：基于 Spring 的 AOP（面向切面编程）机制，使用 `@Transactional` 实现无侵入的声明式事务管理。同时构建了 `@RestControllerAdvice` 全局异常处理器，将业务中抛出的 `ApiException` 或请求校验异常统一捕获并自动转换为契约约定的错误响应。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。Spring Boot 后端的职责是：
 
@@ -67,7 +76,7 @@ PostgreSQL 或 SQLite
 
 返回方向上，service 把实体转成 `Dtos.*` record，控制器再用 `Envelope.ok(...)` 包一层，Jackson 把对象序列化成 JSON 写回响应。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 开发运行：
 
@@ -103,7 +112,7 @@ DB_DRIVER=sqlite ./run      # 用 SQLite，零依赖
 
 > 第一次启动会下载依赖（约 1～2 分钟），之后 Maven 会缓存到 `~/.m2/repository`。
 
-## 3. 入口：`HelloTimeProApplication.java`
+## 4. 入口：`HelloTimeProApplication.java`
 
 整个应用的 main 方法只有这一段：
 
@@ -127,7 +136,7 @@ public class HelloTimeProApplication {
 
 `SpringApplication.run(...)`：构造一个 `ApplicationContext`（Spring 容器），扫描所有 bean，按依赖关系实例化它们，启动内嵌 Tomcat 监听端口。整个过程通常 1～3 秒。
 
-## 4. Spring 的几个关键思想
+## 5. Spring 的几个关键思想
 
 Spring Boot 没有「魔法」，但有 **三个核心机制** 是 Java 程序员第一次看 Spring 代码最容易困惑的地方。看懂它们，后面的注解就都是这三个机制的语法糖。
 
@@ -190,7 +199,7 @@ public class FavoriteService {
 
 ⚠️ **常见陷阱**：在同一个类内部调用另一个 `@Transactional` 方法 **不会** 走代理，事务不会生效。原因是 `this.foo()` 绕开了代理对象。本项目的写法都是外部进入服务的入口方法上加 `@Transactional`，避免这个坑。
 
-## 5. 配置层：`application.yml` + `AppProperties`
+## 6. 配置层：`application.yml` + `AppProperties`
 
 `src/main/resources/application.yml` 是配置文件，YAML 语法（缩进表示层级）。Spring Boot 启动时会自动读取它。
 
@@ -232,7 +241,7 @@ public class AppProperties {
 
 而 `spring.flyway.locations: classpath:db/migration/${DB_DRIVER:postgres}` 决定加载哪一套迁移脚本。Java 业务代码完全不感知数据库差异，只在两处（`AuthService.findRefreshTokenForRotation`、`FavoriteService.lockCapsule`）针对 Postgres 走更严格的行锁路径。
 
-## 6. Web 层：控制器与请求映射
+## 7. Web 层：控制器与请求映射
 
 控制器都在 `web/` 包，每个文件对应一组相关接口。以 `AuthController` 为例：
 
@@ -341,7 +350,7 @@ public class WebConfig implements WebMvcConfigurer {
 
 `WebMvcConfigurer` 是 Spring MVC 提供的扩展点接口，里面有十几个可选方法（拦截器、参数解析器、消息转换器等）。
 
-## 7. DTO 层：`dto/Dtos.java`
+## 8. DTO 层：`dto/Dtos.java`
 
 整个 DTO 集中写在 `Dtos.java` 里，所有都是 Java 16+ 的 `record`：
 
@@ -364,7 +373,7 @@ public record RegisterRequest(
 
 > 校验失败会抛 `MethodArgumentNotValidException`，被全局异常处理器转换成 HTTP 422 + `VALIDATION_ERROR`，details 列出每个不通过的字段。
 
-## 8. 领域层：`domain/*Entity.java`
+## 9. 领域层：`domain/*Entity.java`
 
 这里是 JPA 实体类，对应数据库的表。`UserEntity` 示例：
 
@@ -414,7 +423,7 @@ SQLite 没有原生时间类型，JDBC 驱动用 TEXT 存。这个类是一个�
 
 > 业务代码统一用 `OffsetDateTime.now(ZoneOffset.UTC)` 拿当前时间，避免时区问题。
 
-## 9. 持久层：Spring Data JPA Repository
+## 10. 持久层：Spring Data JPA Repository
 
 Spring Data JPA 是 JPA 的「神奇加成」：你只写接口，框架根据方法名自动生成 SQL。
 
@@ -487,7 +496,7 @@ Optional<CapsuleEntity> findByIdForUpdate(@Param("id") UUID id);
 
 对应 SQL 的 `SELECT ... FOR UPDATE`。`FavoriteService.addFavorite` 在 Postgres 路径上调用它，确保两个并发收藏请求会串行化访问同一行胶囊，`favorite_count` 不会漂移。SQLite 没有行锁，但其单写事务模型本身就足够。
 
-## 10. 服务层：业务逻辑都在这里
+## 11. 服务层：业务逻辑都在这里
 
 控制器只做「校验 + 取 user + 转 DTO」，真正的业务在 `service/`。
 
@@ -543,7 +552,7 @@ public AuthTokens register(RegisterRequest req) {
 - `record SchemaSpec(...)` 当作纯数据描述常量。
 - 自定义 `LlmClientException`（unchecked），调用方不必声明 `throws`。
 
-## 11. 数据库迁移：Flyway
+## 12. 数据库迁移：Flyway
 
 `src/main/resources/db/migration/{postgres,sqlite}/` 各一份 `V1__initial_schema.sql`。
 
@@ -553,7 +562,7 @@ public AuthTokens register(RegisterRequest req) {
 
 要新增表 / 字段：再放一个 `V2__add_xxx.sql`（两套都加），重启即可。**不要修改已经发布的 V1 脚本**——已经应用过的环境会因校验和不匹配而启动失败。
 
-## 12. 测试：`SmokeTest`
+## 13. 测试：`SmokeTest`
 
 ```java
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -574,7 +583,7 @@ class SmokeTest {
 
 测试做的是端到端 smoke：注册 → 创建胶囊 → 校验未到点的胶囊 content 为 null → 第二个用户收藏 → 校验 hot 排序 → refresh 轮转后旧 token 与新 token 都被废（重放检测）。这一组用例覆盖了 spec 里最关键的几条不变式（I2 计数一致、I3 胶囊到点前不可见、refresh 一次性）。
 
-## 13. 常见改动指南
+## 14. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -586,9 +595,9 @@ class SmokeTest {
 | 加一个配置项 | `application.yml` 加 key → `AppProperties` 加字段 + getter/setter |
 | 加一个跨切关注（日志、指标、限流） | 写一个实现 `HandlerInterceptor` 的 bean，在 `WebConfig.addInterceptors` 注册；或写 `@RestControllerAdvice` 拦异常 |
 | 改默认错误响应 | `web/GlobalExceptionHandler.java` 增加 / 修改 `@ExceptionHandler` |
-| 临时调端口 / 数据库 | 设置环境变量即可，不用改代码（见 §5） |
+| 临时调端口 / 数据库 | 设置环境变量即可，不用改代码（见 §6） |
 
-## 14. 学到这里之后
+## 15. 学到这里之后
 
 读到这里，你已经掌握了 Spring Boot 项目最常见的 80%：IoC 容器、`@RestController`、Bean Validation、Spring Data JPA、事务、全局异常、配置注入、Flyway、内嵌 Tomcat 测试。
 

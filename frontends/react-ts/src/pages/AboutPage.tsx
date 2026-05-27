@@ -10,8 +10,17 @@ const FRONTEND_STACK: StackItem[] = [
 ];
 
 const FRONTEND_SUMMARY =
-  "基于 React 19 + TypeScript 5 构建，全组件 Hooks 驱动，React Router v6 处理路由，" +
-  "AuthContext 管理 JWT 令牌内存存储与自动刷新，样式通过 Tailwind CSS v4 语义 token 统一约束。";
+  "基于 React + TypeScript + Vite 核心骨架，选用 React Router 控制路由与守卫机制，" +
+  "Zustand 进行轻量级状态管理，Tailwind CSS v4 配合 Design Tokens 定制视觉系统。" +
+  "利用 React 声明式 UI 和单向数据流的优势，配合 React Router 的嵌套路由与守卫机制，" +
+  "用户切换页面时无需刷新浏览器即可获得流畅的单页应用体验。" +
+  "TypeScript 静态类型检查使前端数据结构与后端 OpenAPI 合约保持高度一致，" +
+  "在编码阶段即可拦截绝大多数运行时异常。" +
+  "Vite 基于原生 ESM 的极速热更新特性实现代码改动的即时响应，大幅提升开发效率。" +
+  "Zustand 模块化单例与订阅机制既避免了 React Context 的无谓重渲染，" +
+  "又极易在组件外部同步读取和修改状态。" +
+  "设计令牌将颜色、字号等样式规范抽离为跨前端通用的 CSS 变量，" +
+  "配合 Tailwind v4 使暗亮主题切换高效统一。";
 
 function IconRow({ items }: { items: StackItem[] }) {
   return (

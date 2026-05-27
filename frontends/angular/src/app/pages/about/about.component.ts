@@ -10,7 +10,18 @@ const FRONTEND_STACK: StackItem[] = [
 ];
 
 const FRONTEND_SUMMARY =
-  'Angular 19 + TypeScript 构建，NgRx Signals 管理全局认证与广场列表状态，独立组件（Standalone Components）+ 路由懒加载组成 App Shell，Signal-based 响应式 UI。所有颜色、间距引用 spec/styles/tokens.css 中的语义化 CSS 变量，Tailwind CSS v4 负责原子样式，禁止硬编码值。';
+  '基于 Angular 19 + TypeScript 核心骨架，选用 Angular Router 控制路由，' +
+  'NgRx Signal Store 进行企业级响应式状态管理，Tailwind CSS v4 配合 Design Tokens 定制视觉系统。' +
+  '利用 Angular 强大的依赖注入系统、模块化服务与独立组件设计，提供业界最严谨的架构范式，' +
+  '配合 Angular Router 实现高性能的零刷新单页应用。' +
+  '原生集成最新的 Signals 响应式系统，通过细粒度依赖追踪实现模板与数据之间的精准重绘，' +
+  '彻底告别传统的 zone.js 暴力脏检查。' +
+  'TypeScript 作为 Angular 一等公民被深度集成，' +
+  '静态类型检查使前端数据结构与后端 OpenAPI 合约保持高度一致。' +
+  'NgRx Signal Store 内置生命周期钩子能在服务初始化时自动执行状态水合，' +
+  '比手动触发更加优雅，同时为企业级应用提供极佳的可扩展性。' +
+  '设计令牌将颜色、字号等样式规范抽离为跨前端通用的 CSS 变量，' +
+  '配合 Tailwind v4 使暗亮主题切换高效统一。';
 
 @Component({
   selector: 'app-about',

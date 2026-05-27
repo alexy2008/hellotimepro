@@ -4,7 +4,7 @@
 #   DB_DRIVER=postgres (默认) 需要 `docker compose up -d postgres`
 #   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime.db
 #
-# 运行前自动执行 alembic migrate。
+# 只启动服务；数据库初始化/重建/seed 请使用 scripts/db。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,14 +30,6 @@ if [[ "${DB_URL:-}" == postgresql://* ]]; then
   export DB_URL="postgresql+psycopg${DB_URL#postgresql}"
 elif [[ "${DB_URL:-}" == postgres://* ]]; then
   export DB_URL="postgresql+psycopg${DB_URL#postgres}"
-fi
-
-# 升级 DB schema
-uv run alembic upgrade head
-
-# 注入演示数据（SEED_DEMO=false 可关闭，默认开启）
-if [[ "${SEED_DEMO:-true}" != "false" ]]; then
-  uv run python "$REPO_ROOT/spec/db/seed_demo.py" || true
 fi
 
 PORT="${PORT:-29010}"

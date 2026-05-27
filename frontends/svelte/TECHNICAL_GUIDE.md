@@ -6,9 +6,19 @@
 - Svelte 5 Runes、TypeScript、Vite、svelte-routing 分别在做什么。
 - 想新增一个页面、状态或接口调用时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 Svelte 5 的核心概念（Runes、组件、模板语法）；第 5 节快速过 TypeScript；第 6～13 节按一次「打开页面」的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 Svelte 5 的核心概念（Runes、组件、模板语法）；第 6 节快速过 TypeScript；第 7～14 节按一次「打开页面」的生命周期分层细讲；第 15 节给出常见改动的步骤清单。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 Svelte 5 前端实现基于 **Svelte 5 + TypeScript + Vite** 核心骨架，并选用 **svelte-routing** 控制路由、基于原生 **Runes Class Singletons** 建立零依赖的状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制视觉系统。其具体选型考量与设计特色如下：
+
+* **Svelte 5 与 svelte-routing（编译期响应式与单页体验）**：利用 Svelte 5 革命性的 **Runes**（类符文）特性，通过编译期静态分析实现无虚拟 DOM 的极致运行效率与精确重绘。配合 svelte-routing 的声明式跳转，提供流畅的单页应用（SPA）体验。
+* **TypeScript（强类型约束与契约对齐）**：通过静态类型检查，使前端数据结构与后端的 OpenAPI 合约保持高度一致。在编写代码阶段即可拦截绝大多数因字段拼写错误或未处理空值（null/undefined）导致的运行时异常。
+* **Vite 构建（极速的开发与编译体验）**：基于原生 ESM 的极速热更新（HMR）特性，能实现代码改动的即时响应，并完美对接 Svelte 的编译流程，在生产环境下输出极其轻量的静态资源。
+* **Runes Class Singletons（零冗余的状态管理）**：摒弃繁重状态管理库，直接利用 Svelte 5 原生的 `$state` 在标准类中声明响应式状态，以模块化 class 单例形式暴露全局状态。这种机制不仅在组件内自然追踪，也使得在组件外的 API 请求库中直接读取和修改状态变得极为优雅。
+* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：将颜色、字号等样式规范抽离为跨前端通用的设计令牌（CSS 变量）。配合 Tailwind v4 使得暗/亮主题切换和视觉一致性的维护变得十分高效。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。Svelte 前端的职责是：
 
@@ -71,7 +81,7 @@ api.plaza({...}) → fetch("/api/v1/plaza/capsules")
 
 返回方向上完全相反：用户点收藏按钮 → `FavoriteButton` 里的 `toggle()` → `api.favorite(id)` → 收到新计数 → `active = true; count = n; plazaStore.patchFavorited(...)` → 触发 Svelte 重渲染。**只有响应式状态（$state）变更会触发渲染，没有人手动操作 DOM**。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 ```bash
 cd frontends/svelte
@@ -95,7 +105,7 @@ svelte-check --tsconfig ./tsconfig.app.json   # 类型检查（含 Svelte 专用
 vite build                                     # 把 src/ 打包到 dist/
 ```
 
-## 3. 入口链路：`index.html` → `main.ts` → `App.svelte`
+## 4. 入口链路：`index.html` → `main.ts` → `App.svelte`
 
 ### 3.1 `index.html`：SPA 的唯一 HTML
 
@@ -137,7 +147,7 @@ mount(App, { target: document.getElementById("app")! });
 ```
 
 - `mount()`：Svelte 5 引入的挂载 API（取代了旧版 `new App()`）。
-- `wireAuthApi()` 必须在 `mount()` 前调用——原因见第 8.3 节。
+- `wireAuthApi()` 必须在 `mount()` 前调用——原因见第 9.3 节。
 
 ### 3.3 `App.svelte`：根组件 + 路由表
 
@@ -176,7 +186,7 @@ mount(App, { target: document.getElementById("app")! });
 
 **注意**：svelte-routing 2.13 + Svelte 5 要求 **路由扁平化**，不能嵌套 `<Route>` 到另一个 `<Route>` 的内容里。嵌套会触发 Svelte 5 的 `effect_update_depth_exceeded` 错误（子 Route 注册 → 触发父 Route 重渲染 → 子 Route 再注册 → 无限循环）。解决方案：每个 Route 直接内联自己的布局组件。
 
-## 4. Svelte 5 的核心概念：Runes
+## 5. Svelte 5 的核心概念：Runes
 
 Svelte 5 引入了 **Runes**（类符文）——一套以 `$` 开头的特殊语法，用于声明响应式状态、副作用和推导值。这是 Svelte 5 与旧版（Svelte 4）最大的区别，也是与 React Hooks、Vue Composition API 最直接的对标。
 
@@ -326,7 +336,7 @@ Svelte 模板不是 JSX，它是**增强版 HTML**，在 `{...}` 里嵌入 JS �
 
 Snippet 等效于 React 的 render prop / slot。本项目用 `empty` 和 `card` 两个 snippet 分别自定义 CapsuleGrid 的空态和每张卡片的右侧操作区。
 
-## 5. TypeScript 快速概览
+## 6. TypeScript 快速概览
 
 `.ts` 与 `.svelte` 文件（`<script lang="ts">`）本质是带类型注解的 JavaScript。读代码时几乎可以「把冒号后面的内容当注释」忽略。
 
@@ -346,9 +356,9 @@ e instanceof ApiError                            // 运行时类型检查
 e as Error                                       // 类型断言
 ```
 
-`tsconfig.app.json` 里开了 `"allowImportingTsExtensions": true`——这是**关键配置**，允许 `import { authStore } from "@/stores/auth.svelte.ts"` 带 `.ts` 后缀，是防止 store 单例破裂的必要条件（详见第 9.4 节）。
+`tsconfig.app.json` 里开了 `"allowImportingTsExtensions": true`——这是**关键配置**，允许 `import { authStore } from "@/stores/auth.svelte.ts"` 带 `.ts` 后缀，是防止 store 单例破裂的必要条件（详见第 10.4 节）。
 
-## 6. 路由层：`App.svelte` + svelte-routing
+## 7. 路由层：`App.svelte` + svelte-routing
 
 本项目用 `svelte-routing@2.13` 实现客户端路由：
 
@@ -390,7 +400,7 @@ const location = useLocation();               <!-- 读当前 URL -->
 const from = new URLSearchParams($location.search).get("from");
 ```
 
-## 7. 关键模式：布局与守卫
+## 8. 关键模式：布局与守卫
 
 ### 7.1 `MainLayout.svelte` / `MeLayout.svelte`：共享外壳
 
@@ -434,9 +444,9 @@ const from = new URLSearchParams($location.search).get("from");
 ```
 
 - 等 `hydrated` 之后才判断——避免页面刷新时 localStorage 还没读完就跳登录。
-- 如果有 `refreshToken` 但没 `user`，允许进入——因为下一个 API 请求会自动 refresh（见第 8.2 节），用户看不到打断。
+- 如果有 `refreshToken` 但没 `user`，允许进入——因为下一个 API 请求会自动 refresh（见第 9.2 节），用户看不到打断。
 
-## 8. 数据层：`api/client.ts`
+## 9. 数据层：`api/client.ts`
 
 ### 8.1 通用 `request<T>(path, opts)`
 
@@ -507,7 +517,7 @@ export function wireAuthApi() {
 
 `wireAuthApi()` 在 `main.ts` 里 `mount()` 前调用一次，后续 client 拿 token 都走这些函数。
 
-## 9. 状态层：`.svelte.ts` 单例
+## 10. 状态层：`.svelte.ts` 单例
 
 ### 9.1 Svelte 5 的 class 单例模式
 
@@ -598,7 +608,7 @@ class PlazaStore {
 
 用户快速切 sort/filter 时连发好几个请求，网络响应顺序不确定。`#fetchSeq` 保证「只有最后发起的那个请求才能写状态」，避免老结果覆盖新结果。
 
-## 10. 工具库：`lib/` 里的 Runes 工具
+## 11. 工具库：`lib/` 里的 Runes 工具
 
 ### 10.1 `createCountdown`：每秒倒计时
 
@@ -684,7 +694,7 @@ export function clickOutside(
 
 Svelte action 是「DOM 生命周期的副作用函数」：挂载时 Svelte 调用它，卸载时调 `destroy()`。比在 `$effect` 里手动 `addEventListener` 更封装，比组合式钩子更轻量。
 
-## 11. 页面层：几个典型模式
+## 12. 页面层：几个典型模式
 
 ### 11.1 数据拉取页（PlazaPage / MeCreatedPage）
 
@@ -757,7 +767,7 @@ Svelte action 是「DOM 生命周期的副作用函数」：挂载时 Svelte 调
 
 Snippet 让父组件「注入」一段 UI 到子组件指定的槽位，而不需要子组件知道具体逻辑。`CapsuleGrid` 的 `{@render card?.(c)}` 负责在每张卡片上调用这段注入的 UI。
 
-## 12. 工具层：`utils/format.ts` 等
+## 13. 工具层：`utils/format.ts` 等
 
 纯函数，没有 Svelte 依赖，可以直接 import 用：
 
@@ -770,7 +780,7 @@ isoToLocalInput(iso)           // 反向
 avatarUrl(avatarId)            // → "/static/avatars/<id>.svg"
 ```
 
-## 13. 样式层：Tailwind v4 + 设计令牌
+## 14. 样式层：Tailwind v4 + 设计令牌
 
 ```css
 /* src/styles/index.css */
@@ -786,7 +796,7 @@ avatarUrl(avatarId)            // → "/static/avatars/<id>.svg"
 - 组件用 **`cy-*` 共享类**（如 `cy-btn cy-btn--primary`），底层是 CSS 变量。**不允许直接写 `color: #ff00aa` 或用色阶变量 `--brand-500`**——这是为了保证多前端实现视觉一致和暗/亮主题正确切换。
 - Tailwind v4 主要用 utility 类做微调（间距、对齐）；一次性的微调用内联 `style:margin-top="var(--space-4)"` 语法（Svelte 特有的简写，等效于 `:style="{ marginTop: 'var(--space-4)' }"`）。
 
-## 14. 常见改动指南
+## 15. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -804,7 +814,7 @@ avatarUrl(avatarId)            // → "/static/avatars/<id>.svg"
 | 需要每秒倒计时 | `const cd = createCountdown(() => !opened)` → 读 `cd.now` |
 | 在模板里检测「点击外部」 | `use:clickOutside={{ handler: close, active: () => menuOpen }}` |
 
-## 15. Svelte 5 vs React vs Vue 对照表
+## 16. Svelte 5 vs React vs Vue 对照表
 
 | 概念 | Svelte 5 | React | Vue 3 |
 |---|---|---|---|
@@ -820,7 +830,7 @@ avatarUrl(avatarId)            // → "/static/avatars/<id>.svg"
 | 跨组件状态 | `.svelte.ts` class 单例 | Zustand / Context | Pinia |
 | 路由 | svelte-routing | React Router | Vue Router |
 
-## 16. 学到这里之后
+## 17. 学到这里之后
 
 读到这里，你已经掌握了现代 Svelte 5 SPA 最常见的部分：Runes（`$state / $derived / $effect / $props`）、组件与 Snippet、svelte-routing、fetch 封装 + 自动 refresh、`.svelte.ts` class 单例、CSS 变量主题。
 

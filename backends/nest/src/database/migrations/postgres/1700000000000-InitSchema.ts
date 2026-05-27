@@ -9,7 +9,7 @@ export class InitSchema1700000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id             VARCHAR(36)  PRIMARY KEY,
+        id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
         email          VARCHAR(254) NOT NULL,
         password_hash  VARCHAR(100) NOT NULL,
         nickname       VARCHAR(20)  NOT NULL,
@@ -26,8 +26,8 @@ export class InitSchema1700000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS capsules (
-        id              VARCHAR(36)  PRIMARY KEY,
-        owner_id        VARCHAR(36)  NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+        owner_id        UUID         NOT NULL REFERENCES users (id) ON DELETE CASCADE,
         code            CHAR(8)      NOT NULL,
         title           VARCHAR(60)  NOT NULL,
         content         TEXT         NOT NULL,
@@ -52,8 +52,8 @@ export class InitSchema1700000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS favorites (
-        user_id     VARCHAR(36)  NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-        capsule_id  VARCHAR(36)  NOT NULL REFERENCES capsules (id) ON DELETE CASCADE,
+        user_id     UUID         NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        capsule_id  UUID         NOT NULL REFERENCES capsules (id) ON DELETE CASCADE,
         created_at  TIMESTAMPTZ  NOT NULL,
         PRIMARY KEY (user_id, capsule_id)
       )
@@ -63,10 +63,10 @@ export class InitSchema1700000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS refresh_tokens (
-        id           VARCHAR(36)  PRIMARY KEY,
-        user_id      VARCHAR(36)  NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id      UUID         NOT NULL REFERENCES users (id) ON DELETE CASCADE,
         token_hash   VARCHAR(100) NOT NULL,
-        family_id    VARCHAR(36)  NOT NULL,
+        family_id    UUID         NOT NULL,
         expires_at   TIMESTAMPTZ  NOT NULL,
         created_at   TIMESTAMPTZ  NOT NULL,
         revoked_at   TIMESTAMPTZ

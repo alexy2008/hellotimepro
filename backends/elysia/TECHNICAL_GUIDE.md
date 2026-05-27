@@ -6,9 +6,18 @@
 - Elysia、Bun、Zod、jose、bcryptjs、PostgreSQL/SQLite 分别负责什么。
 - 想新增一个接口、字段或业务规则时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 Elysia 的几个关键机制；第 5～12 节按一次请求的生命周期分层细讲；第 13 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口；第 5 节集中讲 Elysia 的几个关键机制；第 6～13 节按一次请求的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 Elysia 后端实现基于 **Bun + Elysia + Bun:sqlite / pg** 核心骨架，采用纯 TypeScript 编写，并选用 **Zod** 作为数据校验工具、**jose** 进行高安全度的 JWT 处理、**bcryptjs** 处理密码哈希，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+
+* **Bun 与 Elysia（极致的运行速度与超轻量框架）**：依托 Bun 的原生高性能 JavaScript 运行时，搭配其内置的 HTTP 服务器，提供卓越的 I/O 并发处理性能。Elysia 框架极其轻量且专为 Bun 优化，提供流畅的链式路由注册与类型安全的数据响应。
+* **TypeScript 与 Zod（类型共享与严格数据校验）**：在后端接口层面通过 Zod Schema 进行请求体的强类型验证，不仅在请求到达业务层前拦截不合法输入，还可通过 TypeScript 实现潜在的“端到端”类型推导与契约对齐。
+* **双数据库方言自适应与轻量 SQL 原生连接**：项目摒弃复杂的重量级 ORM，选用轻量级 SQL 原生连接，并自制了跨数据库占位符（`?` 自动适配 pg 的 `$N`）与连接池包装。通过环境变量即可一键在生产级 PostgreSQL（异步池）与 Bun 内置的高速 SQLite（同步 WAL 事务锁）之间无缝切换。
+* **经典四层架构与业务解耦**：项目严格按照经典的呈现层（Routes）、应用层（Services）、领域层（Security）与基础设施层（Db）进行四层架构划分。业务代码与底层的 Elysia 路由或数据库客户端互不耦合，开发与维护体验极其清爽。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。Elysia 后端的职责是：
 
@@ -67,7 +76,7 @@ PostgreSQL 或 SQLite
 
 返回方向：service 返回普通对象，`route(...)` 用 `ok(...)` 包成 `{ success: true, data, message: null, errorCode: null }`；出错时抛 `ApiError`，`errorResponse(...)` 输出统一错误壳。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 开发运行：
 
@@ -103,7 +112,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh elysia
 
 > 第一次运行会下载 npm 包到 `node_modules/`。Bun 自带 TypeScript 执行能力，所以开发运行不需要单独编译。
 
-## 3. 入口：`src/main.ts`
+## 4. 入口：`src/main.ts`
 
 `main.ts` 是整个 Web 服务的装配层。启动顺序是：
 
@@ -146,7 +155,7 @@ const app = new Elysia()
 3. 调用 service 层 `createCapsule(...)`。
 4. `route(..., 201)` 把结果包成成功响应，并设置 HTTP 201。
 
-## 4. Elysia 的几个关键思想
+## 5. Elysia 的几个关键思想
 
 Elysia 是 Bun 生态里的轻量 Web 框架。这个项目没有使用插件式 DI 或 ORM 装饰器，整体刻意保持显式：路由在 `main.ts`，业务在 `services.ts`，数据库在 `db.ts`。
 
@@ -203,7 +212,7 @@ parse(registerSchema, body)
 
 而不是把 schema 挂进 Elysia 路由配置。
 
-## 5. 配置层：`src/config.ts`
+## 6. 配置层：`src/config.ts`
 
 配置对象 `env` 在模块加载时从环境变量读取：
 
@@ -227,7 +236,7 @@ export const env = {
 - `DB_URL` 如果外部传入，会覆盖默认连接串。
 - `LLM_ENABLED`、`LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 用于胶囊建议接口；未配置时走本地模板兜底。
 
-## 6. 数据库层：`src/db.ts`
+## 7. 数据库层：`src/db.ts`
 
 `db.ts` 做四件事：
 
@@ -305,7 +314,7 @@ sqlite.exec("COMMIT");
 
 `BEGIN IMMEDIATE` 会尽早拿写锁，适合本项目这种短事务，能避免并发收藏时读到过期计数。
 
-## 7. 错误与响应壳
+## 8. 错误与响应壳
 
 错误类型在 `src/errors.ts`：
 
@@ -353,7 +362,7 @@ Zod 校验失败会走 `zodToApiError(...)`，生成：
 }
 ```
 
-## 8. 鉴权层：`src/security.ts`
+## 9. 鉴权层：`src/security.ts`
 
 本项目使用两类 token：
 
@@ -411,7 +420,7 @@ requireClaims(headers)
 
 改密成功后会撤销该用户所有未撤销 refresh token，强制客户端重新登录。
 
-## 9. 业务层：`src/services.ts`
+## 10. 业务层：`src/services.ts`
 
 `services.ts` 是实现业务规则的地方。路由层只做参数提取和鉴权，真正的规则应该放在这里。
 
@@ -511,7 +520,7 @@ SELECT ... FROM capsules WHERE id = ? FOR UPDATE
 
 如果 LLM 未配置、超时、返回错误或解析失败，就走本地模板兜底。该端点不缓存，响应中 `cached` 固定为 `false`。
 
-## 10. DTO 映射：`src/types.ts`
+## 11. DTO 映射：`src/types.ts`
 
 数据库列名是 snake_case，例如 `favorite_count`；API 响应是 camelCase，例如 `favoriteCount`。映射逻辑集中在 `types.ts`：
 
@@ -532,7 +541,7 @@ pagination(...)
 - 详情项有 `content` 字段，但未开启时为 `null`。
 - 列表项没有 `content` 字段，只可能有 `contentPreview`。
 
-## 11. 静态资源与头像
+## 12. 静态资源与头像
 
 头像列表来自：
 
@@ -556,7 +565,7 @@ allowedAvatarIds()
 
 文件名有白名单正则 `^[a-z0-9_.-]+\.svg$`，避免路径穿越。真实文件仍以 `spec/` 为单一事实源。
 
-## 12. 为什么这里没有 ORM
+## 13. 为什么这里没有 ORM
 
 Elysia 实现选择原生 SQL + 小型方言适配，而不是 Drizzle/TypeORM，主要是为了展示 Bun/Elysia 下更轻的后端写法：
 
@@ -573,7 +582,7 @@ favorite_count AS "favoriteCount"
 
 这类映射必须谨慎维护，否则 TypeScript 类型看起来正确，运行时字段可能是 `undefined`。
 
-## 13. 常见改动应该改哪里
+## 14. 常见改动应该改哪里
 
 ### 13.1 新增一个公开 GET 接口
 
@@ -621,7 +630,7 @@ DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh elysia
 - PostgreSQL 并发路径应保留 `FOR UPDATE` 或等价机制。
 - SQLite 并发路径应保留 `BEGIN IMMEDIATE` 或等价写锁。
 
-## 14. 与契约验证的关系
+## 15. 与契约验证的关系
 
 本项目要求黑盒验证，不能写“知道实现细节”的捷径测试。Elysia 后端必须满足：
 
@@ -645,7 +654,7 @@ cd backends/elysia
 ./build
 ```
 
-## 15. 读代码的路线
+## 16. 读代码的路线
 
 第一次读 Elysia 后端，建议按这个顺序：
 

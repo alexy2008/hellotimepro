@@ -7,12 +7,12 @@
 #
 # 流程：
 #   1. 从 data/.hello-state.json 读取 DB 配置（优先于环境变量硬编码值）
-#   2. 清空 DB
-#   3. ./scripts/hello start <target>（run 脚本自动跑 alembic + seed_demo.py）
+#   2. ./scripts/db reset --seed 显式准备数据库
+#   3. ./scripts/hello start <target>
 #   4. 轮询 /api/v1/health，直到就绪或超时
 #   5. BASE_URL=... node --test verification/contract
 #   6. 清理测试创建的用户（@hellotime-contract.com）
-#   7. 重注入演示数据（spec/db/seed_demo.sql）
+#   7. 重注入演示数据（scripts/db seed --force）
 #   8. hello stop <target>（trap 保证必停）
 #
 # 退出码：0 全绿；非 0 = 测试失败或启动失败。
@@ -27,6 +27,7 @@ fi
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HELLO="$ROOT/scripts/hello"
+DBCTL="$ROOT/scripts/db"
 
 # 自动将常见 Homebrew libpq 路径加入 PATH（macOS 本地开发）
 for _pg_bin in \
@@ -143,24 +144,7 @@ fi
 
 # --- reset_db -------------------------------------------------------------
 reset_db() {
-  if [[ "$DB_DRIVER" == "sqlite" ]]; then
-    rm -f "$_SQLITE_ABS"
-    mkdir -p "$(dirname "$_SQLITE_ABS")"
-    echo "↻ SQLite 已重置: $_SQLITE_ABS"
-  else
-    if ! command -v psql >/dev/null 2>&1; then
-      echo "需要 psql 才能重置 postgres 数据库" >&2
-      exit 2
-    fi
-    PGPASSWORD="$_PG_PASS" psql \
-      -h "$_PG_HOST" -p "$_PG_PORT" -U "$_PG_USER" -d "$_PG_DB" \
-      -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
-DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO public;
-SQL
-    echo "↻ Postgres schema 已重置 ($_PG_HOST:$_PG_PORT/$_PG_DB)"
-  fi
+  "$DBCTL" reset --seed --yes
 }
 
 # --- cleanup_test_data ----------------------------------------------------
@@ -189,36 +173,7 @@ cleanup_test_data() {
 # 将演示数据重新注入数据库（先删后插，保证幂等）。
 # 演示账号域：@demo.hellotimepro.dev；密码：HelloTime2026!
 seed_demo_data() {
-  local seed_file="$ROOT/spec/db/seed_demo.sql"
-  if [[ ! -f "$seed_file" ]]; then
-    echo "⚠ 演示 seed 文件不存在，跳过: $seed_file"
-    return
-  fi
-  echo "→ 注入演示数据…"
-  if [[ "$DB_DRIVER" == "sqlite" ]]; then
-    if command -v sqlite3 >/dev/null 2>&1 && [[ -f "$_SQLITE_ABS" ]]; then
-      sqlite3 "$_SQLITE_ABS" \
-        "DELETE FROM users WHERE email LIKE '%@demo.hellotimepro.dev';" 2>/dev/null || true
-      sqlite3 "$_SQLITE_ABS" < "$seed_file" 2>/dev/null || true
-      echo "✓ 演示数据已注入（SQLite）"
-    else
-      echo "⚠ sqlite3 不可用或数据库文件不存在，跳过"
-    fi
-  else
-    if command -v psql >/dev/null 2>&1; then
-      PGPASSWORD="$_PG_PASS" psql \
-        -h "$_PG_HOST" -p "$_PG_PORT" -U "$_PG_USER" -d "$_PG_DB" \
-        -c "DELETE FROM users WHERE email LIKE '%@demo.hellotimepro.dev';" \
-        >/dev/null 2>&1 || true
-      PGPASSWORD="$_PG_PASS" psql \
-        -h "$_PG_HOST" -p "$_PG_PORT" -U "$_PG_USER" -d "$_PG_DB" \
-        -v ON_ERROR_STOP=0 \
-        -f "$seed_file" >/dev/null 2>&1
-      echo "✓ 演示数据已注入（Postgres）"
-    else
-      echo "⚠ psql 不可用，跳过演示数据注入"
-    fi
-  fi
+  "$DBCTL" seed --force
 }
 
 # --- 生命周期 -------------------------------------------------------------

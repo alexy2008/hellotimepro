@@ -6,9 +6,18 @@
 - NestJS 模块系统、TypeORM、Passport JWT、class-validator 分别负责什么。
 - 想新增一个接口、字段或业务规则时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 NestJS 的几个核心思想（模块、DI、装饰器、管道/守卫/拦截器/过滤器）；第 5～12 节按一次请求的生命周期分层细讲；第 13 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口；第 5 节集中讲 NestJS 的几个核心思想（模块、DI、装饰器、管道/守卫/拦截器/过滤器）；第 6～13 节按一次请求的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 NestJS 后端实现基于 **Node.js + NestJS + TypeScript** 核心骨架，并选用 **TypeORM** 作为数据库对象关系映射工具、**Passport** 进行基于 JWT 的身份验证、**class-validator** 驱动声明式数据校验，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+
+* **NestJS 与 TypeScript（企业级模块化与强类型设计）**：采用 TypeScript 的强类型约束和面向对象元数据设计，借助 NestJS 强大的依赖注入（DI）容器与高度内聚的模块（Modules）系统，为 Node.js 环境提供企业级、高度可控的架构标准。
+* **TypeORM 与跨库自适应（自动执行迁移与方言自适应）**：选用现代化的 TypeORM 框架作为数据访问层，并创新设计了跨库列类型辅助机制（如 `timestampColumn` 在 PostgreSQL 和 SQLite 间自动适配类型）。同时配置了 `migrationsRun: true` 实现启动时自动运行 SQL schema 迁移。
+* **class-validator 与 ValidationPipe（声明式拦截与过滤）**：通过 DTO（数据传输对象）类的属性装饰器完成请求边界声明，依靠全局 `ValidationPipe` 拦截非法请求并自动过滤多余字段，在请求抵达业务层前构筑类型安全边界。
+* **全周期的管道/守卫/拦截器/过滤器生态**：高度遵循 NestJS 标准的 AOP（面向切面编程）生命周期。采用 Passport JWT Strategy 配合守卫（Guards）实现鉴权拦截、拦截器（Interceptors）完成统一成功响应包装、全局过滤器（Filters）捕获异常并映射为契约约定的错误响应。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。NestJS 后端的职责是：
 
@@ -84,7 +93,7 @@ PostgreSQL 或 SQLite
 
 返回方向：service 返回 plain 对象，**EnvelopeInterceptor** 将其包装成 `{ success: true, data: ... }` 结构，写入响应。出错时任何地方 `throw ApiException`，**ApiExceptionFilter** 捕获并输出统一的 `{ success: false, errorCode: ..., message: ... }` 结构。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 开发运行：
 
@@ -120,7 +129,7 @@ DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh nest  # SQLite
 
 > 第一次运行需要 `npm install`（`run` 脚本会自动处理），下载依赖约 30～60 秒，之后缓存在 `node_modules/`。
 
-## 3. 入口：`main.ts`
+## 4. 入口：`main.ts`
 
 ```typescript
 async function bootstrap() {
@@ -152,7 +161,7 @@ bootstrap();
 - **全局注册顺序**：`Filters → Interceptors → Pipes → Guards → Handler`——这是 NestJS 的固定生命周期，全局注册的这些组件在每个请求上都会运行。
 - **`whitelist: true`**：`ValidationPipe` 会自动去掉 DTO class 里没有对应装饰器的字段，防止意外字段进入业务代码（不等于「多余字段会报错」，那需要 `forbidNonWhitelisted: true`）。
 
-## 4. NestJS 的几个关键思想
+## 5. NestJS 的几个关键思想
 
 NestJS 在 TypeScript 生态里的定位和 Spring Boot 在 Java 里很像——都是「企业级约定」框架，给混乱的 Express/Node 世界加上结构。看懂这几个机制，剩下代码都是重复模式。
 
@@ -229,7 +238,7 @@ NestJS 大量使用 TypeScript 装饰器：
 - **拦截器（Interceptor）**：环绕 Handler 执行，可以在 Handler 前后插入逻辑，也可以变换响应。`EnvelopeInterceptor` 用 RxJS `map` 把 Handler 返回值包进统一外壳。
 - **过滤器（Filter）**：捕获异常，将其转换为 HTTP 响应。`ApiExceptionFilter` 标注了 `@Catch()` 即捕获所有未处理异常。
 
-## 5. 配置层：`config/configuration.ts`
+## 6. 配置层：`config/configuration.ts`
 
 NestJS 官方的配置方案是 `@nestjs/config`。本项目用**工厂函数**模式：
 
@@ -256,7 +265,7 @@ const port = config.get('port', { infer: true }) ?? 29040;
 
 `{ infer: true }` 让 TypeScript 能从 `AppConfig` 接口推断 `port` 的类型是 `number` 而不是 `unknown`。
 
-## 6. 数据库层：TypeORM + 迁移
+## 7. 数据库层：TypeORM + 迁移
 
 ### 6.1 动态连接：`database.module.ts`
 
@@ -417,7 +426,7 @@ export class InitSchema1700000000000 implements MigrationInterface {
 
 要新增表或字段：在两套目录下各新建一个 `<时间戳>-<描述>.ts`，重启即可。**不要修改已执行过的迁移**——TypeORM 会校验已执行迁移的哈希值。
 
-## 7. 错误处理：`common/api.exception.ts`
+## 8. 错误处理：`common/api.exception.ts`
 
 本项目定义了 `ApiException`，继承自 NestJS 内置的 `HttpException`：
 
@@ -469,7 +478,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
 > **为什么 class-validator 错误是 400 但 spec 要求 422？** `ValidationPipe` 默认在校验失败时抛 `BadRequestException`（400），但 spec 要求业务校验失败用 422。过滤器里识别这种特殊的 400 body 并转换成 422。
 
-## 8. 响应包装：`EnvelopeInterceptor`
+## 9. 响应包装：`EnvelopeInterceptor`
 
 每个 controller 方法只需返回 plain 对象，`EnvelopeInterceptor` 负责在外面套上统一外壳：
 
@@ -490,7 +499,7 @@ export class EnvelopeInterceptor implements NestInterceptor {
 
 `next.handle()` 返回一个 RxJS `Observable`，`pipe(map(...))` 在流里变换值。NestJS 底层整合了 RxJS 作为异步流处理机制——这里只需要记住 `map` 的语义就够了。
 
-## 9. 鉴权：Passport + JWT
+## 10. 鉴权：Passport + JWT
 
 NestJS 通过 `@nestjs/passport` 集成 Passport.js，鉴权流程分三层：
 
@@ -549,7 +558,7 @@ export const CurrentUser = createParamDecorator(
 
 `@CurrentUser()` 在 controller 方法参数上使用，从已经挂好的 `request.user` 取出当前用户，避免重复写 `req.user`。
 
-## 10. DTO 与校验：`class-validator`
+## 11. DTO 与校验：`class-validator`
 
 每个功能域的 DTO 放在各自模块的 `dto/` 子目录：
 
@@ -578,7 +587,7 @@ export class RegisterDto {
 
 > **`whitelist: true` 的作用**：若请求体里有 `RegisterDto` 不知道的字段（比如 `admin: true`），`ValidationPipe` 在实例化时自动剥除它们，确保 DTO 里只有已声明的字段流向 service。
 
-## 11. 服务层：业务逻辑都在这里
+## 12. 服务层：业务逻辑都在这里
 
 controller 只做「取参数 → 调 service → 返回结果」，真正的业务在 `service/`。
 
@@ -698,7 +707,7 @@ private checkRateLimit(email: string): void {
 
 按邮箱做滑动窗口限流，60 秒内超过阈值则 429。单进程内存实现，教学用途；生产应改用 Redis。
 
-## 12. 测试
+## 13. 测试
 
 本项目的契约一致性由仓库级黑盒验证覆盖：
 
@@ -724,7 +733,7 @@ await app.init();
 await request(app.getHttpServer()).post('/api/v1/auth/register').send({...}).expect(201);
 ```
 
-## 13. 常见改动指南
+## 14. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -738,7 +747,7 @@ await request(app.getHttpServer()).post('/api/v1/auth/register').send({...}).exp
 | 改默认错误响应 | `common/filters/api-exception.filter.ts` 修改对应分支；错误码映射改 `common/api.exception.ts` 里的 `ERROR_TO_STATUS` |
 | 临时调端口 / 数据库 | 设置环境变量：`PORT=29041 ./run`、`DB_DRIVER=sqlite ./run` |
 
-## 14. 与其他栈的横向对比
+## 15. 与其他栈的横向对比
 
 理解 NestJS 的最佳方式之一是和本项目的其他实现对照：
 
@@ -755,7 +764,7 @@ await request(app.getHttpServer()).post('/api/v1/auth/register').send({...}).exp
 
 NestJS 的特色是**把 Express 的随意性与 Spring 的约定性结合**：模块系统让代码强制分层；装饰器让路由/校验/鉴权以声明式方式表达；但底层依然是 Node.js + Express，性能特征和调试体验都接近 Express。
 
-## 15. 学到这里之后
+## 16. 学到这里之后
 
 读到这里，你已经掌握了 NestJS 项目最常见的 80%：Module/DI 体系、Controller + Guard + Pipe + Interceptor + Filter 五件套、TypeORM 实体与 QueryBuilder、class-validator DTO、Passport JWT 鉴权、统一异常处理、跨数据库列类型辅助。
 

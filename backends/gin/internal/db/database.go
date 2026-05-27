@@ -1,16 +1,10 @@
-// Package db 负责数据库连接初始化与 golang-migrate 迁移执行。
+// Package db 负责数据库连接初始化。
 package db
 
 import (
-	"embed"
-	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/golang-migrate/migrate/v4"
-	migratePostgres "github.com/golang-migrate/migrate/v4/database/postgres"
-	migrateSQLite "github.com/golang-migrate/migrate/v4/database/sqlite3"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -19,13 +13,7 @@ import (
 	"hellotime/gin/internal/config"
 )
 
-//go:embed migrations/postgres/*.sql
-var pgMigrationsFS embed.FS
-
-//go:embed migrations/sqlite/*.sql
-var sqliteMigrationsFS embed.FS
-
-// Open 根据配置打开数据库连接并运行迁移。
+// Open 根据配置打开数据库连接。数据库初始化/重建由 repo 级 scripts/db 维护。
 func Open() (*gorm.DB, error) {
 	cfg := &gorm.Config{
 		Logger:                 logger.Default.LogMode(logger.Silent),
@@ -51,10 +39,6 @@ func Open() (*gorm.DB, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
-	}
-
-	if err := runMigrations(db, driver); err != nil {
-		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
 	return db, nil
@@ -90,49 +74,4 @@ func sqliteFilePath(raw string) string {
 		return rest[1:] // 吃掉一个斜杠
 	}
 	return rest
-}
-
-func runMigrations(db *gorm.DB, driver string) error {
-	sqlDB, err := db.DB()
-	if err != nil {
-		return err
-	}
-
-	var m *migrate.Migrate
-
-	switch driver {
-	case "postgres":
-		src, err := iofs.New(pgMigrationsFS, "migrations/postgres")
-		if err != nil {
-			return err
-		}
-		dbDrv, err := migratePostgres.WithInstance(sqlDB, &migratePostgres.Config{})
-		if err != nil {
-			return err
-		}
-		m, err = migrate.NewWithInstance("iofs", src, "postgres", dbDrv)
-		if err != nil {
-			return err
-		}
-	case "sqlite":
-		src, err := iofs.New(sqliteMigrationsFS, "migrations/sqlite")
-		if err != nil {
-			return err
-		}
-		dbDrv, err := migrateSQLite.WithInstance(sqlDB, &migrateSQLite.Config{})
-		if err != nil {
-			return err
-		}
-		m, err = migrate.NewWithInstance("iofs", src, "sqlite3", dbDrv)
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unknown driver for migrations: %s", driver)
-	}
-
-	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return err
-	}
-	return nil
 }

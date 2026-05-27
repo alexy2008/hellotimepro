@@ -12,7 +12,14 @@ const FRONTEND_STACK: StackItem[] = [
 ];
 
 const FRONTEND_SUMMARY =
-  "Next.js 15 App Router + React 19 客户端组件构建 UI；前后端共仓共类型，路由文件即页面/接口。Zustand 管理认证与主题状态，所有颜色、间距引用 spec/styles/tokens.css 中的语义化 CSS 变量，Tailwind v4 提供少量原子样式，禁止硬编码值。";
+  "基于 Next.js App Router + React + TypeScript 核心骨架，" +
+  "选用 Zustand 进行客户端状态管理，Tailwind CSS v4 配合 Design Tokens 定制跨端样式规范。" +
+  "利用 Next.js 文件系统路由将前端声明式 UI 与后端 REST API 端点无缝打包在单一 Node 进程中，" +
+  "消除了跨进程调用与跨域配置的开销。" +
+  "通过 React Server Components 的服务端执行优势以及 server-only 编译标记，" +
+  "确保数据库连接与敏感密钥等服务端逻辑在构建阶段被严格隔离，绝不泄露至浏览器端。" +
+  "Zustand 维护客户端状态，配合 HS256 JWT 及 Refresh Token 家族轮转机制实现安全的身份凭证管理。" +
+  "设计令牌以通用 CSS 变量形式提供无缝的暗亮主题切换和极具现代感的响应式视觉系统。";
 
 function IconRow({ items }: { items: StackItem[] }) {
   return (

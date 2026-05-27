@@ -6,11 +6,21 @@
 - Nuxt、Nitro、Vue 3、Pinia、Drizzle ORM、jose 分别在做什么。
 - 想新增一个页面或 API 端点时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 Nuxt 的几个核心思想（文件系统路由、Nitro server engine、自动导入、`.client.ts` 后缀）；第 5～12 节按一次请求的生命周期分前后端两半细讲；第 13 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 Nuxt 的几个核心思想（文件系统路由、Nitro server engine、自动导入、`.client.ts` 后缀）；第 6～9 节按一次请求的生命周期分层细讲；第 10 节对比 Nuxt 与 Next.js 的异同；第 11 节对比全栈与 SPA 差异；第 12 节给出常见改动的步骤清单。
 >
 > 如果你已经读过这个项目里 **Vue3 SPA** 和 **Next.js 全栈** 两份指南，这份的核心问题就是：「Nuxt 怎么把同一份业务，用更 Vue 风味的方式做成全栈」。和 Next.js 的对照是这份文档的暗线。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 Nuxt 全栈实现基于 **Nuxt 3 + Vue 3 + TypeScript** 核心骨架，并选用 **Drizzle ORM** 作为双数据库抽象层、**Pinia** 进行客户端状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制跨端样式规范。其具体选型考量与设计特色如下：
+
+* **Nuxt 3 与 Nitro（优雅的 Vue 全栈生态）**：依托 Nuxt 的文件系统路由与高性能 Nitro 服务端引擎，将基于 Vue 3 组合式 API 的前端界面与基于 h3 的后端 API 端点无缝集成至单个 Node 进程中，天然免去了跨域（CORS）与多套服务部署的繁琐逻辑。
+* **极速自动导入与类型系统（极佳的 DX 体验）**：利用 Nuxt 强大的自动导入（Auto-Imports）机制，开发者无需手动引入 Vue、Pinia、自定义组件或组合式函数即可直接调用。配合全栈 TypeScript 的共享类型，极大缩减了样板代码，提升了研发效率。
+* **Drizzle ORM 与双数据库引擎（通用数据抽象）**：采用轻量化、类型安全的 Drizzle ORM，在服务端根据环境变量动态加载 PostgreSQL (node-postgres) 或 SQLite (better-sqlite3) 驱动，实现同一份业务代码在不同数据库方言下的无感适配。
+* **Pinia 与 JWT 轮转（工程级状态与安全）**：使用 Pinia 构建模块化的单例状态管理，并结合基于 Web Crypto API (jose 库) 的 HS256 JWT 及 Refresh Token 家族轮转机制，在为 Vue 3 提供响应式状态流的同时，打造了严密的用户身份与会话保护屏障。
+* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：通过项目共用的设计令牌（CSS 变量）与新一代 Tailwind CSS v4 编译器，完美契合应用原生的暗/亮色主题，带来高品质、流畅的跨端响应式页面呈现。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。**全栈 Nuxt 实现**把「Vue 前端」和「Nitro 后端」打包成同一个 Node 进程，前端和后端共享 TypeScript 类型、共享数据库连接、共享一份构建产物：
 
@@ -107,7 +117,7 @@ fullstacks/nuxt/
 
 > **关键洞察**：本项目 `nuxt.config.ts` 里设了 `ssr: false`——这是个 **SPA 模式的 Nuxt**，pages 在客户端渲染（不预渲染 HTML）。但 Nitro server 仍然存在并提供 `/api/v1/*`。这让前端体验和 React/Vue SPA 一致，便于多栈对比。生产 Nuxt 项目通常开 SSR 拿首屏优势。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 ```bash
 cd fullstacks/nuxt
@@ -126,7 +136,7 @@ DB_DRIVER=sqlite ./run         # 零依赖跑 SQLite
 
 构建产物 `.output/server/index.mjs` 是 Nitro 打包的可执行 Node 应用——一个文件就能 `node` 起来。
 
-## 3. 入口与三类文件夹：`app.vue` / `pages/*` / `server/api/*`
+## 4. 入口与三类文件夹：`app.vue` / `pages/*` / `server/api/*`
 
 Nuxt 的核心约定是 **「按角色分目录」**——`pages/`、`layouts/`、`components/`、`composables/`、`stores/`、`middleware/`、`plugins/`、`server/` 每个目录的内容都被 Nuxt 自动识别为对应角色。
 
@@ -190,7 +200,7 @@ watch(hydrated, (v) => { if (v) void plaza.fetch(); });
 </template>
 ```
 
-跟 Vue3 SPA 版几乎一模一样——只是少了 `import PlazaToolbar from "@/components/PlazaToolbar.vue"` 这种行（详见 §4.3 自动导入）。
+跟 Vue3 SPA 版几乎一模一样——只是少了 `import PlazaToolbar from "@/components/PlazaToolbar.vue"` 这种行（详见 §5.3 自动导入）。
 
 ### 3.4 `server/api/v1/health.get.ts`：REST 端点
 
@@ -259,7 +269,7 @@ export default defineEventHandler((event) =>
 - `[capsuleId]` 文件夹/文件名段是动态参数。`getRouterParam(event, "capsuleId")` 取出。
 - `withApi(..., { successStatus: 204, emptyBody: true })` 让成功响应没有 body、状态码 204。
 
-## 4. Nuxt 的核心思想
+## 5. Nuxt 的核心思想
 
 ### 4.1 文件系统路由：URL 不需要写代码
 
@@ -340,7 +350,7 @@ definePageMeta({ middleware: ["auth"] });
 
 这等价于 Next.js 的 `import "server-only"`，但是 **目录级别的隔离**——不需要在每个文件首行加导入。客户端代码想 import `~/server/lib/security` 直接构建失败。
 
-## 5. 数据层：Drizzle ORM + 双数据库
+## 6. 数据层：Drizzle ORM + 双数据库
 
 跟 Next.js 全栈版用同一套思路，只是文件路径在 `server/db/`：
 
@@ -398,7 +408,7 @@ await db.update(t.capsules)
 
 跟 Next.js 全栈版一样，手写一个简化 migrator：按文件名顺序执行 SQL，所有迁移用 `CREATE TABLE IF NOT EXISTS` 保证幂等。`./run` 启动前自动跑。
 
-## 6. 服务端架构：`server/api/*` → `server/services/*` → `server/db/*`
+## 7. 服务端架构：`server/api/*` → `server/services/*` → `server/db/*`
 
 每个 Nitro Event Handler 都是这个三段式：
 
@@ -491,7 +501,7 @@ export async function login(body: { email: string; password: string }): Promise<
 - 限流字典挂 `globalThis.__helloTimeLoginFailures` 上（HMR-safe）。
 - refresh token 轮转、重放检测算法与 FastAPI/Spring Boot 版本一致。
 
-## 7. 客户端：`api/client.ts` + `stores/*` + plugin
+## 8. 客户端：`api/client.ts` + `stores/*` + plugin
 
 虽然「同一进程」，浏览器仍然通过 HTTP 调 `/api/v1/*`。
 
@@ -548,7 +558,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
 页面通过 `definePageMeta({ middleware: ["auth"] })` 启用。和 Vue3 SPA 的 `router.beforeEach` 思路一样，但写法更分散（每个守卫一个文件，每个页面声明用哪些）。
 
-## 8. 样式：Tailwind v4 + 设计令牌
+## 9. 样式：Tailwind v4 + 设计令牌
 
 ```css
 /* styles/index.css （由 nuxt.config.ts 的 css 选项导入）*/
@@ -566,7 +576,7 @@ export default defineNuxtRouteMiddleware((to) => {
 - 组件用 `cy-*` 共享类。
 - Tailwind v4 通过 Vite 插件接入（`vite: { plugins: [tailwindcss()] }`）。
 
-## 9. Nuxt 与 Next.js 的并排对比
+## 10. Nuxt 与 Next.js 的并排对比
 
 由于两套全栈实现解决同一个问题，最直观的学习方式是并排看：
 
@@ -591,7 +601,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
 **两边几乎所有「服务端业务代码」一一对应**——`server/lib/security.ts` ↔ `src/lib/server/security.ts`、`server/services/auth.ts` ↔ `src/services/auth.ts`、`server/db/index.ts` ↔ `src/db/index.ts`。差异只在「壳」：路由约定、请求/响应 API、自动导入。
 
-## 10. 「全栈」相对于「SPA + 独立后端」的差异要点
+## 11. 「全栈」相对于「SPA + 独立后端」的差异要点
 
 跟 Next.js 版同样适用：
 
@@ -605,7 +615,7 @@ export default defineNuxtRouteMiddleware((to) => {
 | 文件夹/路由 | 后端 routes/、前端 router.ts | 全在 `pages/` + `server/api/` |
 | HMR 单例 | 各自 reload | 需 `globalThis` 缓存 |
 
-## 11. 常见改动指南
+## 12. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -623,7 +633,7 @@ export default defineNuxtRouteMiddleware((to) => {
 | 改主题色 / 间距 | 修改 `spec/styles/tokens.css`，所有前端同步生效 |
 | 改部署目标 | `nuxt.config.ts` 里改 `nitro.preset` |
 
-## 12. 学到这里之后
+## 13. 学到这里之后
 
 你已经掌握了 Nuxt 全栈最常见的 80%：文件系统路由（`pages/` + `server/api/<method>.ts`）、Nitro event handler API、自动导入（components/composables/stores/Vue/h3）、`.client.ts` / `.server.ts` 环境隔离、`definePageMeta` + middleware、`defineNuxtPlugin` 启动钩子、Drizzle 双数据库、`withApi` 响应包装、`requireClaims` 鉴权、`globalThis` 单例。
 

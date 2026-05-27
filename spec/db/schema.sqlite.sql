@@ -1,24 +1,11 @@
--- HelloTime Pro · SQLite 初始 schema
--- 版本：000001
+-- HelloTime Pro · SQLite Schema（规范事实源的 SQLite 方言）
 --
--- ⚠ 此文件已不再被 Gin 后端调用。
--- golang-migrate 依赖已从 go.mod 移除，数据库 schema 由仓库级
--- scripts/db（spec/db/db_maintenance.py）统一维护。
--- SQLite 规范 schema 见 spec/db/schema.sqlite.sql。
--- 本文件仅作历史参考，不随 spec/db 同步更新。
---
--- 与 spec/db/schema.sql 同构（方言降级）：
---   - UUID 用 TEXT（应用层生成 36 字符 UUID 字符串）
+-- 与 spec/db/schema.sql 同构：
+--   - UUID 用 TEXT（应用层/seed 负责生成）
 --   - BOOLEAN 用 INTEGER（0/1）
---   - **TIMESTAMPTZ 用 DATETIME**（关键！）
---
--- 时间列类型必须声明为 DATETIME / TIMESTAMP（而非裸 TEXT）。
--- 因为 mattn/go-sqlite3 驱动只有看到列的 declared type 是这几个时间关键字才会
--- 把存储的字符串自动解析回 time.Time。声明为 TEXT 会让 GORM scan 报：
---   sql: Scan error ... storing driver.Value type string into type *time.Time
--- 表现为：register 成功（INSERT 走的是 string，没问题），但任何 SELECT 进
--- model.User 都失败，所有 RequireAuth 的端点返回 401 "用户不存在"。
--- SQLite 本身是动态类型，DATETIME / TEXT 在存储层等价；这只是个声明。
+--   - TIMESTAMPTZ 用 DATETIME，兼容 Go sqlite 驱动的 time.Time 扫描
+
+PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
     id             TEXT     PRIMARY KEY,
@@ -62,11 +49,11 @@ CREATE TABLE IF NOT EXISTS capsules (
         CHECK (favorite_count >= 0)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS capsules_code_uk          ON capsules (code);
-CREATE        INDEX IF NOT EXISTS capsules_owner_created_ix ON capsules (owner_id, created_at DESC);
-CREATE        INDEX IF NOT EXISTS capsules_plaza_hot_ix     ON capsules (in_plaza, favorite_count DESC, created_at DESC);
-CREATE        INDEX IF NOT EXISTS capsules_plaza_new_ix     ON capsules (in_plaza, created_at DESC);
-CREATE        INDEX IF NOT EXISTS capsules_plaza_open_at_ix ON capsules (in_plaza, open_at);
+CREATE UNIQUE INDEX IF NOT EXISTS capsules_code_uk           ON capsules (code);
+CREATE        INDEX IF NOT EXISTS capsules_owner_created_ix  ON capsules (owner_id, created_at DESC);
+CREATE        INDEX IF NOT EXISTS capsules_plaza_hot_ix      ON capsules (in_plaza, favorite_count DESC, created_at DESC);
+CREATE        INDEX IF NOT EXISTS capsules_plaza_new_ix      ON capsules (in_plaza, created_at DESC);
+CREATE        INDEX IF NOT EXISTS capsules_plaza_open_at_ix  ON capsules (in_plaza, open_at);
 
 CREATE TABLE IF NOT EXISTS favorites (
     user_id     TEXT     NOT NULL REFERENCES users (id)    ON DELETE CASCADE,

@@ -10,10 +10,18 @@
   ];
 
   const FRONTEND_SUMMARY =
-    "基于 Svelte 5 Runes 模式（$state / $derived / $effect）构建，" +
-    "状态通过 .svelte.ts 单例类聚合 auth / theme / plaza 三个域，" +
-    "副作用与防抖 / 倒计时等交互逻辑封装为 createCountdown / createDebounced 等可复用工具，" +
-    "样式通过 Tailwind CSS v4 语义 token 统一约束。";
+    "基于 Svelte 5 + TypeScript + Vite 核心骨架，选用 svelte-routing 控制路由，" +
+    "基于原生 Runes Class Singletons 建立零依赖的状态管理，" +
+    "Tailwind CSS v4 配合 Design Tokens 定制视觉系统。" +
+    "利用 Svelte 5 革命性的 Runes 特性，通过编译期静态分析实现无虚拟 DOM 的极致运行效率与精确重绘，" +
+    "配合 svelte-routing 的声明式跳转提供流畅的单页应用体验。" +
+    "TypeScript 静态类型检查使前端数据结构与后端 OpenAPI 合约保持高度一致，" +
+    "在编码阶段即可拦截绝大多数运行时异常。" +
+    "Vite 基于原生 ESM 的极速热更新特性完美对接 Svelte 编译流程，输出极其轻量的静态资源。" +
+    "摒弃繁重状态管理库，直接利用 $state 在标准类中声明响应式状态，" +
+    "以模块化 class 单例暴露全局状态，在组件外的 API 请求库中也可优雅地读写。" +
+    "设计令牌将颜色、字号等样式规范抽离为跨前端通用的 CSS 变量，" +
+    "配合 Tailwind v4 使暗亮主题切换高效统一。";
 
   let health = $state<HealthData | null>(null);
   let error = $state<string | null>(null);

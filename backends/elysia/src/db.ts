@@ -233,6 +233,7 @@ CREATE INDEX IF NOT EXISTS refresh_tokens_family_ix ON refresh_tokens (family_id
 CREATE INDEX IF NOT EXISTS refresh_tokens_expires_ix ON refresh_tokens (expires_at);
 `;
 
+// migrate() 不再由 main.ts 调用；schema 由仓库级 scripts/db 维护。
 export async function migrate() {
   const h = await getHandle();
   if (h.kind === "postgres") {

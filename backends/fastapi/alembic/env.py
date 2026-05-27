@@ -1,4 +1,10 @@
-"""Alembic 环境：从 app.core.config 读 DB_URL，复用同一 engine 工厂。"""
+"""Alembic 环境：从 app.core.config 读 DB_URL，复用同一 engine 工厂。
+
+⚠ backends/fastapi/run 已不再调用 `alembic upgrade head`。
+  数据库 schema 由仓库级 scripts/db（spec/db/db_maintenance.py）统一维护。
+  若在已由 scripts/db init 建好 schema 的库上直接运行 alembic，
+  会因表已存在而报错。如需手动操作，请先确认库是否为空。
+"""
 
 from __future__ import annotations
 

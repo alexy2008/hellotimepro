@@ -6,9 +6,18 @@
 - Gin、GORM、golang-migrate、`golang-jwt`、`bcrypt` 分别负责什么。
 - 想新增一个接口、字段或业务规则时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 Gin 的几个核心机制（路由分组、中间件链、context）；第 5～12 节按一次请求的生命周期分层细讲；第 13 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口；第 5 节集中讲 Gin 的几个核心机制（路由分组、中间件链、context）；第 6～13 节按一次请求的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 Gin 后端实现基于 **Go + Gin + GORM** 核心骨架，并选用 **golang-migrate** 管理数据库迁移、**golang-jwt** 结合 **bcrypt** 提供安全的 JWT 与密码处理，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+
+* **Go 与 Gin（天然的高并发与极速 HTTP 路由）**：利用 Go 语言轻量级协程（Goroutine）和原生高并发的优势，配合 Gin 轻量级的 HTTP 路由与中间件链，实现极低的请求延迟与优异的吞吐量。
+* **GORM（简洁高效的 ORM 数据库访问）**：选用 Go 生态最主流 of GORM 库作为数据库访问层，通过简洁的结构体标签（Struct Tags）实现强大的表关系映射与自动数据映射，大幅简化了数据持久化代码。
+* **双数据库自适应与二进制静态打包**：项目同时支持 SQLite 和 PostgreSQL。在 SQLite 模式下对路径与锁行为进行了精细设计，并在 Go 编译时利用 `//go:embed` 将 SQL 迁移脚本直接编译进二进制文件，使得程序可以在无任何外部依赖的情况下单文件部署运行。
+* **清晰的四层架构设计**：项目在内部（`internal/`）划分了配置层（Config）、错误与安全工具（Core）、数据模型（Model/Db）、请求/响应数据载体（DTO）以及业务逻辑（Service），实现了严格的展示与业务分离，行文清晰易读。
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。Gin 后端的职责是：
 
@@ -71,7 +80,7 @@ PostgreSQL 或 SQLite
 
 返回方向：service 把数据库行转成 `dto.*` 结构体，handler 用 `dto.OK(...)` 包一层「成功外壳」，`c.JSON(...)` 把对象用 `encoding/json` 写回响应。出错时一律走 `middleware.RespondErr(c, err)`，按 `APIError.StatusCode` 输出统一的「错误外壳」。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 开发运行：
 
@@ -108,7 +117,7 @@ GIN_ROOT=$PWD ./bin/hellotime-gin    # 二进制需要知道 static/ 目录在�
 
 > 第一次运行会下载 Go 模块（约 30～60 秒），之后缓存到 `$GOPATH/pkg/mod`。
 
-## 3. 入口：`cmd/server/main.go`
+## 4. 入口：`cmd/server/main.go`
 
 整个应用的启动顺序大概是这样：
 
@@ -143,7 +152,7 @@ func main() {
 - **`gin.Logger()` 与 `gin.Recovery()`**：Gin 自带的两个中间件。Recovery 把每个请求里的 panic 捕获成 500，避免一个请求挂掉整个 server。
 - **静态资源同步**：每个后端实现需要展示同样的头像/图标，所以启动时把仓库的 `spec/{avatars,icons}/*.svg` 拷贝到 `static/`，再用 `r.Static` 暴露出去。
 
-## 4. Gin 的几个关键思想
+## 5. Gin 的几个关键思想
 
 Gin 没有「魔法」，但有 **三件事** 对刚从 `net/http` 切过来的人最直观地体现框架价值。看懂它们，剩下都是 Go 标准写法。
 
@@ -223,7 +232,7 @@ if err := c.ShouldBindJSON(&req); err != nil {
 
 > 没用 `MustBindWith / BindJSON` 的原因是这两个会自动写 400 响应，会和我们的统一错误包装冲突。一律用 `ShouldBindXxx`，自己控制响应。
 
-## 5. 配置层：`config/config.go`
+## 6. 配置层：`config/config.go`
 
 Gin 后端没有 yml/properties 文件，全部走环境变量。`config/config.go` 在包初始化时（`init()` 函数）一次性把环境变量读进全局 `App` 变量：
 
@@ -254,7 +263,7 @@ func init() {
 - **`repoRoot()` 用 `runtime.Caller(0)`** 反向定位仓库根目录，向上走 4 层。这样无论从哪里启动二进制，都能找到 `spec/` 目录读 `catalog.json` 和提示词文件。
 - **跨数据库切换**：`DB_DRIVER` 是开关；`DB_URL` 是连接字符串，分别对应 `postgresql://...` 或 `sqlite://...`。`run` 脚本在调用前先标准化这两个变量。
 
-## 6. 数据库层：GORM + golang-migrate
+## 7. 数据库层：GORM + golang-migrate
 
 ### 6.1 连接：`db/database.go`
 
@@ -355,7 +364,7 @@ tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&fav)
 - **占位符**：用 `?` 而不是字符串拼接，防注入由驱动负责转义。
 - **`UpdateColumn` vs `Update`**：`UpdateColumn` 不触发 GORM 钩子和 `updated_at` 自动更新，更接近裸 SQL；`Update` 会更新 `updated_at`。
 
-## 7. 错误处理：`core/errors.go`
+## 8. 错误处理：`core/errors.go`
 
 Go 没有异常，业务错误用「自定义 error 类型 + 显式返回」表达。本项目定义了一个统一的 `APIError`：
 
@@ -390,7 +399,7 @@ core.InternalErr("...")
 
 > Go 风格上，错误是「返回值」不是「异常」。**永远不要忽略 `err`**——本项目里看到 `_ = c.ShouldBindJSON(&req)` 这种忽略是因为 logout 的请求体允许为空，是经过思考的取舍。
 
-## 8. DTO 层：请求 / 响应数据载体
+## 9. DTO 层：请求 / 响应数据载体
 
 `internal/dto/` 下每个文件管一组结构体，全部是普通 Go struct + json/binding tag。
 
@@ -424,7 +433,7 @@ type CapsuleDetail struct {
 
 Go 的嵌入既「共享字段」也「共享 JSON 序列化」——`CapsuleDetail` 的 JSON 会平铺出 ID/Code/Title…… 加上 content/favoritedByMe，不需要手写组合。
 
-## 9. 服务层：业务逻辑都在这里
+## 10. 服务层：业务逻辑都在这里
 
 handler 只做「解参数 → 调 service → 写响应」，真正的业务在 `service/`。
 
@@ -526,7 +535,7 @@ func loadAvatarsOnce() {
 - `errors.As(err, &llmE)` 是 Go 1.13+ 的标准做法，比 `if e, ok := err.(*Foo); ok` 更鲁棒（能穿透 `fmt.Errorf("%w", ...)` 包装）。
 - `var llmHTTPClient = &http.Client{Timeout: 30 * time.Second}` 是包级单例，复用底层连接池。**生产中绝对不要在每次请求时 `http.Get` 或裸用 `http.DefaultClient`**：前者每次新建 client；后者没有超时，可能挂死。
 
-## 10. 中间件层：`middleware/auth.go`
+## 11. 中间件层：`middleware/auth.go`
 
 只有一个文件，但它干了 4 件事：
 
@@ -547,7 +556,7 @@ func RespondErr(c *gin.Context, err error)   { ... }    // 统一错误响应
 - **`CtxUser` 用字符串而非 typed key**：教学项目简化。生产代码通常用 `type ctxKey struct{}; const userKey ctxKey = 1` 避免键冲突。
 - **`RespondErr` 用 `gin.H`** 写响应：`gin.H` 是 `map[string]any` 的别名，临时 JSON 用它最方便；正式 DTO 用结构体。
 
-## 11. 数据库迁移：golang-migrate
+## 12. 数据库迁移：golang-migrate
 
 `internal/db/migrations/{postgres,sqlite}/` 各一份 `000001_init.up.sql`（也有对应的 `down.sql`）。
 
@@ -557,7 +566,7 @@ func RespondErr(c *gin.Context, err error)   { ... }    // 统一错误响应
 
 要新增表 / 字段：再放一对 `000002_xxx.up.sql / .down.sql`（两套都加），重启即可。**不要修改已经发布的迁移**——执行过的环境会因校验和不一致而启动失败。
 
-## 12. 测试
+## 13. 测试
 
 Gin 后端的契约一致性由仓库统一的「外部 black-box 验证」覆盖：
 
@@ -580,7 +589,7 @@ func TestHealth(t *testing.T) {
 
 > 这个 pattern 不启动 TCP socket，比 `net/http/httptest.NewServer` 更轻量。
 
-## 13. 常见改动指南
+## 14. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -594,7 +603,7 @@ func TestHealth(t *testing.T) {
 | 改默认错误响应 | `internal/middleware/auth.go` 的 `RespondErr` 或 `internal/core/errors.go` 的构造器 |
 | 临时调端口 / 数据库 | 设置环境变量即可：`PORT=29021 ./run`、`DB_DRIVER=sqlite ./run` |
 
-## 14. 学到这里之后
+## 15. 学到这里之后
 
 读到这里，你已经掌握了 Gin 项目最常见的 80%：路由分组、中间件链、`*gin.Context`、`ShouldBindJSON`、GORM 单行/批量/事务/行锁、`embed.FS` + golang-migrate、统一的 `APIError` 错误模型、`sync.Once / sync.Map` 并发原语、闭包注入依赖。
 

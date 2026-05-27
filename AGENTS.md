@@ -10,8 +10,14 @@ Guidance for OpenCode sessions working in this repository.
 # Dev manager CLI
 ./scripts/hello <start|stop|status|switch|doctor|logs|restart-all>
 
-# Postgres (docker-compose.yml exists)
-docker compose up -d postgres  # Runs on :55432
+# Database maintenance (explicit; never hidden in backend run scripts)
+./scripts/db <status|init|reset|seed>
+./scripts/db reset --seed
+./scripts/db seed --force
+
+# Postgres
+# Use the Web UI / data/.hello-state.json configured local PostgreSQL connection.
+# Do not probe or start Docker for PostgreSQL unless the user explicitly asks.
 
 # Reference stack verification
 DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi
@@ -19,11 +25,19 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi
 ./verification/scripts/verify-ui-smoke.sh react-ts
 ```
 
+## Verification Notes
+- Backend contract verification currently covers 92 black-box API cases.
+- UI smoke verification currently covers 20 Playwright cases across auth, capsule creation/opening, plaza search/favorites, profile, protected routes, and public pages.
+- `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte>` explicitly runs `./scripts/db init` before starting the target frontend; it does not reset or seed data.
+- Latest four-frontend run on local PostgreSQL + Gin proxy passed: React 20/20 (18s), Vue 20/20 (22s), Angular 20/20 (26s), Svelte 20/20 (17s).
+
 ## Critical Constraints
 - **Spec-driven**: All API, schema, and styling rules live in `spec/`. Never override spec in implementations.
 - **Black-box verification only**: No implementation-aware test shortcuts.
 - **Styling**: Tailwind CSS v4 + semantic tokens from `spec/styles/tokens.css`. Hardcoded color/spacing values prohibited.
 - **Database**: Default Postgres, SQLite via `DB_DRIVER=sqlite` env var. All backends/fullstacks must support both.
+- **Local PostgreSQL**: The service is already managed locally and its connection settings are configured through the Web UI / `data/.hello-state.json`; use those settings for Postgres work and do not attempt Docker startup/probing by default.
+- **DB lifecycle separation**: Backend `run` scripts only start services. They must not create/reset schema, run migrations, import demo data, or call repo-level maintenance scripts. Use `./scripts/db` for schema init/reset/seed.
 - **Denormalization**: `favorite_count` on capsules must be maintained via transactions/triggers per stack idiom.
 - **Git commits**: Commit messages must be written in Chinese unless the user explicitly requests otherwise.
 
@@ -47,6 +61,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi
 - Capsule content/unlock date immutable after creation; users can delete own capsules anytime.
 - Out of scope: password reset, OAuth, file uploads, comments, email notifications.
 - Ports chosen to avoid conflicts with legacy `HelloTimeByClaude` project.
+- Database schema/data maintenance is explicit and implementation-agnostic: `spec/db` is the source, `scripts/db` applies it, and backend implementations consume an already-prepared database.
 
 ## Reference Docs
 Full details: `docs/01-requirements.md`, `docs/02-design.md`, `docs/03-roadmap.md`

@@ -1,5 +1,10 @@
 -- HelloTime Pro · PostgreSQL 初始 schema（与 spec/db/schema.sql 等价）
 -- 版本：000001
+--
+-- ⚠ 此文件已不再被 Gin 后端调用。
+-- golang-migrate 依赖已从 go.mod 移除，数据库 schema 由仓库级
+-- scripts/db（spec/db/db_maintenance.py）统一维护。
+-- 本文件仅作历史参考，不随 spec/db/schema.sql 同步更新。
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;

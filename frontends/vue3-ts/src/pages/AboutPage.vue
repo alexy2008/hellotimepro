@@ -11,9 +11,18 @@ const FRONTEND_STACK: StackItem[] = [
 ];
 
 const FRONTEND_SUMMARY =
-  "基于 Vue 3 Composition API + TypeScript 5 构建，<script setup> 语法按关注点聚合逻辑，" +
-  "Pinia 管理 auth、theme、plaza 三个状态域，自定义 composable 封装倒计时等交互逻辑，" +
-  "样式通过 Tailwind CSS v4 语义 token 统一约束。";
+  "基于 Vue 3 + TypeScript + Vite 核心骨架，选用 Vue Router 控制路由与全局守卫，" +
+  "Pinia 进行轻量级状态管理，Tailwind CSS v4 配合 Design Tokens 定制视觉系统。" +
+  "利用 Vue 3 Composition API 和细粒度响应式系统实现更直观的逻辑复用，" +
+  "配合 Vue Router 的嵌套路由与导航守卫，" +
+  "用户切换页面时无需刷新浏览器即可获得流畅的单页应用体验。" +
+  "TypeScript 静态类型检查使前端数据结构与后端 OpenAPI 合约保持高度一致，" +
+  "在编码阶段即可拦截绝大多数运行时异常。" +
+  "Vite 基于原生 ESM 的极速热更新特性实现代码改动的即时响应，大幅提升开发效率。" +
+  "Pinia 以 setup 风格和直接突变的 action 机制完美契合 Vue 3 的心智模型，" +
+  "同时极易在组件外部调用。" +
+  "设计令牌将颜色、字号等样式规范抽离为跨前端通用的 CSS 变量，" +
+  "配合 Tailwind v4 使暗亮主题切换高效统一。";
 
 const health = ref<HealthData | null>(null);
 const error = ref<string | null>(null);

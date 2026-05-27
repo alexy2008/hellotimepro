@@ -11,9 +11,17 @@ function buildStack(): { kind: "fullstack"; summary: string; items: StackItem[] 
   const dbVer = isSqlite ? "3" : "16";
   const dbIcon = isSqlite ? "sqlite" : "postgresql";
 
-  const summary = isSqlite
-    ? "基于 Next.js 15 App Router + TypeScript 全栈实现，Route Handlers 提供 /api/v1/* REST 接口，Drizzle ORM 同一份查询代码同时驱动 SQLite / PostgreSQL，bcryptjs + jose 实现 JWT 双令牌鉴权，Zod 校验请求体，适合本地开发与 CI 验证。"
-    : "基于 Next.js 15 App Router + TypeScript 全栈实现，Route Handlers 提供 /api/v1/* REST 接口，Drizzle ORM + node-postgres 承载业务数据，bcryptjs + jose 实现 JWT 双令牌鉴权，Zod 校验请求体，refresh token 族追踪防重放，前后端共享同一仓库与类型定义。";
+  const summary =
+    "基于 Next.js App Router + TypeScript 全栈实现，" +
+    "Route Handlers 提供 /api/v1/* REST 接口，" +
+    "选用 Drizzle ORM 作为双数据库抽象层，bcryptjs + jose 实现 JWT 双令牌鉴权，" +
+    "Zod 校验请求体，同时支持 PostgreSQL 与 SQLite 双数据库驱动切换。" +
+    "利用文件系统路由将页面与 API 端点统一组织，前后端共享 TypeScript 类型与 Zod Schema。" +
+    "Drizzle ORM 通过动态导入技术无缝适配 PostgreSQL 和 SQLite 双数据库引擎，" +
+    "其 TypeScript 即 SQL 的设计理念确保了从 Schema 到查询的全链路类型安全。" +
+    "server-only 编译期防火墙保证数据库连接、JWT 密钥等绝不会被打进浏览器 bundle。" +
+    "Refresh Token 家族轮转与重放检测提供金融级的身份安全防范。" +
+    "前后端共享同一仓库、同一类型定义、同一构建产物。";
 
   const items: StackItem[] = [
     { role: "language", name: "TypeScript", version: "5", iconUrl: "/static/icons/typescript.svg" },

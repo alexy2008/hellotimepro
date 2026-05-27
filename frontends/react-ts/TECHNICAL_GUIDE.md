@@ -6,9 +6,21 @@
 - React、TypeScript、Vite、React Router、Zustand、Tailwind 分别在做什么。
 - 想新增一个页面、状态或接口调用时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节先建立整体地图；第 4 节集中讲 React 的几个核心概念（组件、JSX、Hooks、单向数据流）；第 5 节快速过 TypeScript；第 6～13 节按一次「打开页面」的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 React 的几个核心概念（组件、JSX、Hooks、单向数据流）；第 6 节快速过 TypeScript；第 7～14 节按一次「打开页面」的生命周期分层细讲；第 15 节给出常见改动的步骤清单。
 
-## 1. 先建立整体地图
+## 1. 技术选型与设计特色
+
+HelloTime Pro 的 React 前端实现基于 **React + TypeScript + Vite** 核心骨架，并选用 **React Router** 控制路由、**Zustand** 进行轻量级状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制视觉系统。其具体选型考量与设计特色如下：
+
+* **React 与 React Router（声明式 UI 与单页体验）**：利用 React 声明式 UI 和单向数据流的优势，配合 React Router 的嵌套路由与守卫机制。用户在切换页面时无需刷新浏览器，即可获得流畅、连贯的单页应用（SPA）体验。
+* **TypeScript（强类型约束与契约对齐）**：通过静态类型检查，使前端数据结构与后端的 OpenAPI 合约（`openapi.yaml`）保持高度一致。在编写代码阶段即可拦截绝大多数因字段拼写错误或未处理空值（null/undefined）导致的运行时异常。
+* **Vite 构建（极速的开发与编译体验）**：基于原生 ESM 的极速热更新（HMR）特性，能实现代码改动的即时响应，大幅提升开发效率，并在生产环境下输出高度优化的静态资源。
+* **Zustand（轻量且解耦的状态管理）**：避开繁重的 Redux 架构，选用极简的 Zustand 进行状态管理。其模块化单例与订阅机制既避免了 React Context 的无谓重渲染，又极易在 React 组件外部（例如 API 客户端中）同步读取和修改状态。
+* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：将颜色、字号等样式规范抽离为跨前端通用的设计令牌（CSS 变量）。配合 Tailwind v4 使得暗/亮主题切换和视觉一致性的维护变得十分高效。
+
+
+
+## 2. 先建立整体地图
 
 HelloTime Pro 是一个时间胶囊应用。React 前端的职责是：
 
@@ -73,7 +85,7 @@ api.plaza({...}) → fetch("/api/v1/plaza/capsules")
 
 返回方向上完全相反：用户点收藏按钮 → `FavoriteButton.onClick` → `api.favorite(id)` → 收到新计数 → `setActive / setCount / patchPlaza` → 触发 React 重渲染。**只有状态变更会触发渲染，没有人手动操作 DOM**——这是 React 和原生 JS 写法最大的差别。
 
-## 2. 如何运行和验证
+## 3. 如何运行和验证
 
 ```bash
 cd frontends/react-ts
@@ -99,7 +111,7 @@ vite build       # 把 src/ 打包到 dist/（HTML + 1 个 JS bundle + CSS + 静
 
 部署时把 `dist/` 放到任意静态服务器即可，但需要把 `/api/*` 反代到后端。
 
-## 3. 入口链路：`index.html` → `main.tsx` → `App.tsx`
+## 4. 入口链路：`index.html` → `main.tsx` → `App.tsx`
 
 ### 3.1 `index.html`：SPA 的唯一 HTML
 
@@ -176,14 +188,14 @@ export function App() {
 
 做的事：
 
-1. 从 Zustand store 读出几个函数和状态（第 4 节会讲选择器）。
+1. 从 Zustand store 读出几个函数和状态（第 5 节会讲选择器）。
 2. **首次挂载时**（`useEffect` + 空依赖等效）调 `hydrate()` 把 localStorage 里持久化的主题和登录态读进内存。
 3. 一旦 `hydrated && refreshToken` 都齐了，主动调一次 `/me` 验证登录态。
 4. 渲染路由提供者 `<RouterProvider router={router} />`，把 URL 控制权交给 React Router。
 
 后面再讲 `useAuth((s) => s.hydrate)` 这种「Zustand 选择器」的语法。
 
-## 4. React 的核心概念
+## 5. React 的核心概念
 
 React 没有「魔法」，但有 **四个核心概念** 是 HTML/JS 老兵第一次写 React 时最容易困惑的地方。看懂它们，剩下都是 JS 语法。
 
@@ -291,7 +303,7 @@ setInterval(() => setTick(tick + 1), 1000);       // ❌ tick 永远是 effect �
 
 这是 React 里最常踩的坑之一：`setInterval` 回调里 `tick` 是创建 effect 时的快照。永远传更新函数，让 React 帮你拿当前值。
 
-## 5. TypeScript 快速概览
+## 6. TypeScript 快速概览
 
 `.ts` 与 `.tsx` 文件本质是带类型注解的 JavaScript。Vite/编译器会把它们去掉类型转成 JS。读代码时几乎可以「把冒号后面的内容当注释」忽略。
 
@@ -317,7 +329,7 @@ e instanceof ApiError                     // 运行时类型检查，TS 会窄�
 
 `tsconfig.app.json` 里开了 `strict: true`，所以 null 必须显式处理。生产构建第一步就是 `tsc -b` 跑类型检查——类型错的代码无法构建。
 
-## 6. 路由层：`router.tsx`
+## 7. 路由层：`router.tsx`
 
 ```tsx
 import { createBrowserRouter, Navigate } from "react-router-dom";
@@ -364,7 +376,7 @@ navigate("/me/created", { replace: true });
 
 它们都**不刷新页面**——浏览器地址栏变了，React 重新渲染对应的页面组件而已。
 
-## 7. 关键模式：守卫与布局
+## 8. 关键模式：守卫与布局
 
 ### 7.1 `MainLayout.tsx` / `MeLayout.tsx`：共享外壳
 
@@ -398,10 +410,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
 ```
 
 - `children` 是 React 内置 prop：被 `<AuthGate>...</AuthGate>` 包裹的内容会作为它传进来。
-- 守卫的精妙之处：只有 `refreshToken` 也允许进入——因为接下来的 API 调用会自动 refresh（见 §8.2），用户看不到打断。
+- 守卫的精妙之处：只有 `refreshToken` 也允许进入——因为接下来的 API 调用会自动 refresh（见 §9.2），用户看不到打断。
 - 把当前 URL 塞到导航 state，登录后 `LoginPage` 读出并回跳，体验更好。
 
-## 8. 数据层：`api/client.ts`
+## 9. 数据层：`api/client.ts`
 
 ### 8.1 通用 `request<T>(path, opts)`
 
@@ -481,7 +493,7 @@ configureApi({
 
 `stores/auth.ts` 模块被加载时立即调用一次，把 store 的 getter 注册给 client。之后 client 拿 token 都走这些函数。
 
-## 9. 状态层：Zustand
+## 10. 状态层：Zustand
 
 [Zustand](https://github.com/pmndrs/zustand) 是个极简状态管理库。比起 Redux，它几乎没有样板代码。
 
@@ -554,7 +566,7 @@ fetch: async () => {
 
 用户快速切 sort/filter 时会连发好几个请求，网络响应顺序不一定和发起顺序一致。`fetchSeq` 保证「只有最后发起的那个请求才能写状态」，避免老结果覆盖新结果。
 
-## 10. 页面层与组件层
+## 11. 页面层与组件层
 
 ### 10.1 一个页面的典型骨架
 
@@ -627,7 +639,7 @@ async function submit(e: FormEvent) {
 | **交互** | `FavoriteButton`、`PlazaToolbar`、`AvatarPicker` | 有内部 state + 副作用 |
 | **守卫** | `AuthGate` | 包住 children，根据条件 render 或重定向 |
 
-## 11. 工具层：`utils/format.ts` 等
+## 12. 工具层：`utils/format.ts` 等
 
 纯函数，没有 React 依赖，可以直接 import 用：
 
@@ -653,7 +665,7 @@ const cd = countdownTo(capsule.openAt);            // 每次渲染重算
 
 `setTick` 仅用于强制重渲染，**值本身不展示**。计算放在渲染期，`useEffect` 只管定时触发。已开启的胶囊提早 `return`，永不创建 interval——避免列表里几十个卡片都在跑无用定时器。
 
-## 12. 样式层：Tailwind + 设计令牌
+## 13. 样式层：Tailwind + 设计令牌
 
 ```css
 /* src/styles/index.css */
@@ -670,7 +682,7 @@ const cd = countdownTo(capsule.openAt);            // 每次渲染重算
 - Tailwind v4 通过 `@tailwindcss/vite` 插件接入，主要用 utility 类做微调（间距、对齐）。
 - 内联 `style={{ ... }}` 仅用于一次性、与 token 无关的微调（比如某个卡片的 max-width）。
 
-## 13. 测试：vitest
+## 14. 测试：vitest
 
 ```bash
 ./test
@@ -678,7 +690,7 @@ const cd = countdownTo(capsule.openAt);            // 每次渲染重算
 
 跑的是 `*.test.ts(x)` 文件。本项目目前有 `api/client.test.ts` 和 `utils/format.test.ts`，验证 fetch 拦截、解包、倒计时计算。组件测试需要 jsdom + React Testing Library，本项目（教学版）没有引入。
 
-## 14. 常见改动指南
+## 15. 常见改动指南
 
 | 想做什么 | 改哪里 |
 |---|---|
@@ -693,7 +705,7 @@ const cd = countdownTo(capsule.openAt);            // 每次渲染重算
 | 改主题色 / 间距 | 修改 `spec/styles/tokens.css` 的 CSS 变量，所有前端同步生效 |
 | 想在组件外读 store | `useStore.getState()` / `useStore.setState({...})` |
 
-## 15. 学到这里之后
+## 16. 学到这里之后
 
 读到这里，你已经掌握了现代 React SPA 最常见的 80%：JSX、组件、props/state、Hooks（特别是 `useState/useEffect`）、React Router、Zustand、TypeScript 类型注解、Vite 入口与代理、fetch 封装 + 自动 refresh、CSS 变量主题。
 
