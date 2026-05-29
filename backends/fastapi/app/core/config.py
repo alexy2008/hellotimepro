@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     )
 
     # --- JWT / 密码 ---
-    jwt_secret: str = "dev-secret-change-me"
+    jwt_secret: str = "dev-secret-change-me-in-production-env"
     jwt_algorithm: str = "HS256"
     access_token_ttl_seconds: int = 3600
     refresh_token_ttl_seconds: int = 7 * 24 * 3600

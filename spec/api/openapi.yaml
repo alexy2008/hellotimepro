@@ -754,7 +754,7 @@ paths:
             type: integer
             minimum: 3
             maximum: 8
-            default: 5
+            default: 4
         - name: locale
           in: query
           schema:

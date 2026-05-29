@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -74,6 +75,7 @@ def _parse_json_object(text: str) -> dict:
 
 def _post_json(url: str, payload: dict[str, Any]) -> dict:
     payload = {k: v for k, v in payload.items() if v is not None}
+    model = payload.get("model", settings.llm_model)
     req = Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -86,14 +88,37 @@ def _post_json(url: str, payload: dict[str, Any]) -> dict:
         },
         method="POST",
     )
+    logger.info("LLM request  model=%s url=%s", model, url)
+    t0 = time.monotonic()
     try:
         with urlopen(req, timeout=settings.llm_timeout_ms / 1000) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            body = json.loads(resp.read().decode("utf-8"))
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        # 尝试读取服务端返回的 token 用量（OpenAI 格式）
+        usage = body.get("usage") or {}
+        tokens = usage.get("total_tokens") or (
+            (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
+        )
+        logger.info(
+            "LLM response model=%s elapsed_ms=%d tokens=%s",
+            model, elapsed_ms, tokens if tokens else "n/a",
+        )
+        return body
     except HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        detail = body.strip() or str(e)
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        body_text = e.read().decode("utf-8", errors="replace")
+        detail = body_text.strip() or str(e)
+        logger.warning(
+            "LLM error    model=%s elapsed_ms=%d status=%d detail=%s",
+            model, elapsed_ms, e.code, detail[:200],
+        )
         raise LlmClientError(f"HTTP {e.code}: {detail[:500]}", status=e.code) from e
     except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        logger.warning(
+            "LLM error    model=%s elapsed_ms=%d error=%s",
+            model, elapsed_ms, e,
+        )
         raise LlmClientError(str(e)) from e
 
 
@@ -203,6 +228,7 @@ def _generate_structured_json(
     max_tokens: int = 600,
 ) -> dict:
     if not settings.llm_enabled or not settings.llm_api_key.strip():
+        logger.debug("LLM skip     schema=%s reason=disabled_or_no_key", schema_name)
         raise LlmClientError("LLM is disabled or missing API key")
 
     style = settings.llm_api_style

@@ -84,7 +84,7 @@ export function CreatePage() {
     const seq = ++recoSeq.current;
     setRecoBusy(true);
     try {
-      const list = await api.capsuleRecommendations({ count: 5 });
+      const list = await api.capsuleRecommendations({ count: 4 });
       if (seq !== recoSeq.current) return; // 丢弃过期响应
       setRecos(list.items);
     } catch {

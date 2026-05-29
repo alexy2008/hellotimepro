@@ -16,7 +16,7 @@ router = APIRouter(tags=["Capsule Suggestion"])
     response_model=Envelope[CapsuleRecommendationList],
 )
 def capsule_recommendations(
-    count: int = Query(default=5, ge=3, le=8),
+    count: int = Query(default=4, ge=3, le=8),
     locale: str = Query(default="zh-CN"),
 ) -> Envelope[CapsuleRecommendationList]:
     return Envelope(success=True, data=get_capsule_recommendations(count=count, locale=locale))
