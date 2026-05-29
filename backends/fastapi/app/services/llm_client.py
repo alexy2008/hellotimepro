@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class LlmClientError(RuntimeError):
@@ -78,6 +81,8 @@ def _post_json(url: str, payload: dict[str, Any]) -> dict:
             "Authorization": f"Bearer {settings.llm_api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            # 避免被网关的机器人防护按默认 urllib UA 封禁（Cloudflare error 1010）
+            "User-Agent": settings.llm_user_agent,
         },
         method="POST",
     )
@@ -95,15 +100,46 @@ def _post_json(url: str, payload: dict[str, Any]) -> dict:
 _CAPSULE_SUGGESTION_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["content", "openInDays"],
+    "required": ["title", "content", "openInDays"],
     "properties": {
+        # title 始终出现在 schema 中（strict 模式要求 required 覆盖全部 properties）；
+        # 当请求已带标题时，服务层会忽略该字段。
+        "title": {"type": "string"},
         "content": {"type": "string"},
         "openInDays": {"type": "integer", "minimum": 1, "maximum": 3650},
     },
 }
 _CAPSULE_SUGGESTION_SYSTEM = (
     "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。"
-    "JSON 必须包含字符串字段 content 和整数字段 openInDays。"
+    "JSON 必须包含字符串字段 title、content 和整数字段 openInDays。"
+    "若用户已给出标题，title 可原样回填。"
+)
+
+_CAPSULE_RECOMMENDATION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["items"],
+    "properties": {
+        "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 8,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["title", "hint", "openInDays"],
+                "properties": {
+                    "title": {"type": "string"},
+                    "hint": {"type": "string"},
+                    "openInDays": {"type": "integer", "minimum": 1, "maximum": 3650},
+                },
+            },
+        }
+    },
+}
+_CAPSULE_RECOMMENDATION_SYSTEM = (
+    "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。"
+    "JSON 必须包含数组字段 items，每项含字符串字段 title、hint 和整数字段 openInDays。"
 )
 
 
@@ -132,38 +168,26 @@ def _generate_with_responses(
         raise LlmClientError("LLM output was not valid JSON") from e
 
 
-def _chat_payload(
-    prompt: str, *, system: str, max_tokens: int, disable_thinking: bool
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
+def _chat_payload(prompt: str, *, system: str, max_tokens: int) -> dict[str, Any]:
+    # 本应用的生成任务（标题/正文/推荐）不需要推理，固定关闭 thinking 以提速。
+    return {
         "model": settings.llm_model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
         "max_tokens": max_tokens,
+        "thinking": {"type": "disabled"},
     }
-    if disable_thinking:
-        payload["thinking"] = {"type": "disabled"}
-    return payload
 
 
 def _generate_with_chat_completions(
     prompt: str, *, system: str, max_tokens: int
 ) -> dict:
-    try:
-        body = _post_json(
-            _chat_completions_url(),
-            _chat_payload(prompt, system=system, max_tokens=max_tokens, disable_thinking=True),
-        )
-    except LlmClientError as e:
-        if e.status != 400:
-            raise
-        body = _post_json(
-            _chat_completions_url(),
-            _chat_payload(prompt, system=system, max_tokens=max_tokens, disable_thinking=False),
-        )
-
+    body = _post_json(
+        _chat_completions_url(),
+        _chat_payload(prompt, system=system, max_tokens=max_tokens),
+    )
     try:
         return _parse_json_object(_extract_chat_text(body))
     except json.JSONDecodeError as e:
@@ -181,14 +205,22 @@ def _generate_structured_json(
     if not settings.llm_enabled or not settings.llm_api_key.strip():
         raise LlmClientError("LLM is disabled or missing API key")
 
-    try:
+    style = settings.llm_api_style
+    if style == "responses":
         return _generate_with_responses(
             prompt, schema_name=schema_name, schema=schema, max_output_tokens=max_tokens
         )
-    except LlmClientError as e:
-        if e.status not in {400, 404, 405}:
-            raise
+    if style == "auto":
+        # 先试 Responses API；任何失败（404、TLS EOF、超时等）回退到 Chat Completions。
+        try:
+            return _generate_with_responses(
+                prompt, schema_name=schema_name, schema=schema, max_output_tokens=max_tokens
+            )
+        except LlmClientError as e:
+            logger.info("Responses API unavailable (%s); falling back to chat completions", e)
+        return _generate_with_chat_completions(prompt, system=system, max_tokens=max_tokens)
 
+    # 默认 "chat"：直接走 Chat Completions，跳过本网关不支持的 /responses（省一次请求、避免在死端点上挂超时）。
     return _generate_with_chat_completions(prompt, system=system, max_tokens=max_tokens)
 
 
@@ -198,5 +230,15 @@ def generate_capsule_suggestion(prompt: str) -> dict:
         schema_name="capsule_suggestion",
         schema=_CAPSULE_SUGGESTION_SCHEMA,
         system=_CAPSULE_SUGGESTION_SYSTEM,
+        max_tokens=900,
+    )
+
+
+def generate_capsule_recommendations(prompt: str) -> dict:
+    return _generate_structured_json(
+        prompt,
+        schema_name="capsule_recommendations",
+        schema=_CAPSULE_RECOMMENDATION_SCHEMA,
+        system=_CAPSULE_RECOMMENDATION_SYSTEM,
         max_tokens=900,
     )

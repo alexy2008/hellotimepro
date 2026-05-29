@@ -452,12 +452,14 @@ components:
 
     CapsuleSuggestionRequest:
       type: object
-      required: [title]
       properties:
         title:
           type: string
-          minLength: 1
           maxLength: 60
+          description: |
+            胶囊标题。可选：留空（或不传）时表示由 AI 同时生成标题与正文，
+            此时响应的 CapsuleSuggestion 会额外返回 title 字段。
+            （title 由必填改为可选属于非破坏性变更。）
         locale:
           type: string
           default: zh-CN
@@ -466,6 +468,10 @@ components:
       type: object
       required: [content, openInDays, openAt, generatedBy, cached]
       properties:
+        title:
+          type: string
+          maxLength: 60
+          description: AI 生成的标题。仅当请求未传 title（或为空白）时返回；调用方应将其回填到标题输入框
         content:
           type: string
           description: 建议的胶囊正文，≤5000 字
@@ -481,6 +487,44 @@ components:
         generatedBy:
           type: string
           description: 生成来源，如 openai:gpt-4.1-mini 或 local-template
+        cached:
+          type: boolean
+          description: 该端点不缓存，固定为 false
+
+    CapsuleRecommendation:
+      type: object
+      required: [title, hint, openInDays]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: 推荐主题标题，可直接作为胶囊标题
+        hint:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: 一句话副标题，描述该主题的灵感
+        openInDays:
+          type: integer
+          minimum: 1
+          maximum: 3650
+          description: 该主题建议的开启天数；不同推荐覆盖近/中/远不同时间跨度
+
+    CapsuleRecommendationList:
+      type: object
+      required: [items, generatedBy, cached]
+      properties:
+        items:
+          type: array
+          minItems: 0
+          maxItems: 8
+          description: 推荐项；AI 不可用时为空数组（不做本地兜底）
+          items:
+            $ref: '#/components/schemas/CapsuleRecommendation'
+        generatedBy:
+          type: string
+          description: 生成来源，如 openai:gpt-4.1-mini；无推荐时为 none
         cached:
           type: boolean
           description: 该端点不缓存，固定为 false
@@ -688,6 +732,46 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/CapsuleSuggestion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/capsule-recommendations:
+    get:
+      tags: [Capsules]
+      summary: 获取 AI 推荐的胶囊主题列表
+      description: |
+        - 异步给创建页提供若干"特色推荐"主题（如猜猜下届世界杯冠军、五年后的自己），
+          时间跨度兼顾近远；前端点击某项后可用其 title 调用 /capsule-suggestion 一键生成完整胶囊。
+        - 推荐为锦上添花：大模型未配置或调用失败时返回空数组 items=[]（不做本地兜底），前端静默不显示推荐区。
+        - 不缓存：每次调用都重新生成，便于"换一批"按钮使用。
+      security: []
+      parameters:
+        - name: count
+          in: query
+          schema:
+            type: integer
+            minimum: 3
+            maximum: 8
+            default: 5
+        - name: locale
+          in: query
+          schema:
+            type: string
+            default: zh-CN
+      responses:
+        '200':
+          description: 推荐主题列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CapsuleRecommendationList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '422':

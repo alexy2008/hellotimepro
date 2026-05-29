@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     auth,
+    capsule_recommendations,
     capsule_suggestion,
     capsules,
     favorites,
@@ -18,3 +19,4 @@ router.include_router(capsules.router)
 router.include_router(plaza.router)
 router.include_router(favorites.router)
 router.include_router(capsule_suggestion.router)
+router.include_router(capsule_recommendations.router)

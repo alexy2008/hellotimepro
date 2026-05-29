@@ -148,6 +148,7 @@ import type {
   AuthTokens,
   Avatar,
   CapsuleDetail,
+  CapsuleRecommendationList,
   CapsuleSuggestion,
   CapsuleSuggestionRequest,
   CreateCapsuleRequest,
@@ -170,6 +171,17 @@ export const api = {
       body,
       auth: false,
     }),
+
+  capsuleRecommendations: (params: { count?: number; locale?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.count) qs.set("count", String(params.count));
+    if (params.locale) qs.set("locale", params.locale);
+    const q = qs.toString();
+    return request<CapsuleRecommendationList>(
+      `/api/v1/capsule-recommendations${q ? `?${q}` : ""}`,
+      { auth: false },
+    );
+  },
 
   avatars: () => request<Avatar[]>("/api/v1/avatars", { auth: false }),
 

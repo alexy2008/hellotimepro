@@ -95,14 +95,29 @@ export interface HealthData {
 
 
 export interface CapsuleSuggestionRequest {
-  title: string;
+  // 留空（或不传）时由 AI 同时生成标题
+  title?: string;
   locale?: string;
 }
 
 export interface CapsuleSuggestion {
+  // 仅当请求未传 title 时返回
+  title?: string;
   content: string;
   openInDays: number;
   openAt: string;
+  generatedBy: string;
+  cached: boolean;
+}
+
+export interface CapsuleRecommendation {
+  title: string;
+  hint: string;
+  openInDays: number;
+}
+
+export interface CapsuleRecommendationList {
+  items: CapsuleRecommendation[];
   generatedBy: string;
   cached: boolean;
 }
