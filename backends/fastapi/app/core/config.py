@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 29010
 
+    # --- 日志 ---
+    # 应用自身（app.* 命名空间）的日志级别；可用 LOG_LEVEL 覆盖。
+    # 注意：uvicorn 默认不给 root 配 handler，INFO 会被吞，必须显式配置（见 main.py）。
+    log_level: str = "INFO"
+
     # --- 数据库 ---
     # 支持两种驱动；切换仅需改两个变量。
     db_driver: str = Field(default="postgres", pattern="^(postgres|sqlite)$")

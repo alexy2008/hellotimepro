@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 from pathlib import Path
 
@@ -17,6 +18,28 @@ from app.core.errors import APIError, ErrorCode
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = BACKEND_ROOT / "static"
+
+
+def _configure_logging() -> None:
+    """为 app.* 命名空间挂一个 INFO 处理器。
+
+    uvicorn 只配置 uvicorn.* 自己的 logger，不给 root 挂 handler；我们的
+    app.* 日志会冒泡到 root，被 last-resort 处理器以 WARNING 为门槛输出 ——
+    导致 LLM request/response 这类 INFO 事件被吞，只剩 LLM error。这里给
+    app logger 单独挂处理器并关闭向上传播，确保 INFO 可见且不与 uvicorn 重复。
+    """
+
+    level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    app_logger = logging.getLogger("app")
+    app_logger.setLevel(level)
+    app_logger.propagate = False
+    if not any(getattr(h, "_hellotime", False) for h in app_logger.handlers):
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        )
+        handler._hellotime = True  # type: ignore[attr-defined]  # 幂等标记，避免热重载重复挂
+        app_logger.addHandler(handler)
 
 
 def _sync_static_assets() -> None:
@@ -45,6 +68,7 @@ def _sync_static_assets() -> None:
 
 
 def create_app() -> FastAPI:
+    _configure_logging()
     _sync_static_assets()
 
     app = FastAPI(
