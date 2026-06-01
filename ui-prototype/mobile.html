@@ -1,0 +1,2531 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>HelloTime Pro - 移动端高保真原型</title>
+  <!-- Google Fonts: Orbitron & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/prototype.css" />
+  
+  <style>
+    /* ============================================================
+     * HelloTime Pro · 移动端模拟器专属豪华样式
+     * ============================================================ */
+    
+    body {
+      background: radial-gradient(120% 120% at 50% 10%, #0d0d15 0%, #06060c 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-8) 0;
+      margin: 0;
+      overflow-x: hidden;
+      font-family: var(--font-sans);
+    }
+
+    [data-theme="light"] body {
+      background: radial-gradient(120% 120% at 50% 10%, #f4f5f8 0%, #e2e4ea 100%);
+    }
+
+    /* 整体模拟器外壳包裹 */
+    .simulator-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-4);
+      position: relative;
+    }
+
+    /* 钛金属 iPhone 16 Pro 拟真机身 */
+    .iphone-shell {
+      position: relative;
+      width: 400px;
+      height: 820px;
+      background: #1f1f24;
+      border-radius: 54px;
+      padding: 13px;
+      box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.75),
+        inset 0 4px 6px rgba(255, 255, 255, 0.12),
+        inset 0 -4px 6px rgba(0, 0, 0, 0.6),
+        0 0 0 4px #2b2b31, /* 钛灰色机身边缘 */
+        0 0 0 5px #151518;
+      transition: box-shadow 0.3s ease;
+    }
+
+    [data-theme="light"] .iphone-shell {
+      background: #e2e2e8;
+      box-shadow: 
+        0 25px 50px -12px rgba(13, 13, 21, 0.22),
+        inset 0 4px 6px rgba(255, 255, 255, 0.6),
+        inset 0 -4px 6px rgba(0, 0, 0, 0.15),
+        0 0 0 4px #d2d2da,
+        0 0 0 5px #a6a6b2;
+    }
+
+    /* 折射高光斜切线 */
+    .iphone-shell::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 10%;
+      width: 80%;
+      height: 100%;
+      background: linear-gradient(115deg, 
+        rgba(255, 255, 255, 0.04) 0%, 
+        rgba(255, 255, 255, 0) 30%, 
+        rgba(255, 255, 255, 0) 70%, 
+        rgba(255, 255, 255, 0.02) 100%);
+      border-radius: 54px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* 物理侧边按键 */
+    .iphone-btn {
+      position: absolute;
+      background: linear-gradient(to bottom, #2b2b31, #151518);
+      border-radius: 3px;
+      cursor: pointer;
+      z-index: 50;
+    }
+
+    [data-theme="light"] .iphone-btn {
+      background: linear-gradient(to bottom, #e2e2e8, #a6a6b2);
+    }
+
+    .iphone-btn--volume-up {
+      width: 3px;
+      height: 60px;
+      left: -3px;
+      top: 180px;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.5);
+    }
+
+    .iphone-btn--volume-down {
+      width: 3px;
+      height: 60px;
+      left: -3px;
+      top: 255px;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.5);
+    }
+
+    .iphone-btn--power {
+      width: 3px;
+      height: 85px;
+      right: -3px;
+      top: 220px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+    }
+
+    /* 屏幕视网膜玻璃 */
+    .iphone-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: var(--color-surface-0);
+      border-radius: 42px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      -webkit-user-drag: none;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    [data-theme="light"] .iphone-screen {
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    /* 熄屏覆盖层 */
+    .screen-off-overlay {
+      position: absolute;
+      inset: 0;
+      background: #000000;
+      z-index: 2000;
+      border-radius: 42px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+
+    .screen-off-overlay.is-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 灵动岛 (Dynamic Island) */
+    .dynamic-island {
+      position: absolute;
+      top: 17px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 28px;
+      background: #000000;
+      border-radius: 20px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1.2), height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1.2), border-radius 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .dynamic-island__camera {
+      width: 10px;
+      height: 10px;
+      background: #111122;
+      border-radius: 50%;
+      position: absolute;
+      right: 18px;
+      box-shadow: inset 0 0 3px rgba(255, 255, 255, 0.3);
+    }
+
+    .dynamic-island__pulse {
+      width: 4px;
+      height: 4px;
+      background: var(--color-signal-primary);
+      border-radius: 50%;
+      position: absolute;
+      left: 18px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .dynamic-island.is-expanded {
+      width: 240px;
+      height: 44px;
+      border-radius: 24px;
+    }
+
+    .dynamic-island.is-expanded .dynamic-island__pulse {
+      opacity: 1;
+      animation: island-pulse-breath 1.5s infinite;
+    }
+
+    @keyframes island-pulse-breath {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px var(--color-signal-primary)); }
+      50% { transform: scale(1.6); filter: drop-shadow(0 0 6px var(--color-signal-primary)); }
+    }
+
+    .dynamic-island__content {
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    .dynamic-island.is-expanded .dynamic-island__content {
+      opacity: 1;
+    }
+
+    /* 顶部状态栏 */
+    .status-bar {
+      height: 42px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 28px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      z-index: 900;
+      background: linear-gradient(to bottom, rgba(6, 6, 12, 0.3) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .status-bar__icons {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* 底部操作条 (Home Indicator) */
+    .home-indicator-bar {
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 900;
+      background: transparent;
+      pointer-events: none;
+    }
+
+    .home-indicator {
+      width: 130px;
+      height: 5px;
+      background: var(--color-text-muted);
+      border-radius: 10px;
+      opacity: 0.5;
+    }
+
+    /* 启动画面 (Splash Screen) */
+    .splash-screen {
+      position: absolute;
+      inset: 0;
+      background: #06060c;
+      z-index: 1500;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 42px;
+      transition: transform 0.5s cubic-bezier(0.8, 0, 0.2, 1);
+    }
+
+    .splash-screen.is-hidden {
+      transform: translateY(-100%);
+    }
+
+    .splash-logo {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      background: var(--color-surface-1);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--color-border-subtle);
+      box-shadow: var(--shadow-glow-brand);
+      animation: splash-logo-spin 1.8s cubic-bezier(0.68, -0.6, 0.32, 1.6) forwards;
+    }
+
+    @keyframes splash-logo-spin {
+      0% { transform: scale(0.3) rotate(-180deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+
+    .splash-logo img {
+      width: 54px;
+      height: 54px;
+    }
+
+    .splash-title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-top: var(--space-4);
+      letter-spacing: 0.05em;
+      opacity: 0;
+      animation: fade-in-up 0.5s ease 1s forwards;
+    }
+
+    .splash-subtitle {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      letter-spacing: 0.2em;
+      margin-top: 5px;
+      opacity: 0;
+      animation: fade-in-up 0.5s ease 1.2s forwards;
+    }
+
+    @keyframes fade-in-up {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 内部路由屏系统 */
+    .screen-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 滚动区域（隐藏原生滚动条） */
+    .screen-scrollable {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-2) var(--space-4) var(--space-6);
+      scrollbar-width: none;
+    }
+
+    .screen-scrollable::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 每一屏视图 */
+    .view-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transform: scale(0.96) translateY(5px);
+      pointer-events: none;
+      transition: 
+        opacity 0.25s var(--ease-standard),
+        transform 0.25s var(--ease-standard);
+      z-index: 10;
+    }
+
+    .view-screen.is-active {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: auto;
+      z-index: 20;
+    }
+
+    /* 顶部标题区 (Screen Header) */
+    .screen-title-area {
+      padding: var(--space-3) var(--space-4) var(--space-1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, var(--color-surface-0) 70%, transparent);
+      z-index: 100;
+    }
+
+    .screen-title-area h2 {
+      font-family: var(--font-display);
+      font-size: var(--font-size-xl);
+      font-weight: 800;
+      margin: 0;
+      color: var(--color-text-primary);
+    }
+
+    .screen-title-area__action {
+      font-size: 14px;
+      color: var(--color-signal-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* 移动端底部标签栏 (Bottom Navigation Tab Bar) */
+    .mobile-tab-bar {
+      height: 60px;
+      background: color-mix(in srgb, var(--color-surface-0) 80%, transparent);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--color-border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 var(--space-2) calc(env(safe-area-inset-bottom, 0px) / 2);
+      z-index: 800;
+      position: relative;
+    }
+
+    .mobile-tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: 0;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: color 0.2s ease, transform 0.15s ease;
+      position: relative;
+    }
+
+    .mobile-tab-item:active {
+      transform: scale(0.9);
+    }
+
+    .mobile-tab-item__icon {
+      font-size: 18px;
+      transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1.4);
+    }
+
+    .mobile-tab-item.is-active {
+      color: var(--color-signal-primary);
+      text-shadow: 0 0 8px rgba(20, 212, 240, 0.35);
+    }
+
+    .mobile-tab-item.is-active .mobile-tab-item__icon {
+      transform: translateY(-2px) scale(1.15);
+    }
+
+    .mobile-tab-item__label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    /* 标签滑块指示灯 */
+    .mobile-tab-indicator {
+      position: absolute;
+      top: 0;
+      height: 2px;
+      width: 40px;
+      background: var(--color-signal-primary);
+      box-shadow: 0 0 10px var(--color-signal-primary);
+      border-radius: 1px;
+      transition: left 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    /* -------------------- 移动端特定组件样式 -------------------- */
+    
+    /* 广场卡片间距微调 */
+    .mobile-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .cy-capsule {
+      margin: 0;
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      cursor: pointer;
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cy-capsule:active {
+      transform: scale(0.975);
+    }
+
+    /* 紧凑版搜索工具条 */
+    .mobile-toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      margin-bottom: var(--space-3);
+      background: var(--color-surface-0);
+      padding-bottom: var(--space-2);
+    }
+
+    .mobile-toolbar__row {
+      display: flex;
+      gap: var(--space-2);
+      width: 100%;
+    }
+
+    .mobile-seg {
+      display: flex;
+      padding: 2px;
+      border-radius: var(--radius-full);
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border-subtle);
+      flex: 1;
+    }
+
+    .mobile-seg button {
+      flex: 1;
+      padding: 5px 0;
+      font-size: 11px;
+      font-weight: 600;
+      border: 0;
+      background: transparent;
+      color: var(--color-text-secondary);
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .mobile-seg button.is-active {
+      background: var(--color-signal-primary);
+      color: var(--color-signal-on);
+      box-shadow: var(--shadow-glow-signal);
+    }
+
+    .mobile-search {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 0 var(--space-3);
+      height: 34px;
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-full);
+    }
+
+    .mobile-search__input {
+      flex: 1;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--color-text-primary);
+      font-size: 12px;
+    }
+
+    /* 滑出式胶囊详情抽屉 (Bottom Sheet) */
+    .bottom-sheet-scrim {
+      position: absolute;
+      inset: 0;
+      background: var(--color-surface-overlay);
+      z-index: 1100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      border-radius: 42px;
+    }
+
+    .bottom-sheet-scrim.is-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .bottom-sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: 85%;
+      min-height: 40%;
+      background: var(--color-surface-1);
+      backdrop-filter: blur(25px);
+      border-top: 1px solid var(--color-border-default);
+      border-radius: 28px 28px 42px 42px;
+      z-index: 1200;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.15, 0.85, 0.35, 1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .bottom-sheet.is-active {
+      transform: translateY(0);
+    }
+
+    /* 抽屉抓手 */
+    .bottom-sheet-handle {
+      width: 44px;
+      height: 5px;
+      background: var(--color-border-strong);
+      border-radius: 10px;
+      margin: 12px auto 6px;
+      cursor: pointer;
+      opacity: 0.6;
+    }
+
+    .bottom-sheet-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-4) var(--space-5) var(--space-8);
+    }
+
+    /* 胶囊密封倒计时盘 (Countdown Dial) */
+    .sealed-countdown-dial {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      margin: var(--space-6) auto;
+      background: radial-gradient(circle, rgba(107, 70, 255, 0.08) 0%, rgba(0, 0, 0, 0.4) 100%);
+      border-radius: 50%;
+      border: 2px dashed var(--color-capsule-sealed-border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-glow-signal);
+      animation: dial-breath 3.2s infinite ease-in-out;
+    }
+
+    @keyframes dial-breath {
+      0%, 100% { box-shadow: 0 0 16px rgba(20, 212, 240, 0.3); border-color: rgba(20, 212, 240, 0.5); }
+      50% { box-shadow: 0 0 32px rgba(20, 212, 240, 0.65); border-color: rgba(20, 212, 240, 1); }
+    }
+
+    .sealed-countdown-dial__time {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.05em;
+    }
+
+    .sealed-countdown-dial__label {
+      font-size: 10px;
+      color: var(--color-text-muted);
+      letter-spacing: 0.15em;
+      margin-top: 4px;
+    }
+
+    /* 步进式表单及输入项 */
+    .mobile-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .mobile-input-card {
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color 0.2s ease;
+    }
+
+    .mobile-input-card:focus-within {
+      border-color: var(--color-signal-primary);
+    }
+
+    .mobile-input-card label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .mobile-input-card input,
+    .mobile-input-card textarea {
+      background: transparent;
+      border: 0;
+      outline: none;
+      color: var(--color-text-primary);
+      font-size: 14px;
+      padding: 2px 0 0;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    .mobile-input-card textarea {
+      resize: none;
+      height: 80px;
+      line-height: var(--line-height-normal);
+    }
+
+    /* 触控选择九宫格 */
+    .mobile-grid-picker {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: var(--space-2);
+      margin-top: var(--space-2);
+    }
+
+    /* 提取验证码输入大框 */
+    .code-input-display {
+      display: flex;
+      gap: var(--space-2);
+      justify-content: center;
+      margin: var(--space-6) 0;
+    }
+
+    .code-input-display input {
+      width: 36px;
+      height: 46px;
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--color-signal-primary);
+      outline: none;
+      text-transform: uppercase;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+    }
+
+    .code-input-display input:focus {
+      border-color: var(--color-signal-primary);
+      box-shadow: 0 0 10px rgba(20, 212, 240, 0.4);
+    }
+
+    /* 极简开关框 */
+    .mobile-toggle-card {
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 精美模态通知 (Modal Notification) */
+    .mobile-modal-scrim {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 1300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      border-radius: 42px;
+    }
+
+    .mobile-modal-scrim.is-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mobile-modal {
+      background: var(--color-surface-1);
+      border: 1px solid var(--color-border-default);
+      border-radius: 24px;
+      width: 100%;
+      padding: var(--space-6);
+      box-shadow: var(--shadow-xl);
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      text-align: center;
+    }
+
+    .mobile-modal-scrim.is-active .mobile-modal {
+      transform: scale(1);
+    }
+
+    .shake-anim {
+      animation: border-shake 0.4s ease;
+    }
+
+    @keyframes border-shake {
+      0%, 100% { transform: translateX(0); border-color: var(--color-border-subtle); }
+      20%, 60% { transform: translateX(-8px); border-color: var(--color-danger-solid); }
+      40%, 80% { transform: translateX(8px); border-color: var(--color-danger-solid); }
+    }
+
+    /* 提示手势与提示条 */
+    .interactive-toast {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--color-border-default);
+      padding: 8px var(--space-4);
+      border-radius: var(--radius-full);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 500;
+      z-index: 1000;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1.2);
+    }
+
+    .interactive-toast.is-active {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* PC端调试提示 */
+    .pc-tips {
+      margin-top: 15px;
+      max-width: 400px;
+      text-align: center;
+      color: var(--color-text-muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .pc-tips strong {
+      color: var(--color-signal-primary);
+    }
+
+    /* 移动端全屏响应式 */
+    @media (max-width: 500px) {
+      body {
+        padding: 0;
+        background: var(--color-surface-0);
+      }
+      .simulator-container {
+        width: 100%;
+        height: 100vh;
+        gap: 0;
+      }
+      .iphone-shell {
+        width: 100vw;
+        height: 100vh;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+      }
+      .iphone-screen {
+        border-radius: 0;
+        border: 0;
+      }
+      .status-bar {
+        padding: 10px 20px 4px;
+        height: 48px;
+      }
+      .dynamic-island {
+        top: 8px;
+      }
+      .splash-screen {
+        border-radius: 0;
+      }
+      .bottom-sheet {
+        border-radius: 24px 24px 0 0;
+      }
+      .bottom-sheet-scrim {
+        border-radius: 0;
+      }
+      .mobile-modal-scrim {
+        border-radius: 0;
+      }
+      .home-indicator-bar {
+        height: 32px;
+        padding-bottom: 8px;
+      }
+      .pc-tips {
+        display: none;
+      }
+      .iphone-btn {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="simulator-container">
+  
+  <!-- 手机外壳 -->
+  <div class="iphone-shell">
+    
+    <!-- 物理按键 -->
+    <div class="iphone-btn iphone-btn--volume-up"></div>
+    <div class="iphone-btn iphone-btn--volume-down"></div>
+    <div class="iphone-btn iphone-btn--power" id="shellPowerBtn" title="点击熄屏/亮屏"></div>
+    
+    <div class="iphone-screen">
+      
+      <!-- 熄屏黑覆盖 -->
+      <div class="screen-off-overlay" id="screenOffOverlay"></div>
+      
+      <!-- 亮屏启动页 -->
+      <div class="splash-screen" id="splashScreen">
+        <div class="splash-logo">
+          <img src="../spec/assets/logo.svg" alt="Logo" />
+        </div>
+        <div class="splash-title">HelloTime <span style="color:var(--color-signal-primary)">PRO</span></div>
+        <div class="splash-subtitle">CONNECTING FUTURE</div>
+      </div>
+      
+      <!-- 灵动岛 -->
+      <div class="dynamic-island" id="dynamicIsland">
+        <div class="dynamic-island__pulse"></div>
+        <div class="dynamic-island__content" id="dynamicIslandContent"></div>
+        <div class="dynamic-island__camera"></div>
+      </div>
+      
+      <!-- 手机顶部状态栏 -->
+      <div class="status-bar">
+        <div class="status-bar__time" id="statusBarTime">17:22</div>
+        <div class="status-bar__icons">
+          <span>📶</span>
+          <span>5G</span>
+          <span>🔋 99%</span>
+        </div>
+      </div>
+      
+      <!-- 核心页面容器 -->
+      <div class="screen-content">
+        
+        <!-- ============================================ -->
+        <!-- VIEW 1: 广场 (Plaza Tab) -->
+        <!-- ============================================ -->
+        <div class="view-screen is-active" id="screenPlaza">
+          <div class="screen-title-area">
+            <h2>胶囊广场</h2>
+            <div class="screen-title-area__action" onclick="showAboutSheet()">
+              <span>ℹ️ 关于</span>
+            </div>
+          </div>
+          
+          <div class="screen-scrollable">
+            <!-- 广场顶部筛选过滤条 -->
+            <div class="mobile-toolbar">
+              <div class="mobile-toolbar__row">
+                <!-- 热门/最新双轴 -->
+                <div class="mobile-seg">
+                  <button class="is-active" onclick="setSort('hot', this)">🔥 热门</button>
+                  <button onclick="setSort('new', this)">✨ 最新</button>
+                </div>
+                <!-- 开启状态筛选 -->
+                <div class="mobile-seg">
+                  <button class="is-active" onclick="setFilter('all', this)">全部</button>
+                  <button onclick="setFilter('opened', this)">已开启</button>
+                  <button onclick="setFilter('sealed', this)">未开启</button>
+                </div>
+              </div>
+              <div class="mobile-toolbar__row">
+                <!-- 防抖搜索框 -->
+                <label class="mobile-search">
+                  <span style="font-size:12px">🔍</span>
+                  <input type="search" class="mobile-search__input" id="plazaSearchInput" placeholder="输入标题或昵称搜索…" />
+                </label>
+              </div>
+            </div>
+            
+            <!-- 胶囊流列表 -->
+            <div class="mobile-grid" id="plazaCapsuleGrid">
+              <!-- JS动态渲染 -->
+            </div>
+            
+            <!-- 底部占位与数据计条 -->
+            <div style="text-align:center; padding: 25px 0 10px; color: var(--color-text-muted); font-size: 11px;" id="plazaCountIndicator">
+              已加载全部演示数据
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- VIEW 2: 开启胶囊 (Open Tab) -->
+        <!-- ============================================ -->
+        <div class="view-screen" id="screenOpen">
+          <div class="screen-title-area">
+            <h2>开启胶囊</h2>
+          </div>
+          <div class="screen-scrollable" style="padding-top: var(--space-4)">
+            <div style="text-align: center;">
+              <span style="font-size: 44px;">🔑</span>
+              <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 10px 0 0; line-height: 1.6">
+                输入朋友分享给你的 8 位大写字母和数字，可直接查看胶囊。
+              </p>
+            </div>
+            
+            <!-- 8位码分体输入框 -->
+            <div class="code-input-display" id="codeInputDisplay">
+              <input type="text" maxlength="1" onkeyup="focusNextInput(this, 0)" />
+              <input type="text" maxlength="1" onkeyup="focusNextInput(this, 1)" />
+              <input type="text" maxlength="1" onkeyup="focusNextInput(this, 2)" />
+              <input type="text" maxlength="1" onkeyup="focusNextInput(this, 3)" />
+              <span style="align-self: center; color: var(--color-text-muted); font-weight:bold">-</span>
+              <input type="text" maxlength="1" onkeyup="focusNextInput(this, 4)" />
+              <input type="text" maxlength="1" onkeyup="focusNextInput(this, 5)" />
+              <input type="text" maxlength="1" onkeyup="focusNextInput(this, 6)" />
+              <input type="text" maxlength="1" onkeyup="focusNextInput(this, 7)" />
+            </div>
+            
+            <button class="cy-btn cy-btn--primary" style="width:100%" onclick="submitRetrieveCode()">
+              开启胶囊 →
+            </button>
+            
+            <div style="margin-top: 30px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: 12px">
+              <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; margin:0 0 8px; color: var(--color-text-muted)">💡 快速提取演示码：</h4>
+              <div style="display:flex; flex-wrap:wrap; gap:6px">
+                <span class="cy-badge cy-badge--opened" style="cursor:pointer" onclick="fillQuickCode('DAD16315')">DAD16315</span>
+                <span class="cy-badge cy-badge--opened" style="cursor:pointer" onclick="fillQuickCode('FUTURE16')">FUTURE16</span>
+                <span class="cy-badge cy-badge--sealed" style="cursor:pointer" onclick="fillQuickCode('HOME2601')">HOME2601</span>
+                <span class="cy-badge cy-badge--sealed" style="cursor:pointer" onclick="fillQuickCode('GIRL0812')">GIRL0812</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- VIEW 3: 创建胶囊 (Create Tab) -->
+        <!-- ============================================ -->
+        <div class="view-screen" id="screenCreate">
+          <div class="screen-title-area">
+            <h2>写给未来的信</h2>
+          </div>
+          <div class="screen-scrollable">
+            <div class="mobile-form-group">
+              
+              <div class="mobile-input-card">
+                <label for="createTitle">胶囊标题 (Title)</label>
+                <div style="display: flex; gap: var(--space-2); align-items: stretch; margin-top: 4px">
+                  <input type="text" id="createTitle" placeholder="写一句封面的导语，如“写给三年后的自己”" maxlength="60" style="flex: 1" oninput="onTitleInput()" />
+                  <button type="button" class="cy-btn cy-btn--ghost" id="createAiBtn" onclick="aiGenerateSuggested()" style="white-space: nowrap; font-size: 11px; padding: 4px 8px; border-radius: var(--radius-md)" disabled>✨ AI 生成</button>
+                </div>
+              </div>
+              <div id="createAiInfo" style="font-size: 10px; color: var(--color-text-secondary); margin-top: -6px; padding: 0 4px; display: none">已为你建议解封时间</div>
+              
+              <div class="mobile-input-card">
+                <label for="createContent">内容 (Content)</label>
+                <textarea id="createContent" placeholder="在这里写下你想传递到未来的话。这一段文字会被上锁，直到你设定的时刻才能由任何人 —— 包括你自己 —— 开启。" maxlength="5000"></textarea>
+              </div>
+              
+              <div class="mobile-input-card">
+                <label for="createOpenAt">开启时间 (Reveal Time)</label>
+                <!-- 预设选择与自定义选择 -->
+                <input type="datetime-local" id="createOpenAt" />
+              </div>
+              
+              <!-- 快捷时间段标签 -->
+              <div style="display:flex; gap:6px;">
+                <span class="cy-badge" style="cursor:pointer; background: var(--color-surface-2)" onclick="setQuickDate(1)">⌛ 1分钟后</span>
+                <span class="cy-badge" style="cursor:pointer; background: var(--color-surface-2)" onclick="setQuickDate(1440)">⌛ 1天后</span>
+                <span class="cy-badge" style="cursor:pointer; background: var(--color-surface-2)" onclick="setQuickDate(43200)">⌛ 30天后</span>
+                <span class="cy-badge" style="cursor:pointer; background: var(--color-surface-2)" onclick="setQuickDate(525600)">⌛ 1年后</span>
+              </div>
+              
+              <!-- 是否广场公开开关 -->
+              <div class="mobile-toggle-card">
+                <div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--color-text-primary)">投放到胶囊广场</div>
+                  <div style="font-size: 10px; color: var(--color-text-muted); margin-top:2px">开启后，胶囊标题和倒计时将对所有人可见；关闭后仅持有胶囊码的人可访问。</div>
+                </div>
+                <label class="cy-toggle">
+                  <input type="checkbox" id="createInPlaza" checked />
+                  <span class="cy-toggle__track"></span>
+                </label>
+              </div>
+              
+              <button class="cy-btn cy-btn--primary" style="width:100%" onclick="submitCreateCapsule()">
+                🔒 上锁封存
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- VIEW 4: 我的空间与账户 (Me Tab) -->
+        <!-- ============================================ -->
+        <div class="view-screen" id="screenMe">
+          <!-- 顶部带头像的用户资料汇总面板 -->
+          <div style="padding: var(--space-4) var(--space-4) 0; display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:12px">
+              <img id="userPanelAvatar" src="../spec/avatars/pulse.svg" alt="Avatar" style="width:50px; height:50px; border-radius:50%; border:2px solid var(--color-signal-primary); box-shadow: var(--shadow-glow-signal);" onclick="showProfileEditor()"/>
+              <div>
+                <h3 id="userPanelNickname" style="margin:0; font-size:15px; font-weight:700; color: var(--color-text-primary)">晨晨赶考ing</h3>
+                <span style="font-size:10px; color: var(--color-text-muted)" id="userPanelEmail">chenchen@demo.hellotimepro.dev</span>
+              </div>
+            </div>
+            <button class="cy-btn cy-btn--ghost cy-btn--sm" style="font-size: 10px; padding: 4px 8px" onclick="showProfileEditor()">⚙️ 设置</button>
+          </div>
+          
+          <!-- 滑块分割选择器：我创建的 / 我收藏的 -->
+          <div style="padding: 10px var(--space-4)">
+            <div class="mobile-seg" style="display:flex">
+              <button class="is-active" onclick="toggleMeTab('created', this)">💾 我创建的</button>
+              <button onclick="toggleMeTab('favs', this)">♥ 我收藏的</button>
+            </div>
+          </div>
+          
+          <div class="screen-scrollable" style="padding-top:0">
+            <div class="mobile-grid" id="meCapsuleGrid">
+              <!-- JS动态渲染 -->
+            </div>
+            
+            <div style="text-align:center; padding: 25px 0 10px; color: var(--color-text-muted); font-size: 11px;" id="meIndicatorText">
+              共创建了 3 个胶囊
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- SUBVIEW: 个人资料设置面板 (Settings Sheet) -->
+        <!-- ============================================ -->
+        <div class="view-screen" id="screenProfileEditor">
+          <div class="screen-title-area">
+            <h2 id="settingsTitle">更改个人档案</h2>
+            <div class="screen-title-area__action" onclick="closeProfileEditor()">
+              <span>返回 👤</span>
+            </div>
+          </div>
+          
+          <div class="screen-scrollable">
+            <div class="mobile-form-group">
+              
+              <!-- 昵称字段 -->
+              <div class="mobile-input-card">
+                <label for="editNickname">赛博昵称 (Nickname)</label>
+                <input type="text" id="editNickname" value="晨晨赶考ing" />
+              </div>
+              
+              <!-- 内置头像拾取九宫格 -->
+              <div class="mobile-input-card">
+                <label>挑选我的内置光圈头像 (Avatar)</label>
+                <div class="mobile-grid-picker" id="settingsAvatarGrid">
+                  <!-- JS渲染 -->
+                </div>
+              </div>
+              
+              <!-- 修改密码折合区 -->
+              <div style="background: rgba(255,255,255,0.02); border:1px solid var(--color-border-subtle); padding:12px; border-radius:var(--radius-md)">
+                <h4 style="margin:0 0 10px; font-size:12px; font-weight:600; color:var(--color-text-primary)">🔐 更改密码 (Security)</h4>
+                <div style="display:flex; flex-direction:column; gap:8px">
+                  <div class="mobile-input-card" style="padding:6px 10px">
+                    <label for="passOld" style="font-size:9px">当前密码</label>
+                    <input type="password" id="passOld" placeholder="输入原密码" />
+                  </div>
+                  <div class="mobile-input-card" style="padding:6px 10px">
+                    <label for="passNew" style="font-size:9px">新设密码</label>
+                    <input type="password" id="passNew" placeholder="至少8位字母数字" />
+                  </div>
+                </div>
+              </div>
+              
+              <button class="cy-btn cy-btn--primary" style="width:100%" onclick="saveProfileChanges()">
+                💾 保存同步资料
+              </button>
+              
+              <button class="cy-btn cy-btn--ghost" style="width:100%; border-color:var(--color-danger-solid); color:var(--color-danger-fg)" onclick="mockLogout()">
+                🔴 注销当前登录
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- 结束屏内容 screen-content -->
+      
+      <!-- ============================================ -->
+      <!-- 磨砂半透明胶囊详情抽屉 (Detail Bottom Sheet) -->
+      <!-- ============================================ -->
+      <div class="bottom-sheet-scrim" id="detailSheetScrim" onclick="closeDetailSheet()"></div>
+      <div class="bottom-sheet" id="detailSheet">
+        <!-- 抽屉顶部滑条 -->
+        <div class="bottom-sheet-handle" onclick="closeDetailSheet()"></div>
+        
+        <div class="bottom-sheet-content">
+          <!-- 卡片头部标签 -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px">
+            <span id="detailBadge" class="cy-badge">状态</span>
+            <div style="display:flex; align-items:center; gap:8px">
+              <span id="detailCode" style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--color-signal-primary); letter-spacing:0.05em">CODE</span>
+              <button onclick="copyDetailCode()" style="background:transparent; border:0; color:var(--color-text-muted); cursor:pointer; font-size:11px; padding:2px 6px; border-radius:var(--radius-sm); border:1px solid var(--color-border-subtle); display:inline-flex; align-items:center;" title="复制胶囊码">📋 复制</button>
+            </div>
+          </div>
+          
+          <!-- 胶囊标题 -->
+          <h3 id="detailTitle" style="font-size:18px; margin:0 0 15px; line-height:1.4">标题</h3>
+          
+          <!-- 详情主体（智能切换） -->
+          <div id="detailBodyArea">
+            <!-- 渲染为未开启（倒计时圆盘）或 已开启（正文文字） -->
+          </div>
+          
+          <!-- 创作者信息以及收藏栏 -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:25px; padding-top:15px; border-top:1px solid var(--color-plaza-divider)">
+            <div style="display:flex; align-items:center; gap:8px">
+              <img id="detailCreatorAvatar" src="../spec/avatars/pulse.svg" alt="" style="width:28px; height:28px; border-radius:50%" />
+              <span id="detailCreatorName" style="font-size:12px; color:var(--color-text-secondary)">创作者</span>
+            </div>
+            <div style="display:flex; gap:6px">
+              <button id="detailShareBtn" class="cy-capsule__fav" style="font-size:12px; padding: 4px 10px; color: var(--color-signal-primary); background: rgba(0, 184, 212, 0.08); border: 1px solid rgba(0, 184, 212, 0.2)" onclick="openShareSheet()">
+                🔗 分享
+              </button>
+              <button id="detailFavBtn" class="cy-capsule__fav" style="font-size:13px; padding: 4px 10px" onclick="toggleDetailFav()">♡ 0</button>
+            </div>
+          </div>
+          
+          <!-- 仅作者可见的删除按钮 -->
+          <button id="detailDeleteBtn" class="cy-btn cy-btn--ghost" style="width:100%; border-color:var(--color-danger-solid); color:var(--color-danger-fg); font-size:11px; padding: 6px; margin-top: 15px; display:none" onclick="deleteCapsuleByAuthor()">
+            🗑️ 删除这枚我创建的胶囊
+          </button>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- 磨砂半透明分享抽屉 (Share Bottom Sheet) -->
+      <!-- ============================================ -->
+      <div class="bottom-sheet-scrim" id="shareSheetScrim" onclick="closeShareSheet()" style="z-index: 1300"></div>
+      <div class="bottom-sheet" id="shareSheet" style="z-index: 1400; border-radius: 28px 28px 42px 42px; min-height: 30%">
+        <!-- 抽屉顶部滑条 -->
+        <div class="bottom-sheet-handle" onclick="closeShareSheet()"></div>
+        <div class="bottom-sheet-content" style="padding: 10px var(--space-5) var(--space-8)">
+          <h3 style="font-size:15px; font-weight:700; margin:0 0 15px; text-align:center; color:var(--color-text-primary)">📤 分享时光胶囊</h3>
+          
+          <!-- 分享选项排版 -->
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:20px">
+            <button onclick="shareAction('link')" style="background:var(--color-surface-2); border:1px solid var(--color-border-subtle); border-radius:12px; padding:15px 5px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; color:inherit">
+              <span style="font-size:24px">🔗</span>
+              <span style="font-size:10px; font-weight:600; color:var(--color-text-secondary)">复制分享链接</span>
+            </button>
+            <button onclick="shareAction('card')" style="background:var(--color-surface-2); border:1px solid var(--color-border-subtle); border-radius:12px; padding:15px 5px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; color:inherit">
+              <span style="font-size:24px">🎴</span>
+              <span style="font-size:10px; font-weight:600; color:var(--color-text-secondary)">生成全息图卡</span>
+            </button>
+            <button onclick="shareAction('friend')" style="background:var(--color-surface-2); border:1px solid var(--color-border-subtle); border-radius:12px; padding:15px 5px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; color:inherit">
+              <span style="font-size:24px">🤖</span>
+              <span style="font-size:10px; font-weight:600; color:var(--color-text-secondary)">发送给时空密友</span>
+            </button>
+          </div>
+          
+          <button class="cy-btn cy-btn--ghost" style="width:100%; font-size:12px; padding:8px" onclick="closeShareSheet()">取消</button>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- 全息图卡覆盖层 (Holographic Card Overlay) -->
+      <!-- ============================================ -->
+      <div class="mobile-modal-scrim" id="holoCardScrim" onclick="closeHoloCard()" style="z-index: 1500; background: rgba(0,0,0,0.9)">
+        <div class="mobile-modal" id="holoCard" onclick="event.stopPropagation()" style="background: radial-gradient(120% 120% at 50% 10%, #151126 0%, #06060c 100%); border: 2px solid var(--color-signal-primary); box-shadow: var(--shadow-glow-signal); padding:var(--space-5); text-align:left; border-radius:24px; position:relative; overflow:hidden">
+          <!-- 炫光网格背景线 -->
+          <div style="position:absolute; inset:0; background-image: linear-gradient(rgba(20, 212, 240, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(20, 212, 240, 0.05) 1px, transparent 1px); background-size: 15px 15px; pointer-events:none"></div>
+          
+          <!-- 图卡头部 -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(20, 212, 240, 0.15); padding-bottom:10px; position:relative">
+            <span style="font-family:var(--font-display); font-size:12px; font-weight:800; color:var(--color-signal-primary); letter-spacing:0.05em">HELLOTIME PRO</span>
+            <span style="font-family:var(--font-mono); font-size:10px; color:var(--color-text-muted)" id="holoCardCode">CODE</span>
+          </div>
+          
+          <!-- 图卡正文 -->
+          <div style="position:relative">
+            <h3 id="holoCardTitle" style="font-size:16px; margin:0 0 10px; line-height:1.4; color:#ffffff">胶囊标题</h3>
+            
+            <div id="holoCardBodyArea" style="min-height:100px; max-height:180px; overflow:hidden; font-size:12px; color:var(--color-text-secondary); line-height:1.6; margin-bottom:15px; border-left:2px solid var(--color-signal-primary); padding-left:10px; font-style:italic">
+              <!-- 胶囊内容预览或未封口提示 -->
+            </div>
+          </div>
+          
+          <!-- 时空参数信息 -->
+          <div style="background:rgba(20, 212, 240, 0.04); border:1px solid rgba(20, 212, 240, 0.1); border-radius:10px; padding:10px; margin-bottom:15px; position:relative">
+            <div style="font-size:9px; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.05em">封存及开启参数</div>
+            <div style="font-size:11px; color:var(--color-text-secondary); margin-top:4px" id="holoCardRevealDate">📅 2026.06.30 开启</div>
+            <div style="font-size:11px; color:var(--color-text-secondary); margin-top:2px" id="holoCardCreateDate">⏱️ 2026.05.26 密封</div>
+          </div>
+          
+          <!-- 图卡尾部 -->
+          <div style="display:flex; justify-content:space-between; align-items:center; position:relative">
+            <div style="display:flex; align-items:center; gap:8px">
+              <img id="holoCardAvatar" src="../spec/avatars/pulse.svg" alt="" style="width:24px; height:24px; border-radius:50%" />
+              <span id="holoCardNickname" style="font-size:11px; color:var(--color-text-secondary); font-weight:600">创作者</span>
+            </div>
+            <!-- 模拟二维码 -->
+            <div style="width:36px; height:36px; background:#ffffff; padding:2px; border-radius:4px; display:flex; align-items:center; justify-content:center">
+              <div style="width:32px; height:32px; background-image: radial-gradient(#000000 40%, transparent 40%), repeating-linear-gradient(45deg, transparent, transparent 2px, #000000 2px, #000000 4px); background-size: 8px 8px"></div>
+            </div>
+          </div>
+          
+          <button class="cy-btn cy-btn--primary" style="width:100%; margin-top:15px" onclick="saveHoloCardImage()">
+            📥 保存图卡至相册
+          </button>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- 全局高科技弹窗 (Cyber Modal Dialog) -->
+      <!-- ============================================ -->
+      <div class="mobile-modal-scrim" id="globalModalScrim" onclick="closeGlobalModal()">
+        <div class="mobile-modal" id="globalModal" onclick="event.stopPropagation()">
+          <span style="font-size:38px;" id="modalEmoji">🎉</span>
+          <h3 style="margin: 10px 0 8px; font-size:16px;" id="modalTitle">通知标题</h3>
+          <p style="color:var(--color-text-secondary); font-size:12px; line-height:1.6; margin:0 0 18px" id="modalText">通知详情说明段落</p>
+          <div style="display:flex; gap:10px" id="modalButtons">
+            <button class="cy-btn cy-btn--primary" style="flex:1" onclick="closeGlobalModal()">我明白了</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 手指轻触交互悬浮Toast -->
+      <div class="interactive-toast" id="interactiveToast">提示文本</div>
+      
+      <!-- 底部标签栏 -->
+      <div class="mobile-tab-bar">
+        <!-- 霓虹滑块指示器 -->
+        <div class="mobile-tab-indicator" id="mobileTabIndicator"></div>
+        
+        <button class="mobile-tab-item is-active" onclick="switchTab('plaza', this)">
+          <span class="mobile-tab-item__icon">🌐</span>
+          <span class="mobile-tab-item__label">广场</span>
+        </button>
+        <button class="mobile-tab-item" onclick="switchTab('open', this)">
+          <span class="mobile-tab-item__icon">🔑</span>
+          <span class="mobile-tab-item__label">开启</span>
+        </button>
+        <button class="mobile-tab-item" onclick="switchTab('create', this)">
+          <span class="mobile-tab-item__icon" style="font-size:20px; color:var(--color-signal-primary)">➕</span>
+          <span class="mobile-tab-item__label">创建</span>
+        </button>
+        <button class="mobile-tab-item" onclick="switchTab('me', this)">
+          <span class="mobile-tab-item__icon">👤</span>
+          <span class="mobile-tab-item__label">我的</span>
+        </button>
+      </div>
+      
+      <!-- 手机底部指示器 -->
+      <div class="home-indicator-bar">
+        <div class="home-indicator"></div>
+      </div>
+      
+    </div> <!-- 结束手机屏幕 iphone-screen -->
+  </div> <!-- 结束手机外壳 iphone-shell -->
+
+  <!-- PC端友好提示 -->
+  <div class="pc-tips">
+    您当前正在体验 <strong>钛金属 iPhone 16 Pro</strong> 拟真设备中的高保真交互原型。<br />
+    点击手机右侧的 <strong>电源按键</strong> 可实现熄屏/亮屏模拟。<br />
+    支持实时倒计时、点赞加心、胶囊密封投放与 8 位码解封，请尽情体验！
+  </div>
+  
+</div> <!-- 结束 simulator-container -->
+
+<!-- 原型核心交互引擎 JavaScript -->
+<script>
+  // ============================================================
+  // HelloTime Pro · 移动端高保真交互状态引擎 (State Engine)
+  // ============================================================
+
+  // 1. 获取内置头像库
+  const builtInAvatars = [
+    { id: "neo", name: "新生", primaryColor: "#8467ff", tag: "紫" },
+    { id: "specter", name: "幽影", primaryColor: "#c8b8ff", tag: "淡紫" },
+    { id: "glyph", name: "符文", primaryColor: "#40e4ff", tag: "青" },
+    { id: "pulse", name: "心跳", primaryColor: "#ff4fa0", tag: "粉" },
+    { id: "circuit", name: "电路", primaryColor: "#5ed49a", tag: "绿" },
+    { id: "nova", name: "新星", primaryColor: "#ffc14a", tag: "橙" },
+    { id: "oracle", name: "神谕", primaryColor: "#6b46ff", tag: "深紫" },
+    { id: "drift", name: "漂流", primaryColor: "#b0b0c0", tag: "灰" },
+    { id: "echo", name: "回声", primaryColor: "#ffc14a", tag: "黄" },
+    { id: "void", name: "深渊", primaryColor: "#341a8f", tag: "暗紫" }
+  ];
+
+  // 2. 本地模拟状态存储
+  let capsules = [];
+  let userState = {
+    isLoggedIn: true,
+    nickname: '晨晨赶考ing',
+    email: 'chenchen@demo.hellotimepro.dev',
+    avatarId: 'pulse'
+  };
+
+  // 广场排序与过滤变量
+  let currentSort = 'hot';  // hot | new
+  let currentFilter = 'all'; // all | opened | sealed
+  let searchQuery = '';
+
+  // 我的空间页内部Tab切换
+  let currentMeTab = 'created'; // created | favs
+
+  // 种子数据库初始化（若本地 localStorage 无，则装载完整演示数据）
+  const SEED_KEY = 'hellotime_pro_demo_capsules';
+  const USER_KEY = 'hellotime_pro_demo_user';
+
+  function initData() {
+    // 载入用户状态
+    const savedUser = localStorage.getItem(USER_KEY);
+    if (savedUser) {
+      userState = JSON.parse(savedUser);
+    }
+    
+    const savedCapsules = localStorage.getItem(SEED_KEY);
+    if (savedCapsules) {
+      capsules = JSON.parse(savedCapsules);
+      return;
+    }
+
+    // 默认载入完整种子库（适配 2026-05-26 17:22 当前时间）
+    const nowMs = new Date().getTime();
+    capsules = [
+      {
+        id: '35c6c629-cd80-59b4-b16a-6e1fc1784b07',
+        code: 'GRAD2025',
+        title: '给一年后毕业纪念日的自己',
+        content: '现在是凌晨两点，室友都睡着了，我把台灯调到最暗，坐在铺满答辩稿的床上写这封信。\n\n明天我就要走出这栋宿舍楼了。四年里我哭过三次——大一挂科、大三失恋、昨天拍毕业照。\n\n给一年后的自己留几个问题：\n1. 有没有找到真正喜欢的工作，不只是薪资还行的那种？\n2. 跟林阿姨推荐的那个男生见面了吗（我知道你很抗拒）？\n3. 攒够了去北海道的机票钱吗？\n\n如果这三件事一件都没做成，也没关系。你还有二十几岁的下半段。\n\n只是别忘记今晚这种感觉——什么都还没定，但什么都还来得及。',
+        openAt: '2026-04-14T16:00:00Z',
+        createdAt: '2025-06-14T16:00:00Z',
+        inPlaza: true,
+        favoriteCount: 12,
+        isOpened: true,
+        favoritedByMe: false,
+        creator: { nickname: '晨晨赶考ing', avatarId: 'pulse' }
+      },
+      {
+        id: '6fb1739d-4bb1-55a2-bd00-b766c6c525fb',
+        code: 'DIET0901',
+        title: '半年后，我体重几斤？',
+        content: '今天 168 斤。朋友圈已经被健身房的人刷屏三年了，我终于也办了张卡。\n\n立一个 flag（虽然我知道以前全倒了）：\n- 3 个月减 10 斤\n- 6 个月减 15 斤\n- 能穿上 2020 年买的那件 L 码外套\n\n你现在打开这封信，请先去称一下体重，然后回来告诉我结果。\n\n不管多少斤，先给自己鼓个掌。坚持了半年，这件事本身就值得。',
+        openAt: '2026-03-01T00:00:00Z',
+        createdAt: '2025-09-01T00:00:00Z',
+        inPlaza: true,
+        favoriteCount: 3,
+        isOpened: true,
+        favoritedByMe: false,
+        creator: { nickname: '老陈不想加班', avatarId: 'circuit' }
+      },
+      {
+        id: '3eca735c-9e1d-5bd5-aefe-9541edbeceaf',
+        code: 'DAD16315',
+        title: '吴小风，爸爸写给你的第一封信',
+        content: '儿子，你现在 10 岁了。\n\n我写这封信的时候，你刚出生三天。我坐在医院走廊的塑料椅上，身上还是手术室那件衣服，等你妈妈醒来。\n\n那三天我没怎么睡，不是睡不着，是不敢睡——我怕错过你的每一个表情。\n\n你喜欢什么？踢球还是画画？喜欢看书还是打游戏？有没有要好的朋友？\n\n不管你是什么样的，我只想说一件事：你生下来那天，是我这辈子最害怕也最高兴的一天。\n\n不是因为你优不优秀，就只是因为你在。\n\n爸爸爱你。',
+        openAt: '2026-03-15T00:00:00Z',
+        createdAt: '2016-03-15T08:00:00Z',
+        inPlaza: true,
+        favoriteCount: 128,
+        isOpened: true,
+        favoritedByMe: true,
+        creator: { nickname: '两娃奶爸吴', avatarId: 'neo' }
+      },
+      {
+        id: 'cc83368a-e7d6-54f2-af8f-a5a330b83c35',
+        code: 'STEAK214',
+        title: '情人节早上打开：去年双 11 我做了什么',
+        content: '今天是 11 月 11 日，零点整，我一个人在厨房煮了一锅红烧肉。\n\n做了两个小时，摆盘，拍了照片，然后……发现一个人根本吃不完。\n\n我把它放进冰箱，打开了这个 app，设定三个月后的情人节打开。\n\n如果你今天有人一起吃饭——恭喜你，你不一样了。\n如果你还是一个人——没关系，那锅红烧肉的食谱我可以再教你一次，两个人份的。',
+        openAt: '2026-02-14T00:00:00Z',
+        createdAt: '2025-11-11T16:00:00Z',
+        inPlaza: true,
+        favoriteCount: 15,
+        isOpened: true,
+        favoritedByMe: true,
+        creator: { nickname: '永远第七章', avatarId: 'oracle' }
+      },
+      {
+        id: 'a4ab6dbc-46ea-574f-a69e-d2c51d6047f1',
+        code: 'FUTURE16',
+        title: '写给 2026 年读到这封信的陌生人',
+        content: '你好，陌生人。\n\n我写这封信的时候是 2016 年，那时候微信刚开始流行，直播还是新鲜事，没有人知道疫情这个词。\n\n我不知道 10 年后的世界是什么样，但我猜你和我一样，还是会为了一些小事感到高兴——比如天气刚好，比如一杯好喝的咖啡，比如一个人突然给你发了条消息。\n\n我想问你一件事，不需要回答我，只需要你自己想一想：\n你现在做的事情，是你 10 年前的自己期待你去做的吗？\n\n来自 2016 年的我。',
+        openAt: '2026-01-01T00:00:00Z',
+        createdAt: '2016-01-01T08:00:00Z',
+        inPlaza: true,
+        favoriteCount: 34,
+        isOpened: true,
+        favoritedByMe: false,
+        creator: { nickname: '在路上的方', avatarId: 'drift' }
+      },
+      {
+        id: '804b06f9-6692-5dae-982c-c48901a23a9a',
+        code: 'HOME2601',
+        title: '新家一周年，你把它变成家了吗',
+        content: '搬家第一晚，我睡在空荡荡的新公寓地板上，因为床还没到。\n\n这是我第一套自己名字的房子。贷款。首付是妈妈帮的。我们约定好：我自己还，她不再催我找对象。\n\n一年后打开这封信，我想知道：\n- 那面主卧的白墙有没有挂上画？\n- 植物们都还活着吗？\n- 有没有在这里请朋友吃过饭？',
+        openAt: new Date(nowMs + 65000000).toISOString(), // 约 18 小时后
+        createdAt: '2025-08-01T01:00:00Z',
+        inPlaza: true,
+        favoriteCount: 22,
+        isOpened: false,
+        favoritedByMe: false,
+        creator: { nickname: '暮光像素', avatarId: 'nova' }
+      },
+      {
+        id: 'e57ac49f-ce91-5438-965f-d2bdcfe82894',
+        code: 'GIRL0812',
+        title: '吴小鱼，你成年了',
+        content: '小鱼，你今年 18 岁了。\n\n你 16 岁生日那天，我送了你一辆自行车，你嫌样式土。我们在饭桌上吵了一架，你摔门进了房间。\n\n我坐在客厅想了很久，不知道从什么时候开始，我开始不懂你了。',
+        openAt: new Date(nowMs + 620000000).toISOString(), // 约 7 天后
+        createdAt: '2024-08-12T08:00:00Z',
+        inPlaza: true,
+        favoriteCount: 9,
+        isOpened: false,
+        favoritedByMe: false,
+        creator: { nickname: '两娃奶爸吴', avatarId: 'neo' }
+      },
+      {
+        id: '1165a012-2fa1-538d-9140-8544f95e8807',
+        code: 'NOVEL031',
+        title: '2031 年，那本书写完了吗',
+        content: '今天把第一章发给了写作群的朋友，他们说"很有意思，继续写"。\n\n我已经"继续写"了三年，依然停在第七章。',
+        openAt: '2031-04-15T08:00:00Z',
+        createdAt: '2026-04-15T08:00:00Z',
+        inPlaza: true,
+        favoriteCount: 14,
+        isOpened: false,
+        favoritedByMe: false,
+        creator: { nickname: '永远第七章', avatarId: 'oracle' }
+      }
+    ];
+    saveData();
+  }
+
+  function saveData() {
+    localStorage.setItem(SEED_KEY, JSON.stringify(capsules));
+    localStorage.setItem(USER_KEY, JSON.stringify(userState));
+  }
+
+  // 3. 亮屏与灵动岛交互动效
+  document.addEventListener('DOMContentLoaded', () => {
+    initData();
+    updateStatusBarTime();
+    setInterval(updateStatusBarTime, 1000);
+    
+    // 自动更新所有胶囊的 isOpened 缓存
+    checkCapsuleExpiration();
+    setInterval(checkCapsuleExpiration, 1000);
+
+    // 亮屏流
+    setTimeout(() => {
+      document.getElementById('splashScreen').classList.add('is-hidden');
+      triggerIslandNotification('🟢 HelloTime Pro 已就绪', '连接到本地 FastAPI 服务');
+    }, 1800);
+
+    // 电源键熄屏模拟
+    document.getElementById('shellPowerBtn').addEventListener('click', () => {
+      const overlay = document.getElementById('screenOffOverlay');
+      overlay.classList.toggle('is-active');
+      if (!overlay.classList.contains('is-active')) {
+        // 重新亮屏
+        triggerIslandNotification('⚡ 设备解锁', '状态加载成功');
+      }
+    });
+
+    // 默认列表渲染
+    renderPlazaGrid();
+    renderMeGrid();
+    renderAvatarSelector();
+    syncUserUI();
+
+    // 防抖搜索
+    let searchTimeout;
+    document.getElementById('plazaSearchInput').addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        searchQuery = e.target.value.trim();
+        renderPlazaGrid();
+      }, 300);
+    });
+
+    // 默认设置创建页面的解封时间（未来 1 小时）
+    const defaultReveal = new Date(new Date().getTime() + 3600000);
+    // 转化为本地格式 YYYY-MM-DDThh:mm
+    const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(defaultReveal - tzoffset)).toISOString().slice(0, 16);
+    document.getElementById('createOpenAt').value = localISOTime;
+  });
+
+  // 状态栏时间
+  function updateStatusBarTime() {
+    const d = new Date();
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    document.getElementById('statusBarTime').innerText = `${h}:${m}`;
+  }
+
+  // 校验并改变是否到期
+  function checkCapsuleExpiration() {
+    const now = new Date().getTime();
+    let hasChanged = false;
+    capsules.forEach(c => {
+      const openTime = new Date(c.openAt).getTime();
+      if (!c.isOpened && openTime <= now) {
+        c.isOpened = true;
+        hasChanged = true;
+        triggerIslandNotification('🔓 胶囊开启成功！', c.title);
+      }
+    });
+    if (hasChanged) {
+      saveData();
+      renderPlazaGrid();
+      renderMeGrid();
+    }
+  }
+
+  // 灵动岛弹性展开通知 (Island Dynamic Notification)
+  function triggerIslandNotification(title, subtitle) {
+    const island = document.getElementById('dynamicIsland');
+    const content = document.getElementById('dynamicIslandContent');
+    
+    island.classList.add('is-expanded');
+    content.innerHTML = `<div style="color:var(--color-signal-primary); font-weight:700">${title}</div><div style="font-size:9px; opacity:0.8; margin-top:2px">${subtitle}</div>`;
+    
+    setTimeout(() => {
+      island.classList.remove('is-expanded');
+      content.innerHTML = '';
+    }, 4500);
+  }
+
+  // Toast 触觉提示
+  function showToast(text) {
+    const toast = document.getElementById('interactiveToast');
+    toast.innerText = text;
+    toast.classList.add('is-active');
+    setTimeout(() => {
+      toast.classList.remove('is-active');
+    }, 2000);
+  }
+
+  // 模态弹框控制
+  function showGlobalModal(emoji, title, text, customButtons = null) {
+    document.getElementById('modalEmoji').innerText = emoji;
+    document.getElementById('modalTitle').innerText = title;
+    document.getElementById('modalText').innerText = text;
+    
+    const btns = document.getElementById('modalButtons');
+    if (customButtons) {
+      btns.innerHTML = customButtons;
+    } else {
+      btns.innerHTML = `<button class="cy-btn cy-btn--primary" style="flex:1" onclick="closeGlobalModal()">确定</button>`;
+    }
+    
+    document.getElementById('globalModalScrim').classList.add('is-active');
+  }
+
+  function closeGlobalModal() {
+    document.getElementById('globalModalScrim').classList.remove('is-active');
+  }
+
+  // ============================================================
+  // ROUTING & TAB NAVIGATION
+  // ============================================================
+  function switchTab(target, button) {
+    // 隐藏所有屏
+    document.querySelectorAll('.view-screen').forEach(scr => scr.classList.remove('is-active'));
+    
+    // 取消所有 tab button 激活
+    document.querySelectorAll('.mobile-tab-item').forEach(btn => btn.classList.remove('is-active'));
+    
+    // 显示目标屏
+    const targetScreen = document.getElementById('screen' + target.charAt(0).toUpperCase() + target.slice(1));
+    if (targetScreen) targetScreen.classList.add('is-active');
+    button.classList.add('is-active');
+
+    // 处理滑块跟随
+    const tabs = Array.from(document.querySelectorAll('.mobile-tab-item'));
+    const index = tabs.indexOf(button);
+    const indicator = document.getElementById('mobileTabIndicator');
+    
+    // 宽度固定 40，计算其偏移居中
+    const percentWidth = 100 / tabs.length;
+    const centerOffset = (percentWidth - 10) / 2; // 微调使其完全居中
+    indicator.style.left = `calc(${index * percentWidth}% + 28px)`;
+
+    // 重新渲染相关页数据
+    if (target === 'plaza') {
+      renderPlazaGrid();
+    } else if (target === 'me') {
+      renderMeGrid();
+    }
+  }
+
+  // ============================================================
+  // PLAZA: 广场数据渲染与排序过滤
+  // ============================================================
+  function setSort(sortType, btn) {
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    currentSort = sortType;
+    renderPlazaGrid();
+    showToast(`按${sortType === 'hot' ? '收藏热度' : '创建时间'}排序`);
+  }
+
+  function setFilter(filterType, btn) {
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    currentFilter = filterType;
+    renderPlazaGrid();
+    showToast(`筛选: ${btn.innerText}`);
+  }
+
+  function renderPlazaGrid() {
+    const grid = document.getElementById('plazaCapsuleGrid');
+    grid.innerHTML = '';
+
+    // 过滤只能看到广场公开的 (inPlaza = true)
+    let list = capsules.filter(c => c.inPlaza === true);
+
+    // 状态过滤
+    if (currentFilter === 'opened') {
+      list = list.filter(c => c.isOpened === true);
+    } else if (currentFilter === 'sealed') {
+      list = list.filter(c => c.isOpened === false);
+    }
+
+    // 模糊搜索
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(c => 
+        c.title.toLowerCase().includes(q) || 
+        c.creator.nickname.toLowerCase().includes(q)
+      );
+    }
+
+    // 排序
+    if (currentSort === 'hot') {
+      // 热门：收藏数降序，Tie-breaker 倒序创建
+      list.sort((a, b) => b.favoriteCount - a.favoriteCount || new Date(b.createdAt) - new Date(a.createdAt));
+    } else {
+      // 最新：创建时间倒序
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    if (list.length === 0) {
+      grid.innerHTML = `
+        <div style="text-align:center; padding: 40px var(--space-4); color:var(--color-text-muted)">
+          <span style="font-size: 32px">👁️‍🌫️</span>
+          <p style="font-size:12px; margin-top:10px">没有找到符合条件的胶囊</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.forEach(c => {
+      const card = document.createElement('article');
+      // 确定风格
+      card.className = `cy-capsule cy-capsule--${c.isOpened ? 'opened' : 'sealed'}`;
+      card.onclick = () => openCapsuleDetail(c.id);
+
+      // 计算卡片内容
+      let contentHtml = '';
+      if (c.isOpened) {
+        contentHtml = `
+          <div class="cy-capsule__head">
+            <span class="cy-badge cy-badge--opened">已开封</span>
+            <span class="cy-capsule__code">${c.code}</span>
+          </div>
+          <h3 class="cy-capsule__title">${c.title}</h3>
+          <p class="cy-capsule__preview">${c.content}</p>
+        `;
+      } else {
+        // 未开启，计算倒计时
+        const diffText = getCountdownString(c.openAt);
+        contentHtml = `
+          <div class="cy-capsule__head">
+            <span class="cy-badge cy-badge--sealed">封存中</span>
+            <span class="cy-capsule__code">${c.code}</span>
+          </div>
+          <h3 class="cy-capsule__title">${c.title}</h3>
+          <p class="cy-capsule__countdown">⏳ 还剩 ${diffText}</p>
+        `;
+      }
+
+      // 底栏
+      const favActive = c.favoritedByMe ? 'is-active' : '';
+      const favHeart = c.favoritedByMe ? '♥' : '♡';
+      const bottomHtml = `
+        <div class="cy-capsule__meta">
+          <span class="cy-capsule__creator">
+            <img src="../spec/avatars/${c.creator.avatarId}.svg" alt="" /> ${c.creator.nickname}
+          </span>
+          <button class="cy-capsule__fav ${favActive}" onclick="toggleFav('${c.id}', event)">
+            ${favHeart} ${c.favoriteCount}
+          </button>
+        </div>
+      `;
+
+      card.innerHTML = contentHtml + bottomHtml;
+      grid.appendChild(card);
+    });
+  }
+
+  // 格式化时间
+  function getCountdownString(openAtStr) {
+    const diff = new Date(openAtStr).getTime() - new Date().getTime();
+    if (diff <= 0) return "已到期";
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    const seconds = Math.floor((diff / 1000) % 60);
+
+    if (days > 0) {
+      return `${days}天 ${hours}小时`;
+    }
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  // ============================================================
+  // FAVORITE: 收藏数据实时双向同步
+  // ============================================================
+  function toggleFav(id, event) {
+    if (event) event.stopPropagation(); // 阻止点击卡片弹窗
+    
+    // 拦截鉴权
+    if (!userState.isLoggedIn) {
+      showLoginGateModal();
+      return;
+    }
+
+    const c = capsules.find(item => item.id === id);
+    if (!c) return;
+
+    // 不允许收藏自己的胶囊
+    if (c.creator.nickname === userState.nickname) {
+      showGlobalModal('⚠️ 限制动作', '不能收藏自己创建的胶囊。自己创造的历史是不可逆转地直接承载的。');
+      return;
+    }
+
+    if (c.favoritedByMe) {
+      c.favoritedByMe = false;
+      c.favoriteCount = Math.max(0, c.favoriteCount - 1);
+      showToast('💔 已取消收藏');
+    } else {
+      c.favoritedByMe = true;
+      c.favoriteCount += 1;
+      showToast('💖 已加入收藏');
+    }
+
+    saveData();
+    renderPlazaGrid();
+    renderMeGrid();
+    
+    // 如果详情抽屉正好开着，同步详情页面
+    if (currentDetailId === id) {
+      updateDetailSheet(c);
+    }
+  }
+
+  // 未登录快捷认证拦截器 (Login Gate Interceptor)
+  function showLoginGateModal() {
+    showGlobalModal('👥 鉴权拦截', '您需要先接入赛博身份账号才能进行收藏。立即为您快速同步演示用户？', `
+      <button class="cy-btn cy-btn--ghost" style="flex:1" onclick="closeGlobalModal()">取消</button>
+      <button class="cy-btn cy-btn--primary" style="flex:1" onclick="quickLoginDemo()">同步登录</button>
+    `);
+  }
+
+  function quickLoginDemo() {
+    userState.isLoggedIn = true;
+    saveData();
+    syncUserUI();
+    closeGlobalModal();
+    triggerIslandNotification('🌐 接入网络成功', '已接入晨晨赶考ing的身份链');
+    renderPlazaGrid();
+    renderMeGrid();
+  }
+
+  function mockLogout() {
+    userState.isLoggedIn = false;
+    saveData();
+    syncUserUI();
+    closeProfileEditor();
+    switchTab('plaza', document.querySelectorAll('.mobile-tab-item')[0]);
+    triggerIslandNotification('🔴 断开网络连接', '当前匿名状态浏览');
+    renderPlazaGrid();
+    renderMeGrid();
+  }
+
+  // ============================================================
+  // OPEN: 提取解封
+  // ============================================================
+  function focusNextInput(input, index) {
+    input.value = input.value.toUpperCase();
+    if (input.value && index < 7) {
+      document.getElementById('codeInputDisplay').querySelectorAll('input')[index + 1].focus();
+    }
+  }
+
+  function fillQuickCode(code) {
+    const inputs = document.getElementById('codeInputDisplay').querySelectorAll('input');
+    for (let i = 0; i < 8; i++) {
+      inputs[i].value = code[i] || '';
+    }
+    showToast(`已填充密码: ${code}`);
+  }
+
+  function submitRetrieveCode() {
+    const inputs = document.getElementById('codeInputDisplay').querySelectorAll('input');
+    let code = '';
+    inputs.forEach(ip => code += ip.value);
+    
+    code = code.trim().toUpperCase();
+    if (code.length < 8) {
+      showToast('❌ 请完整输入 8 位密码');
+      shakeCodeInputs();
+      return;
+    }
+
+    const c = capsules.find(item => item.code === code);
+    if (!c) {
+      showToast('❌ 验证失败: 密码无法识别');
+      shakeCodeInputs();
+      return;
+    }
+
+    // 成功唤醒，直接呼出详情页
+    triggerIslandNotification('🚀 密码对齐成功！', `正在呼出胶囊: ${c.title}`);
+    setTimeout(() => {
+      openCapsuleDetail(c.id);
+    }, 500);
+  }
+
+  function shakeCodeInputs() {
+    const container = document.getElementById('codeInputDisplay');
+    container.classList.add('shake-anim');
+    setTimeout(() => {
+      container.classList.remove('shake-anim');
+    }, 400);
+  }
+
+  // ============================================================
+  // CREATE: 密封熔炼
+  // ============================================================
+  function setQuickDate(minutes) {
+    const future = new Date(new Date().getTime() + minutes * 60000);
+    const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(future - tzoffset)).toISOString().slice(0, 16);
+    document.getElementById('createOpenAt').value = localISOTime;
+    showToast(`已设定为将来 ${minutes >= 1440 ? Math.round(minutes/1440) + '天' : minutes + '分钟'}后`);
+  }
+
+  let aiGenerated = false;
+
+  function onTitleInput() {
+    const title = document.getElementById('createTitle').value.trim();
+    const btn = document.getElementById('createAiBtn');
+    btn.disabled = !title;
+  }
+
+  function simulateCapsuleSuggestion(title) {
+    const t = title.toLowerCase();
+    let content = `你好，这封信写于 2026 年，此刻我正站在时光的分水岭。\n\n我想问未来的你几个问题：你是否达成了当年的愿景？是否依然保持着纯真与好奇心？\n\n不管结果如何，请记住今晚写下这段话时的感觉 —— 只要迈出第一步，就永远来得及。`;
+    let openInDays = 365; // 1年
+    let source = 'openai:gpt-4.1-mini';
+
+    if (t.includes('胖') || t.includes('瘦') || t.includes('重') || t.includes('减肥') || t.includes('flag') || t.includes('体重')) {
+      content = `这是一份在时间链条上锁死的目标契约。\n\n我在此写下目标：\n1. 养成规律健康的饮食习惯，少油低脂少外卖；\n2. 保持运动和锻炼习惯，达到理想的身体状态与体形；\n3. 达成一项为自己设立的工作目标。\n\n当你今天开启这封信时，请坦诚地面对当年的自我。愿你已经实现了这个蜕变！`;
+      openInDays = 180; // 半年
+    } else if (t.includes('儿') || t.includes('女') || t.includes('娃') || t.includes('宝') || t.includes('孩')) {
+      content = `亲爱的宝贝：\n\n当你开启这封信的时候，你已经迎来了意义非凡的成长时刻（也许是你的成人礼）。写这封信的今晚，你还那么小，正躺在襁褓里发出细微的呼吸。我握着你稚嫩的小手，第一次体验到成为父母的温暖与敬畏。\n\n我不强求你未来多么完美，我只希望你健康、自由，拥有探索这个世界的勇气。我们永远是你的港湾。`;
+      openInDays = 3650; // 10年
+    } else if (t.includes('树洞') || t.includes('秘密') || t.includes('难过') || t.includes('累') || t.includes('压力')) {
+      content = `今天积攒了许多说不出口的压力，所以我决定把它上锁在这里。\n\n我不打算把这种情绪发在朋友圈，也不想带给身边的人。这只是历史长河中一朵微不足道的浪花，我写下它，然后松开双手，把它交给时间去抚平。\n\n希望解封那一天的你，早已释怀，正微笑着看着今晚的迷茫。加油，一切都会好起来的。`;
+      openInDays = 30; // 30天
+    } else if (t.includes('十年') || t.includes('10年') || t.includes('未来')) {
+      content = `跨越十年的光阴，这是一封来自 2026 年的问候。\n\n十年的跨度足够改变许多事。你是否还在做着当年的探索？身边的老朋友是否还在常联系？你又是否遇到了那个想要共度一生的人？\n\n无论十年后的世界变成什么样，我都希望你温和而坚定，依然像当年那个少年一样，眼睛里闪烁着星光。`;
+      openInDays = 3650;
+    }
+
+    const openAtDate = new Date(new Date().getTime() + openInDays * 24 * 60 * 60 * 1000);
+    return {
+      content,
+      openInDays,
+      openAt: openAtDate.toISOString(),
+      generatedBy: source
+    };
+  }
+
+  function aiGenerateSuggested() {
+    const title = document.getElementById('createTitle').value.trim();
+    if (!title) return;
+
+    const btn = document.getElementById('createAiBtn');
+    btn.disabled = true;
+    btn.innerText = '生成中…';
+
+    // 弹出炫酷的“AI计算”全屏加载框，体现接口对接
+    showGlobalModal('🤖', 'AI 建议生成中...', `
+      <div style="text-align:center; padding:15px 0">
+        <div style="width:40px; height:40px; border:3px solid rgba(20, 212, 240, 0.15); border-top-color:var(--color-signal-primary); border-radius:50%; animation: splash-logo-spin 1s linear infinite; margin:0 auto 15px"></div>
+        <p style="font-size:11px; color:var(--color-text-muted); line-height:1.5; margin:0">🤖 正在请求 <code>/api/v1/capsule-suggestion</code> ...<br>正在调用 LLM 计算最优解封时刻与正文内容...</p>
+      </div>
+    `, ' ');
+
+    setTimeout(() => {
+      const res = simulateCapsuleSuggestion(title);
+
+      document.getElementById('createContent').value = res.content;
+
+      // 设置时间 (建议的时间)
+      const openAtDate = new Date(res.openAt);
+      const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(openAtDate - tzoffset)).toISOString().slice(0, 16);
+      document.getElementById('createOpenAt').value = localISOTime;
+
+      // 来源及提示
+      const source = res.generatedBy === "local-template" ? "本地模板（LLM 未启用）" : res.generatedBy;
+      const infoEl = document.getElementById('createAiInfo');
+      infoEl.innerHTML = `已为你生成正文，建议 ${res.openInDays} 天后开启 · 来源：${source}`;
+      infoEl.style.display = 'block';
+
+      aiGenerated = true;
+      btn.innerText = '✨ 重新生成';
+      btn.disabled = false;
+
+      closeGlobalModal();
+      showToast('✨ AI 建议内容与时间已注入');
+      triggerIslandNotification('✨ AI 建议生成成功', title);
+    }, 1500);
+  }
+
+  function generateRandomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  function submitCreateCapsule() {
+    if (!userState.isLoggedIn) {
+      showLoginGateModal();
+      return;
+    }
+
+    const title = document.getElementById('createTitle').value.trim();
+    const content = document.getElementById('createContent').value.trim();
+    const openAtVal = document.getElementById('createOpenAt').value;
+    const inPlaza = document.getElementById('createInPlaza').checked;
+
+    if (!title || !content || !openAtVal) {
+      showToast('❌ 请将表单信息填写完整');
+      return;
+    }
+
+    const openTimeMs = new Date(openAtVal).getTime();
+    const nowMs = new Date().getTime();
+
+    if (openTimeMs <= nowMs + 60000) {
+      showGlobalModal('⏰ 密封约束', '根据物理不变式 (Invariant I4)，解封时间必须设定在当前时间的 60 秒之后。请重新调整设定。');
+      return;
+    }
+
+    // 生成随机 8 位码且全局唯一
+    let code = generateRandomCode();
+    while (capsules.some(item => item.code === code)) {
+      code = generateRandomCode();
+    }
+
+    const newCapsule = {
+      id: 'mock-' + Math.random().toString(36).substr(2, 9),
+      code: code,
+      title: title,
+      content: content,
+      openAt: new Date(openTimeMs).toISOString(),
+      createdAt: new Date().toISOString(),
+      inPlaza: inPlaza,
+      favoriteCount: 0,
+      isOpened: false,
+      favoritedByMe: false,
+      creator: {
+        nickname: userState.nickname,
+        avatarId: userState.avatarId
+      }
+    };
+
+    // 保存至本地数据库状态
+    capsules.push(newCapsule);
+    saveData();
+
+    // 清空表单
+    document.getElementById('createTitle').value = '';
+    document.getElementById('createContent').value = '';
+
+    // 显示高科技铸造成功弹窗
+    showGlobalModal('🔒 上锁封存成功', `您的这段文字已被上锁，直到您设定的时刻才能被开启。\n\n您的 8 位提取码已生成，您可以将它复制并分享给好友：`, `
+      <div style="font-family:var(--font-mono); font-size: 26px; font-weight: 800; color:var(--color-signal-primary); background:rgba(0,0,0,0.3); border:1px dashed var(--color-signal-primary); padding:10px; border-radius:10px; margin: 10px 0 20px; letter-spacing:0.1em; text-align:center">${code}</div>
+      <div style="display:flex; gap:8px; width:100%">
+        <button class="cy-btn cy-btn--ghost" style="flex:1; font-size:12px; padding:8px" onclick="copyCreatedCode('${code}')">📋 复制提取码</button>
+        <button class="cy-btn cy-btn--primary" style="flex:1.2; font-size:12px; padding:8px" onclick="closeGlobalModalAndRouteMe()">👤 查看我的</button>
+      </div>
+    `);
+    
+    triggerIslandNotification('🔒 胶囊创建成功', `提取码: ${code}`);
+  }
+
+  function closeGlobalModalAndRouteMe() {
+    closeGlobalModal();
+    // 切换至我的 Tab
+    switchTab('me', document.querySelectorAll('.mobile-tab-item')[3]);
+  }
+
+  // ============================================================
+  // ME: 我的个人空间
+  // ============================================================
+  function toggleMeTab(meType, btn) {
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    currentMeTab = meType;
+    renderMeGrid();
+  }
+
+  function renderMeGrid() {
+    const grid = document.getElementById('meCapsuleGrid');
+    const indicator = document.getElementById('meIndicatorText');
+    grid.innerHTML = '';
+
+    if (!userState.isLoggedIn) {
+      grid.innerHTML = `
+        <div style="text-align:center; padding: 50px var(--space-4);">
+          <span style="font-size: 38px">👥</span>
+          <p style="font-size:12px; margin-top:10px; color:var(--color-text-muted)">您当前处于匿名离线状态</p>
+          <button class="cy-btn cy-btn--primary cy-btn--sm" style="margin-top:10px" onclick="showLoginGateModal()">接入身份网络</button>
+        </div>
+      `;
+      indicator.innerText = '匿名离线';
+      return;
+    }
+
+    let list = [];
+    if (currentMeTab === 'created') {
+      // 我创建的
+      list = capsules.filter(c => c.creator.nickname === userState.nickname);
+      indicator.innerText = `共创建了 ${list.length} 个胶囊`;
+    } else {
+      // 我收藏的
+      list = capsules.filter(c => c.favoritedByMe === true);
+      indicator.innerText = `共收藏了 ${list.length} 个胶囊`;
+    }
+
+    if (list.length === 0) {
+      grid.innerHTML = `
+        <div style="text-align:center; padding: 40px var(--space-4); color:var(--color-text-muted)">
+          <span style="font-size: 32px">🕳️</span>
+          <p style="font-size:11px; margin-top:10px">这里什么都没有存留</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.forEach(c => {
+      const card = document.createElement('article');
+      card.className = `cy-capsule cy-capsule--${c.isOpened ? 'opened' : 'sealed'}`;
+      card.onclick = () => openCapsuleDetail(c.id);
+
+      let contentHtml = '';
+      if (c.isOpened) {
+        contentHtml = `
+          <div class="cy-capsule__head">
+            <span class="cy-badge cy-badge--opened">已开封</span>
+            <span class="cy-capsule__code">${c.code}</span>
+          </div>
+          <h3 class="cy-capsule__title">${c.title}</h3>
+          <p class="cy-capsule__preview">${c.content}</p>
+        `;
+      } else {
+        const diffText = getCountdownString(c.openAt);
+        contentHtml = `
+          <div class="cy-capsule__head">
+            <span class="cy-badge cy-badge--sealed">封存中</span>
+            <span class="cy-capsule__code">${c.code}</span>
+          </div>
+          <h3 class="cy-capsule__title">${c.title}</h3>
+          <p class="cy-capsule__countdown">⏳ 还剩 ${diffText}</p>
+        `;
+      }
+
+      const favActive = c.favoritedByMe ? 'is-active' : '';
+      const favHeart = c.favoritedByMe ? '♥' : '♡';
+      const bottomHtml = `
+        <div class="cy-capsule__meta">
+          <span class="cy-capsule__creator">
+            <img src="../spec/avatars/${c.creator.avatarId}.svg" alt="" /> ${c.creator.nickname}
+          </span>
+          <button class="cy-capsule__fav ${favActive}" onclick="toggleFav('${c.id}', event)">
+            ${favHeart} ${c.favoriteCount}
+          </button>
+        </div>
+      `;
+
+      card.innerHTML = contentHtml + bottomHtml;
+      grid.appendChild(card);
+    });
+  }
+
+  // ============================================================
+  // SETTINGS: 个人身份编辑器
+  // ============================================================
+  let tempSelectedAvatarId = '';
+
+  function renderAvatarSelector() {
+    const grid = document.getElementById('settingsAvatarGrid');
+    grid.innerHTML = '';
+    builtInAvatars.forEach(av => {
+      const item = document.createElement('button');
+      item.className = `cy-avatar-picker__item`;
+      item.id = `av-pick-${av.id}`;
+      item.onclick = () => selectAvatarInPicker(av.id);
+      item.innerHTML = `<img src="../spec/avatars/${av.id}.svg" alt="${av.name}" title="${av.name}" />`;
+      grid.appendChild(item);
+    });
+  }
+
+  function selectAvatarInPicker(avatarId) {
+    document.querySelectorAll('.cy-avatar-picker__item').forEach(el => el.classList.remove('is-selected'));
+    const item = document.getElementById(`av-pick-${avatarId}`);
+    if (item) item.classList.add('is-selected');
+    tempSelectedAvatarId = avatarId;
+    showToast(`已选中头像风格: ${builtInAvatars.find(a=>a.id===avatarId).name}`);
+  }
+
+  function showProfileEditor() {
+    if (!userState.isLoggedIn) {
+      showLoginGateModal();
+      return;
+    }
+    // 装填数据
+    document.getElementById('editNickname').value = userState.nickname;
+    selectAvatarInPicker(userState.avatarId);
+    
+    // 切屏
+    document.querySelectorAll('.view-screen').forEach(scr => scr.classList.remove('is-active'));
+    document.getElementById('screenProfileEditor').classList.add('is-active');
+  }
+
+  function closeProfileEditor() {
+    document.querySelectorAll('.view-screen').forEach(scr => scr.classList.remove('is-active'));
+    document.getElementById('screenMe').classList.add('is-active');
+  }
+
+  function saveProfileChanges() {
+    const nickname = document.getElementById('editNickname').value.trim();
+    if (!nickname) {
+      showToast('❌ 昵称不能为空');
+      return;
+    }
+
+    // 唯一性冲突检测：如果改为了已存在的别人，报错 (VALIDATION_ERROR)
+    const exists = capsules.some(c => c.creator.nickname === nickname && nickname !== userState.nickname);
+    if (exists) {
+      showGlobalModal('⚠️ 冲突报错', `昵称 "${nickname}" 已经被其他时空旅行者所绑定。请设一个独一无二的外号。`);
+      return;
+    }
+
+    // 实名修改本地状态，同步该作者的所有胶囊
+    const oldNickname = userState.nickname;
+    userState.nickname = nickname;
+    userState.avatarId = tempSelectedAvatarId;
+
+    capsules.forEach(c => {
+      if (c.creator.nickname === oldNickname) {
+        c.creator.nickname = nickname;
+        c.creator.avatarId = tempSelectedAvatarId;
+      }
+    });
+
+    saveData();
+    syncUserUI();
+    closeProfileEditor();
+    
+    triggerIslandNotification('👤 档案同步成功', `欢迎你，${nickname}`);
+    renderPlazaGrid();
+    renderMeGrid();
+  }
+
+  function syncUserUI() {
+    if (userState.isLoggedIn) {
+      document.getElementById('userPanelAvatar').src = `../spec/avatars/${userState.avatarId}.svg`;
+      document.getElementById('userPanelNickname').innerText = userState.nickname;
+      document.getElementById('userPanelEmail').innerText = userState.email;
+    }
+  }
+
+  // ============================================================
+  // BOTTOM SHEET DETAIL: 胶囊详情与智能抽屉
+  // ============================================================
+  let currentDetailId = '';
+  let detailTimer = null;
+
+  function openCapsuleDetail(id) {
+    const c = capsules.find(item => item.id === id);
+    if (!c) return;
+    currentDetailId = id;
+    
+    updateDetailSheet(c);
+
+    // 弹出抽屉与遮罩
+    document.getElementById('detailSheetScrim').classList.add('is-active');
+    document.getElementById('detailSheet').classList.add('is-active');
+
+    // 如果未开启，建立高频倒计时刷新
+    clearInterval(detailTimer);
+    if (!c.isOpened) {
+      detailTimer = setInterval(() => {
+        const timeStr = getCountdownString(c.openAt);
+        const dialVal = document.getElementById('dialTimeVal');
+        if (dialVal) {
+          dialVal.innerText = timeStr;
+        }
+        
+        // 检测中途到期
+        const diff = new Date(c.openAt).getTime() - new Date().getTime();
+        if (diff <= 0) {
+          clearInterval(detailTimer);
+          c.isOpened = true;
+          saveData();
+          updateDetailSheet(c);
+          renderPlazaGrid();
+        }
+      }, 1000);
+    }
+  }
+
+  function updateDetailSheet(c) {
+    document.getElementById('detailCode').innerText = c.code;
+    document.getElementById('detailTitle').innerText = c.title;
+    document.getElementById('detailCreatorAvatar').src = `../spec/avatars/${c.creator.avatarId}.svg`;
+    document.getElementById('detailCreatorName').innerText = c.creator.nickname;
+
+    const badge = document.getElementById('detailBadge');
+    const bodyArea = document.getElementById('detailBodyArea');
+    const deleteBtn = document.getElementById('detailDeleteBtn');
+
+    // 收藏同步
+    const favActive = c.favoritedByMe ? 'is-active' : '';
+    const favHeart = c.favoritedByMe ? '♥' : '♡';
+    const favBtn = document.getElementById('detailFavBtn');
+    favBtn.className = `cy-capsule__fav ${favActive}`;
+    favBtn.innerText = `${favHeart} ${c.favoriteCount}`;
+
+    // 显示熔毁（删除）按键——仅当用户是原作者时
+    if (userState.isLoggedIn && c.creator.nickname === userState.nickname) {
+      deleteBtn.style.display = 'block';
+    } else {
+      deleteBtn.style.display = 'none';
+    }
+
+    if (c.isOpened) {
+      badge.className = 'cy-badge cy-badge--opened';
+      badge.innerText = '已开封';
+      // 换算分段文字
+      const bodyParagraphs = c.content.split('\n\n').map(p => `<p style="line-height:1.6; font-size:13px; margin: 0 0 10px; color:var(--color-text-secondary)">${p.replace(/\n/g, '<br>')}</p>`).join('');
+      bodyArea.innerHTML = `
+        <div style="background:var(--color-surface-2); border:1px solid var(--color-border-subtle); border-radius:var(--radius-md); padding:15px; max-height:260px; overflow-y:auto; scrollbar-width:none">
+          ${bodyParagraphs}
+        </div>
+      `;
+    } else {
+      badge.className = 'cy-badge cy-badge--sealed';
+      badge.innerText = '封存中';
+      const timeStr = getCountdownString(c.openAt);
+      bodyArea.innerHTML = `
+        <div style="text-align:center">
+          <div class="sealed-countdown-dial">
+            <span class="sealed-countdown-dial__time" id="dialTimeVal">${timeStr}</span>
+            <span class="sealed-countdown-dial__label">倒计时</span>
+          </div>
+          <p style="font-size:11px; color:var(--color-text-muted); line-height:1.5; margin:10px auto; max-width:240px">
+            本段时空信标仍被引力锁链紧扣。\n倒计时归零后，内容将自动为您编译开封。
+          </p>
+        </div>
+      `;
+    }
+  }
+
+  function toggleDetailFav() {
+    toggleFav(currentDetailId, null);
+  }
+
+  function copyDetailCode() {
+    const c = capsules.find(item => item.id === currentDetailId);
+    if (!c) return;
+    
+    // 写入剪贴板
+    navigator.clipboard.writeText(c.code).then(() => {
+      showToast('📋 密码已复制至剪贴板');
+      triggerIslandNotification('📋 密码复制成功', `CODE: ${c.code}`);
+    }).catch(err => {
+      const ta = document.createElement('textarea');
+      ta.value = c.code;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('📋 密码已复制至剪贴板');
+      triggerIslandNotification('📋 密码复制成功', `CODE: ${c.code}`);
+    });
+  }
+
+  function copyCreatedCode(code) {
+    navigator.clipboard.writeText(code).then(() => {
+      showToast('📋 密码已复制至剪贴板');
+      triggerIslandNotification('📋 密码复制成功', `CODE: ${code}`);
+    }).catch(err => {
+      const ta = document.createElement('textarea');
+      ta.value = code;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('📋 密码已复制至剪贴板');
+      triggerIslandNotification('📋 密码复制成功', `CODE: ${code}`);
+    });
+  }
+
+  function openShareSheet() {
+    document.getElementById('shareSheetScrim').classList.add('is-active');
+    document.getElementById('shareSheet').classList.add('is-active');
+  }
+
+  function closeShareSheet() {
+    document.getElementById('shareSheetScrim').classList.remove('is-active');
+    document.getElementById('shareSheet').classList.remove('is-active');
+  }
+
+  function shareAction(type) {
+    const c = capsules.find(item => item.id === currentDetailId);
+    if (!c) return;
+    
+    closeShareSheet();
+    
+    if (type === 'link') {
+      const shareUrl = `https://hellotimepro.dev/capsule/${c.code}`;
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        showToast('🔗 分享链接已复制');
+        triggerIslandNotification('🔗 分享链接已复制', shareUrl);
+      }).catch(err => {
+        showToast('🔗 分享链接已复制');
+      });
+    } else if (type === 'friend') {
+      showGlobalModal('🤖 密友呼叫', `已通过加密视网膜通讯协议，向您的时空密友发送了该胶囊的密码信标：\n\nCODE: ${c.code}`, `
+        <button class="cy-btn cy-btn--primary" style="width:100%" onclick="closeGlobalModal()">确定</button>
+      `);
+      triggerIslandNotification('🤖 消息已发送', `密友消息: CODE ${c.code}`);
+    } else if (type === 'card') {
+      openHoloCard(c);
+    }
+  }
+
+  function openHoloCard(c) {
+    document.getElementById('holoCardCode').innerText = c.code;
+    document.getElementById('holoCardTitle').innerText = c.title;
+    document.getElementById('holoCardAvatar').src = `../spec/avatars/${c.creator.avatarId}.svg`;
+    document.getElementById('holoCardNickname').innerText = c.creator.nickname;
+    
+    const openDate = new Date(c.openAt);
+    const createDate = new Date(c.createdAt);
+    document.getElementById('holoCardRevealDate').innerText = `📅 解封：${openDate.getFullYear()}.${String(openDate.getMonth()+1).padStart(2,'0')}.${String(openDate.getDate()).padStart(2,'0')} ${String(openDate.getHours()).padStart(2,'0')}:${String(openDate.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('holoCardCreateDate').innerText = `⏱️ 密封：${createDate.getFullYear()}.${String(createDate.getMonth()+1).padStart(2,'0')}.${String(createDate.getDate()).padStart(2,'0')}`;
+
+    const bodyArea = document.getElementById('holoCardBodyArea');
+    if (c.isOpened) {
+      bodyArea.innerHTML = `“ ${c.content.length > 100 ? c.content.substring(0, 100) + '...' : c.content} ”`;
+    } else {
+      bodyArea.innerHTML = `“ 此时空信标正处于密封阻隔状态。剩余开封倒计时：${getCountdownString(c.openAt)}。快去广场点赞加心催更吧！ ”`;
+    }
+    
+    document.getElementById('holoCardScrim').classList.add('is-active');
+  }
+
+  function closeHoloCard() {
+    document.getElementById('holoCardScrim').classList.remove('is-active');
+  }
+
+  function saveHoloCardImage() {
+    showToast('💾 图片保存成功！已存入系统相册');
+    triggerIslandNotification('💾 图片保存成功', '时光全息卡已生成');
+    closeHoloCard();
+  }
+
+  function deleteCapsuleByAuthor() {
+    showGlobalModal('🗑️ 确认删除胶囊', '上锁后不可编辑、不可提前开启，删除后此数据将永远彻底抹去，且无法撤销。', `
+      <button class="cy-btn cy-btn--ghost" style="flex:1" onclick="closeGlobalModal()">取消</button>
+      <button class="cy-btn cy-btn--primary" style="flex:1; background:var(--color-danger-solid)" onclick="confirmDeleteCapsule()">确认删除</button>
+    `);
+  }
+
+  function confirmDeleteCapsule() {
+    closeGlobalModal();
+    closeDetailSheet();
+    
+    // 抹去数据
+    capsules = capsules.filter(item => item.id !== currentDetailId);
+    saveData();
+    
+    triggerIslandNotification('🗑️ 成功删除胶囊', '数据已彻底删除');
+    renderPlazaGrid();
+    renderMeGrid();
+    showToast('🗑️ 胶囊已成功删除');
+  }
+
+  function closeDetailSheet() {
+    document.getElementById('detailSheetScrim').classList.remove('is-active');
+    document.getElementById('detailSheet').classList.remove('is-active');
+    clearInterval(detailTimer);
+  }
+
+  // 关于面板
+  function showAboutSheet() {
+    showGlobalModal('ℹ️ 关于 HelloTime Pro', `这是一款多技术栈对比教学项目中的手机客户端设计原型。
+
+  在页脚处，您可获取由后端健康节点 (/api/v1/health) 提供的实时技术栈清单。`, `
+      <div style="text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:10px; font-size:11px; color:var(--color-text-muted); line-height:1.6">
+        <div><strong>当前版本:</strong> v0.1.0 Pro</div>
+        <div><strong>设计令牌体系:</strong> tokens.css (Cyber Dark)</div>
+        <div><strong>API 端口对齐:</strong> FastAPI :29010</div>
+        <div><strong>底座运行状态:</strong> 🟢 HEALTHY</div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px" class="cy-stack">
+        <span class="cy-stack__item"><img src="../spec/icons/fastapi.svg" alt="">FastAPI</span>
+        <span class="cy-stack__item"><img src="../spec/icons/python.svg" alt="">Python</span>
+        <span class="cy-stack__item"><img src="../spec/icons/postgresql.svg" alt="">PostgreSQL</span>
+      </div>
+    `);
+  }
+</script>
+</body>
+</html>
