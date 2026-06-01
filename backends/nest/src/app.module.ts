@@ -9,6 +9,7 @@ import { CapsulesModule } from './capsules/capsules.module';
 import { PlazaModule } from './plaza/plaza.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { CapsuleSuggestionModule } from './capsule-suggestion/capsule-suggestion.module';
+import { CapsuleRecommendationModule } from './capsule-recommendation/capsule-recommendation.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CapsuleSuggestionModule } from './capsule-suggestion/capsule-suggestion
     PlazaModule,
     FavoritesModule,
     CapsuleSuggestionModule,
+    CapsuleRecommendationModule,
   ],
 })
 export class AppModule {}

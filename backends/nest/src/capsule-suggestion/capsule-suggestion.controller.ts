@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { CapsuleSuggestionService } from './capsule-suggestion.service';
 import { CapsuleSuggestionRequestDto } from './dto/capsule-suggestion-request.dto';
 
@@ -7,6 +7,7 @@ export class CapsuleSuggestionController {
   constructor(private readonly service: CapsuleSuggestionService) {}
 
   @Post()
+  @HttpCode(200)
   suggest(@Body() dto: CapsuleSuggestionRequestDto) {
     return this.service.suggest(dto.title);
   }

@@ -1,7 +1,13 @@
-import { IsString, Length } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CapsuleSuggestionRequestDto {
+  // 可选：留空表示由 AI 同时生成标题（空标题模式）。
+  @IsOptional()
   @IsString()
-  @Length(1, 60)
-  title: string;
+  @MaxLength(60)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  locale?: string;
 }

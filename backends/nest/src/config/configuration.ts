@@ -16,6 +16,10 @@ export interface AppConfig {
   llmBaseUrl: string;
   llmApiKey: string;
   llmTimeoutMs: number;
+  llmMaxRetries: number;
+  llmRetryBackoffMs: number;
+  llmApiStyle: string;
+  llmUserAgent: string;
   seedDemo: boolean;
   repoRoot: string;
   serviceName: string;
@@ -51,6 +55,13 @@ export default (): AppConfig => {
     llmBaseUrl: process.env.LLM_BASE_URL || 'https://api.anthropic.com/v1',
     llmApiKey: process.env.LLM_API_KEY || process.env.ANTHROPIC_API_KEY || '',
     llmTimeoutMs: parseInt(process.env.LLM_TIMEOUT_MS || '30000', 10),
+    llmMaxRetries: parseInt(process.env.LLM_MAX_RETRIES || '2', 10),
+    llmRetryBackoffMs: parseInt(process.env.LLM_RETRY_BACKOFF_MS || '400', 10),
+    llmApiStyle: process.env.LLM_API_STYLE || 'chat',
+    llmUserAgent:
+      process.env.LLM_USER_AGENT ||
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
+        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     seedDemo: process.env.SEED_DEMO !== 'false',
     repoRoot,
     serviceName: 'hellotime-pro',
