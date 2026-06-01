@@ -40,6 +40,15 @@ public class AppProperties {
     private String apiKey = "";
     private String model = "gpt-4.1-mini";
     private int timeoutMs = 30000;
+    // 瞬时网络/TLS 错误（如 SSL EOF）的额外重试次数
+    private int maxRetries = 2;
+    private int retryBackoffMs = 400;
+    // chat（默认，多数兼容网关只支持它）| responses | auto
+    private String apiStyle = "chat";
+    // 避免被网关按默认 UA 封禁（Cloudflare 1010）
+    private String userAgent =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -53,5 +62,13 @@ public class AppProperties {
     public void setModel(String model) { this.model = model; }
     public int getTimeoutMs() { return timeoutMs; }
     public void setTimeoutMs(int timeoutMs) { this.timeoutMs = timeoutMs; }
+    public int getMaxRetries() { return maxRetries; }
+    public void setMaxRetries(int maxRetries) { this.maxRetries = maxRetries; }
+    public int getRetryBackoffMs() { return retryBackoffMs; }
+    public void setRetryBackoffMs(int retryBackoffMs) { this.retryBackoffMs = retryBackoffMs; }
+    public String getApiStyle() { return apiStyle; }
+    public void setApiStyle(String apiStyle) { this.apiStyle = apiStyle; }
+    public String getUserAgent() { return userAgent; }
+    public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
   }
 }

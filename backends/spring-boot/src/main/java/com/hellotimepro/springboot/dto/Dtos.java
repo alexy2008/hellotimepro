@@ -1,5 +1,6 @@
 package com.hellotimepro.springboot.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -129,14 +130,30 @@ public final class Dtos {
   public record HealthData(String status, String service, String version, long uptimeSeconds, StackInfo stack) {}
 
   public record CapsuleSuggestionRequest(
-      @NotBlank @Size(min = 1, max = 60) String title,
+      // 可选：留空表示由 AI 同时生成标题（空标题模式）。
+      @Size(max = 60) String title,
       String locale
   ) {}
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public record CapsuleSuggestion(
+      // 仅空标题模式下返回，供前端回填。
+      String title,
       String content,
       int openInDays,
       OffsetDateTime openAt,
+      String generatedBy,
+      boolean cached
+  ) {}
+
+  public record CapsuleRecommendationItem(
+      String title,
+      String hint,
+      int openInDays
+  ) {}
+
+  public record CapsuleRecommendationList(
+      List<CapsuleRecommendationItem> items,
       String generatedBy,
       boolean cached
   ) {}
