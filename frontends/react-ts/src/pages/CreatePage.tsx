@@ -46,6 +46,7 @@ export function CreatePage() {
   const [recos, setRecos] = useState<CapsuleRecommendation[]>([]);
   const [recoBusy, setRecoBusy] = useState(false);
   const recoSeq = useRef(0);
+  const recoInited = useRef(false); // 防止 StrictMode 开发模式下 useEffect 双触发重复请求
 
   const contentLen = useMemo(() => content.length, [content]);
 
@@ -86,7 +87,8 @@ export function CreatePage() {
     try {
       const list = await api.capsuleRecommendations({ count: 4 });
       if (seq !== recoSeq.current) return; // 丢弃过期响应
-      setRecos(list.items);
+      // 空数组表示本次后端 LLM 不可用：保留已有推荐，不要把已显示的内容清空
+      if (list.items.length > 0) setRecos(list.items);
     } catch {
       // 推荐是锦上添花：失败时静默，保留已有数据（首次失败则保持不显示）
     } finally {
@@ -95,6 +97,8 @@ export function CreatePage() {
   }, []);
 
   useEffect(() => {
+    if (recoInited.current) return; // StrictMode 下只发一次首屏请求
+    recoInited.current = true;
     void loadRecos();
   }, [loadRecos]);
 

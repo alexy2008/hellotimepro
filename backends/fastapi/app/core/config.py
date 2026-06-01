@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "gpt-4.1-mini"
     llm_timeout_ms: int = 30000
+    # 瞬时网络/TLS 错误（如 SSL UNEXPECTED_EOF、连接被代理掐断）的额外重试次数；
+    # 某些兼容网关会随机断流，重试能显著提升成功率。HTTP 4xx/5xx 等明确响应不重试。
+    llm_max_retries: int = 2
+    llm_retry_backoff_ms: int = 400
     # 调用风格：chat=只用 /chat/completions（默认，多数兼容网关只支持它）；
     # responses=只用 /responses；auto=先 responses 失败再回退 chat。可用 LLM_API_STYLE 覆盖。
     llm_api_style: str = "chat"

@@ -76,50 +76,64 @@ def _parse_json_object(text: str) -> dict:
 def _post_json(url: str, payload: dict[str, Any]) -> dict:
     payload = {k: v for k, v in payload.items() if v is not None}
     model = payload.get("model", settings.llm_model)
-    req = Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {settings.llm_api_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            # 避免被网关的机器人防护按默认 urllib UA 封禁（Cloudflare error 1010）
-            "User-Agent": settings.llm_user_agent,
-        },
-        method="POST",
-    )
-    logger.info("LLM request  model=%s url=%s", model, url)
-    t0 = time.monotonic()
-    try:
-        with urlopen(req, timeout=settings.llm_timeout_ms / 1000) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-        elapsed_ms = int((time.monotonic() - t0) * 1000)
-        # 尝试读取服务端返回的 token 用量（OpenAI 格式）
-        usage = body.get("usage") or {}
-        tokens = usage.get("total_tokens") or (
-            (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
-        )
-        logger.info(
-            "LLM response model=%s elapsed_ms=%d tokens=%s",
-            model, elapsed_ms, tokens if tokens else "n/a",
-        )
-        return body
-    except HTTPError as e:
-        elapsed_ms = int((time.monotonic() - t0) * 1000)
-        body_text = e.read().decode("utf-8", errors="replace")
-        detail = body_text.strip() or str(e)
-        logger.warning(
-            "LLM error    model=%s elapsed_ms=%d status=%d detail=%s",
-            model, elapsed_ms, e.code, detail[:200],
-        )
-        raise LlmClientError(f"HTTP {e.code}: {detail[:500]}", status=e.code) from e
-    except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
-        elapsed_ms = int((time.monotonic() - t0) * 1000)
-        logger.warning(
-            "LLM error    model=%s elapsed_ms=%d error=%s",
-            model, elapsed_ms, e,
-        )
-        raise LlmClientError(str(e)) from e
+    data = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {settings.llm_api_key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        # 避免被网关的机器人防护按默认 urllib UA 封禁（Cloudflare error 1010）
+        "User-Agent": settings.llm_user_agent,
+    }
+    attempts = max(1, settings.llm_max_retries + 1)
+    for attempt in range(1, attempts + 1):
+        logger.info("LLM request  model=%s url=%s attempt=%d/%d", model, url, attempt, attempts)
+        t0 = time.monotonic()
+        try:
+            req = Request(url, data=data, headers=headers, method="POST")
+            with urlopen(req, timeout=settings.llm_timeout_ms / 1000) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+            elapsed_ms = int((time.monotonic() - t0) * 1000)
+            # 尝试读取服务端返回的 token 用量（OpenAI 格式）
+            usage = body.get("usage") or {}
+            tokens = usage.get("total_tokens") or (
+                (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
+            )
+            logger.info(
+                "LLM response model=%s elapsed_ms=%d tokens=%s",
+                model, elapsed_ms, tokens if tokens else "n/a",
+            )
+            return body
+        except HTTPError as e:
+            # 服务端给了明确响应（含 Cloudflare 1010）——非瞬时错误，不重试
+            elapsed_ms = int((time.monotonic() - t0) * 1000)
+            body_text = e.read().decode("utf-8", errors="replace")
+            detail = body_text.strip() or str(e)
+            logger.warning(
+                "LLM error    model=%s elapsed_ms=%d status=%d detail=%s",
+                model, elapsed_ms, e.code, detail[:200],
+            )
+            raise LlmClientError(f"HTTP {e.code}: {detail[:500]}", status=e.code) from e
+        except json.JSONDecodeError as e:
+            # 拿到了响应但不是合法 JSON——重试通常也无济于事，直接失败
+            elapsed_ms = int((time.monotonic() - t0) * 1000)
+            logger.warning(
+                "LLM error    model=%s elapsed_ms=%d error=invalid-json:%s",
+                model, elapsed_ms, e,
+            )
+            raise LlmClientError(str(e)) from e
+        except (URLError, TimeoutError, OSError) as e:
+            # 瞬时网络/TLS 错误（如 SSL UNEXPECTED_EOF、连接被掐断）——在剩余次数内重试
+            elapsed_ms = int((time.monotonic() - t0) * 1000)
+            will_retry = attempt < attempts
+            logger.warning(
+                "LLM error    model=%s elapsed_ms=%d error=%s%s",
+                model, elapsed_ms, e, " (will retry)" if will_retry else "",
+            )
+            if not will_retry:
+                raise LlmClientError(str(e)) from e
+            time.sleep(settings.llm_retry_backoff_ms / 1000 * attempt)
+    # 循环必然 return 或 raise；此处仅为类型完整性
+    raise LlmClientError("LLM request exhausted retries")
 
 
 _CAPSULE_SUGGESTION_SCHEMA = {
