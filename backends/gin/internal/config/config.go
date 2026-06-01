@@ -36,11 +36,16 @@ type Settings struct {
 	LoginRateLimitPerMinute int
 
 	// LLM（可选）
-	LLMEnabled  bool
-	LLMProvider string
-	LLMBaseURL  string
-	LLMAPIKey   string
-	LLMModel    string
+	LLMEnabled        bool
+	LLMProvider       string
+	LLMBaseURL        string
+	LLMAPIKey         string
+	LLMModel          string
+	LLMTimeoutMs      int
+	LLMMaxRetries     int    // 瞬时网络/TLS 错误（如 SSL EOF）的额外重试次数
+	LLMRetryBackoffMs int    // 线性退避基数
+	LLMAPIStyle       string // chat（默认）| responses | auto
+	LLMUserAgent      string // 避免被网关按默认 UA 封禁（Cloudflare 1010）
 
 	// 仓库根目录（供 spec/ 路径拼接使用）
 	RepoRoot string
@@ -119,11 +124,18 @@ func init() {
 
 		LoginRateLimitPerMinute: getEnvInt("LOGIN_RATE_LIMIT_PER_MINUTE", 10),
 
-		LLMEnabled:  getEnvBool("LLM_ENABLED", false),
-		LLMProvider: getEnv("LLM_PROVIDER", "openai"),
-		LLMBaseURL:  getEnv("LLM_BASE_URL", "https://api.openai.com/v1"),
-		LLMAPIKey:   getEnv("LLM_API_KEY", ""),
-		LLMModel:    getEnv("LLM_MODEL", "gpt-4.1-mini"),
+		LLMEnabled:        getEnvBool("LLM_ENABLED", false),
+		LLMProvider:       getEnv("LLM_PROVIDER", "openai"),
+		LLMBaseURL:        getEnv("LLM_BASE_URL", "https://api.openai.com/v1"),
+		LLMAPIKey:         getEnv("LLM_API_KEY", ""),
+		LLMModel:          getEnv("LLM_MODEL", "gpt-4.1-mini"),
+		LLMTimeoutMs:      getEnvInt("LLM_TIMEOUT_MS", 30000),
+		LLMMaxRetries:     getEnvInt("LLM_MAX_RETRIES", 2),
+		LLMRetryBackoffMs: getEnvInt("LLM_RETRY_BACKOFF_MS", 400),
+		LLMAPIStyle:       getEnv("LLM_API_STYLE", "chat"),
+		LLMUserAgent: getEnv("LLM_USER_AGENT",
+			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "+
+				"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
 
 		RepoRoot: root,
 	}

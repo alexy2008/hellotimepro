@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -128,46 +129,116 @@ func parseJSONObject(text string) (map[string]any, error) {
 
 // ---------- HTTP 请求 ----------
 
-var llmHTTPClient = &http.Client{Timeout: 30 * time.Second}
+func httpClient() *http.Client {
+	return &http.Client{Timeout: time.Duration(config.App.LLMTimeoutMs) * time.Millisecond}
+}
 
-// postJSON 向 url POST JSON 载荷，返回解析后的响应体。
+// extractTokens 从响应体的 usage 字段尽力读取 token 用量，读不到返回 "n/a"。
+func extractTokens(body map[string]any) string {
+	usage, ok := body["usage"].(map[string]any)
+	if !ok {
+		return "n/a"
+	}
+	num := func(key string) float64 {
+		if v, ok := usage[key].(float64); ok {
+			return v
+		}
+		return 0
+	}
+	if total := num("total_tokens"); total > 0 {
+		return fmt.Sprintf("%d", int(total))
+	}
+	if sum := num("input_tokens") + num("output_tokens"); sum > 0 {
+		return fmt.Sprintf("%d", int(sum))
+	}
+	return "n/a"
+}
+
+// postJSON 向 url POST JSON 载荷；对瞬时网络/TLS 错误（如 SSL EOF）按配置重试，
+// HTTP 4xx/5xx 等明确响应不重试。按 LLM 日志规范输出 request/response/error。
 func postJSON(url string, payload map[string]any) (map[string]any, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return nil, llmClientErr("failed to marshal request: " + err.Error())
 	}
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
-	if err != nil {
-		return nil, llmClientErr("failed to create request: " + err.Error())
-	}
-	req.Header.Set("Authorization", "Bearer "+config.App.LLMAPIKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	model, _ := payload["model"].(string)
 
-	resp, err := llmHTTPClient.Do(req)
-	if err != nil {
-		return nil, llmClientErr("HTTP request failed: " + err.Error())
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, llmClientErr("failed to read response: " + err.Error())
+	attempts := config.App.LLMMaxRetries + 1
+	if attempts < 1 {
+		attempts = 1
 	}
 
-	if resp.StatusCode >= 400 {
-		detail := strings.TrimSpace(string(bodyBytes))
-		if len(detail) > 500 {
-			detail = detail[:500]
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		log.Printf("LLM request  model=%s url=%s attempt=%d/%d", model, url, attempt, attempts)
+		start := time.Now()
+
+		req, reqErr := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+		if reqErr != nil {
+			return nil, llmClientErr("failed to create request: " + reqErr.Error())
 		}
-		return nil, llmHTTPErr(resp.StatusCode, detail)
-	}
+		req.Header.Set("Authorization", "Bearer "+config.App.LLMAPIKey)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		// 避免被网关机器人防护按默认 UA 封禁（Cloudflare error 1010）
+		req.Header.Set("User-Agent", config.App.LLMUserAgent)
 
-	var result map[string]any
-	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return nil, llmClientErr("failed to parse response JSON: " + err.Error())
+		resp, doErr := httpClient().Do(req)
+		if doErr != nil {
+			// 瞬时网络/TLS 错误：在剩余次数内重试
+			elapsed := time.Since(start).Milliseconds()
+			willRetry := attempt < attempts
+			suffix := ""
+			if willRetry {
+				suffix = " (will retry)"
+			}
+			log.Printf("LLM error    model=%s elapsed_ms=%d error=%s%s", model, elapsed, doErr, suffix)
+			lastErr = llmClientErr("HTTP request failed: " + doErr.Error())
+			if willRetry {
+				time.Sleep(time.Duration(config.App.LLMRetryBackoffMs*attempt) * time.Millisecond)
+				continue
+			}
+			return nil, lastErr
+		}
+
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		elapsed := time.Since(start).Milliseconds()
+		if readErr != nil {
+			willRetry := attempt < attempts
+			suffix := ""
+			if willRetry {
+				suffix = " (will retry)"
+			}
+			log.Printf("LLM error    model=%s elapsed_ms=%d error=%s%s", model, elapsed, readErr, suffix)
+			lastErr = llmClientErr("failed to read response: " + readErr.Error())
+			if willRetry {
+				time.Sleep(time.Duration(config.App.LLMRetryBackoffMs*attempt) * time.Millisecond)
+				continue
+			}
+			return nil, lastErr
+		}
+
+		if resp.StatusCode >= 400 {
+			// 服务端给了明确响应（含 Cloudflare 1010）——非瞬时错误，不重试
+			detail := strings.TrimSpace(string(bodyBytes))
+			if len(detail) > 500 {
+				detail = detail[:500]
+			}
+			log.Printf("LLM error    model=%s elapsed_ms=%d status=%d", model, elapsed, resp.StatusCode)
+			return nil, llmHTTPErr(resp.StatusCode, detail)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(bodyBytes, &result); err != nil {
+			// 拿到响应但不是合法 JSON——重试无益，直接失败
+			log.Printf("LLM error    model=%s elapsed_ms=%d error=invalid-json", model, elapsed)
+			return nil, llmClientErr("failed to parse response JSON: " + err.Error())
+		}
+		log.Printf("LLM response model=%s elapsed_ms=%d tokens=%s", model, elapsed, extractTokens(result))
+		return result, nil
 	}
-	return result, nil
+	return nil, lastErr
 }
 
 // ---------- 结构化 JSON 生成参数 ----------
@@ -186,14 +257,48 @@ var capsuleSuggestionSpec = LLMSchemaSpec{
 	Schema: map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
-		"required":             []string{"content", "openInDays"},
+		// strict 模式要求 required 覆盖全部 properties；空标题模式下服务层会用 title，
+		// 已带标题时忽略它。
+		"required": []string{"title", "content", "openInDays"},
 		"properties": map[string]any{
+			"title":      map[string]any{"type": "string"},
 			"content":    map[string]any{"type": "string"},
 			"openInDays": map[string]any{"type": "integer", "minimum": 1, "maximum": 3650},
 		},
 	},
 	SystemPrompt: "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。" +
-		"JSON 必须包含字符串字段 content 和整数字段 openInDays。",
+		"JSON 必须包含字符串字段 title、content 和整数字段 openInDays。" +
+		"若用户已给出标题，title 可原样回填。",
+	MaxOutputTokens: 900,
+	MaxTokens:       900,
+}
+
+var capsuleRecommendationSpec = LLMSchemaSpec{
+	SchemaName: "capsule_recommendations",
+	Schema: map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"items"},
+		"properties": map[string]any{
+			"items": map[string]any{
+				"type":     "array",
+				"minItems": 3,
+				"maxItems": 8,
+				"items": map[string]any{
+					"type":                 "object",
+					"additionalProperties": false,
+					"required":             []string{"title", "hint", "openInDays"},
+					"properties": map[string]any{
+						"title":      map[string]any{"type": "string"},
+						"hint":       map[string]any{"type": "string"},
+						"openInDays": map[string]any{"type": "integer", "minimum": 1, "maximum": 3650},
+					},
+				},
+			},
+		},
+	},
+	SystemPrompt: "你只返回严格 JSON 对象，不要 Markdown、代码块或解释。" +
+		"JSON 必须包含数组字段 items，每项含字符串字段 title、hint 和整数字段 openInDays。",
 	MaxOutputTokens: 900,
 	MaxTokens:       900,
 }
@@ -265,24 +370,34 @@ func generateWithChatCompletions(prompt string, spec LLMSchemaSpec) (map[string]
 
 // ---------- 统一入口 ----------
 
-// generateStructuredJSON 通用的结构化 JSON 生成入口。
+// generateStructuredJSON 通用的结构化 JSON 生成入口。按 LLM_API_STYLE 路由：
+// chat（默认，多数兼容网关只支持它，跳过 /responses 省一次请求）、responses、auto。
 func generateStructuredJSON(prompt string, spec LLMSchemaSpec) (map[string]any, error) {
 	if !config.App.LLMEnabled || strings.TrimSpace(config.App.LLMAPIKey) == "" {
 		return nil, llmClientErr("LLM is disabled or missing API key")
 	}
 
-	result, err := generateWithResponses(prompt, spec)
-	if err == nil {
-		return result, nil
-	}
-	var llmE *LLMClientError
-	if errors.As(err, &llmE) && (llmE.Status == 400 || llmE.Status == 404 || llmE.Status == 405) {
+	switch config.App.LLMAPIStyle {
+	case "responses":
+		return generateWithResponses(prompt, spec)
+	case "auto":
+		result, err := generateWithResponses(prompt, spec)
+		if err == nil {
+			return result, nil
+		}
+		log.Printf("Responses API unavailable (%v); falling back to chat completions", err)
+		return generateWithChatCompletions(prompt, spec)
+	default: // "chat"
 		return generateWithChatCompletions(prompt, spec)
 	}
-	return nil, err
 }
 
-// GenerateCapsuleSuggestion 向 LLM 请求 {content, openInDays} JSON 对象。
+// GenerateCapsuleSuggestion 向 LLM 请求 {title, content, openInDays} JSON 对象。
 func GenerateCapsuleSuggestion(prompt string) (map[string]any, error) {
 	return generateStructuredJSON(prompt, capsuleSuggestionSpec)
+}
+
+// GenerateCapsuleRecommendations 向 LLM 请求 {items:[{title,hint,openInDays}]} JSON 对象。
+func GenerateCapsuleRecommendations(prompt string) (map[string]any, error) {
+	return generateStructuredJSON(prompt, capsuleRecommendationSpec)
 }
