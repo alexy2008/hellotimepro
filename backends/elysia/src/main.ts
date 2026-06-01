@@ -5,6 +5,7 @@ import { listAvatars } from "./avatars";
 import { env } from "./config";
 import { dbKind } from "./db";
 import { ok, route, routeEmpty, errorResponse } from "./envelope";
+import { ERR } from "./errors";
 import { parse } from "./validation";
 import {
   changePasswordSchema,
@@ -35,6 +36,7 @@ import {
   register,
   removeFavorite,
   suggestCapsule,
+  getCapsuleRecommendations,
   updateProfile,
 } from "./services";
 
@@ -120,6 +122,20 @@ const app = new Elysia()
   .get("/api/v1/avatars", ({ set }) => route(set, () => listAvatars()))
   .post("/api/v1/capsule-suggestion", ({ set, body }) =>
     route(set, () => suggestCapsule(parse(suggestionSchema, body))),
+  )
+  .get("/api/v1/capsule-recommendations", ({ set, request }) =>
+    route(set, () => {
+      const raw = new URL(request.url).searchParams.get("count");
+      let count = 4;
+      if (raw !== null && raw !== "") {
+        const n = Number(raw);
+        if (!Number.isInteger(n) || n < 3 || n > 8) {
+          throw ERR.validation("count 必须是 [3, 8] 范围内的整数", "count");
+        }
+        count = n;
+      }
+      return getCapsuleRecommendations(count);
+    }),
   )
   .post("/api/v1/auth/register", ({ set, body }) =>
     route(set, () => register(parse(registerSchema, body)), 201),

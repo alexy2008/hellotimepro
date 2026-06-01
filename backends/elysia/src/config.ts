@@ -20,9 +20,20 @@ export const env = {
   loginRateLimitPerMinute: num(process.env.LOGIN_RATE_LIMIT_PER_MINUTE, 10),
   llm: {
     enabled: bool(process.env.LLM_ENABLED),
+    provider: process.env.LLM_PROVIDER ?? "openai",
     baseUrl: process.env.LLM_BASE_URL ?? "https://api.openai.com/v1",
     apiKey: process.env.LLM_API_KEY ?? "",
     model: process.env.LLM_MODEL ?? "gpt-4.1-mini",
     timeoutMs: num(process.env.LLM_TIMEOUT_MS, 30000),
+    // 瞬时网络/TLS 错误（如 SSL EOF）的额外重试次数
+    maxRetries: num(process.env.LLM_MAX_RETRIES, 2),
+    retryBackoffMs: num(process.env.LLM_RETRY_BACKOFF_MS, 400),
+    // chat（默认，多数兼容网关只支持它）| responses | auto
+    apiStyle: process.env.LLM_API_STYLE ?? "chat",
+    // 避免被网关按默认 UA 封禁（Cloudflare 1010）
+    userAgent:
+      process.env.LLM_USER_AGENT ??
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   },
 };
