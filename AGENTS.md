@@ -63,5 +63,17 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi
 - Ports chosen to avoid conflicts with legacy `HelloTimeByClaude` project.
 - Database schema/data maintenance is explicit and implementation-agnostic: `spec/db` is the source, `scripts/db` applies it, and backend implementations consume an already-prepared database.
 
+## LLM 调用日志规范
+每个后端的 LLM 客户端模块必须在以下三个时机写结构化日志（INFO/WARNING 级别）：
+
+| 时机 | 级别 | 必含字段 |
+|---|---|---|
+| 请求发出前 | INFO | `model=`, `url=` |
+| 响应成功 | INFO | `model=`, `elapsed_ms=`, `tokens=`（不可用写 n/a） |
+| 请求失败 | WARNING | `model=`, `elapsed_ms=`, `status=`（HTTP 错误）或 `error=`（网络/超时） |
+
+前缀统一用 `LLM request` / `LLM response` / `LLM error`，方便 `grep "^.*LLM "` 过滤。
+参考实现：`backends/fastapi/app/services/llm_client.py` 的 `_post_json()`。
+
 ## Reference Docs
 Full details: `docs/01-requirements.md`, `docs/02-design.md`, `docs/03-roadmap.md`
