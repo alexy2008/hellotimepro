@@ -258,6 +258,27 @@
 - 2026-05-25：`./verification/scripts/verify-ui-smoke.sh svelte`（spec fix 后复验） 通过，4/4。
 - 2026-05-25：`./verification/scripts/verify-contract.sh nest`（PG）、`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh nest`（SQLite） 复验，各 92/92。
 
+#### Spring Boot 双驱动回归修复（2026-06-02）
+
+**现象**：`verify-contract.sh spring` 在 SQLite 下 14 例失败、Postgres 下约 66 例失败，读胶囊/收藏时报 `java.sql.SQLException: Error parsing time stamp`。
+
+**根因**：并非时间戳单点问题，而是 2026-05-27「数据库维护解耦」（704bca9）的回归。此前各后端跑自己的 Flyway schema（spring 用 `VARCHAR(36)` id + datetime），与实体映射匹配；解耦后所有栈统一跑 `./scripts/db` 生成的 **spec 共享 schema**、Flyway 禁用，spring 的实体映射（`@JdbcTypeCode(VARCHAR)` + `OffsetDateTime↔Timestamp` 转换器）不再匹配：
+
+- **SQLite**：seed 把时间戳存成 ISO-8601 TEXT（`2026-04-14T16:00:00+00:00`），但 sqlite-jdbc 的 `getTimestamp` 期望 `yyyy-MM-dd HH:mm:ss.SSS`，无法解析带 `T`/偏移的串 → `openAt` 读成 null → NPE；UUID 在 SQLite 是 32 位无横线 hex，Hibernate 默认按 36 位带横线读写 → `id IN (...)` 匹配不到 owner。
+- **Postgres**：`@JdbcTypeCode(VARCHAR)` 把原生 `uuid`/`timestamptz` 列当 varchar 绑定 → `operator does not exist: uuid = character varying`，以及写 `revoked_at` 时 `timestamp ... but expression is character varying`。
+
+**修复**（仅改 `backends/spring-boot/`，不动 seed/spec，其它栈不受影响）：
+
+- 移除实体上的 `@JdbcTypeCode(VARCHAR)` 与 `OffsetDateTimeStringConverter`，让 Postgres 走原生 `uuid` / `timestamptz`。
+- 新增两个**跨库 JdbcType**（`.../db/CrossDbUuidJdbcType`、`CrossDbOffsetDateTimeJdbcType`），用 `@JdbcType` 注解作用到 UUID / OffsetDateTime 字段，运行时按方言分流：SQLite 走 32 位 hex / ISO-8601 TEXT（`getString`/`setString`，输出格式与 seed 完全一致，保证字符串比较的 `open_at <= :now` 与 `ORDER BY created_at` 正确），Postgres 走原生 `setObject`/`getObject`。两者自实现 `ValueBinder`，对 **null** 也按方言给出正确的 `setNull` 类型（否则 Postgres 拒绝把 VARCHAR null 写入 `timestamptz`）。
+- `run` 脚本去掉已无意义的 `?date_class=TEXT`。
+- 备注：方言级类型注册（自定义 `SQLiteDialect`）行不通——community `SQLiteDialect` 在属性解析层把 UUID 映射成 VARCHAR，会绕过 `SqlTypes.UUID` 覆盖，故改用 `@JdbcType` 注解强制生效。
+
+**验收**：
+
+- 2026-06-02：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh spring` 通过，**104/104**。
+- 2026-06-02：`./verification/scripts/verify-contract.sh spring`（Postgres） 通过，**104/104**。
+
 ---
 
 ### M4 · 打磨与发布（2 周）

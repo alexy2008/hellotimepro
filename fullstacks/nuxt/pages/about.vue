@@ -60,10 +60,10 @@ const backendFramework = computed(
       同一份产品需求由多套前后端框架各自实现，共享同一份 API 契约、数据库 schema 与设计 token。
     </p>
 
-    <!-- 应用技术栈 -->
+    <!-- 前端技术栈 -->
     <section style="margin-bottom: var(--space-10)">
       <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">
-        应用技术栈
+        前端技术栈
       </h2>
       <div class="cy-card" style="padding: var(--space-6)">
         <!-- 图标行 -->
@@ -86,14 +86,14 @@ const backendFramework = computed(
       </div>
     </section>
 
-    <!-- 服务端技术栈 -->
+    <!-- 后端技术栈 -->
     <Alert v-if="errorText" variant="danger" style="margin-bottom: var(--space-6)">
       无法读取服务端信息：{{ errorText }}
     </Alert>
 
     <section v-if="health" style="margin-bottom: var(--space-10)">
       <h2 style="font-family: var(--font-display); font-size: var(--font-size-2xl); margin: 0 0 var(--space-5)">
-        服务端技术栈
+        后端技术栈
       </h2>
       <div class="cy-card" style="padding: var(--space-6)">
         <!-- 图标行（动态） -->

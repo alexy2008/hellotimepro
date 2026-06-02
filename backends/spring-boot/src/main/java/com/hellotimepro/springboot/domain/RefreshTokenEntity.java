@@ -1,33 +1,37 @@
 package com.hellotimepro.springboot.domain;
 
+import com.hellotimepro.springboot.db.CrossDbOffsetDateTimeJdbcType;
+import com.hellotimepro.springboot.db.CrossDbUuidJdbcType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.JdbcType;
 
 @Entity
 @Table(name = "refresh_tokens")
 public class RefreshTokenEntity {
   @Id
-  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @JdbcType(CrossDbUuidJdbcType.class)
   private UUID id;
   @Column(name = "user_id")
-  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @JdbcType(CrossDbUuidJdbcType.class)
   private UUID userId;
   @Column(name = "token_hash")
   private String tokenHash;
   @Column(name = "family_id")
-  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @JdbcType(CrossDbUuidJdbcType.class)
   private UUID familyId;
   @Column(name = "expires_at")
+  @JdbcType(CrossDbOffsetDateTimeJdbcType.class)
   private OffsetDateTime expiresAt;
   @Column(name = "created_at")
+  @JdbcType(CrossDbOffsetDateTimeJdbcType.class)
   private OffsetDateTime createdAt;
   @Column(name = "revoked_at")
+  @JdbcType(CrossDbOffsetDateTimeJdbcType.class)
   private OffsetDateTime revokedAt;
 
   public UUID getId() { return id; }

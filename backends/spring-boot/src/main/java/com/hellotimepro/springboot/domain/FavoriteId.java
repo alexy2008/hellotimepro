@@ -1,20 +1,20 @@
 package com.hellotimepro.springboot.domain;
 
+import com.hellotimepro.springboot.db.CrossDbUuidJdbcType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.JdbcType;
 
 @Embeddable
 public class FavoriteId implements Serializable {
   @Column(name = "user_id")
-  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @JdbcType(CrossDbUuidJdbcType.class)
   private UUID userId;
   @Column(name = "capsule_id")
-  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @JdbcType(CrossDbUuidJdbcType.class)
   private UUID capsuleId;
 
   public FavoriteId() {}

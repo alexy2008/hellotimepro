@@ -1,35 +1,39 @@
 package com.hellotimepro.springboot.domain;
 
+import com.hellotimepro.springboot.db.CrossDbOffsetDateTimeJdbcType;
+import com.hellotimepro.springboot.db.CrossDbUuidJdbcType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.JdbcType;
 
 @Entity
 @Table(name = "capsules")
 public class CapsuleEntity {
   @Id
-  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @JdbcType(CrossDbUuidJdbcType.class)
   private UUID id;
   @Column(name = "owner_id")
-  @JdbcTypeCode(SqlTypes.VARCHAR)
+  @JdbcType(CrossDbUuidJdbcType.class)
   private UUID ownerId;
   private String code;
   private String title;
   private String content;
   @Column(name = "open_at")
+  @JdbcType(CrossDbOffsetDateTimeJdbcType.class)
   private OffsetDateTime openAt;
   @Column(name = "in_plaza")
   private boolean inPlaza;
   @Column(name = "favorite_count")
   private int favoriteCount;
   @Column(name = "created_at")
+  @JdbcType(CrossDbOffsetDateTimeJdbcType.class)
   private OffsetDateTime createdAt;
   @Column(name = "updated_at")
+  @JdbcType(CrossDbOffsetDateTimeJdbcType.class)
   private OffsetDateTime updatedAt;
 
   public UUID getId() { return id; }
