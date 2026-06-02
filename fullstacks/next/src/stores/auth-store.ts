@@ -40,17 +40,12 @@ export const useAuthStore = create<AuthState>()(
       clear: () => set({ user: null, accessToken: null, refreshToken: null }),
 
       hydrate: async () => {
-        const { refreshToken } = get();
-        if (!refreshToken) {
-          set({ isHydrated: true });
-          return;
-        }
-        try {
-          const u = await api.me();
-          set({ user: u, isHydrated: true });
-        } catch {
-          set({ user: null, accessToken: null, isHydrated: true });
-        }
+        // 不在启动时急切拉取 /me：登录态由 persist 中间件恢复的 user 渲染，
+        // access token 留给真正的 authed 请求惰性刷新。否则在「整页 reload 序列」下
+        // （如 /register → /），上一页的刷新会轮换并吊销 refresh token，但响应未及
+        // 持久化就被下一次导航打断，下一页用旧 token 再刷新会触发重用检测、整族吊销
+        // → 误登出，用户态 chip 消失（smoke:32）。
+        set({ isHydrated: true });
       },
 
       refreshMe: async () => {

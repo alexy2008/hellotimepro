@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 启动 Next.js 全栈开发服务器（端口 7177，含 API + UI）。
+# 启动 Next.js 全栈服务器（端口 7177，含 API + UI）。
 #
 #   DB_DRIVER=postgres (默认) 需要 docker compose up -d postgres
 #   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime.db
@@ -8,6 +8,9 @@
 #   1) npm install（首次）
 #   2) 同步 spec/avatars 与 spec/icons 到 public/static
 #   3) 执行迁移（drizzle/{driver}/0001_init.sql）
+#   4) 生产构建后再启动（与 nuxt 全栈一致）。dev 的懒编译会让首次访问各路由
+#      现场编译，在负载机上撞穿 Playwright 导航超时；生产构建预编译全部路由，
+#      导航稳定、快速。需要热重载开发时改用 `npm run dev`。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,5 +42,6 @@ fi
 export DB_DRIVER="$DRIVER" DB_URL="${DB_URL:-}"
 npx tsx scripts/migrate.ts
 
-# 启动 dev
-exec npm run dev -- "$@"
+# 生产构建后启动（预编译全部路由，避免 dev 懒编译在测试中超时）
+npm run build
+exec npm run start -- "$@"
