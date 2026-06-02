@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "@/api/client";
-import { ApiError } from "@/types";
+import { ApiError, type CapsuleRecommendation } from "@/types";
 import Alert from "@/components/Alert.vue";
+import RecommendationStrip from "@/components/RecommendationStrip.vue";
 import { isoToLocalInput, localInputToIso } from "@/utils/format";
 
 definePageMeta({ middleware: "auth-client" });
@@ -42,30 +43,68 @@ const aiBusy = ref(false);
 const aiInfo = ref<string | null>(null);
 const aiGenerated = ref(false);
 
+// AI 推荐主题：进入页面异步加载，拿到数据后才显示；失败则静默（不占位、不提示）
+const recos = ref<CapsuleRecommendation[]>([]);
+const recoBusy = ref(false);
+let recoSeq = 0; // "换一批"竞态守卫
+
 const contentLen = computed(() => content.value.length);
 
-async function aiGenerate() {
-  const t = title.value.trim();
-  if (!t) {
-    err.value = "请先填写胶囊标题";
-    return;
-  }
+// 直接传入标题，避开 ref 更新时序（点击推荐时需要立刻用新标题生成）
+async function runAiGenerate(rawTitle: string) {
+  const t = rawTitle.trim();
+  const autoTitle = !t;
   err.value = null;
   aiInfo.value = null;
   aiBusy.value = true;
   try {
-    const s = await api.suggestCapsule({ title: t });
+    const s = await api.suggestCapsule({ title: t || undefined });
     content.value = s.content;
     openLocal.value = isoToLocalInput(s.openAt);
     aiGenerated.value = true;
+    // 仅当本次是空标题模式、且当前标题仍为空时回填，避免覆盖用户已输入的字
+    if (s.title && autoTitle && !title.value.trim()) {
+      title.value = s.title;
+    }
     const source = s.generatedBy === "local-template" ? "本地模板（LLM 未启用）" : s.generatedBy;
-    aiInfo.value = `已为你生成正文，建议 ${s.openInDays} 天后开启 · 来源：${source}`;
+    const titleNote = s.title && autoTitle ? "标题与正文均由 AI 生成" : "已为你生成正文";
+    aiInfo.value = `${titleNote}，建议 ${s.openInDays} 天后开启 · 来源：${source}`;
   } catch (e) {
     err.value = e instanceof ApiError ? e.message : "AI 生成失败，请稍后重试";
   } finally {
     aiBusy.value = false;
   }
 }
+
+function aiGenerate() {
+  void runAiGenerate(title.value);
+}
+
+async function loadRecos() {
+  const seq = ++recoSeq;
+  recoBusy.value = true;
+  try {
+    const list = await api.capsuleRecommendations({ count: 4 });
+    if (seq !== recoSeq) return; // 丢弃过期响应
+    // 空数组表示本次 LLM 不可用：保留已有推荐，不要把已显示的清空
+    if (list.items.length > 0) recos.value = list.items;
+  } catch {
+    // 推荐是锦上添花：失败时静默
+  } finally {
+    if (seq === recoSeq) recoBusy.value = false;
+  }
+}
+
+function pickReco(reco: CapsuleRecommendation) {
+  title.value = reco.title;
+  content.value = "";
+  aiGenerated.value = false;
+  void runAiGenerate(reco.title);
+}
+
+onMounted(() => {
+  void loadRecos();
+});
 
 async function submit() {
   err.value = null;
@@ -118,8 +157,8 @@ async function submit() {
             <button
               type="button"
               class="cy-btn cy-btn--ghost"
-              :disabled="aiBusy || !title.trim()"
-              :title="'基于标题，让 AI 生成胶囊正文与建议开启时间'"
+              :disabled="aiBusy"
+              :title="'让 AI 生成胶囊正文与建议开启时间；标题留空时会顺便起个标题'"
               style="white-space: nowrap"
               @click="aiGenerate"
             >
@@ -130,6 +169,15 @@ async function submit() {
             {{ aiInfo }}
           </span>
         </div>
+
+        <RecommendationStrip
+          v-if="!title.trim() && recos.length > 0"
+          :recos="recos"
+          :busy="recoBusy"
+          :disabled="aiBusy"
+          @pick="pickReco"
+          @refresh="loadRecos"
+        />
 
         <div class="cy-field">
           <label for="content">
