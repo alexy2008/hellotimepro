@@ -13,6 +13,7 @@ import {
   type CapsuleDetail,
   type CapsuleSuggestion,
   type CapsuleSuggestionRequest,
+  type CapsuleRecommendationList,
   type ChangePasswordRequest,
   type CreateCapsuleRequest,
   type Envelope,
@@ -156,6 +157,17 @@ export class ApiService {
     this.request<CapsuleSuggestion>('/api/v1/capsule-suggestion', {
       method: 'POST', body,
     });
+
+  capsuleRecommendations = (params: { count?: number; locale?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.count) qs.set('count', String(params.count));
+    if (params.locale) qs.set('locale', params.locale);
+    const q = qs.toString();
+    return this.request<CapsuleRecommendationList>(
+      `/api/v1/capsule-recommendations${q ? `?${q}` : ''}`,
+      { auth: false },
+    );
+  };
 
   avatars = () => this.request<Avatar[]>('/api/v1/avatars', { auth: false });
 
