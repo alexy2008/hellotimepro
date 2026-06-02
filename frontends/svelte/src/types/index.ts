@@ -95,14 +95,27 @@ export interface HealthData {
 
 
 export interface CapsuleSuggestionRequest {
-  title: string;
+  title?: string;
   locale?: string;
 }
 
 export interface CapsuleSuggestion {
+  title?: string;
   content: string;
   openInDays: number;
   openAt: string;
+  generatedBy: string;
+  cached: boolean;
+}
+
+export interface CapsuleRecommendation {
+  title: string;
+  hint: string;
+  openInDays: number;
+}
+
+export interface CapsuleRecommendationList {
+  items: CapsuleRecommendation[];
   generatedBy: string;
   cached: boolean;
 }
