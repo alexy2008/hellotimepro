@@ -279,6 +279,36 @@
 - 2026-06-02：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh spring` 通过，**104/104**。
 - 2026-06-02：`./verification/scripts/verify-contract.sh spring`（Postgres） 通过，**104/104**。
 
+#### AI 胶囊灵感功能全栈扩散（2026-06-02）
+
+**背景**：参考栈（FastAPI + React）先行落地两项 AI 增强，随后同步到其余 8 个实现。
+
+**功能增量**（每个实现）：
+
+1. **空标题也能 AI 生成**：`POST /capsule-suggestion` 的 `title` 由必填改为可选；留空时 LLM 同时产出标题 + 正文 + 建议开启天数，前端回填标题。本地兜底在空标题模式返回 `(title, content, days)`。
+2. **AI 推荐主题区**：新增 `GET /capsule-recommendations`（公开，`count` 3–8 默认 4；LLM 不可用返回空数组、静默、不本地兜底）。前端创建页异步加载推荐 chip，空标题时显示，点击直接生成整条胶囊；"换一批"用序号守卫防竞态、空列表不覆盖已有推荐。
+3. **LLM 客户端可靠性**（各后端）：结构化日志 `LLM request/response/error`（规范见 CLAUDE.md / AGENTS.md / GEMINI.md）；瞬时网络/TLS 错误（SSL EOF）重试；浏览器 UA 规避 Cloudflare 1010；默认 `chat` 风格跳过多数网关不支持的 `/responses`。
+
+**契约 / UI 用例随之扩展**：黑盒契约 92 → **104**（新增 6 suggestion + 6 recommendation）；UI 冒烟 20 → **25**（新增 5 个 AI 推荐用例，用 Playwright route mock 保证确定性）。
+
+**覆盖范围**：`spec/`（契约 + prompt 模板，单一源）+ 后端 gin / nest / elysia / spring-boot + 前端 vue3-ts / svelte / angular + 全栈 next / nuxt，共 9 个实现全部对齐参考栈。
+
+##### next / nuxt 收尾修复（2026-06-02）
+
+超时噪音清除后，两个全栈各暴露一个与 AI 特性无关的既有问题，一并修复：
+
+- **next run 改生产构建启动**：原 `next dev` 懒编译让 Playwright 首次访问各路由现场编译，在负载机上撞穿导航超时（每轮失败集不同、4.5–7.4 min）。改为 `next build` + `next start`（与 nuxt 全栈一致），预编译全部路由 → 整轮 ~14s 稳定。需热重载开发时改用 `npm run dev`。
+- **整页 reload 误登出（next + nuxt 同源）**：登录后 `/register → /` 全页导航序列会误登出。根因是启动时**急切刷新**（next 的 `auth-store.hydrate()` 调 `api.me()`；nuxt 的 `bootstrap.client` 调 `refreshMe()`）：上一页刷新轮换并吊销了 refresh token，响应未及持久化就被下一次导航打断，下一页用旧 token 再刷新触发**重用检测 → 整族吊销 → 误登出**。修复：登录态由持久化的 `user`（zustand persist / store hydrate 已同步恢复）渲染，access token 改由真正的 authed 请求惰性刷新，refresh token 在单页内只轮换一次。
+- **nuxt about 文案对齐**：分区标题"应用/服务端技术栈" → "前端/后端技术栈"（与契约/其它实现一致）。
+- **AI 建议端点公开性修复**：next / nuxt 的 `POST /api/v1/capsule-suggestion` 误沿用 `requireClaims`，匿名请求返回 401；契约规定该端点为公开创建辅助。移除鉴权后，公开请求返回 200，超长标题仍按校验返回 422。
+- **Node 26 SQLite native 依赖修复**：next / nuxt 锁定的 `better-sqlite3@11.10.0` 不兼容 Node v26 ABI（`NODE_MODULE_VERSION 147`），SQLite 模式迁移阶段无法启动。升级到 `better-sqlite3@12.10.0`，该版本声明支持 Node 20/22/23/24/25/26。
+
+**验收**：
+
+- 2026-06-02：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh gin` 通过，**104/104**。
+- 2026-06-02：6 套前端 / 全栈 `verify-ui-smoke.sh {react-ts,vue3-ts,svelte,angular,next,nuxt}` 全部 **25/25** 通过；next / nuxt 各连续两轮稳过（~14s）。
+- 2026-06-02：全栈契约双数据库复验全绿：`next` PostgreSQL **104/104**、`next` SQLite **104/104**、`nuxt` PostgreSQL **104/104**、`nuxt` SQLite **104/104**。
+
 ---
 
 ### M4 · 打磨与发布（2 周）

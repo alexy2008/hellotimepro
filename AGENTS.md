@@ -23,13 +23,18 @@ Guidance for OpenCode sessions working in this repository.
 DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi
 ./verification/scripts/verify-contract.sh fastapi
 ./verification/scripts/verify-ui-smoke.sh react-ts
+
+# Full-stack contract verification
+./verification/scripts/verify-contract.sh <next|nuxt>
+DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 ```
 
 ## Verification Notes
-- Backend contract verification currently covers 92 black-box API cases.
-- UI smoke verification currently covers 20 Playwright cases across auth, capsule creation/opening, plaza search/favorites, profile, protected routes, and public pages.
-- `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte>` explicitly runs `./scripts/db init` before starting the target frontend; it does not reset or seed data.
-- Latest four-frontend run on local PostgreSQL + Gin proxy passed: React 20/20 (18s), Vue 20/20 (22s), Angular 20/20 (26s), Svelte 20/20 (17s).
+- Backend/full-stack contract verification currently covers 104 black-box API cases, including AI capsule suggestion and recommendation endpoints.
+- UI smoke verification currently covers 25 Playwright cases across auth, capsule creation/opening, plaza search/favorites, profile, protected routes, public pages, and AI creation helpers.
+- `./verification/scripts/verify-contract.sh <target>` applies to backends and full-stacks as long as the target is registered in `hello list` and exposes `/api/v1/*` on its own port.
+- `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte|next|nuxt>` explicitly runs `./scripts/db init` before starting the target; it does not reset or seed data.
+- Latest full-stack contract run on 2026-06-02 passed: next PostgreSQL 104/104, next SQLite 104/104, nuxt PostgreSQL 104/104, nuxt SQLite 104/104.
 
 ## Critical Constraints
 - **Spec-driven**: All API, schema, and styling rules live in `spec/`. Never override spec in implementations.
