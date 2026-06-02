@@ -67,7 +67,8 @@ export const favoriteSchema = z.object({
 });
 
 export const capsuleSuggestionSchema = z.object({
-  title: z.string().min(1).max(60),
+  // 留空表示由 AI 同时生成标题（空标题模式）
+  title: z.string().max(60).optional(),
   locale: z.string().optional(),
 });
 

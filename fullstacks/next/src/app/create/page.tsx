@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api } from "@/lib/api-client";
-import { ApiError } from "@/types";
+import { ApiError, type CapsuleRecommendation } from "@/types";
 import { Alert } from "@/components/alert";
 import { AuthGate } from "@/components/auth-gate";
+import { RecommendationStrip } from "@/components/recommendation-strip";
 import { isoToLocalInput, localInputToIso } from "@/lib/format";
 
 function presetTime(spec: "1m" | "1h" | "tomorrow9" | "1y" | "y2030"): string {
@@ -44,31 +45,71 @@ function CreatePageInner() {
   const [aiInfo, setAiInfo] = useState<string | null>(null);
   const [aiGenerated, setAiGenerated] = useState(false);
 
+  // AI 推荐主题：进入页面异步加载，拿到数据后才插入页面；失败则静默（不占位、不提示）
+  const [recos, setRecos] = useState<CapsuleRecommendation[]>([]);
+  const [recoBusy, setRecoBusy] = useState(false);
+  const recoSeq = useRef(0);
+  const recoInited = useRef(false); // 防止 StrictMode 开发模式下 useEffect 双触发重复请求
+
   const contentLen = useMemo(() => content.length, [content]);
 
-  async function aiGenerate() {
-    const t = title.trim();
-    if (!t) {
-      setErr("请先填写胶囊标题");
-      return;
-    }
+  // 直接传入标题，避开 setTitle 的异步性（点击推荐时需要立刻用新标题生成）
+  async function runAiGenerate(rawTitle: string) {
+    const t = rawTitle.trim();
+    const autoTitle = !t;
     setErr(null);
     setAiInfo(null);
     setAiBusy(true);
     try {
-      const s = await api.suggestCapsule({ title: t });
+      const s = await api.suggestCapsule({ title: t || undefined });
       setContent(s.content);
       setOpenLocal(isoToLocalInput(s.openAt));
       setAiGenerated(true);
+      if (s.title && autoTitle) {
+        setTitle((cur) => (cur.trim() ? cur : s.title!));
+      }
       const days = s.openInDays;
       const source =
         s.generatedBy === "local-template" ? "本地模板（LLM 未启用）" : s.generatedBy;
-      setAiInfo(`已为你生成正文，建议 ${days} 天后开启 · 来源：${source}`);
+      const titleNote = s.title && autoTitle ? "标题与正文均由 AI 生成" : "已为你生成正文";
+      setAiInfo(`${titleNote}，建议 ${days} 天后开启 · 来源：${source}`);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "AI 生成失败，请稍后重试");
     } finally {
       setAiBusy(false);
     }
+  }
+
+  function aiGenerate() {
+    void runAiGenerate(title);
+  }
+
+  const loadRecos = useCallback(async () => {
+    const seq = ++recoSeq.current;
+    setRecoBusy(true);
+    try {
+      const list = await api.capsuleRecommendations({ count: 4 });
+      if (seq !== recoSeq.current) return; // 丢弃过期响应
+      // 空数组表示本次 LLM 不可用：保留已有推荐，不要把已显示的清空
+      if (list.items.length > 0) setRecos(list.items);
+    } catch {
+      // 推荐是锦上添花：失败时静默
+    } finally {
+      if (seq === recoSeq.current) setRecoBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (recoInited.current) return; // StrictMode 下只发一次首屏请求
+    recoInited.current = true;
+    void loadRecos();
+  }, [loadRecos]);
+
+  function pickReco(reco: CapsuleRecommendation) {
+    setTitle(reco.title);
+    setContent("");
+    setAiGenerated(false);
+    void runAiGenerate(reco.title);
   }
 
   async function submit(e: FormEvent) {
@@ -130,8 +171,8 @@ function CreatePageInner() {
                 type="button"
                 className="cy-btn cy-btn--ghost"
                 onClick={aiGenerate}
-                disabled={aiBusy || !title.trim()}
-                title="基于标题，让 AI 生成胶囊正文与建议开启时间"
+                disabled={aiBusy}
+                title="让 AI 生成胶囊正文与建议开启时间；标题留空时会顺便起个标题"
                 style={{ whiteSpace: "nowrap" }}
               >
                 {aiBusy ? "生成中…" : aiGenerated ? "✨ 重新生成" : "✨ AI 生成"}
@@ -143,6 +184,16 @@ function CreatePageInner() {
               </span>
             )}
           </div>
+
+          {!title.trim() && recos.length > 0 && (
+            <RecommendationStrip
+              recos={recos}
+              busy={recoBusy}
+              disabled={aiBusy}
+              onPick={pickReco}
+              onRefresh={() => void loadRecos()}
+            />
+          )}
 
           <div className="cy-field">
             <label htmlFor="content">
