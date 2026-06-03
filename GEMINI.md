@@ -46,6 +46,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 - `./verification/scripts/verify-contract.sh <target>` applies to backends and full-stacks as long as the target is registered in `hello list` and exposes `/api/v1/*` on its own port.
 - `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte|next|nuxt>` explicitly runs `./scripts/db init` before starting the target; it does not reset or seed data.
 - Latest full-stack contract run on 2026-06-02 passed: next PostgreSQL 104/104, next SQLite 104/104, nuxt PostgreSQL 104/104, nuxt SQLite 104/104.
+- Latest UI smoke run on 2026-06-03 passed: react-ts 25/25, vue3-ts 25/25, svelte 25/25, angular 25/25, next 25/25, nuxt 25/25.
 
 ## Architecture
 
