@@ -1,0 +1,28 @@
+{
+  "name": "hellotime-pro-solid",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "HelloTime Pro · SolidJS + TypeScript 前端实现（细粒度响应式 Signals）",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 7180",
+    "build": "tsc --noEmit -p tsconfig.app.json && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 7180",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit -p tsconfig.app.json"
+  },
+  "dependencies": {
+    "@solidjs/router": "^0.16.0",
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.10.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.0",
+    "vite-plugin-solid": "^2.11.0",
+    "vitest": "^2.1.8"
+  }
+}

@@ -25,7 +25,7 @@ set -euo pipefail
 _RAW_TARGET="${1:-}"
 if [[ -z "$_RAW_TARGET" ]]; then
   echo "用法: $0 <frontend>" >&2
-  echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / next / nuxt" >&2
+  echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt" >&2
   exit 2
 fi
 
@@ -49,14 +49,15 @@ case "$_RAW_TARGET" in
   react-ts)   TARGET="react" ;;
   vue3-ts)    TARGET="vue" ;;
   svelte-ts)  TARGET="svelte" ;;
+  solid-ts)   TARGET="solid" ;;
   *)          TARGET="$_RAW_TARGET" ;;
 esac
 
 case "$TARGET" in
-  react|vue|angular|svelte|next|nuxt) ;;
+  react|vue|angular|svelte|solid|next|nuxt) ;;
   *)
     echo "✗ 暂不支持的前端: $_RAW_TARGET" >&2
-    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / next / nuxt" >&2
+    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt" >&2
     exit 2
     ;;
 esac

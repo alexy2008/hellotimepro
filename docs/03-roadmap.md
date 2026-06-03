@@ -189,7 +189,7 @@
 
 **目标**：剩余 13 个实现全部达到"契约绿"。
 
-**状态**：🔄 **进行中（2026-05-25）** — 13 个实现中 3 个已完成（2 后端 + 1 前端），10 个待开始。
+**状态**：🔄 **进行中（2026-06-03）** — 13 个实现中 4 个已完成（2 后端 + 2 前端），9 个待开始。前端矩阵已全部完成（5/5）。
 
 #### 后端（8 个）
 
@@ -207,8 +207,8 @@
 
 | 实现 | 要点 | UI 冒烟 |
 |---|---|---|
-| `frontends/svelte/` | Svelte 5 Runes（`$state / $derived / $effect`）+ svelte-routing；`.svelte.ts` class 单例；Snippet 取代 slot；完整 TECHNICAL_GUIDE | ✅ 4/4 |
-| `frontends/solid-ts/`（待） | SolidJS `createSignal / createResource`；细粒度响应式与 React 的心智对比 | — |
+| `frontends/svelte/` | Svelte 5 Runes（`$state / $derived / $effect`）+ svelte-routing；`.svelte.ts` class 单例；Snippet 取代 slot；完整 TECHNICAL_GUIDE | ✅ 25/25 |
+| `frontends/solid/` | SolidJS `createSignal / createStore`（细粒度响应式，无虚拟 DOM）+ `@solidjs/router`；模块级 Store 脱离组件树；与 React 的心智对比 | ✅ 25/25 |
 
 #### 全栈（3 个）
 
@@ -247,6 +247,20 @@
 - TECHNICAL_GUIDE.md（833 行）已就位，含 Svelte 5 Runes 核心概念、`.svelte.ts` 陷阱说明、vs React vs Vue 对照表。
 - `verify-ui-smoke.sh` 已加入 `svelte / svelte-ts` 别名支持。
 
+##### SolidJS 落地记录（2026-06-03）
+
+- 目录 `frontends/solid`（端口 7180），不带 `-ts` 后缀但全程 TypeScript。SolidJS 1.9 + `@solidjs/router` 0.16 + `vite-plugin-solid` + Tailwind v4。
+- **逻辑层逐字复用 react-ts**：`api/client.ts`、`types/index.ts`、`utils/{avatar,format}.ts` 及其单测原样复制（纯 TS、框架无关），真正体现契约驱动多栈「业务逻辑与框架解耦」。UI 层（stores / components / pages）用 SolidJS 习惯写法重写。
+- **状态层**：全局状态用模块级 `createSignal`（theme）/ `createStore`（auth、plaza、capsule）+ 导出动作函数，脱离组件树存在，角色等同 react-ts 的 Zustand；并发请求沿用闭包「序列号」守卫。`auth.ts` 启动时 `configureApi()` 注入 token 读取回调，与 client 解耦避免循环依赖。
+- **路由**：`@solidjs/router` 嵌套 `<Route>`，父布局组件经 `props.children` 渲染 outlet；`AuthGate` 用双层 `<Show>`（先等 hydrate 再判登录态）声明式守卫；路由保持 react-ts 的 `/c/:code`（`verify-ui-smoke` 的 `capsulePath` 对非 svelte 即返回 `/c/`，无需改测试）。
+- 关键 SolidJS 注意点（已落实）：
+  - **props 不解构**，一律 `props.x` 访问以保持响应性；默认值用 `() => props.x ?? d`。
+  - 控制流用 `<Show>` / `<For>` / `<Index>`；8 位胶囊码格子用 `<Index>`（定长按位 keyed）最贴切。
+  - `style` 对象键用 **kebab-case 字符串、值带单位**（`{ "margin-left": "auto", gap: "6px" }`），SVG 属性用原生 `stroke-width` 等——与 React 的 camelCase + 自动 px 不同。
+  - 计时器用 `window.setTimeout/clearTimeout` 拿 `number` 返回值，否则装了 `@types/node` 时类型推断为 `Timeout`、对显式 `number` 标注报错（lint 唯一暴露的两处问题，已修）。
+- `verify-ui-smoke.sh` 已加入 `solid / solid-ts` 别名与 case 支持；`scripts/hello` 早已登记 `solid`（端口 7180）。
+- README + TECHNICAL_GUIDE 已就位，后者含 SolidJS 细粒度响应式核心概念与 vs React / Vue / Svelte 对照表。
+
 #### 验收记录
 
 - 2026-05-24：`./verification/scripts/verify-contract.sh elysia` 通过，PostgreSQL 92/92。
@@ -257,6 +271,7 @@
 - 2026-05-25：elysia bug fix 后复验 PG + SQLite 各 92/92 全绿。
 - 2026-05-25：`./verification/scripts/verify-ui-smoke.sh svelte`（spec fix 后复验） 通过，4/4。
 - 2026-05-25：`./verification/scripts/verify-contract.sh nest`（PG）、`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh nest`（SQLite） 复验，各 92/92。
+- 2026-06-03：`./verification/scripts/verify-ui-smoke.sh solid` 通过，Playwright **25/25**（一次通过；后端 gin / PostgreSQL，经 :9080 代理）。`npm run lint`（tsc）零错、`npm test` 7/7、`./build` 成功。
 
 #### Spring Boot 双驱动回归修复（2026-06-02）
 
