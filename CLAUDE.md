@@ -151,3 +151,7 @@ Tailwind CSS v4 + semantic design tokens. All color/spacing references must use 
 - **Out of scope**: password reset, OAuth, file uploads, comments, email notifications.
 - **Verification**: External black-box scripts only — don't add implementation-aware shortcuts.
 - **Ports**: Chosen to avoid conflicts with the older `HelloTimeByClaude` project.
+
+## Cross-Stack Dev Notes
+
+Accumulated pitfalls and solutions across all stacks (LLM integration, Svelte quirks, Spring cross-DB mapping, local Postgres setup, quality policy): **`docs/dev-notes.md`**

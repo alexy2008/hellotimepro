@@ -81,5 +81,9 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 前缀统一用 `LLM request` / `LLM response` / `LLM error`，方便 `grep "^.*LLM "` 过滤。
 参考实现：`backends/fastapi/app/services/llm_client.py` 的 `_post_json()`。
 
+## Cross-Stack Dev Notes
+
+Accumulated pitfalls and solutions across all stacks (LLM integration, Svelte quirks, Spring cross-DB mapping, local Postgres setup, quality policy): **`docs/dev-notes.md`**
+
 ## Reference Docs
 Full details: `docs/01-requirements.md`, `docs/02-design.md`, `docs/03-roadmap.md`
