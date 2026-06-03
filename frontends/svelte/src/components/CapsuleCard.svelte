@@ -4,7 +4,7 @@
   import type { CapsuleListItem } from "@/types";
   import { avatarUrl } from "@/utils/avatar";
   import { countdownTo, fmtNumber, pad2 } from "@/utils/format";
-  import { createCountdown } from "@/lib/countdown.svelte";
+  import { createCountdown } from "@/lib/countdown.svelte.ts";
   import FavoriteButton from "./FavoriteButton.svelte";
 
   interface Props {

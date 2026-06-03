@@ -2,7 +2,7 @@
   import type { CapsuleDetail as CapsuleDetailT } from "@/types";
   import { avatarUrl } from "@/utils/avatar";
   import { countdownTo, fmtDateTime } from "@/utils/format";
-  import { createCountdown } from "@/lib/countdown.svelte";
+  import { createCountdown } from "@/lib/countdown.svelte.ts";
   import FavoriteButton from "./FavoriteButton.svelte";
   import CalendarUnit from "./CalendarUnit.svelte";
 

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ApiService } from '@/api/api.service';
 import type { HealthData } from '@/types';
 
@@ -42,7 +42,7 @@ export class AppFooterComponent implements OnInit {
   health = signal<HealthData | null>(null);
   connected = signal<boolean | null>(null);
 
-  backendItems() { return this.health()?.stack.items ?? []; }
+  backendItems = computed(() => this.health()?.stack.items ?? []);
 
   dotClass() {
     const c = this.connected();

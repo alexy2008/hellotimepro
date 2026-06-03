@@ -5,7 +5,8 @@ import { CapsuleGrid } from "@/components/CapsuleGrid";
 import { Pagination } from "@/components/Pagination";
 
 export function MeFavoritesPage() {
-  const { favorites, fetchFavorites } = useCapsule();
+  const favorites = useCapsule((s) => s.favorites);
+  const fetchFavorites = useCapsule((s) => s.fetchFavorites);
 
   useEffect(() => {
     void fetchFavorites(1);

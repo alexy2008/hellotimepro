@@ -1,6 +1,6 @@
 <script lang="ts">
   import { plazaStore } from "@/stores/plaza.svelte.ts";
-  import { createDebounced } from "@/lib/debounce.svelte";
+  import { createDebounced } from "@/lib/debounce.svelte.ts";
   import type { PlazaFilter, PlazaSort } from "@/types";
 
   const SORTS: Array<{ key: PlazaSort; label: string }> = [

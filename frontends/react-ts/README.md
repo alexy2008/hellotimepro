@@ -44,7 +44,7 @@ src/
 │                          · CapsuleForm（CreatePage 内联）· CapsuleCodeInput
 │                          · CapsuleDetail · FavoriteButton · AvatarPicker
 │                          · MeLayout · MainLayout · Alert
-├── pages/               ← 12 个路由对应页面
+├── pages/               ← 11 个路由对应页面
 │   ├── PlazaPage           /
 │   ├── OpenPage            /open
 │   ├── AboutPage           /about
@@ -52,7 +52,6 @@ src/
 │   ├── RegisterPage        /register
 │   ├── CreatePage          /create        （登录守卫）
 │   ├── CapsuleByCodePage   /c/:code
-│   ├── CapsuleByIdPage     /p/:id
 │   ├── MeCreatedPage       /me/created    （登录守卫）
 │   ├── MeFavoritesPage     /me/favorites  （登录守卫）
 │   ├── MeProfilePage       /me/profile    （登录守卫）

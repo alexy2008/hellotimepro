@@ -6,7 +6,9 @@ import { Pagination } from "@/components/Pagination";
 import { fmtNumber } from "@/utils/format";
 
 export function MeCreatedPage() {
-  const { mine, fetchMine, deleteCapsule } = useCapsule();
+  const mine = useCapsule((s) => s.mine);
+  const fetchMine = useCapsule((s) => s.fetchMine);
+  const deleteCapsule = useCapsule((s) => s.deleteCapsule);
 
   useEffect(() => {
     void fetchMine(1);
