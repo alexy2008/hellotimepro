@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- 胶囊卡片片段。showCreator=false 时显示创建时间，rightSlot 用于「我创建的」撤回按钮。 -->
+<article th:fragment="card(capsule, showCreator, hideFavorite)" class="cy-capsule"
+         th:classappend="${capsule.isOpened} ? ' cy-capsule--opened' : ' cy-capsule--sealed'">
+  <div class="cy-capsule__head">
+    <span class="cy-badge"
+          th:classappend="${capsule.isOpened} ? ' cy-badge--opened' : ' cy-badge--sealed'"
+          th:text="${capsule.isOpened} ? '已开启' : '未开启'">未开启</span>
+    <a th:href="@{/c/{code}(code=${capsule.code})}" class="cy-capsule__code"
+       style="text-decoration:none" th:text="${capsule.code}">CODE</a>
+  </div>
+
+  <a th:href="@{/c/{code}(code=${capsule.code})}" style="text-decoration:none;color:inherit">
+    <h3 class="cy-capsule__title" th:text="${capsule.title}">标题</h3>
+  </a>
+
+  <p th:if="${!capsule.isOpened}" class="cy-capsule__countdown"
+     th:with="cd=${@fmt.countdown(capsule.openAt)}"
+     th:text="'⏳ 还剩 ' + ${cd.days} + ' 天 · ' + ${cd.hours} + ':' + ${cd.minutes} + ':' + ${cd.seconds}">⏳</p>
+  <p th:if="${capsule.isOpened and capsule.contentPreview != null}" class="cy-capsule__preview"
+     th:text="${capsule.contentPreview}"></p>
+
+  <div class="cy-capsule__meta">
+    <span th:if="${showCreator}" class="cy-capsule__creator">
+      <img th:src="${@fmt.avatarUrl(capsule.creator.avatarId)}" alt="">
+      <span th:text="${capsule.creator.nickname}">昵称</span>
+    </span>
+    <span th:unless="${showCreator}" style="color:var(--color-text-muted)"
+          th:text="'创建于 ' + ${@fmt.date(capsule.createdAt)}">创建于</span>
+
+    <th:block th:if="${hideFavorite}">
+      <span th:if="${capsule.isOpened}" style="color:var(--color-favorite-active)"
+            th:text="'♥ ' + ${@fmt.number(capsule.favoriteCount)}">♥ 0</span>
+      <button th:unless="${capsule.isOpened}" type="button"
+              class="cy-btn cy-btn--ghost cy-btn--sm"
+              style="min-height:28px;padding:4px 12px;color:var(--color-danger-fg)"
+              hx-target="closest article.cy-capsule" hx-swap="outerHTML swap:200ms"
+              hx-confirm="确认撤回？此操作不可恢复。"
+              th:attr="hx-delete=@{/ui/capsules/{id}(id=${capsule.id})}">撤回</button>
+    </th:block>
+    <th:block th:unless="${hideFavorite}"
+              th:replace="~{fragments/favorite :: button(${capsule.id}, ${capsule.favoritedByMe}, ${capsule.favoriteCount}, ${authenticated})}"></th:block>
+  </div>
+</article>
+</body>
+</html>

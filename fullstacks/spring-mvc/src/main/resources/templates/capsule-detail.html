@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
+<head th:replace="~{fragments/layout :: head('胶囊')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main class="cy-container">
+  <!-- 错误：胶囊不存在 -->
+  <div th:if="${error}" style="max-width:560px;margin:var(--space-12) auto">
+    <div class="cy-alert cy-alert--danger"><span>⚠</span><span th:text="${error}">胶囊不存在</span></div>
+    <div style="margin-top:var(--space-4);text-align:center">
+      <a class="cy-btn cy-btn--ghost" href="/open">返回输入码</a>
+    </div>
+  </div>
+
+  <div th:unless="${error}" class="cy-capsule-detail" th:object="${capsule}"
+       th:with="cd=${@fmt.countdown(capsule.openAt)}">
+    <div class="cy-capsule-detail__head">
+      <span class="cy-badge" th:classappend="${capsule.isOpened} ? ' cy-badge--opened' : ' cy-badge--sealed'"
+            th:text="${capsule.isOpened} ? '已开启' : '未开启'">未开启</span>
+      <span th:if="${capsule.inPlaza}" class="cy-badge cy-badge--plaza">广场公开</span>
+      <span class="cy-capsule__code" th:text="${capsule.code}">CODE</span>
+      <span style="color:var(--color-text-muted);font-size:var(--font-size-sm)"
+            th:text="'· 创建于 ' + ${@fmt.dateTime(capsule.createdAt)}">· 创建于</span>
+    </div>
+
+    <h1 class="cy-capsule-detail__title" th:text="${capsule.title}">标题</h1>
+
+    <!-- 已开启：展示正文 -->
+    <th:block th:if="${capsule.isOpened and capsule.content != null}">
+      <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-4);font-size:var(--font-size-sm);color:var(--color-text-muted)">
+        <span>🔓</span>
+        <span>开启于 <strong style="color:var(--color-capsule-opened-accent)" th:text="${@fmt.dateTime(capsule.openAt)}">时间</strong></span>
+      </div>
+      <div class="cy-capsule-detail__content" th:text="${capsule.content}">正文</div>
+    </th:block>
+
+    <!-- 未开启：上锁倒计时 -->
+    <div th:unless="${capsule.isOpened and capsule.content != null}" class="cy-capsule-detail__sealed">
+      <div style="font-size:var(--font-size-4xl);opacity:.7">🔒</div>
+      <div style="color:var(--color-text-secondary);margin-top:var(--space-3);font-size:var(--font-size-sm);letter-spacing:.1em">
+        这封信还在上锁，将在以下时刻开启
+      </div>
+      <div class="cy-cal">
+        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" th:text="${cd.days}">0</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">天</div></div>
+        <span class="cy-cal-sep">:</span>
+        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" th:text="${cd.hours}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">时</div></div>
+        <span class="cy-cal-sep">:</span>
+        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" th:text="${cd.minutes}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">分</div></div>
+        <span class="cy-cal-sep">:</span>
+        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" th:text="${cd.seconds}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">秒</div></div>
+      </div>
+      <div style="color:var(--color-text-secondary)">
+        开启于 <strong style="color:var(--color-text-primary)" th:text="${@fmt.dateTime(capsule.openAt)}">时间</strong>
+      </div>
+    </div>
+
+    <div style="margin-top:var(--space-6);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-3)">
+      <div style="display:flex;align-items:center;gap:var(--space-2);color:var(--color-text-secondary);font-size:var(--font-size-sm)">
+        来自
+        <img th:src="${@fmt.avatarUrl(capsule.creator.avatarId)}" alt="" style="width:32px;height:32px;border-radius:50%">
+        <strong style="color:var(--color-text-primary)" th:text="${capsule.creator.nickname}">昵称</strong>
+      </div>
+      <div style="display:flex;gap:var(--space-3);align-items:center">
+        <th:block th:replace="~{fragments/favorite :: button(capsuleId=${capsule.id}, favorited=${capsule.favoritedByMe}, favoriteCount=${capsule.favoriteCount}, authenticated=${authenticated})}"></th:block>
+      </div>
+    </div>
+
+    <div th:if="${!capsule.isOpened}" class="cy-alert cy-alert--info" style="margin-top:var(--space-6)">
+      <span>ⓘ</span><span>未开启的胶囊仅显示标题与倒计时，内容将在开启后公开到广场。</span>
+    </div>
+    <div th:if="${capsule.isOpened and capsule.inPlaza}" class="cy-alert cy-alert--success" style="margin-top:var(--space-6)">
+      <span>✓</span><span>这条胶囊已在广场公开，任何人都可以通过广场或 8 位码访问。</span>
+    </div>
+  </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

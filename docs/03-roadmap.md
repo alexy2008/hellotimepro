@@ -189,7 +189,7 @@
 
 **目标**：剩余 13 个实现全部达到"契约绿"。
 
-**状态**：🔄 **进行中（2026-06-03）** — 13 个实现中 4 个已完成（2 后端 + 2 前端），9 个待开始。前端矩阵已全部完成（5/5）。
+**状态**：🔄 **进行中（2026-06-04）** — 13 个实现中 5 个已完成（2 后端 + 2 前端 + 1 全栈），8 个待开始。前端矩阵已全部完成（5/5）；全栈 `spring-mvc` 已落地。
 
 #### 后端（8 个）
 
@@ -216,7 +216,7 @@
 |---|---|---|---|---|
 | `fullstacks/rails/`（待） | ERB + Turbo + Hotwire；Rails 约定优于配置的全栈典范 | — | — | — |
 | `fullstacks/laravel/`（待） | Blade + Alpine.js；PHP 现代全栈的最佳代表 | — | — | — |
-| `fullstacks/spring-boot-mvc/`（待） | Thymeleaf + HTMX；Java 系服务端渲染，与前后端分离形成强对比 | — | — | — |
+| `fullstacks/spring-mvc/` | Thymeleaf + HTMX；Java 系服务端渲染，与前后端分离形成强对比（hello 登记名 `spring-mvc`，端口 7179） | ✅ 104/104 | ✅ 104/104 | ✅ 25/25 |
 
 #### 已完成的横切改进
 
@@ -323,6 +323,28 @@
 - 2026-06-02：`DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh gin` 通过，**104/104**。
 - 2026-06-02：6 套前端 / 全栈 `verify-ui-smoke.sh {react-ts,vue3-ts,svelte,angular,next,nuxt}` 全部 **25/25** 通过；next / nuxt 各连续两轮稳过（~14s）。
 - 2026-06-02：全栈契约双数据库复验全绿：`next` PostgreSQL **104/104**、`next` SQLite **104/104**、`nuxt` PostgreSQL **104/104**、`nuxt` SQLite **104/104**。
+
+#### Spring MVC 全栈落地记录（2026-06-04）
+
+- 目录 `fullstacks/spring-mvc/`（hello 登记名 `spring-mvc`，端口 7179，runtime jdk）。Java 21 + Spring Boot 3.3 + **Thymeleaf + HTMX** 服务端渲染，是全栈矩阵里唯一的「前后端不分离」代表。
+- **一个进程两套接口**：业务地基（domain/repository/service/db 跨库 JdbcType/JWT/LLM 客户端 + `web/` JSON 控制器）逐字复用 `backends/spring-boot`；新增 `web/view/` 的 SSR 控制器、cookie 鉴权桥、Thymeleaf 模板、`app.js`、Tailwind 构建。同时对外暴露 `/api/v1` JSON 契约（Bearer）与 SSR 页面（httpOnly cookie）。
+- **cookie ↔ Bearer 打通**：`CookieTokenFilter` 在 `/api/v1/*` 缺 Authorization 头但带 `ht_access` cookie 时，包装请求注入 `Bearer`，让浏览器 fetch 复用同一套 JSON 控制器鉴权（`me.spec` 要求改资料命中 `PATCH /api/v1/me`）。仅在缺头时介入，不影响契约黑盒（真实 Bearer）与「无鉴权 → 401」。
+- **HTMX / 原生 JS 分工**：广场搜索、撤回走 HTMX 片段；AI 灵感/生成（JSON envelope，HTMX 不适用）、8 位码、头像、表单校验、收藏走 `app.js`。
+- 关键坑（已修复）：
+  - **收藏竞态**：「点收藏后立刻 `goto('/me/favorites')`」会中止在途异步 XHR，PG 上（FOR UPDATE 行锁略慢）稳定输掉竞态、收藏未提交即被静态 SSR 页查询读到。改用**同步 `XMLHttpRequest`** 保证收藏在导航前落库提交；匿名点击纯客户端 `confirm` 跳登录（`keepalive` 不足以保证提交-查询顺序）。
+  - **Thymeleaf `th:replace` 优先级高于 `th:each`**：同元素上 replace 先于迭代执行 → 循环变量为 null。必须外层 each、内层 replace，且 fragment 用命名传参、参数名与签名一致。
+  - **`hx-trigger` 用 `input` 而非 `keyup`**：Playwright `fill()` 只派发 `input`，用 `keyup` 搜索永不触发。
+  - **端口默认值**：`hello start` 不注入 PORT，`application.yml` 默认端口必须直接是 7179。
+  - **JVM 冷启动慢**：`verify-ui-smoke.sh` 就绪等待 30s→120s（命中即退出，不影响其它栈）。
+  - **孤儿胶囊防御**：`PlazaService` 跳过 owner 已删除的胶囊（SQLite 外键默认不级联），避免 SSR 首页 `/` 查广场时对 null owner 取 nickname 抛 NPE 致 500。
+  - **`./test`**：Flyway 已随 db 解耦禁用，测试库 schema 改由 `scripts/db init` 创建（与 app 运行一致）。
+- README + TECHNICAL_GUIDE 已就位；`verify-ui-smoke.sh` 加入 `spring-mvc`（白名单 + `_is_fullstack`）。
+
+**验收**：
+
+- 2026-06-04：`./verification/scripts/verify-contract.sh spring-mvc`（PostgreSQL） 通过，**104/104**；`DB_DRIVER=sqlite ...` 通过，**104/104**。
+- 2026-06-04：`./verification/scripts/verify-ui-smoke.sh spring-mvc`（PostgreSQL） 通过，**25/25**（~13.7s）；`DB_DRIVER=sqlite ...` 通过，**25/25**（~12.8s）。
+- 2026-06-04：`./build` 打包可执行 jar 成功；`./test` SmokeTest **2/2** 通过。
 
 ---
 

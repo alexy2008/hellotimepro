@@ -54,10 +54,10 @@ case "$_RAW_TARGET" in
 esac
 
 case "$TARGET" in
-  react|vue|angular|svelte|solid|next|nuxt) ;;
+  react|vue|angular|svelte|solid|next|nuxt|spring-mvc) ;;
   *)
     echo "✗ 暂不支持的前端: $_RAW_TARGET" >&2
-    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt" >&2
+    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt / spring-mvc" >&2
     exit 2
     ;;
 esac
@@ -65,7 +65,7 @@ esac
 # 全栈同源实现集合（自带 API，不需要后端代理）
 _is_fullstack() {
   case "$1" in
-    next|nuxt) return 0 ;;
+    next|nuxt|spring-mvc) return 0 ;;
     *)        return 1 ;;
   esac
 }
@@ -236,12 +236,15 @@ else
 fi
 
 echo "→ 等待前端就绪…"
-for i in $(seq 1 30); do
+# JVM 全栈（spring-mvc）冷启动需先 mvn 编译再启动 Spring，耗时可达 ~60s；放宽到 120s。
+# 循环命中即退出，对启动快的前端无影响。
+_READY_TIMEOUT="${UI_READY_TIMEOUT:-120}"
+for i in $(seq 1 "$_READY_TIMEOUT"); do
   if curl -fsS -o /dev/null "$FRONTEND_URL" 2>/dev/null; then
     echo "  ✓ $TARGET 已就绪（第 $i 次）"
     break
   fi
-  [[ $i -eq 30 ]] && { echo "✗ $TARGET 未在 30s 内就绪" >&2; exit 1; }
+  [[ $i -eq $_READY_TIMEOUT ]] && { echo "✗ $TARGET 未在 ${_READY_TIMEOUT}s 内就绪" >&2; exit 1; }
   sleep 1
 done
 

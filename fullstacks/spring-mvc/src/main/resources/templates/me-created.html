@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
+<head th:replace="~{fragments/layout :: head('我创建的胶囊')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main class="cy-container">
+  <div class="cy-me">
+    <aside th:replace="~{fragments/layout :: meNav('created')}"></aside>
+    <section class="cy-me__content">
+      <h1>我创建的胶囊</h1>
+
+      <div class="cy-toolbar" style="border-bottom:none;padding-top:0">
+        <span style="color:var(--color-text-muted);font-size:var(--font-size-sm)"
+              th:text="'按创建时间倒序 · 共 ' + ${pagination.total} + ' 条'">共 0 条</span>
+        <a class="cy-btn cy-btn--primary cy-btn--sm" href="/create">+ 新建胶囊</a>
+      </div>
+
+      <div th:if="${#lists.isEmpty(capsules)}" class="cy-empty">
+        <div class="cy-empty__emoji">📭</div>
+        <p>还没有创建任何胶囊</p>
+        <a class="cy-btn cy-btn--primary cy-btn--sm" href="/create" style="margin-top:var(--space-3)">去创建一个</a>
+      </div>
+      <div th:unless="${#lists.isEmpty(capsules)}" class="cy-grid">
+        <th:block th:each="cap : ${capsules}">
+          <th:block th:replace="~{fragments/capsule :: card(capsule=${cap}, showCreator=false, hideFavorite=true)}"></th:block>
+        </th:block>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

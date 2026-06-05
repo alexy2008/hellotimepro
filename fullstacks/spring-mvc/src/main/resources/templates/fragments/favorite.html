@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  收藏按钮片段。点击由 app.js 接管（事件委托）：
+  - 登录态：fetch(keepalive) 调 /ui/capsules/{id}/favorite-toggle，返回 JSON，更新按钮。
+    用 keepalive 保证「点收藏后立刻导航」时请求仍会发出并提交（否则导航会中止在途 XHR）。
+  - 匿名（data-anon=true）：window.confirm 后跳登录。
+-->
+<button th:fragment="button(capsuleId, favorited, favoriteCount, authenticated)"
+        type="button" class="cy-capsule__fav"
+        th:classappend="${favorited} ? ' is-active' : ''"
+        th:attr="data-capsule-id=${capsuleId}, data-favorited=${favorited}, data-anon=${!authenticated}">
+  <span class="cy-fav-icon" th:text="${favorited} ? '♥' : '♡'">♡</span>
+  <span class="cy-fav-count" th:text="${favoriteCount}">0</span>
+</button>
+</body>
+</html>

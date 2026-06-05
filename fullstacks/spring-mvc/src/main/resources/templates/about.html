@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
+<head th:replace="~{fragments/layout :: head('关于')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<main class="cy-container cy-container--narrow" style="margin:var(--space-12) auto var(--space-16)">
+  <h1 style="font-family:var(--font-display);font-size:var(--font-size-5xl);margin:0 0 var(--space-3)">
+    关于 <span style="background:var(--gradient-brand-hero);-webkit-background-clip:text;background-clip:text;color:transparent">HelloTime Pro</span>
+  </h1>
+
+  <p style="color:var(--color-text-secondary);font-size:var(--font-size-lg);line-height:var(--line-height-relaxed);margin:0 0 var(--space-10)">
+    一款时光胶囊 Web 应用——写下一段话，设定未来某刻才能开启，内容上锁后不可修改。
+    支持胶囊广场浏览、AI 辅助创作、收藏与账户管理。同时也是一个多技术栈对比学习项目，
+    同一份产品需求由多套前后端框架各自实现，共享同一份 API 契约、数据库 schema 与设计 token。
+  </p>
+
+  <section style="margin-bottom:var(--space-10)">
+    <h2 style="font-family:var(--font-display);font-size:var(--font-size-2xl);margin:0 0 var(--space-5)">前端技术栈</h2>
+    <div class="cy-card" style="padding:var(--space-6)">
+      <div th:replace="~{about :: iconRow(${frontendStack})}"></div>
+      <p style="margin:0;color:var(--color-text-secondary);line-height:var(--line-height-relaxed)"
+         th:text="${frontendSummary}"></p>
+    </div>
+  </section>
+
+  <section style="margin-bottom:var(--space-10)">
+    <h2 style="font-family:var(--font-display);font-size:var(--font-size-2xl);margin:0 0 var(--space-5)">后端技术栈</h2>
+    <div class="cy-card" style="padding:var(--space-6)">
+      <div th:replace="~{about :: iconRow(${backendStack})}"></div>
+      <p style="margin:0;color:var(--color-text-secondary);line-height:var(--line-height-relaxed)"
+         th:text="${backendSummary}"></p>
+    </div>
+  </section>
+
+  <div style="padding:var(--space-4) 0;border-top:1px solid var(--color-border-subtle);color:var(--color-text-muted);font-size:var(--font-size-sm);display:flex;gap:var(--space-6);flex-wrap:wrap">
+    <span>前端：<code>Thymeleaf + HTMX</code></span>
+    <span>后端：<code>Java + Spring Boot</code></span>
+    <span>License: MIT</span>
+  </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<!-- 技术栈图标行（缺图标用占位方块）。 -->
+<div th:fragment="iconRow(items)" style="display:flex;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-4)">
+  <div th:each="it : ${items}" style="display:flex;flex-direction:column;align-items:center;gap:var(--space-1)">
+    <img th:if="${it.iconUrl != null}" th:src="${it.iconUrl}" th:alt="${it.name}" style="width:48px;height:48px">
+    <div th:unless="${it.iconUrl != null}" style="width:48px;height:48px;background:var(--color-surface-2);border-radius:var(--radius-md)"></div>
+    <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)" th:text="${it.name}">name</span>
+  </div>
+</div>
+</body>
+</html>

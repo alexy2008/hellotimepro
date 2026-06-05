@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- 广场网格内容（HTMX 局部替换 #plaza-grid 的 innerHTML）。 -->
+<th:block th:fragment="grid">
+  <div th:if="${#lists.isEmpty(capsules)}" class="cy-empty">
+    <div class="cy-empty__emoji">🌌</div>
+    <p>广场暂无胶囊 —— 来当第一个写信给未来的人？</p>
+  </div>
+  <div th:unless="${#lists.isEmpty(capsules)}" class="cy-grid">
+    <th:block th:each="cap : ${capsules}">
+      <th:block th:replace="~{fragments/capsule :: card(capsule=${cap}, showCreator=true, hideFavorite=false)}"></th:block>
+    </th:block>
+  </div>
+</th:block>
+</body>
+</html>

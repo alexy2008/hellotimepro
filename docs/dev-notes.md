@@ -203,3 +203,73 @@ sqlite-jdbc 的 `getTimestamp` 解析不了带 `T`/偏移的 ISO 串（读成 nu
 - SQLite 外键 cascade 默认关；手动只 `seed --force` 不 reset 会残留旧测试数据干扰排查。
 - `run` 脚本 SQLite URL 不需要 `?date_class=TEXT`（已走 `getString/setString`）。
 - 验收：2026-06-02 双驱动各 `verify-contract.sh spring` **104/104**。
+
+---
+
+## 6. SSR 全栈（fullstacks/spring-mvc，Thymeleaf + HTMX）
+
+服务端渲染全栈的通用经验，**对后续 rails / laravel 同样适用**。地基复用 `backends/spring-boot`，
+跨库 JdbcType 等坑见第 5 节，这里只记 SSR 表现层特有的。
+
+### 6.1 一个进程，两套接口 + cookie↔Bearer 桥
+
+全栈要**同时**通过黑盒契约（104 例 JSON `/api/v1`，Bearer）与 UI 冒烟（25 例 Playwright，SSR 页面）。
+SSR 这侧用 httpOnly cookie 承载会话，但部分 UI 写操作冒烟要求**直接命中 `/api/v1`**
+（`me.spec` 显式 `waitForResponse(PATCH /api/v1/me)`）。
+
+解法：一个请求包装过滤器，在 `/api/v1/*` 缺 `Authorization` 头但带 access cookie 时注入
+`Bearer <cookie>`，让浏览器 fetch 复用同一套 JSON 控制器鉴权。**只在缺头时介入**——契约黑盒发真实
+Bearer 时不动手，「无鉴权 → 401」也不受影响。（实现：`web/CookieTokenFilter`。）
+
+登录态只在 access 缺失/过期时用 refresh 轮换**一次**（access JWT 自带有效期，导航不轮换），
+规避「每次导航急切刷新 → refresh 重用检测 → 整族吊销 → 误登出」。
+
+### 6.2 「点击后立刻导航」的写操作竞态 → 同步请求
+
+冒烟里有 `点收藏 → goto('/me/favorites') → 期望出现` 这类序列。**导航会中止在途异步 XHR**，
+且 SSR 目标页是静态的——收藏没在该页查询前提交就永远不显示，DOM 轮询也救不回。
+PostgreSQL 上（收藏走 `SELECT ... FOR UPDATE` 行锁略慢）异步 fetch（含 `keepalive`）稳定输掉。
+
+对**已登录**写操作用**同步 `XMLHttpRequest`**：阻塞到落库提交再返回，保证导航时已提交。
+匿名分支纯客户端 `window.confirm` 跳登录、不发请求（按钮带 `data-anon`）。
+> `keepalive` 只保证请求被发出，**不保证**提交早于下一页查询；要消除竞态得同步。
+> next/nuxt 的收藏是非事务快路径，异步也能赢——保留 FOR UPDATE 正确性就得换同步。
+
+### 6.3 Thymeleaf 两个坑
+
+- **`th:replace` 优先级高于 `th:each`**：写在同一元素上时 replace 先执行、循环变量还不存在 →
+  传进 fragment 的是 `null`（报 `Property 'xxx' cannot be found on null`）。必须外层 `th:each`、
+  内层独立元素 `th:replace`；fragment 用**命名传参**且参数名与签名一致。
+- Java `record` 属性访问在 Spring Boot 3.3（SpEL 6.1）下可用：`${capsule.title}` 直接读 record 组件。
+
+### 6.4 HTMX 触发器与 Playwright
+
+`hx-trigger` 监听 **`input`** 而非 `keyup`：Playwright `fill()` 只派发 `input` 事件，
+用 `keyup` 会导致 HTMX 搜索/输入类交互永不触发。返回 JSON envelope 的端点（AI 灵感/生成）不适合
+HTMX swap（它期望 HTML 片段），改用原生 `fetch`——与 Playwright `page.route` mock 天然兼容。
+
+### 6.5 启动与就绪
+
+- `hello start` **不注入 PORT**，`application.yml` 默认端口必须直接是登记端口（spring-mvc=7179），
+  否则验证脚本按 `hello list` 取到的端口与实际监听不符。
+- JVM 冷启动（`mvn spring-boot:run` 编译 + Spring）可达 ~60s，`verify-ui-smoke.sh` 就绪等待已
+  30s→120s（`UI_READY_TIMEOUT` 可覆盖；命中即退出，不拖慢启动快的前端）。
+- **沙箱**：本机 Bash 沙箱会拒绝 JVM 加载 `libmanagement.dylib`（Tomcat 静态资源扫描 / ManagementFactory）；
+  经 `hello start`（分离会话）或 `dangerouslyDisableSandbox` 启动可绕过，契约/冒烟 harness 即走前者。
+
+### 6.6 孤儿胶囊防御 + ./test schema
+
+- SSR 首页 `/` 会查广场，比纯 JSON 后端更早暴露脏数据：owner 已删除的**孤儿胶囊**（SQLite 外键默认
+  不级联，契约/冒烟清理用户后残留）会让 `mapper.listItem` 对 null owner 取 nickname 抛 NPE → 首页 500。
+  `PlazaService` 渲染广场/收藏列表时跳过 null owner（等价 INNER JOIN 语义）。
+- Flyway 随 db 解耦禁用后，`./test` 的测试库 schema 改由 `scripts/db init` 创建（与 app 运行一致），
+  不再依赖已失效的 `db/migration/*` Flyway 脚本。
+
+### 6.7 样式：Tailwind v4 CLI（仅构建期 Node）
+
+JDK 全栈掺一个仅构建期的 Node 步骤：`package.json` 只含 `@tailwindcss/cli`，`build:css` 扫描
+`templates/**` 生成 `static/css/app.css`；入口复用与 React 参考前端**完全相同**的 spec 样式链
+（`palette + tokens + cyber + layout.css`，`layout.css` 从 react-ts 原样复制）。运行期不依赖 Node，
+脚本在无 npm 时跳过、用已提交的 `app.css` 兜底。
+
+- 验收：2026-06-04 双驱动各 `verify-contract.sh spring-mvc` **104/104**、`verify-ui-smoke.sh spring-mvc` **25/25**。

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# 一致性构建：先生成 Tailwind 样式，再打包可执行 jar。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+# 前端样式（仅构建期需要 Node）。
+if [[ -f package.json ]] && command -v npm >/dev/null 2>&1; then
+  [[ -d node_modules ]] || npm install --silent
+  npm run --silent build:css
+fi
+
+mvn -q -DskipTests package
+echo "✓ Spring MVC fullstack packaged"

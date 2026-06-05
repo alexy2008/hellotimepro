@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
+<head th:replace="~{fragments/layout :: head('广场')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<section class="cy-hero-block">
+  <div class="cy-container">
+    <h1 class="cy-hero-title">封存此刻 <span class="cy-hero-title__highlight">开启未来</span></h1>
+    <p class="cy-hero-subtitle">
+      写下此刻最真实的想法，设定一个解封时刻——可以是明年生日、十年后的某个清晨，或任何你觉得值得等待的瞬间。时间到了，它才会被打开。
+    </p>
+    <div class="cy-hero-cta">
+      <a class="cy-btn cy-btn--primary cy-btn--hero" th:href="${authenticated} ? '/create' : '/register'">创建我的胶囊</a>
+      <a class="cy-btn cy-btn--success cy-btn--hero" href="/open">用胶囊码开启</a>
+    </div>
+  </div>
+</section>
+
+<main class="cy-container">
+  <div class="cy-toolbar">
+    <div class="cy-toolbar__group">
+      <div class="cy-seg">
+        <button type="button" th:classappend="${sort == 'hot'} ? ' cy-seg__active' : ''"
+                hx-get="/ui/plaza/grid" hx-target="#plaza-grid"
+                hx-include="[name='q']" name="sort" value="hot"
+                th:attr="hx-vals='{&quot;sort&quot;:&quot;hot&quot;}'">🔥 热门</button>
+        <button type="button" th:classappend="${sort == 'new'} ? ' cy-seg__active' : ''"
+                hx-get="/ui/plaza/grid" hx-target="#plaza-grid"
+                hx-include="[name='q']"
+                th:attr="hx-vals='{&quot;sort&quot;:&quot;new&quot;}'">✨ 最新</button>
+      </div>
+    </div>
+    <label class="cy-search" aria-label="搜索胶囊">
+      <span class="cy-search__icon" aria-hidden="true">🔍</span>
+      <input type="search" class="cy-search__input" name="q" placeholder="搜索标题或昵称…" maxlength="50"
+             th:value="${q}"
+             hx-get="/ui/plaza/grid" hx-trigger="input changed delay:300ms, search"
+             hx-target="#plaza-grid" hx-sync="this:replace">
+    </label>
+  </div>
+
+  <div id="plaza-grid">
+    <th:block th:replace="~{fragments/plaza-grid :: grid}"></th:block>
+  </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
