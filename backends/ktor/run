@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# 启动 Ktor 后端。DB_DRIVER / DB_URL / LLM_* 由 scripts/hello 注入；端口默认登记端口 29090。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+export REPO_ROOT
+export DB_DRIVER="${DB_DRIVER:-postgres}"
+# hello CLI 不注入 PORT，默认端口必须直接是登记端口。
+export PORT="${PORT:-29090}"
+
+# 子进程不一定带 JAVA_HOME；显式定位 JDK 21。
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  for _jh in \
+      /Library/Java/JavaVirtualMachines/jdk-21*.jdk/Contents/Home \
+      "$HOME/.vmr/versions/jdk_versions"/*/Contents/Home \
+      "$HOME/.sdkman/candidates/java/current"; do
+    if [[ -x "$_jh/bin/java" ]]; then export JAVA_HOME="$_jh"; break; fi
+  done
+fi
+
+# --no-daemon：让构建在 gradlew 启动的 JVM 内进行，fork 出的应用 JVM 处于同一进程组，
+# hello stop 的 killpg 才能连同清掉，避免守护进程 fork 导致的端口泄漏。
+exec ./gradlew --no-daemon --console=plain run

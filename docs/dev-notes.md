@@ -273,3 +273,47 @@ JDK 全栈掺一个仅构建期的 Node 步骤：`package.json` 只含 `@tailwin
 脚本在无 npm 时跳过、用已提交的 `app.css` 兜底。
 
 - 验收：2026-06-04 双驱动各 `verify-contract.sh spring-mvc` **104/104**、`verify-ui-smoke.sh spring-mvc` **25/25**。
+
+---
+
+## 7. Ktor 后端（backends/ktor，Kotlin + Exposed）
+
+第二个 JVM 后端，DSL 用 JetBrains 自家 Exposed（对应 Spring 的 JPA）。跨库 UUID/时间戳格式同 §5 的事实基准
+（SQLite 32 位 hex + ISO TEXT / Postgres 原生 uuid+timestamptz）。
+
+### 7.1 Exposed 跨库列类型
+
+在同一套表定义上按方言分流读写，是 §5 `CrossDb*JdbcType` 的 Exposed 等价实现：自定义 `ColumnType`，
+在 `valueFromDB` / `notNullValueToDB` 里读 `currentDialect is SQLiteDialect` 分支（SQLite 走
+`String`，Postgres 走 `UUID` / `OffsetDateTime`）。时间戳 SQLite 写出格式必须与 seed 一致
+（`yyyy-MM-dd'T'HH:mm:ss` + `+00:00`），靠字符串可比性支撑 `open_at <= :now`、`ORDER BY created_at`。
+实现：`db/CrossDbColumns.kt`。
+
+### 7.2 Exposed 版本与条件 lambda receiver
+
+- 选 **Exposed 0.48.0**（untyped `ColumnType` API；0.50+ 改成泛型 `ColumnType<T>`，签名更绕）。
+- **坑**：`Table.select { col eq x }` 的 lambda receiver 是 `SqlExpressionBuilder`（`eq`/`and` 可用），
+  但 `deleteWhere`/部分 `update` 的 lambda receiver 不同，直接写 `eq` 会「Unresolved reference 'eq'」。
+  **最稳写法**：用 `Op.build { (a eq b) and (c eq d) }` 预构建 `Op<Boolean>`，再 `deleteWhere { cond }`
+  （lambda 忽略 receiver 只返回预构建条件，对任何签名都成立）。仓库里统一 `import org.jetbrains.exposed.sql.*`。
+- 自定义列只在事务内用（`currentDialect` 需要事务上下文）；可空时间戳列从不绑定 null（insert 省略该列、
+  update 只写非空值），规避自定义类型 `setNull` 的方言判定。
+
+### 7.3 Gradle 构建目录与脚本同名冲突
+
+本目录有可执行脚本 `build`，与 Gradle 默认输出目录 `build/` 冲突（报「Expected 'build' to be a directory
+but it's a file」）。解决：`build.gradle.kts` 里 `layout.buildDirectory.set(layout.projectDirectory.dir("build-out"))`。
+
+### 7.4 run 用 --no-daemon 保证 killpg 清理
+
+`./gradlew run` 若走守护进程，应用 JVM 由 **daemon** fork、不在 `hello start` 的进程组里，`hello stop` 的
+`killpg` 杀不掉 → 端口 29090 泄漏。`run` 脚本用 `./gradlew --no-daemon run`，让构建在 wrapper JVM 内进行，
+fork 的应用 JVM 与之同组，可被连同清掉。`hello` 不注入 `PORT`，默认端口直接是登记端口 29090。
+
+### 7.5 其它
+
+- JSON 用 kotlinx.serialization：`explicitNulls=true` 让 `CapsuleDetail.content:null` 显式出现（契约要求
+  字段存在且为 null），`encodeDefaults=true`。请求 DTO 字段全部可空带默认，所有「必填/格式」校验手写，
+  统一 422；坏 JSON 由 `StatusPages` 接 `BadRequestException` → 422。
+- LLM 客户端用 JVM 原生 `java.net.http.HttpClient`（非 Ktor client），日志/重试/UA 同 §3。
+- 验收：2026-06-05 双驱动各 `verify-contract.sh ktor` **104/104**。

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# 单元/冒烟测试（默认 SQLite，无需外部 PostgreSQL）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+export REPO_ROOT
+export DB_DRIVER="${DB_DRIVER:-sqlite}"
+
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  for _jh in \
+      /Library/Java/JavaVirtualMachines/jdk-21*.jdk/Contents/Home \
+      "$HOME/.vmr/versions/jdk_versions"/*/Contents/Home \
+      "$HOME/.sdkman/candidates/java/current"; do
+    if [[ -x "$_jh/bin/java" ]]; then export JAVA_HOME="$_jh"; break; fi
+  done
+fi
+
+./gradlew --console=plain test "$@"
