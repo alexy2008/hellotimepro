@@ -1,0 +1,27 @@
+# See https://help.github.com/articles/ignoring-files for more about ignoring files.
+
+# Bundler / dependencies
+/.bundle
+/node_modules
+
+# Logs and temp files
+/log/*
+!/log/.keep
+/tmp/*
+!/tmp/.keep
+/tmp/storage/*
+
+# Local SQLite / storage（数据库生命周期在仓库根 scripts/db 之外）
+/storage/*
+!/storage/.keep
+
+# Precompiled assets（Propshaft）；public/css/app.css 是 Tailwind 构建产物，作为兜底保留提交
+/public/assets
+
+# Secrets
+/config/master.key
+.env*
+
+# Editor / OS
+.byebug_history
+.DS_Store

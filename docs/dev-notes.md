@@ -317,3 +317,110 @@ fork 的应用 JVM 与之同组，可被连同清掉。`hello` 不注入 `PORT`�
   统一 422；坏 JSON 由 `StatusPages` 接 `BadRequestException` → 422。
 - LLM 客户端用 JVM 原生 `java.net.http.HttpClient`（非 Ktor client），日志/重试/UA 同 §3。
 - 验收：2026-06-05 双驱动各 `verify-contract.sh ktor` **104/104**。
+
+---
+
+## 8. ASP.NET Core 后端（backends/aspnet，C# + EF Core）
+
+端口 **29050**。数据访问选用 EF Core 8（.NET 旗舰 ORM）。跨库 UUID/时间戳格式同 §5 事实基准。
+
+### 8.1 EF Core 跨库存储格式（最关键）
+
+按 provider 在 `OnModelCreating` 里条件挂载值转换器（`Database.IsSqlite()` 改为构造时传入的 flag）：
+- **SQLite**：给 id（`Guid`）挂 `ValueConverter<Guid,string>` → 32 位无横线 hex；给时间戳（`DateTimeOffset`）挂
+  `ValueConverter<DateTimeOffset,string>`。**必须自定义**：EF Core SQLite 默认把 DateTimeOffset 存成
+  **空格分隔 + 7 位小数** 的 TEXT（如 `2025-08-01 01:00:00.0000000+00:00`），与 seed 的 `T` 分隔、零小数不输出
+  不一致，破坏字符串比较的 `open_at <= now` / `ORDER BY created_at`。写出格式固定为 `yyyy-MM-ddTHH:mm:ss[.fff…]+00:00`
+  （零小数省略小数部分），与 seed 完全一致。
+- **Postgres**：不挂转换器，Npgsql 原生 `Guid↔uuid`、`DateTimeOffset↔timestamptz`（始终以 UTC 存取）。
+- EF 会把列上的值转换器同时套用到 LINQ 里的**参数**与 `ORDER BY`，故 `Where(c => c.OpenAt <= now)` 在 SQLite 下
+  正确翻译成 TEXT 比较。实现：`src/Infrastructure/CrossDb.cs` + `AppDbContext`。
+- **sqlite 判定必须单一事实源**：provider 选择（`DbUrl.Resolve`）、值转换器挂载、仓库 `FOR UPDATE` 分支、
+  health 报告四处都要用同一规则 `DB_DRIVER==sqlite || DB_URL 以 sqlite:/// 开头`。早期 `AppConfig.IsSqlite`
+  只看 `DB_DRIVER`，而 `DbUrl.Resolve` 还看 `DB_URL` 前缀——只传 `DB_URL=sqlite:///` 时会「选了 SQLite provider 却
+  没挂值转换器」，plaza 报 `SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY`、health 误报 PG。
+  已收敛到 `AppConfig.ResolveIsSqlite(dbDriver, dbUrl)` 静态方法，两处共用。
+
+### 8.2 EF 插入排序：必须声明 FK 依赖
+
+`register` 同一个 `SaveChanges` 里插入 `user` + `refresh_token`。若不配置实体关系，EF **不知道依赖顺序**，
+可能先插 token 后插 user → SQLite `FOREIGN KEY constraint failed`（500）。解决：在 `AppDbContext` 用
+`e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId)`（无导航属性的最简形式）声明
+refresh_token/capsule/favorite 对 user/capsule 的 FK，EF 据此拓扑排序级联插入。不建迁移，仅用于排序与查询。
+
+### 8.3 JWT 密钥位数
+
+`Microsoft.IdentityModel`（System.IdentityModel.Tokens.Jwt 8.x）强制 HS256 密钥 **≥256 位**，而默认
+`JWT_SECRET="dev-secret-change-me"` 只有 ~160 位 → 签发时 `ArgumentOutOfRangeException IDX10720`（500）。
+解决：`SecurityService` 用 `SHA256.HashData(secret)` 把任意长度 secret 派生成固定 32 字节密钥。签发/校验同源，
+契约不跨后端验签，安全语义不变。（java-jwt 不做此校验，故 Ktor/Spring 无此坑。）
+
+### 8.4 其它
+
+- 用 Controllers（presentation）→ Services（application/domain）→ EF 仓库（infrastructure）分层；DI 用内置容器。
+- 禁用 `[ApiController]` 自动 400（`SuppressModelStateInvalidFilter=true`），所有「必填/格式」手写校验统一 422；
+  坏 JSON 由 `ErrorHandlingMiddleware` 接 `JsonException`/`BadHttpRequestException` → 422。
+- 统一响应外壳与中文：System.Text.Json `PropertyNamingPolicy=CamelCase` + `UnsafeRelaxedJsonEscaping`（中文不转义）；
+  成功外壳含 `message:null,errorCode:null`，错误外壳 `details` 仅非空时出现（`JsonIgnore(WhenWritingNull)`）。
+- Postgres 路径用 `FromSqlRaw("... FOR UPDATE")`（配 `ToListAsync` 避免被包子查询失效）序列化收藏/轮转；
+  refresh 重用检测在事务内提交家族吊销、事务外抛 401（outcome 模式，等价 `noRollbackFor`）。
+- `tests/` 子目录的测试工程需用主工程 `DefaultItemExcludes=$(...);tests/**` 排除，否则被默认 glob 一并编译。
+- `run` 优先跑预构建 `bin/Release` DLL；`hello` 不注入 `PORT`/`REPO_ROOT`，默认端口 29050、`REPO_ROOT` 由 `run` 导出绝对路径。
+- 验收：2026-06-06 双驱动各 `verify-contract.sh aspnet` **104/104**。
+
+---
+
+## 9. Rails 全栈（fullstacks/rails，Ruby on Rails + Hotwire）
+
+第二个 SSR 全栈，与 §6 的 spring-mvc（Thymeleaf + HTMX）对照；交互改用 **Hotwire（Turbo + Stimulus）**。
+架构同 §6：同进程双接口（`/api/v1` Bearer + SSR httpOnly cookie）+ cookie→Bearer 桥。
+
+### 9.1 Ruby 版本与脚本 PATH
+
+本机系统 ruby 是 **2.6**（太旧，跑不了 Rails 8），实际用 **Homebrew Ruby 4.x**（`/opt/homebrew/opt/ruby`）。
+gem 可执行目录在 `/opt/homebrew/lib/ruby/gems/<ver>/bin`（不在默认 PATH）。`run`/`build`/`test` 都显式把
+这两个目录 + `/opt/homebrew/opt/libpq/bin`（pg gem）加进 PATH——子进程不继承登录 shell 的 PATH。
+`pg` / `bcrypt` 需本地编译（libpq 在 `/opt/homebrew/opt/libpq`）。
+
+### 9.2 跨库 UUID / 时间戳：自定义 ActiveRecord::Type
+
+同 §5 事实基准。仅在 SQLite 下给列挂自定义 `ActiveRecord::Type::Value`（`lib/cross_db.rb`）：
+- UUID：`serialize` 去横线存 32 位 hex、`deserialize` 补横线还原（API 始终返回带横线 uuid）。
+- 时间戳：`serialize` 输出 `yyyy-MM-ddTHH:mm:ss[.fff]+00:00`（零小数不输出、与 seed 一致），`deserialize` 用 `Time.iso8601`。
+- Postgres 不挂转换器，AR 原生 `uuid` / `timestamptz`（读出带横线串 / `Time`）。
+- **坑**：`in_plaza` 在 SQLite 是 INTEGER 0/1，Ruby 里 `0` 是真值——必须 `attribute :in_plaza, :boolean` 强制转布尔。
+- **坑**：裸 SQL（`where("open_at <= ?", t)` / `update_all`）的时间戳绑定**不走**列的属性类型，要按方言手动给
+  ISO 串（SQLite）/ `Time`（PG），否则 AR 默认格式破坏字符串可比性。`where(hash)` 条件则会走属性类型转换。
+
+### 9.3 中间件不能用字符串名
+
+Rails 8 `config.middleware.use "CookieTokenBridge"`（字符串）会 `"...".new` 报 NoMethodError——不再 constantize。
+但 config 阶段 autoload 未就绪，直接写常量又找不到。解法：中间件放 `lib/middleware/`（从 `autoload_lib` 的
+ignore 列表排除），`config/application.rb` 顶部 `require_relative` 后用常量 `config.middleware.use CookieTokenBridge`。
+
+### 9.4 rescue_from 顺序：业务 422 被吞成 500
+
+`rescue_from` 按「后注册先匹配」。若先 `rescue_from ApiError` 再 `rescue_from StandardError`，则 StandardError
+（后注册）先命中、把 ApiError 子类也当 500 渲染——表现为所有校验类用例 422 变 500。**正确顺序：先 StandardError 兜底、后 ApiError。**
+
+### 9.5 Hotwire 分工与坑
+
+- 广场搜索走 **Turbo Frame**：`<turbo-frame id="plaza-grid" target="_top">`，搜索表单 `data-turbo-frame="plaza-grid"`
+  GET `/ui/plaza/grid` 渲染同名 frame 局部替换。`target="_top"` 让 frame 内卡片链接整页导航（否则困在 frame）。
+  Stimulus 防抖 `requestSubmit`（监听 `input`，Playwright `fill()` 只派发 input）。
+- AI 推荐/生成、8 位码、头像选择、用户菜单、资料保存走 **Stimulus**（fetch 同源 `/api/v1` JSON，cookie 桥鉴权）。
+  Playwright `page.route` mock 这些端点，原生 fetch 与 mock 天然兼容。
+- **收藏切换用同步 XHR**（同 §4）：PG 下收藏走 `FOR UPDATE` 行锁更慢，「点完立刻导航」会赢竞态——同步请求
+  阻塞到落库再返回。匿名点击纯客户端 `confirm` 跳登录（`data-favorite-anon-value`，不发请求）。
+- 登录/注册/创建表单用 `form_with`（带 CSRF token，Turbo 处理重定向）；失败 `render status: :unprocessable_entity`
+  让 Turbo 渲染错误。`/ui/*` 与 `/api/v1/*` 控制器 `skip_forgery_protection` / `ActionController::API`，由 cookie/Bearer 鉴权。
+- 创建页隐藏 `openAt`（ISO）始终与可见 datetime-local 同步（预设/AI/change 都更新），不依赖提交时序。
+
+### 9.6 其它
+
+- 坏 JSON body：自定义 `ActionDispatch::Request.parameter_parsers[:json]` 降级为 `{}`（交给字段校验产出 422），
+  避免 Rails 默认 400 ParseError 破坏统一外壳。
+- `config.hosts.clear` 放开 Host 校验；`config.active_record.migration_error = false`（外部 schema、无 schema_migrations）。
+- 开发态运行（`rails server -e development`）：Propshaft + importmap 动态服务资产，无需 precompile；冷启动快。
+- 样式：Tailwind v4 CLI（构建期 Node）复用 spec 样式链，输出 `public/css/app.css`（已提交兜底），`layout.css` 自 spring-mvc 复用。
+- 验收：2026-06-06 双驱动各 `verify-contract.sh rails` **104/104**、`verify-ui-smoke.sh rails` **25/25**。

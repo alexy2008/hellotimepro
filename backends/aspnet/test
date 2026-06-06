@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# 单元/冒烟测试：固定跨库存储格式等纯逻辑不变式（无需外部数据库）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
+export DOTNET_NOLOGO=1
+
+dotnet test tests/HelloTimePro.Aspnet.Tests.csproj "$@"

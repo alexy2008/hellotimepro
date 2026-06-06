@@ -286,5 +286,50 @@
       "支持 PostgreSQL / MySQL / SQLite",
       "Schema DSL 与迁移工具一体"
     ]
+  },
+  "EF Core": {
+    "tagline": "微软出品的 .NET 旗舰 ORM，LINQ 即查询",
+    "features": [
+      "LINQ to Entities 强类型查询，编译期检查",
+      "变更跟踪 + 工作单元，SaveChanges 一次落库",
+      "多 provider：Npgsql / SQLite / SQL Server 等",
+      "值转换器按 provider 接管跨库存储格式"
+    ]
+  },
+  "Ruby": {
+    "tagline": "以开发者幸福感为名的动态语言，一切皆对象",
+    "features": [
+      "极致表达力：块 / 迭代器 / 元编程信手拈来",
+      "Gem 生态成熟，Bundler 锁定依赖",
+      "Duck typing + 开放类，DSL 友好",
+      "MRI/YJIT 持续优化运行时性能"
+    ]
+  },
+  "Ruby on Rails": {
+    "tagline": "约定优于配置的全栈 Web 框架，开发效率标杆",
+    "features": [
+      "MVC + Active Record，脚手架快速成型",
+      "Hotwire（Turbo + Stimulus）少写 JS 做 SPA 体验",
+      "中间件 / 路由 / 迁移 / 任务一体化",
+      "8 引入 Solid 三件套与 Kamal 部署"
+    ]
+  },
+  "Active Record": {
+    "tagline": "Rails 内置 ORM，对象即数据行",
+    "features": [
+      "约定式映射，模型即表、关联即方法",
+      "链式查询 + 作用域，惰性求值",
+      "回调 / 校验 / 迁移闭环",
+      "自定义 Type 可按方言接管跨库存储格式"
+    ]
+  },
+  "Hotwire": {
+    "tagline": "Rails 招牌前端栈：HTML over the wire，少写 JS",
+    "features": [
+      "Turbo Drive/Frame/Stream 局部更新无需整页刷新",
+      "Stimulus 轻量控制器增强既有 HTML",
+      "服务端渲染主导，渐进增强",
+      "与 importmap 协作，免打包构建"
+    ]
   }
 }

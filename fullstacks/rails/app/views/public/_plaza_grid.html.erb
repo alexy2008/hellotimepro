@@ -1,0 +1,20 @@
+<%# 广场网格（Turbo Frame；搜索/翻页时局部替换；卡片链接自行声明整页导航）。 %>
+<turbo-frame id="plaza-grid">
+  <% if items.empty? %>
+    <div class="cy-empty">
+      <div class="cy-empty__emoji">🌌</div>
+      <p>广场暂无胶囊 —— 来当第一个写信给未来的人？</p>
+    </div>
+  <% else %>
+    <div class="cy-grid">
+      <% items.each do |cap| %>
+        <%= render "public/capsule_card", capsule: cap, show_creator: true, hide_favorite: false, authenticated: authenticated %>
+      <% end %>
+    </div>
+    <%= render "shared/pagination",
+          pagination: pagination,
+          path: "/ui/plaza/grid",
+          params_for_page: { sort: sort, filter: filter, q: q },
+          turbo_frame: "plaza-grid" %>
+  <% end %>
+</turbo-frame>

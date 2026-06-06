@@ -1,0 +1,45 @@
+<% content_for :title, "广场" %>
+
+<section class="cy-hero-block">
+  <div class="cy-container">
+    <h1 class="cy-hero-title">封存此刻 <span class="cy-hero-title__highlight">开启未来</span></h1>
+    <p class="cy-hero-subtitle">
+      写下此刻最真实的想法，设定一个解封时刻——可以是明年生日、十年后的某个清晨，或任何你觉得值得等待的瞬间。时间到了，它才会被打开。
+    </p>
+    <div class="cy-hero-cta">
+      <a class="cy-btn cy-btn--primary cy-btn--hero" href="<%= authenticated? ? "/create" : "/register" %>">创建我的胶囊</a>
+      <a class="cy-btn cy-btn--success cy-btn--hero" href="/open">用胶囊码开启</a>
+    </div>
+  </div>
+</section>
+
+<main class="cy-container">
+  <div class="cy-toolbar">
+    <div class="cy-toolbar__group">
+      <%= form_with url: "/", method: :get, class: "cy-seg", data: { turbo: false } do %>
+        <input type="hidden" name="filter" value="<%= @filter %>">
+        <% if @q.present? %><input type="hidden" name="q" value="<%= @q %>"><% end %>
+        <button type="submit" name="sort" value="hot" class="<%= "cy-seg__active" if @sort == "hot" %>">🔥 热门</button>
+        <button type="submit" name="sort" value="new" class="<%= "cy-seg__active" if @sort == "new" %>">✨ 最新</button>
+      <% end %>
+      <%= form_with url: "/", method: :get, class: "cy-seg", data: { turbo: false } do %>
+        <input type="hidden" name="sort" value="<%= @sort %>">
+        <% if @q.present? %><input type="hidden" name="q" value="<%= @q %>"><% end %>
+        <button type="submit" name="filter" value="all" class="<%= "cy-seg__active" if @filter == "all" %>">全部</button>
+        <button type="submit" name="filter" value="opened" class="<%= "cy-seg__active" if @filter == "opened" %>">已开启</button>
+        <button type="submit" name="filter" value="unopened" class="<%= "cy-seg__active" if @filter == "unopened" %>">未开启</button>
+      <% end %>
+    </div>
+    <form class="cy-search" role="search" action="/ui/plaza/grid" method="get" accept-charset="UTF-8"
+          data-turbo-frame="plaza-grid" data-controller="plaza-search" data-plaza-search-target="form">
+      <input type="hidden" name="sort" value="<%= @sort %>">
+      <input type="hidden" name="filter" value="<%= @filter %>">
+      <span class="cy-search__icon" aria-hidden="true">🔍</span>
+      <input type="search" class="cy-search__input" name="q" placeholder="搜索标题或昵称…" maxlength="50"
+             value="<%= @q %>" data-action="input->plaza-search#search">
+    </form>
+  </div>
+
+  <%= render "public/plaza_grid", items: @items, pagination: @pagination,
+        authenticated: authenticated?, sort: @sort, filter: @filter, q: @q %>
+</main>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= content_for(:title) ? "#{content_for(:title)} · HelloTime Pro" : "HelloTime Pro" %></title>
+    <%= csrf_meta_tags %>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg">
+    <link rel="stylesheet" href="/css/app.css" data-turbo-track="reload">
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("hellotime.theme");
+          if (t !== "dark" && t !== "light") t = "dark";
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body>
+    <header class="cy-header">
+      <div class="cy-container cy-header__inner">
+        <a href="/" class="cy-brand">
+          <img class="cy-brand__mark" src="/logo.svg" width="38" height="38" alt="">
+          HelloTime<span class="cy-brand__pro">PRO</span>
+        </a>
+        <nav class="cy-nav">
+          <a href="/">广场</a>
+          <a href="/open">开启</a>
+          <a href="/about">关于</a>
+        </nav>
+        <div class="cy-header__actions">
+          <button type="button" class="cy-theme-toggle" aria-label="切换主题"
+                  data-controller="theme" data-action="click->theme#toggle">
+            <span aria-hidden="true">☾</span>
+          </button>
+
+          <% if authenticated? %>
+            <div class="cy-user-menu" data-controller="user-menu">
+              <button type="button" class="cy-user-chip cy-user-chip--button"
+                      aria-haspopup="menu" aria-expanded="false"
+                      title="<%= current_user.nickname %>"
+                      aria-label="<%= current_user.nickname %> 的菜单"
+                      data-action="click->user-menu#toggle"
+                      data-user-menu-target="chip">
+                <span><%= short_name(current_user.nickname) %></span>
+                <img src="<%= avatar_url(current_user.avatar_id) %>" alt="">
+                <span class="cy-user-chip__chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div class="cy-user-dropdown" role="menu" data-user-menu-target="dropdown" hidden>
+                <a href="/me/created" role="menuitem" class="cy-user-dropdown__item">
+                  <span aria-hidden="true">📝</span><span>我创建的</span>
+                </a>
+                <a href="/me/favorites" role="menuitem" class="cy-user-dropdown__item">
+                  <span aria-hidden="true">♥</span><span>我收藏的</span>
+                </a>
+                <a href="/me/profile" role="menuitem" class="cy-user-dropdown__item">
+                  <span aria-hidden="true">⚙</span><span>账号设置</span>
+                </a>
+                <span class="cy-user-dropdown__divider"></span>
+                <%= form_with url: "/logout", method: :post, id: "logout-form", data: { turbo: false }, html: { style: "margin:0" } do %>
+                  <button type="submit" role="menuitem"
+                          class="cy-user-dropdown__item cy-user-dropdown__item--danger">
+                    <span aria-hidden="true">↩</span><span>登出</span>
+                  </button>
+                <% end %>
+              </div>
+            </div>
+          <% else %>
+            <a href="/login" class="cy-btn cy-btn--ghost cy-btn--sm">登录</a>
+            <a href="/register" class="cy-btn cy-btn--primary cy-btn--sm">注册</a>
+          <% end %>
+        </div>
+      </div>
+    </header>
+
+    <%= yield %>
+
+    <footer class="cy-footer">
+      <div class="cy-container cy-footer__inner">
+        <div style="display:flex;align-items:center;gap:6px">
+          © 2026 HelloTime Pro
+          <span class="cy-backend-dot cy-backend-dot--online" title="服务端渲染"></span>
+        </div>
+        <div class="cy-stack">
+          <span class="cy-stack__item" title="language"><img src="<%= icon_url('ruby') %>" alt="">Ruby</span>
+          <span class="cy-stack__item" title="framework"><img src="<%= icon_url('rails') %>" alt="">Rails</span>
+          <span class="cy-stack__item" title="enhancement">Hotwire</span>
+          <span class="cy-stack__item" title="styling"><img src="<%= icon_url('tailwindcss') %>" alt="">Tailwind CSS</span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

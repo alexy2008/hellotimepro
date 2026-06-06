@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# 启动 ASP.NET 后端。DB_DRIVER / DB_URL / LLM_* 由 scripts/hello 注入；端口默认登记端口 29050。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+# hello 不注入 REPO_ROOT；显式导出绝对路径，供静态资源 / 头像目录解析。
+export REPO_ROOT
+# hello CLI 不注入 PORT，默认端口必须直接是登记端口 29050。
+export PORT="${PORT:-29050}"
+export DB_DRIVER="${DB_DRIVER:-postgres}"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
+export DOTNET_NOLOGO=1
+# 关闭分层编译的二次 JIT 抖动对冷启动就绪的影响。
+export DOTNET_TieredPGO=0
+
+DLL="bin/Release/net8.0/HelloTimePro.Aspnet.dll"
+if [[ -f "$DLL" ]]; then
+  exec dotnet "$DLL"
+else
+  # 未预构建时回退到 dotnet run（首次会编译，仍在契约就绪窗口内）。
+  exec dotnet run -c Release --no-launch-profile --project HelloTimePro.Aspnet.csproj
+fi

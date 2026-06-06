@@ -54,10 +54,10 @@ case "$_RAW_TARGET" in
 esac
 
 case "$TARGET" in
-  react|vue|angular|svelte|solid|next|nuxt|spring-mvc) ;;
+  react|vue|angular|svelte|solid|next|nuxt|spring-mvc|rails) ;;
   *)
     echo "✗ 暂不支持的前端: $_RAW_TARGET" >&2
-    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt / spring-mvc" >&2
+    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt / spring-mvc / rails" >&2
     exit 2
     ;;
 esac
@@ -65,7 +65,7 @@ esac
 # 全栈同源实现集合（自带 API，不需要后端代理）
 _is_fullstack() {
   case "$1" in
-    next|nuxt|spring-mvc) return 0 ;;
+    next|nuxt|spring-mvc|rails) return 0 ;;
     *)        return 1 ;;
   esac
 }

@@ -1,0 +1,12 @@
+<aside class="cy-me__nav">
+  <a href="/me/created" class="<%= "is-active" if active == "created" %>">📝 我创建的</a>
+  <a href="/me/favorites" class="<%= "is-active" if active == "favorites" %>">♥ 我收藏的</a>
+  <a href="/me/profile" class="<%= "is-active" if active == "profile" %>">⚙ 账号设置</a>
+  <span style="border-top:1px solid var(--color-border-subtle);margin:var(--space-3) 0"></span>
+  <%= form_with url: "/logout", method: :post, data: { turbo: false }, html: { style: "margin:0" } do %>
+    <button type="submit"
+            style="background:none;border:0;color:var(--color-danger-fg);cursor:pointer;font:inherit;font-size:var(--font-size-sm);padding:var(--space-3);text-align:left;width:100%">
+      登出
+    </button>
+  <% end %>
+</aside>

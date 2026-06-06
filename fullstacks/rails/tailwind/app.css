@@ -1,0 +1,23 @@
+/* ============================================================
+ * Ruby on Rails + Hotwire 全栈样式入口（Tailwind v4 CLI 构建）
+ *
+ * 与 React 参考前端一致地消费 spec/styles 下的设计令牌与共享组件类：
+ *   - palette.css : 色阶 50..900
+ *   - tokens.css  : 语义令牌（dark / light 主题切换）
+ *   - cyber.css   : 共享组件（按钮 / 卡片 / 输入 / 徽章 / 动画 ...）
+ *   - layout.css  : 跨前端通用的结构样式（cy-* 布局类）
+ *
+ * 组件层禁止直接消费色阶，必须用语义令牌（--color-*）或 cy-* class。
+ * Tailwind v4 引入仅为少量 utility 工具类；模板里的类名由 @source 扫描。
+ * 输出到 public/css/app.css，由布局以 <link href="/css/app.css"> 直接引用（运行期不依赖 Node）。
+ * ============================================================ */
+
+@import "tailwindcss";
+
+@source "../app/views";
+@source "../app/javascript";
+
+@import "../../../spec/styles/palette.css";
+@import "../../../spec/styles/tokens.css";
+@import "../../../spec/styles/cyber.css";
+@import "./layout.css";

@@ -1,0 +1,47 @@
+<%#
+  胶囊卡片。show_creator=false（我创建的）显示创建时间；hide_favorite=true 时未开启显示撤回按钮、
+  已开启显示收藏数；否则渲染收藏按钮。
+%>
+<% opened = capsule[:isOpened] %>
+<article id="capsule-<%= capsule[:id] %>"
+         class="cy-capsule <%= opened ? "cy-capsule--opened" : "cy-capsule--sealed" %>"
+         <% unless opened %>data-controller="countdown" data-countdown-open-at-value="<%= capsule[:openAt] %>"<% end %>>
+  <div class="cy-capsule__head">
+    <span class="cy-badge <%= opened ? "cy-badge--opened" : "cy-badge--sealed" %>"><%= opened ? "已开启" : "未开启" %></span>
+    <a href="/c/<%= capsule[:code] %>" class="cy-capsule__code" style="text-decoration:none" data-turbo-frame="_top"><%= capsule[:code] %></a>
+  </div>
+
+  <a href="/c/<%= capsule[:code] %>" style="text-decoration:none;color:inherit" data-turbo-frame="_top">
+    <h3 class="cy-capsule__title"><%= capsule[:title] %></h3>
+  </a>
+
+  <% if !opened %>
+    <p class="cy-capsule__countdown" data-countdown-target="compact"><%= compact_countdown_text(capsule[:openAt]) %></p>
+  <% elsif capsule[:contentPreview] %>
+    <p class="cy-capsule__preview"><%= capsule[:contentPreview] %></p>
+  <% end %>
+
+  <div class="cy-capsule__meta">
+    <% if show_creator %>
+      <span class="cy-capsule__creator">
+        <img src="<%= avatar_url(capsule[:creator][:avatarId]) %>" alt="">
+        <span><%= capsule[:creator][:nickname] %></span>
+      </span>
+    <% else %>
+      <span style="color:var(--color-text-muted)">创建于 <%= fmt_date(capsule[:createdAt]) %></span>
+    <% end %>
+
+    <% if hide_favorite %>
+      <% if opened %>
+        <span style="color:var(--color-favorite-active)">♥ <%= capsule[:favoriteCount] %></span>
+      <% else %>
+        <%= button_to "撤回", "/ui/capsules/#{capsule[:id]}", method: :delete,
+              class: "cy-btn cy-btn--ghost cy-btn--sm",
+              style: "min-height:28px;padding:4px 12px;color:var(--color-danger-fg)",
+              form: { data: { turbo_confirm: "确认撤回？此操作不可恢复。" } } %>
+      <% end %>
+    <% else %>
+      <%= render "public/favorite_button", capsule: capsule, authenticated: authenticated %>
+    <% end %>
+  </div>
+</article>

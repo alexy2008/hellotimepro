@@ -1,0 +1,26 @@
+<% total_pages = pagination[:totalPages].to_i %>
+<% page = pagination[:page].to_i %>
+<% total = pagination[:total].to_i %>
+<% if total_pages > 1 %>
+  <div style="display:flex;justify-content:center;align-items:center;gap:var(--space-3);margin:var(--space-8) 0;flex-wrap:wrap">
+    <% if page > 1 %>
+      <a class="cy-btn cy-btn--ghost cy-btn--sm"
+         href="<%= page_href(path, page - 1, params_for_page) %>"
+         <% if local_assigns[:turbo_frame] %>data-turbo-frame="<%= turbo_frame %>"<% end %>>上一页</a>
+    <% else %>
+      <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" disabled>上一页</button>
+    <% end %>
+
+    <span style="color:var(--color-text-muted);font-size:var(--font-size-sm)">
+      第 <%= page %> / <%= total_pages %> 页 · 共 <%= total %> 条
+    </span>
+
+    <% if page < total_pages %>
+      <a class="cy-btn cy-btn--ghost cy-btn--sm"
+         href="<%= page_href(path, page + 1, params_for_page) %>"
+         <% if local_assigns[:turbo_frame] %>data-turbo-frame="<%= turbo_frame %>"<% end %>>下一页</a>
+    <% else %>
+      <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" disabled>下一页</button>
+    <% end %>
+  </div>
+<% end %>

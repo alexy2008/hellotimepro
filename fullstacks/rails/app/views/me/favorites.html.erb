@@ -1,0 +1,32 @@
+<% content_for :title, "我收藏的胶囊" %>
+
+<main class="cy-container">
+  <div class="cy-me">
+    <%= render "me/me_nav", active: "favorites" %>
+    <section class="cy-me__content">
+      <h1>我收藏的胶囊</h1>
+
+      <div class="cy-toolbar" style="border-bottom:none;padding-top:0">
+        <span style="color:var(--color-text-muted);font-size:var(--font-size-sm)">按收藏时间倒序 · 共 <%= @pagination[:total] %> 条</span>
+      </div>
+
+      <% if @items.empty? %>
+        <div class="cy-empty">
+          <div class="cy-empty__emoji">🤍</div>
+          <p>还没有收藏任何胶囊 —— 去广场逛逛？</p>
+          <a class="cy-btn cy-btn--primary cy-btn--sm" href="/" style="margin-top:var(--space-3)">逛广场</a>
+        </div>
+      <% else %>
+        <div class="cy-grid">
+          <% @items.each do |cap| %>
+            <%= render "public/capsule_card", capsule: cap, show_creator: true, hide_favorite: false, authenticated: true %>
+          <% end %>
+        </div>
+        <%= render "shared/pagination",
+              pagination: @pagination,
+              path: "/me/favorites",
+              params_for_page: {} %>
+      <% end %>
+    </section>
+  </div>
+</main>

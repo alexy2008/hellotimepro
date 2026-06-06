@@ -44,10 +44,13 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 - Backend/full-stack contract verification currently covers 104 black-box API cases, including AI capsule suggestion and recommendation endpoints.
 - UI smoke verification currently covers 25 Playwright cases across auth, capsule creation/opening, plaza search/favorites, profile, protected routes, public pages, and AI creation helpers.
 - `./verification/scripts/verify-contract.sh <target>` applies to backends and full-stacks as long as the target is registered in `hello list` and exposes `/api/v1/*` on its own port.
-- `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte|solid|next|nuxt|spring-mvc>` explicitly runs `./scripts/db init` before starting the target; it does not reset or seed data. JVM full-stacks cold-start slowly, so the readiness wait is 120s (override with `UI_READY_TIMEOUT`).
+- `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte|solid|next|nuxt|spring-mvc|rails>` explicitly runs `./scripts/db init` before starting the target; it does not reset or seed data. JVM full-stacks cold-start slowly, so the readiness wait is 120s (override with `UI_READY_TIMEOUT`).
 - Latest full-stack contract run on 2026-06-04 passed: next/nuxt PostgreSQL & SQLite 104/104, spring-mvc PostgreSQL 104/104, spring-mvc SQLite 104/104.
+- Latest rails full-stack run on 2026-06-06 passed: contract PostgreSQL & SQLite 104/104; UI smoke PostgreSQL & SQLite 25/25.
 - Latest ktor backend contract run on 2026-06-05 passed: PostgreSQL & SQLite 104/104.
+- Latest aspnet backend contract run on 2026-06-06 passed: PostgreSQL & SQLite 104/104.
 - Latest UI smoke run on 2026-06-04 passed: react-ts 25/25, vue3-ts 25/25, svelte 25/25, angular 25/25, solid 25/25, next 25/25, nuxt 25/25, spring-mvc 25/25 (PostgreSQL & SQLite).
+- Latest rails UI smoke run on 2026-06-06 passed: 25/25 (PostgreSQL & SQLite).
 
 ## Architecture
 

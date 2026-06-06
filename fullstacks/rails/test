@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# 冒烟测试（默认 SQLite，无需外部 PostgreSQL）：启动 Rails 环境，固定跨库格式不变式。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE"
+
+export REPO_ROOT
+export RAILS_ENV="${RAILS_ENV:-development}"
+export DB_DRIVER="${DB_DRIVER:-sqlite}"
+export SECRET_KEY_BASE="${SECRET_KEY_BASE:-hellotime-rails-dev-secret-key-base-0001}"
+
+for _d in /opt/homebrew/opt/ruby/bin /opt/homebrew/opt/libpq/bin; do
+  [[ -d "$_d" ]] && export PATH="$_d:$PATH"
+done
+_GEM_BIN="$(ls -d /opt/homebrew/lib/ruby/gems/*/bin 2>/dev/null | sort | tail -1 || true)"
+[[ -n "${_GEM_BIN:-}" && -d "$_GEM_BIN" ]] && export PATH="$_GEM_BIN:$PATH"
+
+bundle exec rails runner "$HERE/script/smoke.rb"

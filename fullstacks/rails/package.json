@@ -1,0 +1,14 @@
+{
+  "name": "hellotime-pro-rails",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HelloTime Pro · Ruby on Rails + Hotwire 全栈实现的样式构建（仅构建期需要 Node）",
+  "scripts": {
+    "build:css": "tailwindcss -i ./tailwind/app.css -o ./public/css/app.css --minify",
+    "watch:css": "tailwindcss -i ./tailwind/app.css -o ./public/css/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.0.0",
+    "tailwindcss": "^4.0.0"
+  }
+}

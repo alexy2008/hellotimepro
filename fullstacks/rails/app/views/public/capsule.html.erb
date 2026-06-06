@@ -1,0 +1,101 @@
+<% content_for :title, @capsule[:title] %>
+<% opened = @capsule[:isOpened] %>
+<% cd = countdown_parts(@capsule[:openAt]) %>
+
+<main class="cy-container">
+  <div class="cy-capsule-detail">
+    <div class="cy-capsule-detail__head">
+      <span class="cy-badge <%= opened ? "cy-badge--opened" : "cy-badge--sealed" %>"><%= opened ? "已开启" : "未开启" %></span>
+      <% if @capsule[:inPlaza] %><span class="cy-badge cy-badge--plaza">广场公开</span><% end %>
+      <span class="cy-capsule__code"><%= @capsule[:code] %></span>
+      <span style="color:var(--color-text-muted);font-size:var(--font-size-sm)">· 创建于 <%= fmt_datetime(@capsule[:createdAt]) %></span>
+    </div>
+
+    <h1 class="cy-capsule-detail__title"><%= @capsule[:title] %></h1>
+
+    <% if opened && @capsule[:content] %>
+      <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-4);font-size:var(--font-size-sm);color:var(--color-text-muted)">
+        <span>🔓</span>
+        <span>开启于 <strong style="color:var(--color-capsule-opened-accent)"><%= fmt_datetime(@capsule[:openAt]) %></strong></span>
+      </div>
+      <div class="cy-capsule-detail__content"><%= @capsule[:content] %></div>
+    <% else %>
+      <div class="cy-capsule-detail__sealed"
+           data-controller="countdown"
+           data-countdown-open-at-value="<%= @capsule[:openAt] %>"
+           data-countdown-reload-on-expire-value="true">
+        <div style="font-size:var(--font-size-4xl);opacity:.7">🔒</div>
+        <div style="color:var(--color-text-secondary);margin-top:var(--space-3);font-size:var(--font-size-sm);letter-spacing:.1em">
+          这封信还在上锁，将在以下时刻开启
+        </div>
+        <div class="cy-cal">
+          <div class="<%= cd[:days].to_s.length > 2 ? "cy-cal-unit cy-cal-unit--wide" : "cy-cal-unit" %>">
+            <div class="<%= cd[:days].to_s.length > 2 ? "cy-cal-card cy-cal-card--wide" : "cy-cal-card" %>">
+              <div class="cy-cal-num" data-countdown-target="days"><%= cd[:days] %></div>
+              <div class="cy-cal-crease"></div>
+            </div>
+            <div class="cy-cal-label">天</div>
+          </div>
+          <span class="cy-cal-sep">:</span>
+          <div class="cy-cal-unit">
+            <div class="cy-cal-card">
+              <div class="cy-cal-num" data-countdown-target="hours"><%= format("%02d", cd[:hours]) %></div>
+              <div class="cy-cal-crease"></div>
+            </div>
+            <div class="cy-cal-label">时</div>
+          </div>
+          <span class="cy-cal-sep">:</span>
+          <div class="cy-cal-unit">
+            <div class="cy-cal-card">
+              <div class="cy-cal-num" data-countdown-target="minutes"><%= format("%02d", cd[:minutes]) %></div>
+              <div class="cy-cal-crease"></div>
+            </div>
+            <div class="cy-cal-label">分</div>
+          </div>
+          <span class="cy-cal-sep">:</span>
+          <div class="cy-cal-unit">
+            <div class="cy-cal-card">
+              <div class="cy-cal-num" data-countdown-target="seconds"><%= format("%02d", cd[:seconds]) %></div>
+              <div class="cy-cal-crease"></div>
+            </div>
+            <div class="cy-cal-label">秒</div>
+          </div>
+        </div>
+        <div style="color:var(--color-text-secondary)" data-countdown-target="status">
+          开启于 <strong style="color:var(--color-text-primary)"><%= fmt_datetime(@capsule[:openAt]) %></strong>
+        </div>
+      </div>
+    <% end %>
+
+    <div style="margin-top:var(--space-6);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-3)">
+      <div style="display:flex;align-items:center;gap:var(--space-2);color:var(--color-text-secondary);font-size:var(--font-size-sm)">
+        来自
+        <img src="<%= avatar_url(@capsule[:creator][:avatarId]) %>" alt="" style="width:32px;height:32px;border-radius:50%">
+        <strong style="color:var(--color-text-primary)"><%= @capsule[:creator][:nickname] %></strong>
+      </div>
+      <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+        <button type="button" class="cy-btn cy-btn--ghost"
+                data-controller="clipboard"
+                data-clipboard-text-value="<%= @capsule[:code] %>"
+                data-clipboard-done-label-value="✓ 已复制!"
+                data-action="click->clipboard#copy">📎 复制 8 位码</button>
+        <button type="button" class="cy-btn cy-btn--ghost"
+                data-controller="clipboard"
+                data-clipboard-done-label-value="✓ 已复制!"
+                data-action="click->clipboard#copy">🔗 分享链接</button>
+        <%= render "public/favorite_button", capsule: @capsule, authenticated: authenticated? %>
+      </div>
+    </div>
+
+    <% unless opened %>
+      <div class="cy-alert cy-alert--info" style="margin-top:var(--space-6)">
+        <span>ⓘ</span><span>未开启的胶囊仅显示标题与倒计时，内容将在开启后公开到广场。</span>
+      </div>
+    <% end %>
+    <% if opened && @capsule[:inPlaza] %>
+      <div class="cy-alert cy-alert--success" style="margin-top:var(--space-6)">
+        <span>✓</span><span>这条胶囊已在广场公开，任何人都可以通过广场或 8 位码访问。</span>
+      </div>
+    <% end %>
+  </div>
+</main>

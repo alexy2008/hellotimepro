@@ -1,0 +1,62 @@
+# HelloTime Pro · 双驱动数据库配置
+#
+# schema / 数据生命周期完全在应用之外（仓库根 scripts/db 维护）；本应用不建表、不迁移、不 seed。
+# 由 hello 注入的环境变量决定连接：
+#   DB_DRIVER=sqlite   + DB_URL=sqlite:///<abs path>
+#   DB_DRIVER=postgres + DB_URL=postgresql[+driver]://user:pass@host:port/dbname
+#
+# 三个环境（development/test/production）共用同一套解析逻辑——本应用按单一外部数据库运行。
+<%
+  require "uri"
+  driver  = ENV["DB_DRIVER"].to_s.strip
+  raw_url = ENV["DB_URL"].to_s.strip
+  is_sqlite = driver == "sqlite" || raw_url.start_with?("sqlite:///")
+
+  if is_sqlite
+    sqlite_path =
+      if raw_url.start_with?("sqlite:///")
+        raw_url.sub("sqlite:///", "/")            # sqlite:////abs → /abs
+      else
+        File.expand_path("../../../../data/sqlite/hellotime-rails.db", __FILE__)
+      end
+  else
+    # 归一化 scheme（去掉 postgresql+psycopg 之类驱动后缀），再用 URI 解析。
+    norm = raw_url.empty? ? "postgresql://hellotime:hellotime@127.0.0.1:5432/hellotime_pro"
+                          : raw_url.sub(/\Apostgres(ql)?(\+[a-z0-9]+)?:/, "postgresql:")
+    uri = URI.parse(norm)
+    pg_host = uri.host || "127.0.0.1"
+    pg_port = uri.port || 5432
+    pg_user = uri.user
+    pg_pass = uri.password
+    pg_db   = (uri.path || "").sub(%r{\A/}, "")
+    pg_db   = "hellotime_pro" if pg_db.empty?
+  end
+%>
+
+<% if is_sqlite %>
+default: &default
+  adapter: sqlite3
+  database: <%= sqlite_path %>
+  # 单写连接：避免 "database is locked"（与其它栈 SQLite 策略一致）。
+  pool: 1
+  timeout: 5000
+<% else %>
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: <%= pg_host %>
+  port: <%= pg_port %>
+  database: <%= pg_db %>
+  <% if pg_user %>username: <%= pg_user %><% end %>
+  <% if pg_pass %>password: <%= pg_pass %><% end %>
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
+<% end %>
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  <<: *default

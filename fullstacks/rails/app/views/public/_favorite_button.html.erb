@@ -1,0 +1,15 @@
+<%#
+  收藏按钮。点击由 Stimulus favorite 控制器接管：
+   - 登录态：同步 XHR 调 /ui/capsules/{id}/favorite-toggle，更新按钮。
+   - 匿名（anon=true）：window.confirm 后跳登录。
+%>
+<% fav = capsule[:favoritedByMe] %>
+<button type="button" class="cy-capsule__fav <%= " is-active" if fav %>"
+        data-controller="favorite"
+        data-favorite-id-value="<%= capsule[:id] %>"
+        data-favorite-anon-value="<%= !authenticated %>"
+        data-favorited="<%= fav %>"
+        data-action="click->favorite#toggle">
+  <span class="cy-fav-icon"><%= fav ? "♥" : "♡" %></span>
+  <span class="cy-fav-count"><%= capsule[:favoriteCount] %></span>
+</button>
