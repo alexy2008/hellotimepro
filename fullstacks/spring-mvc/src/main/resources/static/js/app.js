@@ -3,7 +3,7 @@
  *
  * SSR 负责整页与（经 HTMX）局部刷新；本文件只承载「天然属于浏览器」的交互：
  *   - 主题切换、用户菜单下拉
- *   - 头像选择器、8 位胶囊码输入
+ *   - 头像选择器、8 位胶囊码输入、倒计时局部刷新
  *   - 创建页：快速预设 / 提交时本地时间→ISO / AI 灵感与生成
  *   - 资料页：保存改动（PATCH /api/v1/me）、改密前端校验
  *
@@ -115,6 +115,65 @@
   function showMsg(el, variant, text) {
     if (el) el.innerHTML = alertHtml(variant, text);
   }
+
+  // ---------- 倒计时 ----------
+  var countdownTimer;
+  function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+  }
+  function countdownTo(rawOpenAt) {
+    var target = new Date(rawOpenAt).getTime();
+    var now = Date.now();
+    if (isNaN(target)) {
+      return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+    var diff = Math.max(0, Math.floor((target - now) / 1000));
+    return {
+      expired: target <= now,
+      days: Math.floor(diff / 86400),
+      hours: Math.floor((diff % 86400) / 3600),
+      minutes: Math.floor((diff % 3600) / 60),
+      seconds: diff % 60
+    };
+  }
+  function updateCountdown(el) {
+    var cd = countdownTo(el.getAttribute("data-countdown-open-at"));
+    if (el.getAttribute("data-countdown-inline") === "true") {
+      el.textContent = "⏳ 还剩 " + cd.days.toLocaleString("zh-CN") + " 天 · " +
+        pad2(cd.hours) + ":" + pad2(cd.minutes) + ":" + pad2(cd.seconds);
+    }
+    el.querySelectorAll("[data-countdown-unit]").forEach(function (unit) {
+      var key = unit.getAttribute("data-countdown-unit");
+      if (key === "days") unit.textContent = String(cd.days);
+      if (key === "hours") unit.textContent = pad2(cd.hours);
+      if (key === "minutes") unit.textContent = pad2(cd.minutes);
+      if (key === "seconds") unit.textContent = pad2(cd.seconds);
+    });
+    if (cd.expired && el.getAttribute("data-countdown-reload") === "true" && !el.dataset.reloading) {
+      el.dataset.reloading = "1";
+      window.setTimeout(function () { window.location.reload(); }, 300);
+    }
+  }
+  function tickCountdowns() {
+    var nodes = document.querySelectorAll("[data-countdown-open-at]");
+    nodes.forEach(updateCountdown);
+    if (nodes.length === 0 && countdownTimer) {
+      window.clearInterval(countdownTimer);
+      countdownTimer = undefined;
+    }
+  }
+  function ensureCountdownTicker() {
+    tickCountdowns();
+    if (!countdownTimer && document.querySelector("[data-countdown-open-at]")) {
+      countdownTimer = window.setInterval(tickCountdowns, 1000);
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", ensureCountdownTicker);
+  } else {
+    ensureCountdownTicker();
+  }
+  document.addEventListener("htmx:afterSwap", ensureCountdownTicker);
 
   // ---------- 8 位胶囊码输入（开启页）----------
   (function () {

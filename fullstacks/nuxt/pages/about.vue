@@ -76,7 +76,7 @@ const backendFramework = computed(
             <img v-if="it.iconUrl" :src="it.iconUrl" :alt="it.name" style="width: 48px; height: 48px" />
             <div v-else style="width: 48px; height: 48px; background: var(--color-surface-2); border-radius: var(--radius-md)" />
             <span style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-family: var(--font-mono)">
-              {{ it.name }}
+              {{ it.name }}{{ it.version ? ` ${it.version}` : '' }}
             </span>
           </div>
         </div>
@@ -106,7 +106,7 @@ const backendFramework = computed(
             <img v-if="it.iconUrl" :src="it.iconUrl" :alt="it.name" style="width: 48px; height: 48px" />
             <div v-else style="width: 48px; height: 48px; background: var(--color-surface-2); border-radius: var(--radius-md)" />
             <span style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-family: var(--font-mono)">
-              {{ it.name }}
+              {{ it.name }}{{ it.version ? ` ${it.version}` : '' }}
             </span>
           </div>
         </div>

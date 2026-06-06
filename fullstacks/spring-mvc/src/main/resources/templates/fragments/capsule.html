@@ -17,6 +17,8 @@
   </a>
 
   <p th:if="${!capsule.isOpened}" class="cy-capsule__countdown"
+     data-countdown-open-at="" data-countdown-inline="true"
+     th:attr="data-countdown-open-at=${capsule.openAt}"
      th:with="cd=${@fmt.countdown(capsule.openAt)}"
      th:text="'⏳ 还剩 ' + ${cd.days} + ' 天 · ' + ${cd.hours} + ':' + ${cd.minutes} + ':' + ${cd.seconds}">⏳</p>
   <p th:if="${capsule.isOpened and capsule.contentPreview != null}" class="cy-capsule__preview"

@@ -36,19 +36,21 @@
     </th:block>
 
     <!-- 未开启：上锁倒计时 -->
-    <div th:unless="${capsule.isOpened and capsule.content != null}" class="cy-capsule-detail__sealed">
+    <div th:unless="${capsule.isOpened and capsule.content != null}" class="cy-capsule-detail__sealed"
+         data-countdown-open-at="" data-countdown-reload="true"
+         th:attr="data-countdown-open-at=${capsule.openAt}">
       <div style="font-size:var(--font-size-4xl);opacity:.7">🔒</div>
       <div style="color:var(--color-text-secondary);margin-top:var(--space-3);font-size:var(--font-size-sm);letter-spacing:.1em">
         这封信还在上锁，将在以下时刻开启
       </div>
       <div class="cy-cal">
-        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" th:text="${cd.days}">0</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">天</div></div>
+        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" data-countdown-unit="days" th:text="${cd.days}">0</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">天</div></div>
         <span class="cy-cal-sep">:</span>
-        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" th:text="${cd.hours}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">时</div></div>
+        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" data-countdown-unit="hours" th:text="${cd.hours}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">时</div></div>
         <span class="cy-cal-sep">:</span>
-        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" th:text="${cd.minutes}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">分</div></div>
+        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" data-countdown-unit="minutes" th:text="${cd.minutes}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">分</div></div>
         <span class="cy-cal-sep">:</span>
-        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" th:text="${cd.seconds}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">秒</div></div>
+        <div class="cy-cal-unit"><div class="cy-cal-card"><div class="cy-cal-num" data-countdown-unit="seconds" th:text="${cd.seconds}">00</div><div class="cy-cal-crease"></div></div><div class="cy-cal-label">秒</div></div>
       </div>
       <div style="color:var(--color-text-secondary)">
         开启于 <strong style="color:var(--color-text-primary)" th:text="${@fmt.dateTime(capsule.openAt)}">时间</strong>

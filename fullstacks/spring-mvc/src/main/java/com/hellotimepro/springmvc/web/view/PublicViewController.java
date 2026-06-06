@@ -3,15 +3,16 @@ package com.hellotimepro.springmvc.web.view;
 import com.hellotimepro.springmvc.domain.UserEntity;
 import com.hellotimepro.springmvc.dto.Dtos.CapsuleDetail;
 import com.hellotimepro.springmvc.dto.Dtos.Paginated;
+import com.hellotimepro.springmvc.dto.Dtos.StackInfo;
 import com.hellotimepro.springmvc.dto.Dtos.StackItem;
 import com.hellotimepro.springmvc.service.CapsuleService;
+import com.hellotimepro.springmvc.service.HealthStackService;
 import com.hellotimepro.springmvc.service.PlazaService;
 import com.hellotimepro.springmvc.web.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.boot.SpringBootVersion;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,11 +25,14 @@ public class PublicViewController {
   private final PlazaService plaza;
   private final CapsuleService capsules;
   private final CookieAuthService cookieAuth;
+  private final HealthStackService healthStack;
 
-  public PublicViewController(PlazaService plaza, CapsuleService capsules, CookieAuthService cookieAuth) {
+  public PublicViewController(PlazaService plaza, CapsuleService capsules, CookieAuthService cookieAuth,
+      HealthStackService healthStack) {
     this.plaza = plaza;
     this.capsules = capsules;
     this.cookieAuth = cookieAuth;
+    this.healthStack = healthStack;
   }
 
   @GetMapping("/")
@@ -54,6 +58,7 @@ public class PublicViewController {
 
   @GetMapping("/about")
   public String about(Model model) {
+    StackInfo stack = healthStack.stack();
     model.addAttribute("frontendStack", List.of(
         new StackItem("framework", "Thymeleaf", "3", null),
         new StackItem("enhancement", "HTMX", "2", null),
@@ -64,15 +69,8 @@ public class PublicViewController {
         "用返回的 HTML 片段做精细替换（广场搜索、收藏切换），在不写 SPA 的前提下获得局部刷新体验；" +
         "少量纯浏览器行为（头像选择、8 位码输入、AI 灵感、表单校验）用渐进增强的轻量原生 JS 实现。" +
         "Tailwind CSS v4 配合设计令牌（Design Tokens）统一视觉，与其它前端共享同一套 cy-* 组件类。");
-    model.addAttribute("backendStack", List.of(
-        new StackItem("language", "Java", String.valueOf(Runtime.version().feature()), "/static/icons/java.svg"),
-        new StackItem("framework", "Spring Boot", SpringBootVersion.getVersion(), "/static/icons/springboot.svg"),
-        new StackItem("orm", "Hibernate", "6", "/static/icons/hibernate.svg")));
-    model.addAttribute("backendSummary",
-        "与独立的 Spring Boot 后端实现同源：Spring Data JPA + Hibernate 承载领域模型，" +
-        "针对 PostgreSQL / SQLite 的 UUID 与时间戳差异自制跨库 JdbcType 运行时按方言分流，" +
-        "JWT（HS256）+ refresh token 轮换与族吊销实现鉴权。SSR 这一侧用 httpOnly cookie 承载会话，" +
-        "同时仍对外暴露完整的 /api/v1 JSON 契约（与纯后端实现逐字一致）。");
+    model.addAttribute("backendStack", stack.items());
+    model.addAttribute("backendSummary", stack.summary());
     return "about";
   }
 

@@ -81,7 +81,7 @@
               <div style:width="48px" style:height="48px" style:background="var(--color-surface-2)" style:border-radius="var(--radius-md)"></div>
             {/if}
             <span style:font-size="var(--font-size-xs)" style:color="var(--color-text-muted)" style:font-family="var(--font-mono)">
-              {it.name}
+              {it.name}{it.version ? ` ${it.version}` : ''}
             </span>
           </div>
         {/each}
@@ -111,7 +111,7 @@
                 <div style:width="48px" style:height="48px" style:background="var(--color-surface-2)" style:border-radius="var(--radius-md)"></div>
               {/if}
               <span style:font-size="var(--font-size-xs)" style:color="var(--color-text-muted)" style:font-family="var(--font-mono)">
-                {it.name}
+                {it.name}{it.version ? ` ${it.version}` : ''}
               </span>
             </div>
           {/each}

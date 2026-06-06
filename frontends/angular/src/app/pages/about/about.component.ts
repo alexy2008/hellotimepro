@@ -44,7 +44,7 @@ const FRONTEND_SUMMARY =
           @for (item of frontendStack; track item.name) {
             <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-1)">
               <img [src]="item.iconUrl" [alt]="item.name" style="width:48px;height:48px" />
-              <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)">{{ item.name }}</span>
+              <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)">{{ item.name }}{{ item.version ? ' ' + item.version : '' }}</span>
             </div>
           }
         </div>
@@ -71,7 +71,7 @@ const FRONTEND_SUMMARY =
                 @if (item.iconUrl) {
                   <img [src]="item.iconUrl" [alt]="item.name" style="width:48px;height:48px" />
                 }
-                <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)">{{ item.name }}</span>
+                <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)">{{ item.name }}{{ item.version ? ' ' + item.version : '' }}</span>
               </div>
             }
           </div>

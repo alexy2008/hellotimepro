@@ -4,38 +4,16 @@ import { avatarUrl } from "@/utils/avatar";
 import { countdownTo, fmtDateTime } from "@/utils/format";
 import { FavoriteButton } from "./FavoriteButton";
 
-function CalendarUnit(props: { value: number; label: string }) {
-  const str = () => String(props.value).padStart(2, "0");
+function CalendarUnit(props: { value: () => number; label: string }) {
+  const str = () => String(props.value()).padStart(2, "0");
   const isLong = () => str().length > 2;
-  let latestStr = str();
-  const [shown, setShown] = createSignal(str());
-  const [phase, setPhase] = createSignal<"idle" | "fold" | "unfold">("idle");
-
-  createEffect(() => {
-    const s = str();
-    if (s === latestStr) return;
-    latestStr = s;
-    setPhase("fold");
-  });
-
-  function handleAnimationEnd() {
-    if (phase() === "fold") {
-      setShown(latestStr);
-      setPhase("unfold");
-    } else if (phase() === "unfold") {
-      setPhase("idle");
-    }
-  }
 
   return (
     <div class={`cy-cal-unit${isLong() ? " cy-cal-unit--wide" : ""}`}>
       <div
-        class={`cy-cal-card${isLong() ? " cy-cal-card--wide" : ""}${
-          phase() !== "idle" ? ` cy-cal-card--${phase()}` : ""
-        }`}
-        onAnimationEnd={handleAnimationEnd}
+        class={`cy-cal-card${isLong() ? " cy-cal-card--wide" : ""}`}
       >
-        <div class="cy-cal-num">{shown()}</div>
+        <div class="cy-cal-num">{str()}</div>
         <div class="cy-cal-crease" />
       </div>
       <div class="cy-cal-label">{props.label}</div>
@@ -50,14 +28,17 @@ export function CapsuleDetail(props: {
 }) {
   const opened = () => props.capsule.isOpened;
 
-  const [now, setNow] = createSignal(Date.now());
+  const [cd, setCd] = createSignal(countdownTo(props.capsule.openAt));
   const [autoOpening, setAutoOpening] = createSignal(false);
 
   // 倒计时 tick
   createEffect(() => {
+    const openAt = props.capsule.openAt;
+    const update = () => setCd(countdownTo(openAt));
+    update();
     if (opened()) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    onCleanup(() => clearInterval(t));
+    const t = window.setInterval(update, 1000);
+    onCleanup(() => window.clearInterval(t));
   });
 
   // 到点后自动刷新开启状态
@@ -91,7 +72,6 @@ export function CapsuleDetail(props: {
     });
   });
 
-  const cd = () => countdownTo(props.capsule.openAt, now());
   const [codeCopied, setCodeCopied] = createSignal(false);
   const [linkCopied, setLinkCopied] = createSignal(false);
 
@@ -130,50 +110,49 @@ export function CapsuleDetail(props: {
 
       <h1 class="cy-capsule-detail__title">{props.capsule.title}</h1>
 
-      <Show
-        when={opened() && props.capsule.content !== null}
-        fallback={
-          <div class="cy-capsule-detail__sealed">
-            <div style={{ "font-size": "var(--font-size-4xl)", opacity: "0.7" }}>
-              🔒
-            </div>
-            <div
-              style={{
-                color: "var(--color-text-secondary)",
-                "margin-top": "var(--space-3)",
-                "font-size": "var(--font-size-sm)",
-                "letter-spacing": "0.1em",
-              }}
-            >
-              这封信还在上锁，将在以下时刻开启
-            </div>
-            <div class="cy-cal">
-              <CalendarUnit value={cd().days} label="天" />
-              <span class="cy-cal-sep">:</span>
-              <CalendarUnit value={cd().hours} label="时" />
-              <span class="cy-cal-sep">:</span>
-              <CalendarUnit value={cd().minutes} label="分" />
-              <span class="cy-cal-sep">:</span>
-              <CalendarUnit value={cd().seconds} label="秒" />
-            </div>
-            <div style={{ color: "var(--color-text-secondary)" }}>
-              <Show
-                when={cd().expired}
-                fallback={
-                  <>
-                    开启于{" "}
-                    <strong style={{ color: "var(--color-text-primary)" }}>
-                      {fmtDateTime(props.capsule.openAt)}
-                    </strong>
-                  </>
-                }
-              >
-                {autoOpening() ? "正在开启…" : "正在同步开启状态…"}
-              </Show>
-            </div>
+      <Show when={!(opened() && props.capsule.content !== null)}>
+        <div class="cy-capsule-detail__sealed">
+          <div style={{ "font-size": "var(--font-size-4xl)", opacity: "0.7" }}>
+            🔒
           </div>
-        }
-      >
+          <div
+            style={{
+              color: "var(--color-text-secondary)",
+              "margin-top": "var(--space-3)",
+              "font-size": "var(--font-size-sm)",
+              "letter-spacing": "0.1em",
+            }}
+          >
+            这封信还在上锁，将在以下时刻开启
+          </div>
+          <div class="cy-cal">
+            <CalendarUnit value={() => cd().days} label="天" />
+            <span class="cy-cal-sep">:</span>
+            <CalendarUnit value={() => cd().hours} label="时" />
+            <span class="cy-cal-sep">:</span>
+            <CalendarUnit value={() => cd().minutes} label="分" />
+            <span class="cy-cal-sep">:</span>
+            <CalendarUnit value={() => cd().seconds} label="秒" />
+          </div>
+          <div style={{ color: "var(--color-text-secondary)" }}>
+            <Show
+              when={cd().expired}
+              fallback={
+                <>
+                  开启于{" "}
+                  <strong style={{ color: "var(--color-text-primary)" }}>
+                    {fmtDateTime(props.capsule.openAt)}
+                  </strong>
+                </>
+              }
+            >
+              {autoOpening() ? "正在开启…" : "正在同步开启状态…"}
+            </Show>
+          </div>
+        </div>
+      </Show>
+
+      <Show when={opened() && props.capsule.content !== null}>
         <div
           style={{
             display: "flex",

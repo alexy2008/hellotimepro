@@ -4,7 +4,7 @@ import { Alert } from "@/components/Alert";
 import type { HealthData, StackItem } from "@/types";
 
 const FRONTEND_STACK: StackItem[] = [
-  { role: "framework", name: "SolidJS", version: "1", iconUrl: "/static/icons/solidjs.svg" },
+  { role: "framework", name: "SolidJS", version: "1.9.0", iconUrl: "/static/icons/solidjs.svg" },
   { role: "language", name: "TypeScript", version: "5", iconUrl: "/static/icons/typescript.svg" },
   { role: "styling", name: "Tailwind CSS", version: "4", iconUrl: "/static/icons/tailwindcss.svg" },
 ];
@@ -64,7 +64,7 @@ function IconRow(props: { items: StackItem[] }) {
                 "font-family": "var(--font-mono)",
               }}
             >
-              {it.name}
+              {it.name}{it.version ? ` ${it.version}` : ""}
             </span>
           </div>
         )}

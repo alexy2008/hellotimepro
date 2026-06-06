@@ -47,7 +47,7 @@
   <div th:each="it : ${items}" style="display:flex;flex-direction:column;align-items:center;gap:var(--space-1)">
     <img th:if="${it.iconUrl != null}" th:src="${it.iconUrl}" th:alt="${it.name}" style="width:48px;height:48px">
     <div th:unless="${it.iconUrl != null}" style="width:48px;height:48px;background:var(--color-surface-2);border-radius:var(--radius-md)"></div>
-    <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)" th:text="${it.name}">name</span>
+    <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)" th:text="${it.name + (it.version != null ? ' ' + it.version : '')}">name</span>
   </div>
 </div>
 </body>

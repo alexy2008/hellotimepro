@@ -35,7 +35,7 @@ function IconRow({ items }: { items: StackItem[] }) {
         <div key={it.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
           {it.iconUrl && <img src={it.iconUrl} alt={it.name} style={{ width: 48, height: 48 }} />}
           <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
-            {it.name}
+            {it.name}{it.version ? ` ${it.version}` : ""}
           </span>
         </div>
       ))}

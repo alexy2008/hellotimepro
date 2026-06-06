@@ -33,7 +33,7 @@ function IconRow({ items }: { items: StackItem[] }) {
             <div style={{ width: 48, height: 48, background: "var(--color-surface-2)", borderRadius: "var(--radius-md)" }} />
           )}
           <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", fontFamily: "var(--font-mono)" }}>
-            {it.name}
+            {it.name}{it.version ? ` ${it.version}` : ""}
           </span>
         </div>
       ))}
