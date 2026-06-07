@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
+composer install --no-interaction --prefer-dist
+npm install --silent
+mkdir -p public/js
+cp node_modules/alpinejs/dist/cdn.min.js public/js/alpine.min.js
+php artisan route:list --path=api/v1 >/dev/null
