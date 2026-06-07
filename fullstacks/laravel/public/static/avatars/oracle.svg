@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Oracle">
+  <defs>
+    <radialGradient id="orc-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#221060"/>
+      <stop offset="100%" stop-color="#06060c"/>
+    </radialGradient>
+    <radialGradient id="orc-iris" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#40e4ff"/>
+      <stop offset="70%" stop-color="#6b46ff"/>
+      <stop offset="100%" stop-color="#221060"/>
+    </radialGradient>
+  </defs>
+  <circle cx="64" cy="64" r="62" fill="url(#orc-bg)"/>
+  <circle cx="64" cy="64" r="62" fill="none" stroke="#4824c4" stroke-width="1.5" opacity="0.6"/>
+  <!-- 瞳孔 -->
+  <path d="M16 64 C 28 42, 100 42, 112 64 C 100 86, 28 86, 16 64 Z"
+        fill="#06060c" stroke="#8467ff" stroke-width="2.5"/>
+  <circle cx="64" cy="64" r="22" fill="url(#orc-iris)"/>
+  <circle cx="64" cy="64" r="8" fill="#06060c"/>
+  <circle cx="58" cy="58" r="3" fill="#bff7ff"/>
+  <!-- 装饰 -->
+  <circle cx="64" cy="64" r="30" fill="none" stroke="#40e4ff" stroke-width="1" opacity="0.4" stroke-dasharray="3 5"/>
+</svg>

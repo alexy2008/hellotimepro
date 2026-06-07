@@ -11,6 +11,7 @@
 #   ./verification/scripts/verify-ui-smoke.sh svelte-ts    # 目录别名（同 svelte）
 #   ./verification/scripts/verify-ui-smoke.sh next         # 全栈同源实现（Next.js）
 #   ./verification/scripts/verify-ui-smoke.sh nuxt         # 全栈同源实现（Nuxt 3）
+#   ./verification/scripts/verify-ui-smoke.sh laravel      # 全栈同源实现（PHP）
 #
 # 流程：
 #   1. 启动前端或同源全栈实现（前端默认 BACKEND_PROXY=http://127.0.0.1:9080）
@@ -25,7 +26,7 @@ set -euo pipefail
 _RAW_TARGET="${1:-}"
 if [[ -z "$_RAW_TARGET" ]]; then
   echo "用法: $0 <frontend>" >&2
-  echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt" >&2
+  echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt / spring-mvc / rails / laravel" >&2
   exit 2
 fi
 
@@ -54,10 +55,10 @@ case "$_RAW_TARGET" in
 esac
 
 case "$TARGET" in
-  react|vue|angular|svelte|solid|next|nuxt|spring-mvc|rails) ;;
+  react|vue|angular|svelte|solid|next|nuxt|spring-mvc|rails|laravel) ;;
   *)
     echo "✗ 暂不支持的前端: $_RAW_TARGET" >&2
-    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt / spring-mvc / rails" >&2
+    echo "  frontend 可选: react / react-ts / vue / vue3-ts / angular / svelte / svelte-ts / solid / solid-ts / next / nuxt / spring-mvc / rails / laravel" >&2
     exit 2
     ;;
 esac
@@ -65,7 +66,7 @@ esac
 # 全栈同源实现集合（自带 API，不需要后端代理）
 _is_fullstack() {
   case "$1" in
-    next|nuxt|spring-mvc|rails) return 0 ;;
+    next|nuxt|spring-mvc|rails|laravel) return 0 ;;
     *)        return 1 ;;
   esac
 }

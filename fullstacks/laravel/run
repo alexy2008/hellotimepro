@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PORT="${PORT:-7182}"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+cd "$APP_DIR"
+
+export APP_NAME="${APP_NAME:-HelloTime Pro Laravel}"
+export APP_ENV="${APP_ENV:-local}"
+export APP_DEBUG="${APP_DEBUG:-false}"
+export APP_URL="${APP_URL:-http://127.0.0.1:${PORT}}"
+export APP_ROOT="$ROOT"
+export JWT_SECRET="${JWT_SECRET:-hellotime-laravel-dev-secret-0001}"
+export CACHE_STORE="${CACHE_STORE:-file}"
+export SESSION_DRIVER="${SESSION_DRIVER:-file}"
+export QUEUE_CONNECTION="${QUEUE_CONNECTION:-sync}"
+
+if [[ ! -d vendor ]]; then
+  composer install --no-interaction --prefer-dist
+fi
+
+if [[ ! -f .env ]]; then
+  cp .env.example .env
+fi
+if ! grep -q '^APP_KEY=base64:' .env 2>/dev/null; then
+  php artisan key:generate --force >/dev/null
+fi
+
+DB_DRIVER="${DB_DRIVER:-postgres}"
+DB_URL="${DB_URL:-postgresql://hellotime:hellotime@127.0.0.1:55432/hellotime_pro}"
+
+if [[ "$DB_DRIVER" == "sqlite" ]]; then
+  export DB_CONNECTION=sqlite
+  if [[ "$DB_URL" == sqlite:///* ]]; then
+    export DB_DATABASE="${DB_URL#sqlite:///}"
+  else
+    export DB_DATABASE="$ROOT/data/sqlite/hellotime-laravel.db"
+  fi
+else
+  export DB_CONNECTION=pgsql
+	  eval "$(
+	    python3 - "$DB_URL" <<'PYEOF'
+import sys
+import shlex
+from urllib.parse import urlparse, unquote
+raw = sys.argv[1].replace("postgresql+psycopg://", "postgresql://", 1)
+p = urlparse(raw)
+def emit(k, v):
+    print(f"export {k}={shlex.quote(str(v))}")
+emit("DB_HOST", p.hostname or "127.0.0.1")
+emit("DB_PORT", p.port or 55432)
+emit("DB_DATABASE", unquote((p.path or "/hellotime_pro").lstrip("/")))
+emit("DB_USERNAME", unquote(p.username or "hellotime"))
+emit("DB_PASSWORD", unquote(p.password or "hellotime"))
+PYEOF
+  )"
+fi
+
+if [[ ! -f public/js/alpine.min.js ]]; then
+  if [[ ! -d node_modules/alpinejs ]]; then
+    npm install --silent
+  fi
+  cp node_modules/alpinejs/dist/cdn.min.js public/js/alpine.min.js
+fi
+
+php artisan config:clear --quiet >/dev/null 2>&1 || true
+exec php artisan serve --host=0.0.0.0 --port="$PORT"
