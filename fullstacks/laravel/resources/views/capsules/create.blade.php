@@ -14,6 +14,7 @@
           <input class="cy-input" id="title" name="title" maxlength="60" required value="{{ old('title') }}" style="flex:1">
           <button type="button" class="cy-btn cy-btn--ghost" id="ai-generate" style="white-space:nowrap">✨ AI 生成</button>
         </div>
+        <span class="cy-field__hint" id="ai-info" style="display:none;color:var(--color-text-secondary)"></span>
       </div>
       <div id="reco-area"></div>
       <div class="cy-field">

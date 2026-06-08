@@ -110,13 +110,25 @@ export async function generateStructuredJson(opts: {
   if (!env.llm.enabled || !env.llm.apiKey.trim()) {
     throw new LlmError("LLM disabled or missing API key");
   }
-  const body = await postJson({
+  const base: Record<string, unknown> = {
     model: env.llm.model,
     messages: [
       { role: "system", content: opts.system },
       { role: "user", content: opts.prompt },
     ],
     max_tokens: opts.maxTokens ?? 900,
-  });
-  return parseJsonObject(extractChatText(body));
+  };
+  // 关键：禁用思考。deepseek 等推理模型若开启 thinking，推理会吃光 max_tokens 输出预算，
+  // 导致 message.content 为空（recommendation 输出更长时尤其明显）。禁用后正文直接落在 content。
+  try {
+    const body = await postJson({ ...base, thinking: { type: "disabled" } });
+    return parseJsonObject(extractChatText(body));
+  } catch (e) {
+    // 个别网关不认 thinking 字段（HTTP 400）——去掉后重试一次。
+    if (e instanceof LlmError && e.status === 400) {
+      const body = await postJson(base);
+      return parseJsonObject(extractChatText(body));
+    }
+    throw e;
+  }
 }

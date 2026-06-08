@@ -5,10 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@yield('title', 'HelloTime Pro') · HelloTime Pro</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <link rel="stylesheet" href="/css/app.css">
+  @php
+    // 资源带 mtime 版本号，避免浏览器缓存旧的 CSS/JS（改动后能即时生效）。
+    $cssV = @filemtime(public_path('css/app.css')) ?: time();
+    $jsV = @filemtime(public_path('js/app.js')) ?: time();
+  @endphp
+  <link rel="stylesheet" href="/css/app.css?v={{ $cssV }}">
   <style>[x-cloak]{display:none!important}</style>
   <script src="/js/alpine.min.js" defer></script>
-  <script src="/js/app.js" defer></script>
+  <script src="/js/app.js?v={{ $jsV }}" defer></script>
 </head>
 <body x-data="{ theme: localStorage.getItem('theme') || 'dark' }" x-init="document.documentElement.dataset.theme = theme; $watch('theme', value => { document.documentElement.dataset.theme = value; localStorage.setItem('theme', value) })">
   <header class="cy-header">

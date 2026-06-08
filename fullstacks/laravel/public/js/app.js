@@ -38,7 +38,9 @@
     var content = qs("#content");
     var recoArea = qs("#reco-area");
     var aiBtn = qs("#ai-generate");
+    var aiInfo = qs("#ai-info");
     var recos = [];
+    var aiGenerated = false;
     function esc(s) {
       return String(s).replace(/[&<>"']/g, function (c) {
         return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
@@ -51,9 +53,11 @@
         '<label style="margin:0">✨ 没有头绪？试试这些灵感</label>' +
         '<button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" data-testid="reco-refresh" style="margin-left:auto">换一批</button>' +
         '</div><div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">';
-      recos.forEach(function (r) {
+      var palettes = ["brand", "accent", "signal"]; // 三组主题色按下标轮换，仅勾边框做点缀
+      recos.forEach(function (r, i) {
+        var p = palettes[i % palettes.length];
         html += '<button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" data-testid="reco-chip" data-title="' +
-          esc(r.title) + '" style="white-space:nowrap;border:1px solid var(--color-signal-primary);border-radius:var(--radius-full)">' +
+          esc(r.title) + '" style="white-space:nowrap;border:1px solid var(--color-' + p + '-primary);border-radius:var(--radius-full)">' +
           esc(r.title) + '</button>';
       });
       recoArea.innerHTML = html + "</div></div>";
@@ -78,7 +82,9 @@
       if (!aiBtn) return;
       aiBtn.disabled = true;
       aiBtn.textContent = "生成中…";
+      if (aiInfo) aiInfo.style.display = "none";
       var t = (rawTitle || "").trim();
+      var autoTitle = !t;
       fetch("/api/v1/capsule-suggestion", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -88,9 +94,16 @@
         if (s.title && title && !t) title.value = s.title;
         if (s.content && content) content.value = s.content;
         if (s.openAt && open) { open.value = isoLocal(new Date(s.openAt)); syncOpen(); }
+        if (aiInfo && s.content) {
+          var source = s.generatedBy === "local-template" ? "本地模板（LLM 未启用）" : (s.generatedBy || "未知模型");
+          var titleNote = s.title && autoTitle ? "标题与正文均由 AI 生成" : "已为你生成正文";
+          aiInfo.textContent = titleNote + "，建议 " + (s.openInDays || 0) + " 天后开启 · 来源：" + source;
+          aiInfo.style.display = "";
+          aiGenerated = true;
+        }
       }).catch(function () {}).finally(function () {
         aiBtn.disabled = false;
-        aiBtn.textContent = "✨ AI 生成";
+        aiBtn.textContent = aiGenerated ? "✨ 重新生成" : "✨ AI 生成";
       });
     }
     if (title) title.addEventListener("input", renderRecos);
@@ -221,11 +234,14 @@
         else if (navigator.clipboard) navigator.clipboard.writeText(url).catch(function () {});
       });
     });
-    qsa(".cy-avatar-choice input[name='avatarId']").forEach(function (input) {
+    qsa(".cy-avatar-picker__item input[name='avatarId']").forEach(function (input) {
       input.addEventListener("change", function () {
-        qsa(".cy-avatar-choice").forEach(function (label) { label.classList.remove("is-selected"); });
-        var label = input.closest(".cy-avatar-choice");
-        if (label) label.classList.add("is-selected");
+        qsa(".cy-avatar-picker__item").forEach(function (label) {
+          label.classList.remove("is-selected");
+          label.setAttribute("aria-checked", "false");
+        });
+        var label = input.closest(".cy-avatar-picker__item");
+        if (label) { label.classList.add("is-selected"); label.setAttribute("aria-checked", "true"); }
       });
     });
   }
