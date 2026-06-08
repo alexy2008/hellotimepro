@@ -12,7 +12,7 @@
   </a>
 
   @if(!$opened)
-    <p class="cy-capsule__countdown" data-open-at="{{ $capsule['openAt'] }}" data-compact="1">⏳ {{ $hello->countdownText($capsule['openAt']) }}</p>
+    <p class="cy-capsule__countdown" data-open-at="{{ $capsule['openAt'] }}" data-compact="1">⏳ {{ $fmt->countdownText($capsule['openAt']) }}</p>
   @elseif(!empty($capsule['contentPreview']))
     <p class="cy-capsule__preview">{{ $capsule['contentPreview'] }}</p>
   @endif
@@ -24,7 +24,7 @@
         <span>{{ $capsule['creator']['nickname'] }}</span>
       </span>
     @else
-      <span style="color:var(--color-text-muted)">创建于 {{ $hello->formatDate($capsule['createdAt']) }}</span>
+      <span style="color:var(--color-text-muted)">创建于 {{ $fmt->formatDate($capsule['createdAt']) }}</span>
     @endif
 
     @if($hideFavorite)

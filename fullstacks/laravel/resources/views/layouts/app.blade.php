@@ -32,7 +32,7 @@
         @if($currentUser)
           <div class="cy-user-menu">
             <button type="button" class="cy-user-chip cy-user-chip--button" aria-haspopup="menu" aria-expanded="false" title="{{ $currentUser['nickname'] }}" aria-label="{{ $currentUser['nickname'] }} 的菜单">
-              <span>{{ $hello->shortName($currentUser['nickname']) }}</span>
+              <span>{{ $fmt->shortName($currentUser['nickname']) }}</span>
               <img src="/static/avatars/{{ $currentUser['avatar_id'] }}.svg" alt="">
               <span class="cy-user-chip__chevron" aria-hidden="true">⌄</span>
             </button>

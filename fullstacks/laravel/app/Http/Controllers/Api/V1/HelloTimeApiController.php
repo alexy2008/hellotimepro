@@ -4,129 +4,147 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Exceptions\ApiError;
 use App\Http\Controllers\Controller;
-use App\Services\HelloTimeService;
+use App\Services\AuthService;
+use App\Services\AvatarCatalog;
+use App\Services\CapsuleService;
+use App\Services\FavoriteService;
+use App\Services\HealthService;
+use App\Services\PlazaService;
+use App\Services\ProfileService;
+use App\Services\SuggestionService;
 use Illuminate\Http\Request;
 use Throwable;
 
+/**
+ * /api/v1 JSON 契约的统一入口：薄控制器，仅做请求解析、调度领域服务、包裹统一响应信封。
+ */
 class HelloTimeApiController extends Controller
 {
-    public function __construct(private readonly HelloTimeService $hello)
-    {
+    public function __construct(
+        private readonly AuthService $auth,
+        private readonly ProfileService $profiles,
+        private readonly CapsuleService $capsules,
+        private readonly PlazaService $plaza,
+        private readonly FavoriteService $favorites,
+        private readonly SuggestionService $suggestions,
+        private readonly HealthService $health,
+        private readonly AvatarCatalog $avatars,
+    ) {
     }
 
     public function health()
     {
-        return $this->api(fn () => $this->hello->health());
+        return $this->api(fn () => $this->health->health());
     }
 
     public function avatars()
     {
-        return $this->api(fn () => $this->hello->avatars());
+        return $this->api(fn () => $this->avatars->all());
     }
 
     public function register(Request $request)
     {
-        return $this->api(fn () => $this->hello->register($this->body($request)), 201);
+        return $this->api(fn () => $this->auth->register($this->body($request)), 201);
     }
 
     public function login(Request $request)
     {
-        return $this->api(fn () => $this->hello->login($this->body($request)));
+        return $this->api(fn () => $this->auth->login($this->body($request)));
     }
 
     public function refresh(Request $request)
     {
-        return $this->api(fn () => $this->hello->refresh((string)($this->body($request)['refreshToken'] ?? '')));
+        return $this->api(fn () => $this->auth->refresh((string) ($this->body($request)['refreshToken'] ?? '')));
     }
 
     public function logout(Request $request)
     {
         return $this->api(function () use ($request) {
-            $this->hello->logout((string)($this->body($request)['refreshToken'] ?? ''));
+            $this->auth->logout((string) ($this->body($request)['refreshToken'] ?? ''));
             return null;
         }, 204, true);
     }
 
     public function me(Request $request)
     {
-        return $this->api(fn () => $this->hello->userDto($this->hello->requireUser($request)));
+        return $this->api(fn () => $this->profiles->userDto($this->auth->requireUser($request)));
     }
 
     public function updateMe(Request $request)
     {
-        return $this->api(fn () => $this->hello->updateProfile($this->hello->requireUser($request), $this->body($request)));
+        return $this->api(fn () => $this->profiles->updateProfile($this->auth->requireUser($request), $this->body($request)));
     }
 
     public function changePassword(Request $request)
     {
         return $this->api(function () use ($request) {
-            $this->hello->changePassword($this->hello->requireUser($request), $this->body($request));
+            $this->auth->changePassword($this->auth->requireUser($request), $this->body($request));
             return null;
         }, 204, true);
     }
 
     public function createCapsule(Request $request)
     {
-        return $this->api(fn () => $this->hello->createCapsule($this->hello->requireUser($request), $this->body($request)), 201);
+        return $this->api(fn () => $this->capsules->createCapsule($this->auth->requireUser($request), $this->body($request)), 201);
     }
 
     public function capsuleByCode(Request $request, string $code)
     {
-        $viewer = $this->hello->currentUser($request);
-        return $this->api(fn () => $this->hello->capsuleByCode($code, $viewer['id'] ?? null));
+        $viewer = $this->auth->currentUser($request);
+        return $this->api(fn () => $this->capsules->capsuleByCode($code, $viewer['id'] ?? null));
     }
 
     public function plaza(Request $request)
     {
-        $viewer = $this->hello->currentUser($request);
-        return $this->api(fn () => $this->hello->plazaList($viewer['id'] ?? null, $request->query()));
+        $viewer = $this->auth->currentUser($request);
+        return $this->api(fn () => $this->plaza->plazaList($viewer['id'] ?? null, $request->query()));
     }
 
     public function plazaDetail(Request $request, string $id)
     {
-        $viewer = $this->hello->currentUser($request);
-        return $this->api(fn () => $this->hello->plazaDetail($id, $viewer['id'] ?? null));
+        $viewer = $this->auth->currentUser($request);
+        return $this->api(fn () => $this->plaza->plazaDetail($id, $viewer['id'] ?? null));
     }
 
     public function myCapsules(Request $request)
     {
-        return $this->api(fn () => $this->hello->myCapsules($this->hello->requireUser($request), $request->query()));
+        return $this->api(fn () => $this->capsules->myCapsules($this->auth->requireUser($request), $request->query()));
     }
 
     public function deleteCapsule(Request $request, string $id)
     {
         return $this->api(function () use ($request, $id) {
-            $this->hello->deleteCapsule($this->hello->requireUser($request), $id);
+            $this->capsules->deleteCapsule($this->auth->requireUser($request), $id);
             return null;
         }, 204, true);
     }
 
     public function myFavorites(Request $request)
     {
-        return $this->api(fn () => $this->hello->myFavorites($this->hello->requireUser($request), $request->query()));
+        return $this->api(fn () => $this->favorites->myFavorites($this->auth->requireUser($request), $request->query()));
     }
 
     public function addFavorite(Request $request)
     {
-        return $this->api(fn () => $this->hello->addFavorite($this->hello->requireUser($request), (string)($this->body($request)['capsuleId'] ?? '')));
+        return $this->api(fn () => $this->favorites->addFavorite($this->auth->requireUser($request), (string) ($this->body($request)['capsuleId'] ?? '')));
     }
 
     public function removeFavorite(Request $request, string $id)
     {
         return $this->api(function () use ($request, $id) {
-            $this->hello->removeFavorite($this->hello->requireUser($request), $id);
+            $this->favorites->removeFavorite($this->auth->requireUser($request), $id);
             return null;
         }, 204, true);
     }
 
     public function suggestion(Request $request)
     {
-        return $this->api(fn () => $this->hello->suggestion($this->body($request)));
+        return $this->api(fn () => $this->suggestions->suggestion($this->body($request)));
     }
 
     public function recommendations(Request $request)
     {
-        return $this->api(fn () => $this->hello->recommendations($request->query()));
+        return $this->api(fn () => $this->suggestions->recommendations($request->query()));
     }
 
     private function api(callable $callback, int $status = 200, bool $empty = false)

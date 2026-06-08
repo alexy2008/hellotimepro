@@ -2,23 +2,31 @@
 
 namespace App\Http\Controllers\Web;
 
-use App\Exceptions\ApiError;
 use App\Http\Controllers\Controller;
-use App\Services\HelloTimeService;
+use App\Services\AuthService;
+use App\Services\AvatarCatalog;
+use App\Services\CapsuleService;
+use App\Services\FavoriteService;
+use App\Services\PlazaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class PageController extends Controller
 {
-    public function __construct(private readonly HelloTimeService $hello)
-    {
+    public function __construct(
+        private readonly AuthService $auth,
+        private readonly PlazaService $plaza,
+        private readonly CapsuleService $capsules,
+        private readonly FavoriteService $favorites,
+        private readonly AvatarCatalog $avatars,
+    ) {
     }
 
     public function home(Request $request): View
     {
-        $user = $this->hello->currentUser($request);
-        $data = $this->hello->plazaList($user['id'] ?? null, $request->query());
+        $user = $this->auth->currentUser($request);
+        $data = $this->plaza->plazaList($user['id'] ?? null, $request->query());
         return view('public.home', ['data' => $data, 'query' => $request->query()]);
     }
 
@@ -41,21 +49,21 @@ class PageController extends Controller
 
     public function create(Request $request): View|RedirectResponse
     {
-        if (!$this->hello->currentUser($request)) return redirect('/login?redirect=/create');
+        if (!$this->auth->currentUser($request)) return redirect('/login?redirect=/create');
         return view('capsules.create');
     }
 
     public function capsule(Request $request, string $code): View
     {
-        $user = $this->hello->currentUser($request);
-        $capsule = $this->hello->capsuleByCode($code, $user['id'] ?? null);
+        $user = $this->auth->currentUser($request);
+        $capsule = $this->capsules->capsuleByCode($code, $user['id'] ?? null);
         return view('capsules.detail', ['capsule' => $capsule]);
     }
 
     public function plazaDetail(Request $request, string $id): View
     {
-        $user = $this->hello->currentUser($request);
-        $capsule = $this->hello->plazaDetail($id, $user['id'] ?? null);
+        $user = $this->auth->currentUser($request);
+        $capsule = $this->plaza->plazaDetail($id, $user['id'] ?? null);
         return view('capsules.detail', ['capsule' => $capsule]);
     }
 
@@ -66,22 +74,22 @@ class PageController extends Controller
 
     public function created(Request $request): View|RedirectResponse
     {
-        $user = $this->hello->currentUser($request);
+        $user = $this->auth->currentUser($request);
         if (!$user) return redirect('/login?redirect=/me/created');
-        return view('me.created', ['data' => $this->hello->myCapsules($user, $request->query())]);
+        return view('me.created', ['data' => $this->capsules->myCapsules($user, $request->query())]);
     }
 
     public function favorites(Request $request): View|RedirectResponse
     {
-        $user = $this->hello->currentUser($request);
+        $user = $this->auth->currentUser($request);
         if (!$user) return redirect('/login?redirect=/me/favorites');
-        return view('me.favorites', ['data' => $this->hello->myFavorites($user, $request->query())]);
+        return view('me.favorites', ['data' => $this->favorites->myFavorites($user, $request->query())]);
     }
 
     public function profile(Request $request): View|RedirectResponse
     {
-        $user = $this->hello->currentUser($request);
+        $user = $this->auth->currentUser($request);
         if (!$user) return redirect('/login?redirect=/me/profile');
-        return view('me.profile', ['user' => $user, 'avatars' => $this->hello->avatars()]);
+        return view('me.profile', ['user' => $user, 'avatars' => $this->avatars->all()]);
     }
 }

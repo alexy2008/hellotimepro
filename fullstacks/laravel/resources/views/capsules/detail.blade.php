@@ -10,7 +10,7 @@
       @if($capsule['inPlaza'])<span class="cy-badge cy-badge--plaza">广场公开</span>@endif
       <span class="cy-capsule__code">{{ $capsule['code'] }}</span>
       <span style="color:var(--color-text-muted);font-size:var(--font-size-sm)">
-        @if($opened)· 开启于 {{ $hello->formatDateTime($capsule['openAt']) }}@else· 创建于 {{ $hello->formatDateTime($capsule['createdAt']) }}@endif
+        @if($opened)· 开启于 {{ $fmt->formatDateTime($capsule['openAt']) }}@else· 创建于 {{ $fmt->formatDateTime($capsule['createdAt']) }}@endif
       </span>
     </div>
 
@@ -46,7 +46,7 @@
           </div>
         </div>
         <div style="color:var(--color-text-secondary)">
-          开启于 <strong style="color:var(--color-text-primary)">{{ $hello->formatDateTime($capsule['openAt']) }}</strong>
+          开启于 <strong style="color:var(--color-text-primary)">{{ $fmt->formatDateTime($capsule['openAt']) }}</strong>
         </div>
       </div>
     @endif

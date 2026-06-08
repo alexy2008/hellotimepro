@@ -4,34 +4,37 @@ namespace App\Http\Controllers\Web;
 
 use App\Exceptions\ApiError;
 use App\Http\Controllers\Controller;
-use App\Services\HelloTimeService;
+use App\Services\AuthService;
+use App\Services\AvatarCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class AuthController extends Controller
 {
-    public function __construct(private readonly HelloTimeService $hello)
-    {
+    public function __construct(
+        private readonly AuthService $auth,
+        private readonly AvatarCatalog $avatars,
+    ) {
     }
 
     public function loginForm(Request $request): View|RedirectResponse
     {
-        if ($this->hello->currentUser($request)) return redirect('/');
+        if ($this->auth->currentUser($request)) return redirect('/');
         return view('auth.login');
     }
 
     public function registerForm(Request $request): View|RedirectResponse
     {
-        if ($this->hello->currentUser($request)) return redirect('/');
-        return view('auth.register', ['avatars' => $this->hello->avatars()]);
+        if ($this->auth->currentUser($request)) return redirect('/');
+        return view('auth.register', ['avatars' => $this->avatars->all()]);
     }
 
     public function login(Request $request): RedirectResponse
     {
         try {
-            $tokens = $this->hello->login($request->only(['email', 'password']));
-            return redirect($this->safeRedirect((string)$request->query('redirect', '/me/created')))
+            $tokens = $this->auth->login($request->only(['email', 'password']));
+            return redirect($this->safeRedirect((string) $request->query('redirect', '/me/created')))
                 ->withCookies($this->authCookies($tokens['accessToken'], $tokens['refreshToken']));
         } catch (ApiError $e) {
             return back()->withInput($request->only('email'))->with('error', $e->getMessage());
@@ -41,7 +44,7 @@ class AuthController extends Controller
     public function register(Request $request): RedirectResponse
     {
         try {
-            $tokens = $this->hello->register($request->only(['email', 'password', 'nickname', 'avatarId']));
+            $tokens = $this->auth->register($request->only(['email', 'password', 'nickname', 'avatarId']));
             return redirect('/create')->withCookies($this->authCookies($tokens['accessToken'], $tokens['refreshToken']));
         } catch (ApiError $e) {
             return back()->withInput($request->except('password'))->with('error', $e->getMessage());
@@ -50,7 +53,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
-        $this->hello->logout((string)$request->cookies->get('ht_refresh', ''));
+        $this->auth->logout((string) $request->cookies->get('ht_refresh', ''));
         return redirect('/login')->withCookie(cookie()->forget('ht_access'))->withCookie(cookie()->forget('ht_refresh'));
     }
 
