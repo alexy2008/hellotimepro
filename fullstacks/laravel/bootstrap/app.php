@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'ht_access',
             'ht_refresh',
         ]);
+        // 为 /api/* 路由启用 CORS，允许前端 SPA 跨域访问（配置见 config/cors.php）
+        $middleware->prependToGroup('api', \Illuminate\Http\Middleware\HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS capsules (
 CREATE UNIQUE INDEX IF NOT EXISTS capsules_code_uk          ON capsules (code);
 CREATE INDEX        IF NOT EXISTS capsules_plaza_hot_ix     ON capsules (in_plaza, favorite_count DESC, created_at DESC);
 CREATE INDEX        IF NOT EXISTS capsules_plaza_new_ix     ON capsules (in_plaza, created_at DESC);
+CREATE INDEX        IF NOT EXISTS capsules_plaza_open_at_ix ON capsules (in_plaza, open_at);
 CREATE INDEX        IF NOT EXISTS capsules_owner_created_ix ON capsules (owner_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS favorites (

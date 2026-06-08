@@ -7,8 +7,8 @@
 # 启动前自动：
 #   1) npm install（首次）
 #   2) 同步 spec 静态资产到 public/
-#   3) 执行迁移（drizzle/{driver}/0001_init.sql）
-#   4) 构建并启动 Nitro node-server
+#   3) 构建并启动 Nitro node-server
+# 注意：schema 生命周期由仓库级 scripts/db init / reset 管理，run 不执行迁移。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,13 +31,13 @@ rsync -a --delete "$SPEC_DIR/icons/" public/static/icons/ 2>/dev/null || cp -R "
 rsync -a --delete "$SPEC_DIR/avatars/" public/static/avatars/ 2>/dev/null || cp -R "$SPEC_DIR/avatars/." public/static/avatars/
 cp "$SPEC_DIR/assets/logo.svg" public/logo.svg
 
+# 数据库配置（schema 生命周期由仓库级 ./scripts/db init/reset 管理，run 不做迁移）
 DRIVER="${DB_DRIVER:-postgres}"
 if [[ "$DRIVER" == "sqlite" ]]; then
   mkdir -p "$REPO_ROOT/data/sqlite"
   : "${DB_URL:=file:$REPO_ROOT/data/sqlite/hellotime-nuxt.db}"
 fi
 export DB_DRIVER="$DRIVER" DB_URL="${DB_URL:-}"
-npx tsx scripts/migrate.ts
 
 export PORT="${PORT:-7178}"
 npm run build

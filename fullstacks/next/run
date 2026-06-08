@@ -7,10 +7,9 @@
 # 启动前自动：
 #   1) npm install（首次）
 #   2) 同步 spec/avatars 与 spec/icons 到 public/static
-#   3) 执行迁移（drizzle/{driver}/0001_init.sql）
-#   4) 生产构建后再启动（与 nuxt 全栈一致）。dev 的懒编译会让首次访问各路由
-#      现场编译，在负载机上撞穿 Playwright 导航超时；生产构建预编译全部路由，
-#      导航稳定、快速。需要热重载开发时改用 `npm run dev`。
+#   3) 生产构建后再启动（预编译全部路由，避免 dev 懒编译撞穿 Playwright 超时）
+# 注意：schema 生命周期由仓库级 scripts/db init / reset 管理，run 不执行迁移。
+# 需要热重载开发时改用 `npm run dev`。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,14 +32,13 @@ mkdir -p public/static/icons public/static/avatars
 rsync -a --delete "$SPEC_DIR/icons/" public/static/icons/  2>/dev/null || cp -R "$SPEC_DIR/icons/." public/static/icons/
 rsync -a --delete "$SPEC_DIR/avatars/" public/static/avatars/ 2>/dev/null || cp -R "$SPEC_DIR/avatars/." public/static/avatars/
 
-# 数据库迁移
+# 数据库配置（schema 生命周期由仓库级 ./scripts/db init/reset 管理，run 不做迁移）
 DRIVER="${DB_DRIVER:-postgres}"
 if [[ "$DRIVER" == "sqlite" ]]; then
   mkdir -p "$REPO_ROOT/data/sqlite"
   : "${DB_URL:=file:$REPO_ROOT/data/sqlite/hellotime-next.db}"
 fi
 export DB_DRIVER="$DRIVER" DB_URL="${DB_URL:-}"
-npx tsx scripts/migrate.ts
 
 # 生产构建后启动（预编译全部路由，避免 dev 懒编译在测试中超时）
 npm run build
