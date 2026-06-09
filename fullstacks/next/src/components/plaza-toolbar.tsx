@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePlazaStore } from "@/stores/plaza-store";
+// 广场工具栏（客户端孤岛）：排序/筛选/搜索都改写 URL searchParams，由服务端组件
+// 据此重新取数渲染。本身不持有列表数据。
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { PlazaFilter, PlazaSort } from "@/types";
 
 const SORTS: Array<{ key: PlazaSort; label: string }> = [
@@ -15,22 +17,43 @@ const FILTERS: Array<{ key: PlazaFilter; label: string }> = [
   { key: "unopened", label: "未开启" },
 ];
 
-export function PlazaToolbar() {
-  const sort = usePlazaStore((s) => s.sort);
-  const filter = usePlazaStore((s) => s.filter);
-  const q = usePlazaStore((s) => s.q);
-  const setSort = usePlazaStore((s) => s.setSort);
-  const setFilter = usePlazaStore((s) => s.setFilter);
-  const setQ = usePlazaStore((s) => s.setQ);
+function buildHref(next: { sort: PlazaSort; filter: PlazaFilter; q: string }) {
+  const usp = new URLSearchParams();
+  if (next.sort !== "new") usp.set("sort", next.sort);
+  if (next.filter !== "all") usp.set("filter", next.filter);
+  if (next.q) usp.set("q", next.q);
+  const qs = usp.toString();
+  return qs ? `/?${qs}` : "/";
+}
 
-  // 300ms 防抖
+export function PlazaToolbar({
+  sort,
+  filter,
+  q,
+}: {
+  sort: PlazaSort;
+  filter: PlazaFilter;
+  q: string;
+}) {
+  const router = useRouter();
   const [draft, setDraft] = useState(q);
+  const lastPushed = useRef(q);
+
+  // URL 上的 q 变化（如返回/前进）时同步输入框。
   useEffect(() => {
+    setDraft(q);
+    lastPushed.current = q;
+  }, [q]);
+
+  // 搜索 300ms 防抖后改写 URL（重置到第一页）。
+  useEffect(() => {
+    if (draft === lastPushed.current) return;
     const t = window.setTimeout(() => {
-      if (draft !== q) setQ(draft);
+      lastPushed.current = draft;
+      router.push(buildHref({ sort, filter, q: draft }));
     }, 300);
     return () => window.clearTimeout(t);
-  }, [draft, q, setQ]);
+  }, [draft, sort, filter, router]);
 
   return (
     <div className="cy-toolbar">
@@ -41,7 +64,7 @@ export function PlazaToolbar() {
               key={s.key}
               type="button"
               className={s.key === sort ? "cy-seg__active" : ""}
-              onClick={() => setSort(s.key)}
+              onClick={() => router.push(buildHref({ sort: s.key, filter, q: draft }))}
             >
               {s.label}
             </button>
@@ -53,7 +76,7 @@ export function PlazaToolbar() {
               key={f.key}
               type="button"
               className={f.key === filter ? "cy-seg__active" : ""}
-              onClick={() => setFilter(f.key)}
+              onClick={() => router.push(buildHref({ sort, filter: f.key, q: draft }))}
             >
               {f.label}
             </button>

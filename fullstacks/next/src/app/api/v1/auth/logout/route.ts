@@ -3,6 +3,7 @@ import { withApi } from "@/lib/server/envelope";
 import { parseJson } from "@/lib/server/parse-body";
 import { logoutSchema } from "@/lib/validation/schemas";
 import { logout } from "@/services/auth";
+import { clearSessionCookie } from "@/lib/server/session";
 
 export async function POST(req: NextRequest) {
   return withApi(async () => {
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
       refreshToken = undefined;
     }
     await logout(refreshToken);
+    await clearSessionCookie();
     return null;
   }, { successStatus: 204, emptyBody: true });
 }

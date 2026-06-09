@@ -184,14 +184,17 @@ trap cleanup EXIT
 
 wait_health() {
   local url="$BASE_URL/api/v1/health"
-  for i in $(seq 1 60); do
+  # 就绪等待秒数可用 READY_TIMEOUT 覆盖：next 等需要冷构建（next build 的类型检查+lint）
+  # 的全栈首次启动可能超过默认 60s。
+  local timeout="${READY_TIMEOUT:-60}"
+  for i in $(seq 1 "$timeout"); do
     if curl -fsS -o /dev/null "$url" 2>/dev/null; then
       echo "✓ $TARGET 已就绪（$i 次轮询）"
       return 0
     fi
     sleep 1
   done
-  echo "✗ $TARGET 未在 60s 内就绪" >&2
+  echo "✗ $TARGET 未在 ${timeout}s 内就绪" >&2
   echo "  查看日志: tail $ROOT/data/logs/$TARGET.log" >&2
   return 1
 }

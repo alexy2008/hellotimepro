@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { CapsuleDetail as CapsuleDetailT } from "@/types";
 import { avatarUrl } from "@/lib/avatar";
 import { countdownTo, fmtDateTime } from "@/lib/format";
@@ -59,6 +60,7 @@ export function CapsuleDetail({
   onExpired?: () => Promise<CapsuleDetailT | null | void>;
 }) {
   const opened = capsule.isOpened;
+  const router = useRouter();
 
   const [now, setNow] = useState(() => Date.now());
   const [autoOpening, setAutoOpening] = useState(false);
@@ -70,7 +72,7 @@ export function CapsuleDetail({
   }, [opened]);
 
   useEffect(() => {
-    if (opened || !onExpired) return;
+    if (opened) return;
 
     const openAt = new Date(capsule.openAt).getTime();
     if (Number.isNaN(openAt)) return;
@@ -82,9 +84,15 @@ export function CapsuleDetail({
       if (!alive) return;
       setAutoOpening(true);
       try {
-        const refreshed = await onExpired?.();
-        if (alive && !refreshed?.isOpened) {
-          timer = window.setTimeout(refreshAfterExpiry, 1000);
+        if (onExpired) {
+          // 客户端取数模式（如旧 SPA 详情页）：调用方负责重新拉取。
+          const refreshed = await onExpired();
+          if (alive && !refreshed?.isOpened) {
+            timer = window.setTimeout(refreshAfterExpiry, 1000);
+          }
+        } else {
+          // RSC 模式：刷新服务端组件即可重新取数并揭示已开启内容。
+          router.refresh();
         }
       } finally {
         if (alive) setAutoOpening(false);
@@ -100,7 +108,7 @@ export function CapsuleDetail({
       alive = false;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [capsule.openAt, onExpired, opened]);
+  }, [capsule.openAt, onExpired, opened, router]);
 
   const cd = countdownTo(capsule.openAt, now);
   const [codeCopied, setCodeCopied] = useState(false);
