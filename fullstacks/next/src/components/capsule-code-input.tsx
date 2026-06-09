@@ -16,8 +16,19 @@ export function CapsuleCodeInput({ value, onChange, onComplete }: Props) {
     (value[i] ?? "").toUpperCase(),
   );
 
+  // 完成回调只在「value 首次凑齐 8 位」时触发一次；value 变化（如清空重输）时复位。
+  // 调用方的 onComplete 多为内联函数（引用每次渲染都变），不能仅靠 effect 依赖去抖——
+  // 否则 router.push 触发的重渲染会让 effect 反复重跑、新导航 abort 旧导航，永远跳不过去。
+  const completedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (value.length === LEN) onComplete?.(value);
+    if (value.length === LEN) {
+      if (completedFor.current !== value) {
+        completedFor.current = value;
+        onComplete?.(value);
+      }
+    } else {
+      completedFor.current = null;
+    }
   }, [value, onComplete]);
 
   function setAt(i: number, ch: string) {
