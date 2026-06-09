@@ -19,29 +19,29 @@
     @if($opened)
       <div class="cy-capsule-detail__content">{{ $capsule['content'] }}</div>
     @else
-      <div class="cy-capsule-detail__sealed" data-open-at="{{ $capsule['openAt'] }}">
+      <div x-data="countdown('{{ $capsule['openAt'] }}')" class="cy-capsule-detail__sealed">
         <div style="font-size:var(--font-size-4xl);opacity:.7">🔒</div>
         <div style="color:var(--color-text-secondary);margin-top:var(--space-3);font-size:var(--font-size-sm);letter-spacing:.1em">
           这封信还在上锁，将在以下时刻开启
         </div>
         <div class="cy-cal">
           <div class="cy-cal-unit cy-cal-unit--wide">
-            <div class="cy-cal-card cy-cal-card--wide"><div class="cy-cal-crease"></div><span class="cy-cal-num" data-unit="days">0</span></div>
+            <div class="cy-cal-card cy-cal-card--wide"><div class="cy-cal-crease"></div><span class="cy-cal-num" x-text="days">0</span></div>
             <span class="cy-cal-label">天</span>
           </div>
           <span class="cy-cal-sep">:</span>
           <div class="cy-cal-unit">
-            <div class="cy-cal-card"><div class="cy-cal-crease"></div><span class="cy-cal-num" data-unit="hours">00</span></div>
+            <div class="cy-cal-card"><div class="cy-cal-crease"></div><span class="cy-cal-num" x-text="pad(hours)">00</span></div>
             <span class="cy-cal-label">时</span>
           </div>
           <span class="cy-cal-sep">:</span>
           <div class="cy-cal-unit">
-            <div class="cy-cal-card"><div class="cy-cal-crease"></div><span class="cy-cal-num" data-unit="minutes">00</span></div>
+            <div class="cy-cal-card"><div class="cy-cal-crease"></div><span class="cy-cal-num" x-text="pad(minutes)">00</span></div>
             <span class="cy-cal-label">分</span>
           </div>
           <span class="cy-cal-sep">:</span>
           <div class="cy-cal-unit">
-            <div class="cy-cal-card"><div class="cy-cal-crease"></div><span class="cy-cal-num" data-unit="seconds">00</span></div>
+            <div class="cy-cal-card"><div class="cy-cal-crease"></div><span class="cy-cal-num" x-text="pad(seconds)">00</span></div>
             <span class="cy-cal-label">秒</span>
           </div>
         </div>
@@ -57,14 +57,16 @@
         <img src="/static/avatars/{{ $capsule['creator']['avatarId'] }}.svg" alt="" style="width:32px;height:32px;border-radius:50%">
         <strong style="color:var(--color-text-primary)">{{ $capsule['creator']['nickname'] }}</strong>
       </div>
-      <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
-        <button type="button" class="cy-btn cy-btn--ghost" data-copy-code="{{ $capsule['code'] }}">📎 复制 8 位码</button>
-        <button type="button" class="cy-btn cy-btn--ghost" data-share-code="{{ $capsule['code'] }}">🔗 分享链接</button>
-        <button type="button" class="cy-capsule__fav {{ $capsule['favoritedByMe'] ? 'is-active' : '' }}"
-                aria-label="收藏" data-capsule-id="{{ $capsule['id'] }}" @if($currentUser) data-authenticated="1" @endif>
-          <span class="cy-fav-icon">{{ $capsule['favoritedByMe'] ? '♥' : '♡' }}</span>
-          <span class="cy-fav-count" data-fav-count>{{ $capsule['favoriteCount'] }}</span>
-        </button>
+      <div x-data="shareActions('{{ $capsule['code'] }}')" style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+        <button type="button" class="cy-btn cy-btn--ghost" @click="copyCode()" x-text="copied ? '已复制' : '📎 复制 8 位码'">📎 复制 8 位码</button>
+        <button type="button" class="cy-btn cy-btn--ghost" @click="shareLink()">🔗 分享链接</button>
+        <div x-data="favButton('{{ $capsule['id'] }}', {{ $currentUser ? 'true' : 'false' }}, {{ $capsule['favoriteCount'] }}, {{ $capsule['favoritedByMe'] ? 'true' : 'false' }})">
+          <button type="button" class="cy-capsule__fav" :class="{ 'is-active': active }"
+                  @click="toggle()" aria-label="收藏">
+            <span class="cy-fav-icon" x-text="active ? '♥' : '♡'">♡</span>
+            <span class="cy-fav-count" x-text="count">{{ $capsule['favoriteCount'] }}</span>
+          </button>
+        </div>
       </div>
     </div>
 

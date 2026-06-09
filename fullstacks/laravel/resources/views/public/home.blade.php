@@ -43,7 +43,8 @@
       <input type="hidden" name="sort" value="{{ $sort }}">
       <input type="hidden" name="filter" value="{{ $filter }}">
       <span class="cy-search__icon" aria-hidden="true">🔍</span>
-      <input type="search" class="cy-search__input" name="q" placeholder="搜索标题或昵称…" maxlength="50" value="{{ $q }}">
+      <input type="search" class="cy-search__input" name="q" placeholder="搜索标题或昵称…" maxlength="50" value="{{ $q }}"
+             @input.debounce.300ms="$el.form.submit()">
     </form>
   </div>
 

@@ -12,10 +12,14 @@
   @endphp
   <link rel="stylesheet" href="/css/app.css?v={{ $cssV }}">
   <style>[x-cloak]{display:none!important}</style>
-  <script src="/js/alpine.min.js" defer></script>
+  {{-- app.js 注册 Alpine.data/store，必须在 Alpine 核心之前执行（两者皆 defer，按文档顺序运行），
+       否则 Alpine 启动并派发 alpine:init 时组件尚未登记。 --}}
   <script src="/js/app.js?v={{ $jsV }}" defer></script>
+  <script src="/js/alpine.min.js" defer></script>
 </head>
-<body x-data="{ theme: localStorage.getItem('theme') || 'dark' }" x-init="document.documentElement.dataset.theme = theme; $watch('theme', value => { document.documentElement.dataset.theme = value; localStorage.setItem('theme', value) })">
+{{-- 空 x-data 提供页面级 Alpine 根作用域，使 header 主题切换、广场搜索等
+     不在独立组件内的 @click/@input 指令与 $store 生效。 --}}
+<body x-data>
   <header class="cy-header">
     <div class="cy-container cy-header__inner">
       <a href="/" class="cy-brand">
@@ -28,15 +32,15 @@
         <a href="/about">关于</a>
       </nav>
       <div class="cy-header__actions">
-        <button type="button" class="cy-theme-toggle" aria-label="切换主题" @click="theme = theme === 'dark' ? 'light' : 'dark'"><span>☾</span></button>
+        <button type="button" class="cy-theme-toggle" aria-label="切换主题" @click="$store.theme.toggle()"><span>☾</span></button>
         @if($currentUser)
-          <div class="cy-user-menu">
-            <button type="button" class="cy-user-chip cy-user-chip--button" aria-haspopup="menu" aria-expanded="false" title="{{ $currentUser['nickname'] }}" aria-label="{{ $currentUser['nickname'] }} 的菜单">
+          <div x-data="{ open: false }" class="cy-user-menu">
+            <button type="button" class="cy-user-chip cy-user-chip--button" @click="open = !open" :aria-expanded="String(open)" title="{{ $currentUser['nickname'] }}" aria-label="{{ $currentUser['nickname'] }} 的菜单">
               <span>{{ $fmt->shortName($currentUser['nickname']) }}</span>
               <img src="/static/avatars/{{ $currentUser['avatar_id'] }}.svg" alt="">
               <span class="cy-user-chip__chevron" aria-hidden="true">⌄</span>
             </button>
-            <div class="cy-user-dropdown" role="menu" hidden>
+            <div class="cy-user-dropdown" role="menu" x-show="open" x-cloak @click.outside="open = false" x-transition.opacity.duration.100ms>
               <a href="/me/created" role="menuitem" class="cy-user-dropdown__item"><span>📝</span><span>我创建的</span></a>
               <a href="/me/favorites" role="menuitem" class="cy-user-dropdown__item"><span>♥</span><span>我收藏的</span></a>
               <a href="/me/profile" role="menuitem" class="cy-user-dropdown__item"><span>⚙</span><span>账号设置</span></a>

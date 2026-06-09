@@ -26,17 +26,20 @@
       </div>
       <div class="cy-field">
         <label>选择头像（必选）</label>
-        <input type="hidden" name="avatarId" id="avatarId" value="{{ $selected }}">
-        <div class="cy-avatar-picker" role="radiogroup" aria-label="选择头像">
-          @foreach($avatars as $avatar)
-            <button type="button" role="radio"
-              class="cy-avatar-picker__item {{ $selected === $avatar['id'] ? 'is-selected' : '' }}"
-              aria-checked="{{ $selected === $avatar['id'] ? 'true' : 'false' }}"
-              title="{{ $avatar['name'] }}" aria-label="{{ $avatar['name'] }}"
-              onclick="document.getElementById('avatarId').value='{{ $avatar['id'] }}';document.querySelectorAll('.cy-avatar-picker__item').forEach(b=>{b.classList.remove('is-selected');b.setAttribute('aria-checked','false')});this.classList.add('is-selected');this.setAttribute('aria-checked','true')">
-              <img src="/static/avatars/{{ $avatar['id'] }}.svg" alt="{{ $avatar['name'] }}">
-            </button>
-          @endforeach
+        <div x-data="avatarPicker('{{ $selected }}')">
+          <input type="hidden" name="avatarId" id="avatarId" :value="selected">
+          <div class="cy-avatar-picker" role="radiogroup" aria-label="选择头像">
+            @foreach($avatars as $avatar)
+              <button type="button" role="radio"
+                class="cy-avatar-picker__item"
+                :class="{ 'is-selected': selected === '{{ $avatar['id'] }}' }"
+                :aria-checked="selected === '{{ $avatar['id'] }}' ? 'true' : 'false'"
+                title="{{ $avatar['name'] }}" aria-label="{{ $avatar['name'] }}"
+                @click="selected = '{{ $avatar['id'] }}'">
+                <img src="/static/avatars/{{ $avatar['id'] }}.svg" alt="{{ $avatar['name'] }}">
+              </button>
+            @endforeach
+          </div>
         </div>
         <span class="cy-field__hint">10 个内置头像，不支持上传自定义头像（M1 版本）。</span>
       </div>

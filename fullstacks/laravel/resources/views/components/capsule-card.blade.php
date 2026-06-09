@@ -12,7 +12,7 @@
   </a>
 
   @if(!$opened)
-    <p class="cy-capsule__countdown" data-open-at="{{ $capsule['openAt'] }}" data-compact="1">⏳ {{ $fmt->countdownText($capsule['openAt']) }}</p>
+    <p x-data="countdown('{{ $capsule['openAt'] }}')" x-text="compactText" class="cy-capsule__countdown">⏳ 加载中…</p>
   @elseif(!empty($capsule['contentPreview']))
     <p class="cy-capsule__preview">{{ $capsule['contentPreview'] }}</p>
   @endif
@@ -32,18 +32,20 @@
         <span style="color:var(--color-favorite-active)">♥ {{ $capsule['favoriteCount'] }}</span>
       @else
         <form method="post" action="/me/capsules/{{ $capsule['id'] }}/delete" style="margin:0"
-              onsubmit="return confirm('确认撤回？此操作不可恢复。')">
+              x-data @submit="if(!confirm('确认撤回？此操作不可恢复。')) $event.preventDefault()">
           @csrf
           <button type="submit" class="cy-btn cy-btn--ghost cy-btn--sm"
                   style="min-height:28px;padding:4px 12px;color:var(--color-danger-fg)">撤回</button>
         </form>
       @endif
     @else
-      <button type="button" class="cy-capsule__fav {{ $capsule['favoritedByMe'] ? 'is-active' : '' }}"
-              aria-label="收藏" data-capsule-id="{{ $capsule['id'] }}" @if($currentUser) data-authenticated="1" @endif>
-        <span class="cy-fav-icon">{{ $capsule['favoritedByMe'] ? '♥' : '♡' }}</span>
-        <span class="cy-fav-count" data-fav-count>{{ $capsule['favoriteCount'] }}</span>
-      </button>
+      <div x-data="favButton('{{ $capsule['id'] }}', {{ $currentUser ? 'true' : 'false' }}, {{ $capsule['favoriteCount'] }}, {{ $capsule['favoritedByMe'] ? 'true' : 'false' }})">
+        <button type="button" class="cy-capsule__fav" :class="{ 'is-active': active }"
+                @click="toggle()" aria-label="收藏">
+          <span class="cy-fav-icon" x-text="active ? '♥' : '♡'">♡</span>
+          <span class="cy-fav-count" x-text="count">{{ $capsule['favoriteCount'] }}</span>
+        </button>
+      </div>
     @endif
   </div>
 </article>

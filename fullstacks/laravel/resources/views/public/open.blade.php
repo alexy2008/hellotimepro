@@ -7,9 +7,10 @@
     <h1>用 8 位密钥开启胶囊</h1>
     <p>输入朋友分享给你的 8 位大写字母和数字，凑齐后会自动跳转到胶囊。</p>
 
-    <div class="cy-code-input" style="margin-bottom:var(--space-8)">
-      @for($i = 1; $i <= 8; $i++)
-        <input maxlength="1" inputmode="text" aria-label="第 {{ $i }} 位">
+    <div x-data="codeInput()" class="cy-code-input" style="margin-bottom:var(--space-8)">
+      @for($i = 0; $i < 8; $i++)
+        <input x-ref="d{{ $i }}" x-model="d[{{ $i }}]" @input="onInput({{ $i }})" @paste="onPaste($event)"
+               maxlength="1" inputmode="text" aria-label="第 {{ $i + 1 }} 位">
       @endfor
     </div>
 
