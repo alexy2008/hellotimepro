@@ -36,7 +36,7 @@ fullstacks/next/
 ├── next.config.ts            # Next 配置（基本是空的；只标 better-sqlite3 不要打包）
 ├── tsconfig.json             # 全栈共用 TS 配置
 ├── drizzle.config.ts         # drizzle-kit 配置（根据 DB_DRIVER 选 schema 与方言）
-├── scripts/migrate.ts        # 启动前跑迁移的独立脚本
+├── scripts/migrate.ts        # 一次性迁移脚本（run 不再自动调用，schema 由 ./scripts/db 管理）
 ├── public/                   # 静态资源（rsync 来的 SVG），Next 直接以 / 暴露
 ├── drizzle/{pg,sqlite}/      # 两套 SQL 迁移
 ├── run                       # 一键启动脚本
@@ -67,6 +67,7 @@ fullstacks/next/
     │   │   ├── errors.ts     # ApiError + ERR.xxx 工厂
     │   │   ├── current-user.ts  # 解析 Authorization 头 → claims
     │   │   ├── security.ts   # bcrypt / JWT (jose) / refresh token
+    │   │   ├── session.ts    # ht_session httpOnly cookie（RSC 用户识别）
     │   │   └── parse-body.ts # Zod 校验请求体
     │   └── validation/schemas.ts  # 前后端共享的 Zod 校验
     ├── services/             # 业务层（"server-only"）：auth/capsules/favorites/plaza/me/...
@@ -81,28 +82,28 @@ fullstacks/next/
 一次「打开广场页 + 点收藏」的端到端流向：
 
 ```text
-浏览器                                    Next.js 进程（端口 7177）
-  │                                          ┃
-  │ GET /                                    ┃
-  ├─────────────────────────────────────────►┃ matches src/app/page.tsx
-  │                                          ┃ (Client Component, 但壳由 layout.tsx 在服务端生成)
-  │ ◄─────────────  HTML + bundle  ──────────┃
-  │ React hydrate 后挂起 Zustand store        ┃
-  │                                          ┃
-  │ fetch /api/v1/plaza/capsules?sort=hot    ┃
-  ├─────────────────────────────────────────►┃ matches src/app/api/v1/plaza/capsules/route.ts
-  │                                          ┃   → GET(req)
-  │                                          ┃   → services/plaza.ts (直接 import，没有 HTTP)
-  │                                          ┃   → db/index.ts → Drizzle → Postgres/SQLite
-  │ ◄────────  JSON envelope  ───────────────┃
-  │                                          ┃
-  │ 渲染 CapsuleCard 列表                    ┃
-  │ 点收藏 → POST /api/v1/me/favorites       ┃
-  ├─────────────────────────────────────────►┃ Route Handler → services/favorites.ts → DB
-  │ ◄────────  { favoriteCount: 6 }  ───────┃
+浏览器                                      Next.js 进程（端口 7177）
+  │                                            ┃
+  │ GET /  （浏览器自动携带 ht_session cookie） ┃
+  ├───────────────────────────────────────────►┃ matches src/app/page.tsx
+  │                                            ┃ (Server Component，async function)
+  │                                            ┃   → getServerViewer()（读 cookie → 解 JWT → 用户）
+  │                                            ┃   → plazaList()（直接调服务层，无 HTTP）
+  │                                            ┃   → db/index.ts → Drizzle → Postgres/SQLite
+  │ ◄────────  含胶囊列表的完整 HTML  ──────────┃
+  │ React hydrate PlazaToolbar（客户端孤岛）   ┃
+  │                                            ┃
+  │ 用户点「🔥 热门」→ URL 改为 /?sort=hot    ┃
+  │ GET /?sort=hot  （RSC 重取，?_rsc=...）    ┃
+  ├───────────────────────────────────────────►┃ re-render page.tsx（新参数）→ plazaList(hot)
+  │ ◄────────  更新后的 HTML 片段  ────────────┃
+  │                                            ┃
+  │ 点收藏 → POST /api/v1/me/favorites         ┃
+  ├───────────────────────────────────────────►┃ Route Handler → services/favorites.ts → DB
+  │ ◄────────  { favoriteCount: 6 }  ─────────┃
 ```
 
-> **关键洞察**：在这个项目里，浏览器**仍然**通过 HTTP `/api/v1/*` 调用后端——不是因为不得不，而是 **刻意选了这条边界**，让客户端组件代码与同仓库的 React-SPA 几乎完全一样，便于教学对比。如果想，Server Component 完全可以 `import { listPlaza } from "@/services/plaza"` 跳过 HTTP 直接读 DB（详见 §5.4）。
+> **关键洞察**：广场页和胶囊详情页是 **Server Component**——浏览器拿到的 HTML 已经包含数据，无须客户端再发 fetch 请求。`PlazaToolbar` 是客户端孤岛（`"use client"`），负责改写 URL；URL 变化触发 Next.js 向服务端请求新的 RSC 片段，服务端重新查 DB 后返回。交互型页面（登录、创建、「我的」）仍是 Client Component + `/api/v1/*`，与 React/Vue SPA 保持一致，便于多栈对比。
 
 ## 3. 如何运行和验证
 
@@ -118,10 +119,12 @@ DB_DRIVER=sqlite ./run         # 零依赖跑 SQLite
 
 1. 检查 `node_modules`，没有就 `npm install`。
 2. `rsync` 把仓库 `spec/icons` 和 `spec/avatars` 复制到 `public/static/`——Next 把 `public/` 目录下所有文件按根路径直接暴露（`public/static/icons/xxx.svg` ↔ `/static/icons/xxx.svg`）。
-3. **`tsx scripts/migrate.ts`**：在启动前跑数据库迁移。
-4. `npm run dev` → 启动 Next dev server。
+3. **`npm run build`**：生产构建——预编译全部路由，避免 dev 懒编译在 Playwright 测试中超时。
+4. **`npm run start`**：以生产模式启动服务器（端口 7177）。
 
-**注意**：与 React SPA 不同，**没有 `vite.config.ts` 的 proxy 配置**，因为前端和 API 是同一个 origin。也没有独立后端进程要起。
+> **注意**：**schema 生命周期由仓库级 `./scripts/db init / reset` 管理，`./run` 不执行迁移**。首次使用前需先执行 `./scripts/db init`。需要热重载开发时改用 `npm run dev`。
+
+与 React SPA 不同，**没有 `vite.config.ts` 的 proxy 配置**，因为前端和 API 是同一个 origin。也没有独立后端进程要起。
 
 ## 4. 入口与三类文件：`layout.tsx` / `page.tsx` / `route.ts`
 
@@ -162,24 +165,40 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 - `export const metadata` 让 Next 在 `<head>` 自动注入 title / favicon / og 等。**完全不需要写 `<head>`**。
 - `{children}` 是 Next 给的 prop，被替换成当前路由匹配的 `page.tsx`（或更深层的 `layout.tsx` 链）。
 
-### 3.2 `src/app/page.tsx`：广场页（Client Component）
+### 3.2 `src/app/page.tsx`：广场页（Server Component）
 
-文件开头标了 `"use client"`，说明这是个 **Client Component**。教学项目几乎所有 `page.tsx` 都是 Client Component，因为它们用了 Zustand、`useEffect`、点击交互——这些只能在浏览器跑。
+文件**无 `"use client"` 指令**，配合 `export const dynamic = "force-dynamic"` 与 `export const runtime = "nodejs"`，这是一个 **异步 Server Component**——每次 GET `/` 时在服务端执行，渲染结果以完整 HTML 直接发给浏览器，**不需要客户端再发 fetch 请求拿列表数据**。
 
 ```tsx
-"use client";
-import { useEffect } from "react";
-import { usePlazaStore } from "@/stores/plaza-store";
-...
-export default function PlazaPage() {
-  const items = usePlazaStore((s) => s.items);
-  const fetchPlaza = usePlazaStore((s) => s.fetch);
-  useEffect(() => { void fetchPlaza(); }, [fetchPlaza]);
-  return <CapsuleGrid items={items} ... />;
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+export default async function PlazaPage({ searchParams }: Props) {
+  const { sort, filter, q, page } = parseParams(await searchParams);
+  const viewer = await getServerViewer();        // 读 ht_session cookie → 解 JWT → 用户
+  const data = await plazaList({                 // 直接调服务层，绕过 HTTP
+    sort, filter, q: q || null, page,
+    pageSize: PAGE_SIZE,
+    viewerId: viewer?.id ?? null,
+  });
+  return (
+    <main className="cy-container">
+      <PlazaToolbar sort={sort} filter={filter} q={q} />   {/* 客户端孤岛 */}
+      <CapsuleGrid items={data.items} viewer={viewer} />
+      <Pagination ... />
+    </main>
+  );
 }
 ```
 
-跟 React SPA 版的 `PlazaPage.tsx` 几乎一样。
+要点：
+
+- **`async function Page()`**：Page 是 `async`，可以在函数体内直接 `await`，服务端渲染完整 HTML 后发送。
+- **`getServerViewer()`**：读浏览器自动携带的 `ht_session` httpOnly cookie（由登录/注册 Route Handler 写入），解码 JWT 得到当前用户信息。SPA 前端把 token 存在 localStorage，RSC 在服务端无法读取 localStorage，因此需要这枚额外的 cookie（详见 §4.5）。
+- **`plazaList()`**：直接 import 服务层函数，**零 HTTP 开销**——调用链：`page.tsx → services/plaza.ts → db/index.ts → Drizzle → DB`。
+- **`PlazaToolbar`** 是 `"use client"` **客户端孤岛**：它接收 `sort/filter/q` 作为 prop，用户操作后通过 `router.push("/?sort=hot")` 改写 URL，Next.js 向服务端发起新的 RSC 请求（`?_rsc=...`），服务端用新参数重新查 DB 后返回 HTML 片段——**客户端无须维护 plaza 状态**。
+
+与 React SPA 版的区别：SPA 版 `PlazaPage` 在 `useEffect` 里 `fetch /api/v1/plaza/capsules` 然后更新 Zustand store，客户端 JS 负责渲染；这里服务端直接查 DB 发完整 HTML，**无 loading 状态、无额外 fetch 延迟、首屏已含数据**。
 
 ### 3.3 `src/app/api/v1/health/route.ts`：REST 端点
 
@@ -250,7 +269,7 @@ export async function PATCH(req: NextRequest) {
 | 能不能 `async function Page()` | ✅ 顶层 await | ❌（要数据走 `useEffect` + fetch） |
 | 打包到 JS bundle | ❌ 不进 | ✅ 进 |
 
-本项目几乎所有页面是 **Client Component**——因为它们用 Zustand store。`src/app/layout.tsx` 是 Server Component，只做静态壳和元数据。
+广场页（`src/app/page.tsx`）和胶囊详情页（`src/app/c/[code]/page.tsx`）是 **Server Component**——直接在服务端查 DB 后发完整 HTML，无须客户端 fetch。登录、创建、「我的」等重度交互页面是 **Client Component**，因为它们依赖 Zustand store 和实时交互。`src/app/layout.tsx` 是静态 Server Component，只做 HTML 外壳与元数据。
 
 > **可以混用**：Server Component 里可以渲染 Client Component，反过来不行（Client Component 不能直接渲染 Server Component，但可以通过 `children` prop 间接接收）。
 
@@ -296,7 +315,45 @@ export default async function PlazaPage() {
 
 **这是「全栈框架」的最大魅力**——零网络开销、共享类型、共享事务上下文。
 
-> 本项目刻意没走这条路：所有页面都通过 `/api/v1/*` 调用，保持和 React/Vue/Angular SPA 一致的客户端体验，便于多栈对比。但读者应该知道「能走 RSC + 直接 DB 访问」是 Next.js 全栈的最大杠杆。
+> **广场页和胶囊详情页已经走了这条路**：`page.tsx` 是 `async function`、直接调 `plazaList()` / `getCapsuleByCode()`——零 HTTP 开销，首屏带数据。登录、创建、「我的」等重度交互页仍保留 Client Component + `/api/v1/*` 模式，与 React/Vue SPA 保持一致便于对比。RSC 与 Client Component 在同一个 App 里混用——这正是「全栈」的最大杠杆（详见 §4.5）。
+
+### 4.5 RSC + httpOnly Cookie：服务端识别当前用户
+
+**问题**：RSC 在服务端执行，浏览器不会自动带上 `Authorization: Bearer` 头（那是客户端 JS 行为）。而 access token 存在 localStorage，服务端完全读不到。如何让服务端知道「当前请求是谁发的」？
+
+**方案**：在登录 / 注册 / 刷新 Route Handler 返回 JSON 的同时，**额外写一枚 httpOnly cookie `ht_session`**，值就是 access token 本身：
+
+```ts
+// src/app/api/v1/auth/login/route.ts
+const tokens = await login(body);
+await setSessionCookie(tokens.accessToken, tokens.accessTokenExpiresIn);  // ← 写 cookie
+return tokens;                                                               // ← 还是返回 JSON
+```
+
+浏览器在每次同源请求时自动携带所有 cookie，**包括 `GET /` 这种普通页面请求**。RSC 通过 `getServerViewer()` 读取：
+
+```ts
+// src/lib/server/session.ts
+export async function getServerViewer(): Promise<ServerViewer | null> {
+  const token = (await cookies()).get("ht_session")?.value;
+  if (!token) return null;
+  try {
+    const claims = await decodeAccessToken(token);
+    return { id: claims.sub, nickname: claims.nickname, avatarId: claims.avatarId };
+  } catch {
+    return null;          // token 过期或无效 → 匿名渲染，页面按未登录状态展示
+  }
+}
+```
+
+**两条鉴权路径并存，互不干扰**：
+
+| 调用方 | 鉴权方式 | 在哪里 |
+|---|---|---|
+| 浏览器客户端 JS（SPA 页面） | `Authorization: Bearer <token>` | `requireClaims(req)` in Route Handler |
+| RSC 服务端渲染 | `ht_session` httpOnly cookie | `getServerViewer()` in page.tsx |
+
+`httpOnly` 意味着客户端 JS **无法通过 `document.cookie` 读到**这枚 cookie——这是额外的安全保障，XSS 无法直接窃取。
 
 ## 6. 数据层：Drizzle ORM + 双数据库
 
@@ -385,7 +442,7 @@ for (const f of files) {
 
 - **不用 drizzle-kit 的官方 migrator**，而是手写一个简化版：按文件名顺序执行 SQL。
 - 每条迁移都用 `CREATE TABLE IF NOT EXISTS`，幂等。**注意**：`IF NOT EXISTS` 是「整条 CREATE 语句」的开关，已经存在的表里 **不会** 追加新 CHECK 约束。修改 schema 的正确做法是写新的 `0002_xxx.sql` 用 `ALTER TABLE`。
-- `./run` 在启动前会自动跑一次，开发者不用手动 `npm run db:migrate`。
+- `./run` **不再自动调用迁移**——schema 生命周期由仓库级 `./scripts/db init / reset --seed` 统一管理（见 CLAUDE.md §Commands）。首次使用前请先执行 `./scripts/db init`。如需手动运行迁移脚本，执行 `npx tsx scripts/migrate.ts`。
 
 ## 7. 服务端架构：`route.ts` → `services/*` → `db/*`
 
@@ -455,9 +512,8 @@ export function requireClaims(req: NextRequest): Claims {
 }
 ```
 
-- 鉴权用 **Authorization Bearer 头**（不是 cookie）——与 React/Vue/Angular SPA 同样的契约，便于多端复用。
-- `jose` 是现代 JWT 库，签 / 验都用 Web Crypto API；HS256 算法、密钥来自 `JWT_SECRET` 环境变量。
-- 每个需要登录的 Route Handler 都在最前面调 `requireClaims(req)`——失败 throw `ApiError`，由 `withApi` 转成 401 响应。
+- 对于 Route Handler（REST API 端点），鉴权用 **Authorization Bearer 头**——与 React/Vue/Angular SPA 同样的契约，便于多端复用。`jose` 是现代 JWT 库，签 / 验都用 Web Crypto API；HS256 算法、密钥来自 `JWT_SECRET` 环境变量。每个需要登录的 Route Handler 都在最前面调 `requireClaims(req)`——失败 throw `ApiError`，由 `withApi` 转成 401 响应。
+- 对于 RSC 页面（`page.tsx`），服务端无法读到客户端 JS 设置的 Bearer 头，改用 `getServerViewer()` 读 **`ht_session` httpOnly cookie**（`src/lib/server/session.ts`）。登录 / 注册 / 刷新 Route Handler 在返回 JSON 的同时会调用 `setSessionCookie()` 写入这枚 cookie；登出时调用 `clearSessionCookie()` 清除。详见 §4.5。
 
 ### 6.3 服务层：`services/auth.ts` 示例
 
@@ -563,7 +619,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 | 部署 | 两套构建产物，两套发布流程 | 一个产物，一个进程 |
 | 数据库连接 | 后端持有，前端永远看不到 | `"server-only"` 防火墙保证不泄露 |
 | 文件夹/路由 | 后端有 routes/、前端有 router.tsx | 全是 `src/app/` 文件系统 |
-| 「直接读 DB」的能力 | 前端不可能 | RSC / Server Action 可以（本项目刻意不走） |
+| 「直接读 DB」的能力 | 前端不可能 | RSC 广场/胶囊页已实现：`async function Page()` 直接调服务层 |
 | HMR 单例 | 各自 reload 进程 | 需 `globalThis` 缓存防泄漏 |
 
 ## 11. 常见改动指南
@@ -583,11 +639,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
 ## 12. 学到这里之后
 
-你已经掌握了 Next.js App Router 全栈最常见的 80%：文件系统路由（`page.tsx` / `layout.tsx` / `route.ts` / `[param]`）、Server vs Client Component、`"server-only"` 编译期防火墙、Route Handler 写法（导出 HTTP 方法函数）、Drizzle ORM 双数据库、`withApi` 响应包装、`requireClaims` 鉴权、Zustand 客户端状态、`globalThis` 单例的 HMR 防御。
+你已经掌握了 Next.js App Router 全栈最常见的 80%：文件系统路由（`page.tsx` / `layout.tsx` / `route.ts` / `[param]`）、Server vs Client Component、`"server-only"` 编译期防火墙、Route Handler 写法（导出 HTTP 方法函数）、Drizzle ORM 双数据库、`withApi` 响应包装、`requireClaims` 鉴权、RSC 直接取数 + `ht_session` httpOnly cookie 识别用户、Zustand 客户端状态、`globalThis` 单例的 HMR 防御。
 
 下一步建议：
 
-- 拿一个 Route Handler（比如 `src/app/api/v1/me/route.ts`）改造成 RSC + Server Action 形态——把 `page.tsx` 写成 `async function`、`import { getMe } from "@/services/me"` 直接读 DB，看 bundle 体积怎么变。这是 Next.js 全栈的最大杠杆。
+- 参考广场页的改造，把 `/me/created`（我的胶囊）也改成 Server Component——`import { getMyCapsules } from "@/services/capsules"` 直接读 DB，移除 Zustand `capsule-store`，观察 JS bundle 体积的变化。
+- 尝试 **Server Action**：把「删除胶囊」按钮改成 `"use server"` 函数，用 `<form action={deleteAction}>` 提交，无须编写专门的 Route Handler，看表单提交的生命周期怎么变。
 - 把 `next.config.ts` 的 `experimental.typedRoutes` 开起来，让 `<Link href="/c/...">` 也有类型检查。
 - 比较一下 `fullstacks/nuxt`，看同一份业务在 Nuxt + Nitro 上怎么写——是这个项目里最直接的「Next vs Nuxt 全栈对比」。
 
