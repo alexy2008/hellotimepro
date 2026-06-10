@@ -3,6 +3,7 @@
 > 对比对象：`backends/` 下已完成并通过契约验证的 5 个后端
 > —— **FastAPI**（参考实现）、**Spring Boot**、**Gin**、**NestJS**、**Elysia**。
 > 数据采集日期：2026-06-03。代码量为物理行（`wc -l`，含注释空行），统计口径见 §3。
+> 姊妹篇：前端对比见 [`docs/frontend-comparison.md`](frontend-comparison.md)，全栈对比见 [`docs/fullstack-comparison.md`](fullstack-comparison.md)；单栈深读见各后端目录下的 `TECHNICAL_GUIDE.md`。
 
 ---
 

@@ -3,7 +3,7 @@
 > 对比对象：`frontends/` 下已完成并通过 UI 冒烟验证的 5 个前端
 > —— **React**（参考实现）、**Vue 3**、**Angular**、**Svelte 5**、**SolidJS**。
 > 数据采集与复核日期：2026-06-05（全部行数 / 依赖数 / dist 体积已重新核对一致）。代码量为物理行（`wc -l`，含注释空行），统计口径见 §4。
-> 姊妹篇：后端对比见 [`docs/backend-comparison.md`](backend-comparison.md)；单栈深读见各前端目录下的 `TECHNICAL_GUIDE.md`。
+> 姊妹篇：后端对比见 [`docs/backend-comparison.md`](backend-comparison.md)，全栈对比见 [`docs/fullstack-comparison.md`](fullstack-comparison.md)；单栈深读见各前端目录下的 `TECHNICAL_GUIDE.md`。
 
 ---
 

@@ -51,6 +51,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 - Latest aspnet backend contract run on 2026-06-06 passed: PostgreSQL & SQLite 104/104.
 - Latest UI smoke run on 2026-06-04 passed: react-ts 25/25, vue3-ts 25/25, svelte 25/25, angular 25/25, solid 25/25, next 25/25, nuxt 25/25, spring-mvc 25/25 (PostgreSQL & SQLite).
 - Latest rails UI smoke run on 2026-06-06 passed: 25/25 (PostgreSQL & SQLite).
+- Latest laravel full-stack contract run on 2026-06-10 passed: PostgreSQL & SQLite 104/104 (after the Eloquent ORM refactor).
 
 ## Architecture
 
