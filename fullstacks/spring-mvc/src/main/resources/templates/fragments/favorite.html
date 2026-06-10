@@ -3,8 +3,8 @@
 <body>
 <!--
   收藏按钮片段。点击由 app.js 接管（事件委托）：
-  - 登录态：fetch(keepalive) 调 /ui/capsules/{id}/favorite-toggle，返回 JSON，更新按钮。
-    用 keepalive 保证「点收藏后立刻导航」时请求仍会发出并提交（否则导航会中止在途 XHR）。
+  - 登录态：同步 XHR 调 /ui/capsules/{id}/favorite-toggle，返回 JSON，更新按钮。
+    这样能保证「点收藏后立刻导航」前事务已经提交。
   - 匿名（data-anon=true）：window.confirm 后跳登录。
 -->
 <button th:fragment="button(capsuleId, favorited, favoriteCount, authenticated)"

@@ -62,7 +62,7 @@ public class FragmentController {
   }
 
   /**
-   * 收藏切换（由创建页/广场的 app.js 以 fetch(keepalive) 调用）：返回 JSON 新状态。
+   * 收藏切换（由创建页/广场的 app.js 以同步 XHR 调用）：返回 JSON 新状态。
    * 匿名在浏览器侧已拦截并跳登录，这里仅作兜底返回 401。
    */
   @PostMapping("/ui/capsules/{id}/favorite-toggle")
