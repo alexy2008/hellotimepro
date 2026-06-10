@@ -38,7 +38,8 @@ watch(
   () => [opened.value, props.capsule.openAt] as const,
   ([isOpened, openAtIso]) => {
     clearExpiredTimer();
-    if (isOpened) return;
+    // 自动开启定时器只在客户端运行；SSR 仅渲染当前（未开启）快照，hydrate 后再排程。
+    if (!import.meta.client || isOpened) return;
 
     const openAt = new Date(openAtIso).getTime();
     if (Number.isNaN(openAt)) return;

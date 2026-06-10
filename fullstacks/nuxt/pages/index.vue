@@ -7,6 +7,7 @@ import PlazaToolbar from "@/components/PlazaToolbar.vue";
 import CapsuleGrid from "@/components/CapsuleGrid.vue";
 import Pagination from "@/components/Pagination.vue";
 import { fmtNumber } from "@/utils/format";
+import type { Envelope, PaginatedCapsules } from "@/types";
 
 const plaza = usePlazaStore();
 const auth = useAuthStore();
@@ -16,12 +17,33 @@ const { user, hydrated } = storeToRefs(auth);
 const heroLink = computed(() => (user.value ? "/create" : "/register"));
 const emptyLink = computed(() => (user.value ? "/create" : "/register"));
 
-// 等鉴权 hydrate 完再请求，让 favoritedByMe 投影正确
+// 服务端预取首屏广场（按 store 当前默认 sort/filter/page），结果 seed 进 store，
+// 模板照常绑定 store。useAsyncData 会把服务端取到的数据序列化进 payload，客户端
+// hydrate 时直接复用、不重复请求。
+// 注意：SSR 没有 Authorization 头 → favoritedByMe 一律 false；登录用户在客户端
+// 再拉一次纠正投影（见下方 onMounted/watch）。匿名用户 SSR 数据即为最终结果。
+const { data: ssrPlaza } = await useAsyncData("plaza:home", () =>
+  $fetch<Envelope<PaginatedCapsules>>("/api/v1/plaza/capsules", {
+    query: {
+      sort: plaza.sort,
+      filter: plaza.filter,
+      page: plaza.page,
+      pageSize: plaza.pageSize,
+    },
+  }),
+);
+if (ssrPlaza.value?.success && ssrPlaza.value.data) {
+  plaza.items = ssrPlaza.value.data.items;
+  plaza.pagination = ssrPlaza.value.data.pagination;
+}
+
+// 登录用户在客户端补取一次，让 favoritedByMe 投影正确；匿名用户沿用 SSR 数据，
+// 不再重复请求（items 已非空，CapsuleGrid 也不会闪骨架屏）。
 onMounted(() => {
-  if (hydrated.value) void plaza.fetch();
+  if (hydrated.value && user.value) void plaza.fetch();
 });
 watch(hydrated, (v) => {
-  if (v) void plaza.fetch();
+  if (v && user.value) void plaza.fetch();
 });
 </script>
 

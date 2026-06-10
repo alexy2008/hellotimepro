@@ -15,6 +15,7 @@
 HelloTime Pro 的 Nuxt 全栈实现基于 **Nuxt 3 + Vue 3 + TypeScript** 核心骨架，并选用 **Drizzle ORM** 作为双数据库抽象层、**Pinia** 进行客户端状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制跨端样式规范。其具体选型考量与设计特色如下：
 
 * **Nuxt 3 与 Nitro（优雅的 Vue 全栈生态）**：依托 Nuxt 的文件系统路由与高性能 Nitro 服务端引擎，将基于 Vue 3 组合式 API 的前端界面与基于 h3 的后端 API 端点无缝集成至单个 Node 进程中，天然免去了跨域（CORS）与多套服务部署的繁琐逻辑。
+* **通用渲染与 `useAsyncData`（首屏即数据）**：开启 SSR 后，公开读页（广场、胶囊详情）在服务端预渲染，借助 `useAsyncData` 在服务端直接命中同进程的 Nitro 处理器取数，首屏 HTML 即带内容，利于 SEO 与分享链接；鉴权与强交互页面则按 `routeRules` 保持客户端渲染。这种「按路由选渲染方式」的混合渲染（Hybrid Rendering）是 Nuxt 相对纯 SPA 的核心增量。
 * **极速自动导入与类型系统（极佳的 DX 体验）**：利用 Nuxt 强大的自动导入（Auto-Imports）机制，开发者无需手动引入 Vue、Pinia、自定义组件或组合式函数即可直接调用。配合全栈 TypeScript 的共享类型，极大缩减了样板代码，提升了研发效率。
 * **Drizzle ORM 与双数据库引擎（通用数据抽象）**：采用轻量化、类型安全的 Drizzle ORM，在服务端根据环境变量动态加载 PostgreSQL (node-postgres) 或 SQLite (better-sqlite3) 驱动，实现同一份业务代码在不同数据库方言下的无感适配。
 * **Pinia 与 JWT 轮转（工程级状态与安全）**：使用 Pinia 构建模块化的单例状态管理，并结合基于 Web Crypto API (jose 库) 的 HS256 JWT 及 Refresh Token 家族轮转机制，在为 Vue 3 提供响应式状态流的同时，打造了严密的用户身份与会话保护屏障。
@@ -37,7 +38,7 @@ fullstacks/nuxt/
 ├── tsconfig.json
 ├── app.vue                   # ★ 应用根：只有 <NuxtLayout><NuxtPage /></NuxtLayout>
 ├── drizzle.config.ts
-├── scripts/migrate.ts        # 启动前跑迁移
+├── scripts/migrate.ts        # 一次性迁移脚本（run 不再自动调用，schema 由仓库级 ./scripts/db 管理）
 ├── public/                   # 静态资源（rsync 来的 SVG），Nitro 直接以 / 暴露
 ├── drizzle/{pg,sqlite}/      # 两套 SQL 迁移
 ├── run                       # 一键启动脚本
@@ -59,7 +60,7 @@ fullstacks/nuxt/
 │
 ├── composables/              # composables，被自动导入（useCountdown, useDebouncedRef…）
 │
-├── middleware/auth.client.ts # ★ 客户端路由守卫（.client.ts = 仅浏览器）
+├── middleware/auth.client.ts # ★ 路由守卫（注册名 auth-client；.client 对中间件不生效，见 §4.4）
 ├── plugins/bootstrap.client.ts# ★ 客户端启动钩子（.client.ts = 仅浏览器）
 │
 ├── api/client.ts             # 客户端 fetch 封装（与服务端 server/api 区别开）
@@ -94,28 +95,26 @@ fullstacks/nuxt/
         └── schema-sqlite.ts
 ```
 
-一次「打开广场页 + 点收藏」的端到端流向：
+一次「打开广场页（SSR）+ 点收藏」的端到端流向：
 
 ```text
 浏览器                                  Nuxt 进程（端口 7178，内含 Nitro server）
   │                                          ┃
   │ GET /                                    ┃
-  ├─────────────────────────────────────────►┃ matches pages/index.vue
-  │                                          ┃ (SPA 模式：仅返回 SPA 壳；客户端再渲染)
-  │ ◄────────  HTML + bundle  ───────────────┃
-  │ Vue + Pinia hydrate                      ┃
+  ├─────────────────────────────────────────►┃ matches pages/index.vue（SSR）
+  │                                          ┃   → useAsyncData 在服务端执行：
+  │                                          ┃     $fetch('/api/v1/plaza/capsules') 同进程直达
+  │                                          ┃     server/services/plaza → Drizzle → DB
+  │ ◄──────  含胶囊列表的完整 HTML  ──────────┃   （取到的数据序列化进 payload）
+  │ Vue + Pinia hydrate（复用 payload，不重取）┃
   │                                          ┃
-  │ fetch /api/v1/plaza/capsules?sort=hot    ┃
-  ├─────────────────────────────────────────►┃ matches server/api/v1/plaza/capsules.get.ts
-  │                                          ┃   → defineEventHandler 回调
-  │                                          ┃   → import { listPlaza } from "~/server/services/plaza"
-  │                                          ┃   → server/db/index.ts → Drizzle → DB
+  │ 点收藏 → POST /api/v1/me/favorites       ┃
+  ├─────────────────────────────────────────►┃ matches server/api/v1/me/favorites.post.ts
+  │                                          ┃   → defineEventHandler → services/favorites → DB
   │ ◄────────  JSON envelope  ───────────────┃
-  │                                          ┃
-  │ 渲染 CapsuleCard 列表                    ┃
 ```
 
-> **关键洞察**：本项目 `nuxt.config.ts` 里设了 `ssr: false`——这是个 **SPA 模式的 Nuxt**，pages 在客户端渲染（不预渲染 HTML）。但 Nitro server 仍然存在并提供 `/api/v1/*`。这让前端体验和 React/Vue SPA 一致，便于多栈对比。生产 Nuxt 项目通常开 SSR 拿首屏优势。
+> **关键洞察**：本项目 `nuxt.config.ts` 设 `ssr: true`，并用 `routeRules` 做**混合渲染**——公开读页（`/`、`/c/[code]`、`/about`）走 SSR，首屏 HTML 即带数据；鉴权/强交互页（`/create`、`/me/**`）标为 `ssr: false`、保持客户端渲染。SSR 页用 `useAsyncData` 取数：服务端渲染时 `$fetch('/api/v1/*')` 由 Nitro 在**同进程内直接调用处理器**（无真实 HTTP 往返），客户端 hydrate 时直接复用服务端传来的 payload、不重复请求。这正是 Nuxt 相对纯 SPA 的最大杠杆。
 
 ## 3. 如何运行和验证
 
@@ -131,8 +130,9 @@ DB_DRIVER=sqlite ./run         # 零依赖跑 SQLite
 
 1. 检查 `node_modules`，没有就 `npm install`。
 2. `rsync` 把 `spec/icons` 和 `spec/avatars` 复制到 `public/static/`——Nitro 把 `public/` 直接以根路径暴露（`public/static/icons/xxx.svg` ↔ `/static/icons/xxx.svg`）。
-3. `tsx scripts/migrate.ts`：跑数据库迁移。
-4. `npm run build && npm run start` —— **注意**：`./run` 跑的是生产模式（`nuxt build` 后 `node .output/server/index.mjs`），不是 `nuxt dev`。这让全栈版的行为更接近部署形态。开发期想用 dev server，自己 `npm run dev`。
+3. `npm run build && npm run start` —— **注意**：`./run` 跑的是生产模式（`nuxt build` 后 `node .output/server/index.mjs`），不是 `nuxt dev`。这让全栈版的行为更接近部署形态。开发期想用 dev server，自己 `npm run dev`。
+
+> **注意**：`./run` **不执行数据库迁移**——schema 生命周期由仓库级 `./scripts/db init / reset --seed` 统一管理。首次使用前先执行 `./scripts/db init`。
 
 构建产物 `.output/server/index.mjs` 是 Nitro 打包的可执行 Node 应用——一个文件就能 `node` 起来。
 
@@ -159,9 +159,13 @@ Nuxt 的核心约定是 **「按角色分目录」**——`pages/`、`layouts/`�
 
 ```ts
 export default defineNuxtConfig({
-  ssr: false,                                  // SPA 模式
+  ssr: true,                                   // 通用渲染（默认即 true）
   modules: ["@pinia/nuxt"],                    // 装上 Pinia + 自动注册 + 自动导入 stores
   alias: { "@spec": resolve(__dirname, "../../spec") },
+  routeRules: {                                // 混合渲染：按路由覆盖渲染方式
+    "/create": { ssr: false },                 //   鉴权/强交互页保持客户端渲染
+    "/me/**": { ssr: false },
+  },
   nitro: { preset: "node-server" },            // 生产打包成传统 Node 服务
   vite: { plugins: [tailwindcss()] },
   components: [{ path: "~/components", pathPrefix: false }],
@@ -170,6 +174,7 @@ export default defineNuxtConfig({
 
 要点：
 
+- **`ssr: true` + `routeRules`**：这是 Nuxt 的**混合渲染**。`ssr: true` 让所有页面默认服务端渲染；`routeRules` 再按路由前缀覆盖——把 `/create`、`/me/**` 标为 `{ ssr: false }`，让它们退回客户端渲染（SPA 孤岛）。原因见 §4.6：这些页依赖 localStorage 里的登录态，服务端读不到，SSR 既无 SEO 收益、还会让路由守卫在服务端误判。
 - **`modules: ["@pinia/nuxt"]`**：Nuxt 的「模块」是注册点，可以扩展任何事——加 Pinia、加 i18n、加 image optimization……都靠模块。
 - `nitro.preset: "node-server"`：Nitro 是 Nuxt 内置的服务端引擎，**生产构建时可切换 preset**——`node-server`（传统 Node）、`vercel`、`cloudflare`、`netlify`、`aws-lambda`……同一份代码可以部署到任何地方。
 - 没有 `runtimeConfig`：环境变量通过 `server/lib/env.ts` 直接读 `process.env`。
@@ -178,17 +183,30 @@ export default defineNuxtConfig({
 
 ```vue
 <script setup lang="ts">
-import { computed, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
-// 注意：usePlazaStore / useAuthStore 没有 import —— 自动导入！
+import type { Envelope, PaginatedCapsules } from "@/types";
 
 const plaza = usePlazaStore();
 const auth = useAuthStore();
 const { items, loading, pagination, page } = storeToRefs(plaza);
 const { user, hydrated } = storeToRefs(auth);
 
-onMounted(() => { if (hydrated.value) void plaza.fetch(); });
-watch(hydrated, (v) => { if (v) void plaza.fetch(); });
+// ★ 服务端预取首屏广场：useAsyncData 的回调在 SSR 时于服务端执行，$fetch 同进程
+//   直达 Nitro 处理器；结果序列化进 payload，客户端 hydrate 时直接复用、不重取。
+//   注意 SSR 无 Authorization 头 → favoritedByMe 一律 false，登录用户在客户端补取纠正。
+const { data: ssrPlaza } = await useAsyncData("plaza:home", () =>
+  $fetch<Envelope<PaginatedCapsules>>("/api/v1/plaza/capsules", {
+    query: { sort: plaza.sort, filter: plaza.filter, page: plaza.page, pageSize: plaza.pageSize },
+  }),
+);
+if (ssrPlaza.value?.success && ssrPlaza.value.data) {
+  plaza.items = ssrPlaza.value.data.items;          // seed 进 store，模板照常绑定
+  plaza.pagination = ssrPlaza.value.data.pagination;
+}
+
+// 登录用户在客户端补取一次纠正 favoritedByMe；匿名用户沿用 SSR 数据、不再请求。
+onMounted(() => { if (hydrated.value && user.value) void plaza.fetch(); });
+watch(hydrated, (v) => { if (v && user.value) void plaza.fetch(); });
 </script>
 
 <template>
@@ -200,7 +218,13 @@ watch(hydrated, (v) => { if (v) void plaza.fetch(); });
 </template>
 ```
 
-跟 Vue3 SPA 版几乎一模一样——只是少了 `import PlazaToolbar from "@/components/PlazaToolbar.vue"` 这种行（详见 §5.3 自动导入）。
+要点：
+
+- **`await useAsyncData(key, handler)`**：Nuxt 的服务端数据获取约定。`<script setup>` 顶层 `await` 让页面成为异步组件（Suspense 边界），SSR 时等数据就绪再渲染 HTML。`key`（`"plaza:home"`）用于 payload 去重与缓存。
+- **`$fetch` 而非 `api.client` 的 `fetch`**：`$fetch`（ofetch）在服务端能解析相对 URL `/api/v1/*` 并直达同进程 Nitro 处理器；而 `api/client.ts` 用原生 `fetch`、`BASE=""`，相对 URL 在服务端无法解析（详见 §8.1 的注意）。
+- 胶囊详情页 `pages/c/[code].vue` 用同样的 `useAsyncData` 模式，是更纯粹的 SSR 读页范例（详见 §4.6）。
+
+与 Vue3 SPA 版的区别：SPA 版只在 `onMounted` 里 `fetch` 后客户端渲染；这里服务端先把带数据的 HTML 发出去，首屏无 loading、利于 SEO。
 
 ### 3.4 `server/api/v1/health.get.ts`：REST 端点
 
@@ -315,19 +339,22 @@ Nuxt 最有辨识度的「魔法」之一：
 
 ### 4.4 `.client.ts` / `.server.ts` 后缀：环境隔离
 
-| 文件名 | 行为 |
-|---|---|
-| `xxx.ts` | 同构：服务端和客户端都跑（SSR 时两次） |
-| `xxx.client.ts` | 仅在浏览器跑（SSR 期间跳过） |
-| `xxx.server.ts` | 仅在服务端跑 |
+| 文件名 | 行为 | 适用 |
+|---|---|---|
+| `xxx.ts` | 同构：服务端和客户端都跑（SSR 时两次） | plugins / 普通模块 |
+| `xxx.client.ts` | 仅在浏览器跑（SSR 期间跳过） | **plugins / components** |
+| `xxx.server.ts` | 仅在服务端跑 | **plugins / components** |
 
 本项目用了：
 
-- `middleware/auth.client.ts`：路由守卫只在客户端跑（SSR 时跳过，因为 SSR 取不到 localStorage 里的 user）。
-- `plugins/bootstrap.client.ts`：水合 store、wire api 回调，只在浏览器执行一次。
+- `plugins/bootstrap.client.ts`：水合 store、wire api 回调，只在浏览器执行一次。`.client` 后缀对**插件**生效——这个插件确实只在客户端跑。
+
+> ⚠️ **路由中间件不认 `.client` / `.server` 后缀**。这是一个容易踩的坑：`middleware/auth.client.ts` 看起来像「只在客户端跑的守卫」，但 Nuxt **不会**把它当客户端专属——它只是把文件名 kebab 化注册成名为 **`auth-client`** 的普通命名中间件，在服务端和客户端**都会执行**（可在 `.nuxt/types/middleware.d.ts` 看到 `MiddlewareKey = "auth-client"`）。
+>
+> 后果：若一个受保护页面开了 SSR，这个守卫会在**服务端**运行，而服务端读不到 localStorage 里的登录态 → 把已登录用户误判为未登录、重定向到 `/login`。本项目的对策是在 `nuxt.config.ts` 用 `routeRules` 把 `/create`、`/me/**` 标为 `{ ssr: false }`，让这些页面只在客户端渲染，守卫自然也只在客户端跑（详见 §4.6）。
 
 ```ts
-// middleware/auth.client.ts
+// middleware/auth.client.ts —— 注册名为 "auth-client"
 export default defineNuxtRouteMiddleware((to) => {
   const auth = useAuthStore();
   if (auth.user || auth.refreshToken) return;          // 放行
@@ -335,12 +362,12 @@ export default defineNuxtRouteMiddleware((to) => {
 });
 ```
 
-页面通过 `definePageMeta({ middleware: ["auth"] })` 把守卫挂上：
+页面通过 `definePageMeta({ middleware: "auth-client" })` 把守卫挂上：
 
 ```vue
 <!-- pages/create.vue -->
 <script setup lang="ts">
-definePageMeta({ middleware: ["auth"] });
+definePageMeta({ middleware: "auth-client" });
 </script>
 ```
 
@@ -349,6 +376,67 @@ definePageMeta({ middleware: ["auth"] });
 `server/` 目录里的代码 **永远不会** 被打进客户端 bundle——Nuxt 把 `server/` 单独交给 Nitro，与 Vue 应用是两个构建图。
 
 这等价于 Next.js 的 `import "server-only"`，但是 **目录级别的隔离**——不需要在每个文件首行加导入。客户端代码想 import `~/server/lib/security` 直接构建失败。
+
+### 4.6 混合渲染与 `useAsyncData`：服务端取数 + hydration 守卫
+
+这是本实现相对纯 SPA 的核心增量，也是 Nuxt 全栈最值得理解的部分。
+
+**(1) 谁 SSR、谁不 SSR**：`nuxt.config.ts` 里 `ssr: true` 让所有页面默认服务端渲染，再用 `routeRules` 把鉴权/强交互页退回客户端：
+
+```ts
+routeRules: {
+  "/create": { ssr: false },   // 依赖 localStorage 登录态，SSR 无收益且会误重定向
+  "/me/**": { ssr: false },
+}
+```
+
+SSR 的是公开读页：`/`（广场）、`/c/[code]`（胶囊详情）、`/about`。它们对 SEO 和首屏速度敏感，且内容公开可读。
+
+**(2) `useAsyncData` 取数**（以胶囊详情页为例）：
+
+```ts
+// pages/c/[code].vue
+const { data: cap, error, refresh } = await useAsyncData(
+  () => `capsule:${code.value}`,
+  async () => {
+    const env = await $fetch<Envelope<CapsuleDetailT>>(
+      `/api/v1/capsules/${encodeURIComponent(code.value)}`,
+    );
+    if (!env.success || !env.data) throw createError({ statusCode: 404, message: "胶囊不存在", fatal: false });
+    return env.data;
+  },
+  { watch: [code] },
+);
+```
+
+- SSR 时回调在服务端跑，`$fetch` 同进程直达 Nitro 处理器（无真实 HTTP），首屏 HTML 带数据；数据序列化进 payload，客户端 hydrate 复用、不重取。
+- `createError({ fatal: false })` 把错误填进 `error`，页面渲染错误分支而非整站错误页。
+- 鉴权投影（`favoritedByMe`）：SSR 无 token → 一律 false；登录用户在 `onMounted` 里带 token 补取一次纠正。
+
+**(3) hydration 守卫——SSR 最常见的坑**：服务端没有 `window` / `document` / `localStorage`。两类代码必须隔离，否则 SSR 直接 500：
+
+- **依赖 localStorage 的渲染**（如登录态决定的 Header 用户菜单、主题）：用 `<ClientOnly>` 包裹。服务端一律按「未登录 / 默认主题」渲染，客户端 hydrate 后再补，避免「服务端 HTML ≠ 客户端首次渲染」的 hydration mismatch。
+
+  ```vue
+  <ClientOnly>
+    <ThemeToggle />
+    <template v-if="user">…用户菜单…</template>
+    <template v-else>…登录/注册…</template>
+  </ClientOnly>
+  ```
+
+- **触碰 `window` / `document` 的副作用**（定时器、事件监听）：用 `import.meta.client` 守卫。**注意 `watch(..., { immediate: true })` 的回调会在 SSR 的 setup 阶段同步执行**——这是个反直觉的点，不能假设「watcher 只在客户端跑」：
+
+  ```ts
+  // composables/useClickOutside.ts
+  watch(active, (on) => {
+    if (!import.meta.client) return;   // SSR 无 document，且 immediate watcher 会在服务端执行
+    if (on) document.addEventListener("pointerdown", onPointer);
+    else document.removeEventListener("pointerdown", onPointer);
+  }, { immediate: true });
+  ```
+
+  本项目的 `useCountdown`、`useClickOutside` 与 `CapsuleDetail` 的自动开启定时器都加了这道守卫。
 
 ## 6. 数据层：Drizzle ORM + 双数据库
 
@@ -406,7 +494,7 @@ await db.update(t.capsules)
 
 ### 5.4 迁移：`scripts/migrate.ts`
 
-跟 Next.js 全栈版一样，手写一个简化 migrator：按文件名顺序执行 SQL，所有迁移用 `CREATE TABLE IF NOT EXISTS` 保证幂等。`./run` 启动前自动跑。
+跟 Next.js 全栈版一样，手写一个简化 migrator：按文件名顺序执行 SQL，所有迁移用 `CREATE TABLE IF NOT EXISTS` 保证幂等。**`./run` 不再自动调用它**——schema 生命周期由仓库级 `./scripts/db init / reset --seed` 统一管理；需手动迁移时执行 `npx tsx scripts/migrate.ts`。
 
 ## 7. 服务端架构：`server/api/*` → `server/services/*` → `server/db/*`
 
@@ -519,6 +607,8 @@ export const api = {
 
 代码与 Vue3 SPA 版本几乎一行不差，只是 `BASE = ""`（同源、无 vite proxy）。
 
+> ⚠️ **SSR 取数不要用这个 `api` 客户端**：它内部是原生 `fetch` + `BASE=""`，相对 URL `/api/v1/*` 在浏览器能解析（基于当前 origin），但在**服务端无 origin 会抛 `Failed to parse URL`**。所以 SSR 页面取数统一用 Nuxt 的 `$fetch`（ofetch）——它在服务端会把相对路径直达同进程 Nitro 处理器（详见 §4.6）。`api/client` 只在客户端事件/`onMounted` 里调用（这些只在浏览器跑），因此安全。
+
 ### 7.2 `plugins/bootstrap.client.ts`：客户端启动钩子
 
 ```ts
@@ -546,7 +636,7 @@ export default defineNuxtPlugin(() => {
 
 > 对比 Next.js 全栈：Next 没有「应用启动钩子」的概念，等价工作分散在 Zustand store 的模块顶层 `configureApi(...)` 和 `app/layout.tsx` 的某个 Client Component 的 `useEffect` 里。Nuxt 的这种集中钩子读起来更清晰。
 
-### 7.3 客户端路由守卫：`middleware/auth.client.ts`
+### 7.3 路由守卫：`middleware/auth.client.ts`（注册名 `auth-client`）
 
 ```ts
 export default defineNuxtRouteMiddleware((to) => {
@@ -556,7 +646,9 @@ export default defineNuxtRouteMiddleware((to) => {
 });
 ```
 
-页面通过 `definePageMeta({ middleware: ["auth"] })` 启用。和 Vue3 SPA 的 `router.beforeEach` 思路一样，但写法更分散（每个守卫一个文件，每个页面声明用哪些）。
+页面通过 `definePageMeta({ middleware: "auth-client" })` 启用。和 Vue3 SPA 的 `router.beforeEach` 思路一样，但写法更分散（每个守卫一个文件，每个页面声明用哪些）。
+
+> 如 §4.4 所述，文件名里的 `.client` 对中间件**不生效**——它是名为 `auth-client` 的通用中间件，服务端也会跑。因为守卫读 localStorage 里的登录态、服务端读不到，本项目用 `routeRules` 把挂了这个守卫的页面（`/create`、`/me/**`）标为 `ssr: false`，确保守卫只在客户端执行。
 
 ## 9. 样式：Tailwind v4 + 设计令牌
 
@@ -584,6 +676,8 @@ export default defineNuxtRouteMiddleware((to) => {
 |---|---|---|
 | 前端框架 | React | Vue 3 |
 | 服务端引擎 | Next.js Server | Nitro |
+| 渲染模式 | RSC + 客户端混合（公开读页 RSC，交互页 Client Component） | SSR + `routeRules` 混合（公开读页 SSR，鉴权页 `ssr:false`） |
+| 服务端取数 | RSC 内 `async` 直接 `import` 服务层调用 | `useAsyncData` + `$fetch` 同进程直达 Nitro 处理器 |
 | 路由配置 | `src/app/<URL>/page.tsx`（**按 URL 分层**） | `pages/<URL>.vue`（**按 URL 分层**） |
 | API 配置 | `src/app/api/<URL>/route.ts` 导出 `GET/POST/...` | `server/api/<URL>.<method>.ts` 一文件一方法 |
 | 一个 URL 多方法 | 单文件 `export GET, export PATCH` | 多文件 `me.get.ts`、`me.patch.ts` |
@@ -620,7 +714,7 @@ export default defineNuxtRouteMiddleware((to) => {
 | 想做什么 | 改哪里 |
 |---|---|
 | 加一个新页面 | 新建 `pages/<路径>.vue`，自动注册路由 |
-| 加一个登录后才能访问的页面 | 页面 `<script setup>` 里加 `definePageMeta({ middleware: ["auth"] })` |
+| 加一个登录后才能访问的页面 | 页面 `<script setup>` 里加 `definePageMeta({ middleware: "auth-client" })`；若该页不需要 SSR，在 `nuxt.config.ts` 的 `routeRules` 标 `{ ssr: false }`（见 §4.4/§4.6） |
 | 加一个 REST 端点 | 新建 `server/api/v1/<路径>.<method>.ts`，导出 `defineEventHandler(...)` |
 | 在端点里写业务逻辑 | 加到 `server/services/xxx.ts`，handler 直接 import 调用 |
 | 加一张表 / 一列 | ① 编辑 `server/db/schema-{pg,sqlite}.ts`；② 新增 `drizzle/{pg,sqlite}/0002_xxx.sql`；③ 重启自动迁移 |
@@ -639,9 +733,10 @@ export default defineNuxtRouteMiddleware((to) => {
 
 下一步建议：
 
-- 把 `nuxt.config.ts` 的 `ssr: false` 改成 `ssr: true`，看广场页是否在服务端拿到数据后再 HTML 返回——这是 Nuxt 默认能力，本项目刻意关了图对比 SPA。
+- 参照广场页，把 `pages/me/created.vue` 也改造一下思路——它走的是客户端渲染（`routeRules` 标了 `ssr:false`），对比一下「为什么受保护页不适合 SSR」，加深对 §4.6 的理解。
+- 给胶囊详情页 `pages/c/[code].vue` 加 `useHead` / `useSeoMeta`，把胶囊标题写进 `<title>` 和 `og:title`——这是开了 SSR 后才真正有意义的能力（爬虫和社交卡片能读到服务端渲染的 meta）。
 - 把一个 `server/api/...` 端点的实现搬到一个 `server/middleware/*.ts` 全局中间件里，体验「每次请求都跑」的钩子（比如记请求日志）。
-- 对照 `fullstacks/next` 的 `src/app/api/v1/me/route.ts` 与本仓库的 `server/api/v1/me.{get,patch}.ts`——同一份业务逻辑、两套路由约定，理解「Next 用方法名导出函数 vs Nuxt 用文件名后缀分方法」的设计取舍。
+- 对照 `fullstacks/next` 的 `src/app/page.tsx`（RSC）与本仓库的 `pages/index.vue`（`useAsyncData`）——同一个「服务端取数渲染广场」，两套框架两种写法，理解 RSC 与 `useAsyncData` 的设计取舍。
 - 看 `nuxt.config.ts` 里 `nitro.preset` 能切换什么——把它改成 `"static"` 跑 `nuxt build` 看产物，理解 Nuxt 在 SSG（静态站点生成）方向的能力。
 
-之后可以再深入研究 Nuxt 的几个常见进阶主题：SSR + Hydration、`useFetch` / `useAsyncData`（在 RSC 出来前，Nuxt 自带的服务端数据获取约定）、`server/middleware/` 中间件链、`useRuntimeConfig` 暴露安全的客户端配置、Nitro 部署 preset（Cloudflare Workers、Vercel Edge）、Nuxt Modules 生态。本项目刻意保持极简，把这些留给后续。
+之后可以再深入研究 Nuxt 的几个常见进阶主题：`useFetch`（`useAsyncData + $fetch` 的简写）、`server/middleware/` 中间件链、`useRuntimeConfig` 暴露安全的客户端配置、`useCookie` 做服务端可读的鉴权（让 SSR 也能识别登录态，免去客户端补取）、Nitro 部署 preset（Cloudflare Workers、Vercel Edge）、Nuxt Modules 生态。本项目刻意保持极简，把这些留给后续。

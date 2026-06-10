@@ -56,6 +56,12 @@ async function handleLogout() {
         </RouterLink>
       </nav>
       <div class="cy-header__actions">
+        <!--
+          ThemeToggle 与鉴权态都来自 localStorage，服务端渲染时取不到（主题按默认、
+          一律未登录），与客户端 hydrate 后的真实状态不一致会触发 hydration mismatch。
+          用 <ClientOnly> 让这两块只在客户端渲染。
+        -->
+        <ClientOnly>
         <ThemeToggle />
         <template v-if="user">
           <div ref="menuRef" class="cy-user-menu">
@@ -126,6 +132,7 @@ async function handleLogout() {
             注册
           </RouterLink>
         </template>
+        </ClientOnly>
       </div>
     </div>
   </header>

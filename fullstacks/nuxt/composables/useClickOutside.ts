@@ -20,6 +20,8 @@ export function useClickOutside(
   watch(
     active,
     (on) => {
+      // 事件监听只在客户端有意义；SSR 无 document，且 immediate watcher 会在服务端 setup 时执行。
+      if (!import.meta.client) return;
       if (on) {
         document.addEventListener("pointerdown", onPointer);
         document.addEventListener("keydown", onKey);
@@ -32,6 +34,7 @@ export function useClickOutside(
   );
 
   onUnmounted(() => {
+    if (!import.meta.client) return;
     document.removeEventListener("pointerdown", onPointer);
     document.removeEventListener("keydown", onKey);
   });

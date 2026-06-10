@@ -18,7 +18,8 @@ export function useCountdown(
   let timer: number | undefined;
 
   function start() {
-    if (timer !== undefined) return;
+    // SSR 无 window，且定时器只在客户端有意义；服务端渲染一帧静态快照即可。
+    if (!import.meta.client || timer !== undefined) return;
     timer = window.setInterval(() => {
       now.value = Date.now();
     }, 1000);
