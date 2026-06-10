@@ -3,14 +3,14 @@
 本文面向已经熟悉 Java 语法（类、接口、泛型、Lambda、`Optional`、`record`），但还没系统接触过 Spring Boot 的读者。读完后，你应该能回答三件事：
 
 - 一个 HTTP 请求进入后端后，代码按什么顺序执行。
-- Spring Boot、Spring MVC、Spring Data JPA、Hibernate、Flyway、Jackson、Bean Validation 分别在做什么。
+- Spring Boot、Spring MVC、Spring Data JPA、Hibernate、Flyway 参考迁移、Jackson、Bean Validation 分别在做什么。
 - 想新增一个接口、字段或业务规则时，应该改哪些文件。
 
 > 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口；第 5 节集中讲 Spring 的几个核心思想（IoC / 注解驱动 / AOP）；第 6～13 节按一次请求的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
 
 ## 1. 技术选型与设计特色
 
-HelloTime Pro 的 Spring Boot 后端实现基于 **Java 17 + Spring Boot 3 + Spring Data JPA** 核心骨架，并选用 **Hibernate** 作为 JPA 提供商、**Flyway** 管理数据库迁移、**Jackson** 负责 JSON 序列化、**Jakarta Bean Validation** 实现声明式数据校验，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+HelloTime Pro 的 Spring Boot 后端实现基于 **Java 21 + Spring Boot 3 + Spring Data JPA** 核心骨架，并选用 **Hibernate** 作为 JPA 提供商，保留 **Flyway** 迁移脚本作为本栈 schema 表达样例，**Jackson** 负责 JSON 序列化，**Jakarta Bean Validation** 实现声明式数据校验，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。运行时数据库生命周期由仓库级 `scripts/db` 统一维护，后端只连接已经准备好的数据库。其具体选型考量与设计特色如下：
 
 * **Spring Boot 3 与 IoC/DI（强大的依赖注入与自动装配）**：利用 Spring 核心的控制反转（IoC）与依赖注入（DI）容器，以单例模式管理 service、controller 和 repository 组件。通过 Spring Boot 强大的自动配置（Auto-Configuration）开箱即用，极大地提高了企业级后端系统的装配效率。
 * **Spring Data JPA 与方言自适应（声明式数据访问与自适应时间列）**：选用 Spring Data JPA 作为持久层，通过方法名自动解析生成 SQL 查询。针对跨库（PostgreSQL 和 SQLite）在时间列时区支持上的硬件差异，自制了全局的 `OffsetDateTimeStringConverter` 属性转换器，并配置了 JPA 级别悲观锁（`PESSIMISTIC_WRITE`），确保了行级并发一致性。
@@ -36,7 +36,7 @@ backends/spring-boot/
 ├── run / build / test                       # 三个 Bash 脚本，封装 mvn 命令并注入数据库环境变量
 ├── src/main/resources/
 │   ├── application.yml                      # 配置文件，所有可调参数都有 ${ENV:default}
-│   └── db/migration/{postgres,sqlite}/      # Flyway 迁移脚本（按驱动分别一份）
+│   └── db/migration/{postgres,sqlite}/      # Flyway 迁移参考（按驱动分别一份，默认不自动执行）
 └── src/main/java/com/hellotimepro/springboot/
     ├── HelloTimeProApplication.java         # main 入口，@SpringBootApplication
     ├── config/
@@ -83,7 +83,8 @@ PostgreSQL 或 SQLite
 ```bash
 cd backends/spring-boot
 DB_DRIVER=sqlite ./run      # 用 SQLite，零依赖
-./run                       # 默认 PostgreSQL（需要先 docker compose up -d postgres）
+../../scripts/db reset --seed # 显式准备数据库
+./run                       # 默认 PostgreSQL
 ```
 
 默认端口是 `29000`。启动后可访问：
@@ -552,15 +553,16 @@ public AuthTokens register(RegisterRequest req) {
 - `record SchemaSpec(...)` 当作纯数据描述常量。
 - 自定义 `LlmClientException`（unchecked），调用方不必声明 `throws`。
 
-## 12. 数据库迁移：Flyway
+## 12. 数据库 schema：`scripts/db` + Flyway 参考脚本
 
 `src/main/resources/db/migration/{postgres,sqlite}/` 各一份 `V1__initial_schema.sql`。
 
-- 文件名规范 `V<版本号>__<描述>.sql`。
-- 启动时 Spring Boot 检测到 `flyway-core` 在 classpath，自动执行 `flyway migrate`：建立 `flyway_schema_history` 表记录已应用的版本，按版本顺序执行尚未运行的脚本。
-- `spring.flyway.locations: classpath:db/migration/${DB_DRIVER:postgres}` 让两套 SQL 物理隔离——Postgres 用 `TIMESTAMPTZ`、check 约束含正则、`pg_trgm` GIN 索引；SQLite 用 `TEXT` 存时间、简化约束。
+- 仓库当前约束是：schema 初始化、重建、seed 由根目录 `scripts/db` 读取 `spec/db` 统一完成，`backends/spring-boot/run` 不做隐式迁移。
+- `application.yml` 中 `spring.flyway.enabled` 默认是 `false`，避免服务启动时修改数据库。
+- Flyway 脚本保留为 Spring Boot 读者理解“本栈如何表达迁移”的参考；需要手动演示空库迁移时，可显式设置 `SPRING_FLYWAY_ENABLED=true`，但不要在已由 `scripts/db` 准备过的库上这样做。
+- `spring.flyway.locations: classpath:db/migration/${DB_DRIVER:postgres}` 让两套 SQL 物理隔离——Postgres 用 `TIMESTAMPTZ` 等原生类型；SQLite 用 `TEXT` 存时间、简化约束。
 
-要新增表 / 字段：再放一个 `V2__add_xxx.sql`（两套都加），重启即可。**不要修改已经发布的 V1 脚本**——已经应用过的环境会因校验和不匹配而启动失败。
+要新增表 / 字段：先修改 `spec/db` 与仓库级维护脚本；如果需要保持 Spring Boot 的迁移样例完整，再放一个 `V2__add_xxx.sql`（两套都加）。**不要修改已经发布的 V1 脚本**。
 
 ## 13. 测试：`SmokeTest`
 
@@ -590,7 +592,7 @@ class SmokeTest {
 | 加一个新 HTTP 接口 | 在 `web/` 新增 / 编辑 `@RestController`，方法体调用 service |
 | 加一个请求 / 响应字段 | 在 `dto/Dtos.java` 修改对应 record（加校验注解） |
 | 加一个业务规则 | 在对应的 `*Service` 方法里加判断，必要时 `throw ApiException.xxx(...)` |
-| 加一张表 / 一列 | ① `src/main/resources/db/migration/{postgres,sqlite}/V<n>__*.sql` 各一份；② `domain/` 新增 `@Entity`；③ `repository/` 新增 `JpaRepository` |
+| 加一张表 / 一列 | ① 先改 `spec/db` 与仓库级维护脚本；② `domain/` 新增 `@Entity`；③ `repository/` 新增 `JpaRepository`；④ 如需保留样例，再同步 Flyway SQL |
 | 加一个查询条件 | 仓库接口里加 `findByXxx...` 方法，或 `@Query` 自定义 JPQL |
 | 加一个配置项 | `application.yml` 加 key → `AppProperties` 加字段 + getter/setter |
 | 加一个跨切关注（日志、指标、限流） | 写一个实现 `HandlerInterceptor` 的 bean，在 `WebConfig.addInterceptors` 注册；或写 `@RestControllerAdvice` 拦异常 |
@@ -599,7 +601,7 @@ class SmokeTest {
 
 ## 15. 学到这里之后
 
-读到这里，你已经掌握了 Spring Boot 项目最常见的 80%：IoC 容器、`@RestController`、Bean Validation、Spring Data JPA、事务、全局异常、配置注入、Flyway、内嵌 Tomcat 测试。
+读到这里，你已经掌握了 Spring Boot 项目最常见的 80%：IoC 容器、`@RestController`、Bean Validation、Spring Data JPA、事务、全局异常、配置注入、Flyway 迁移脚本的表达方式、内嵌 Tomcat 测试。
 
 下一步建议：
 

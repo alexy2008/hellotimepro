@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 启动 HelloTime Pro Gin 后端（端口 29020）。
 #
-#   DB_DRIVER=postgres (默认) 需要 `docker compose up -d postgres`
+#   DB_DRIVER=postgres (默认) 使用 scripts/hello 注入的本地 PostgreSQL 连接
 #   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime.db
 #
 # 只启动服务；数据库初始化/重建/seed 请使用 scripts/db。

@@ -3,18 +3,18 @@
 本文面向已经熟悉 Go 基本语法（包、结构体、接口、切片/映射、goroutine、`error` 返回值、`defer`），但还没系统接触过 Gin、GORM、JWT 这套 Web 技术栈的读者。读完后，你应该能回答三件事：
 
 - 一个 HTTP 请求进入后端后，代码按什么顺序执行。
-- Gin、GORM、golang-migrate、`golang-jwt`、`bcrypt` 分别负责什么。
+- Gin、GORM、仓库级 `scripts/db`、`golang-jwt`、`bcrypt` 分别负责什么。
 - 想新增一个接口、字段或业务规则时，应该改哪些文件。
 
 > 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口；第 5 节集中讲 Gin 的几个核心机制（路由分组、中间件链、context）；第 6～13 节按一次请求的生命周期分层细讲；第 14 节给出常见改动的步骤清单。
 
 ## 1. 技术选型与设计特色
 
-HelloTime Pro 的 Gin 后端实现基于 **Go + Gin + GORM** 核心骨架，并选用 **golang-migrate** 管理数据库迁移、**golang-jwt** 结合 **bcrypt** 提供安全的 JWT 与密码处理，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+HelloTime Pro 的 Gin 后端实现基于 **Go + Gin + GORM** 核心骨架，使用 **golang-jwt** 结合 **bcrypt** 提供安全的 JWT 与密码处理，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。数据库 schema 初始化、reset、seed 由仓库级 `scripts/db` 统一维护，Gin 服务只负责连接已经准备好的数据库。其具体选型考量与设计特色如下：
 
 * **Go 与 Gin（天然的高并发与极速 HTTP 路由）**：利用 Go 语言轻量级协程（Goroutine）和原生高并发的优势，配合 Gin 轻量级的 HTTP 路由与中间件链，实现极低的请求延迟与优异的吞吐量。
 * **GORM（简洁高效的 ORM 数据库访问）**：选用 Go 生态最主流 of GORM 库作为数据库访问层，通过简洁的结构体标签（Struct Tags）实现强大的表关系映射与自动数据映射，大幅简化了数据持久化代码。
-* **双数据库自适应与二进制静态打包**：项目同时支持 SQLite 和 PostgreSQL。在 SQLite 模式下对路径与锁行为进行了精细设计，并在 Go 编译时利用 `//go:embed` 将 SQL 迁移脚本直接编译进二进制文件，使得程序可以在无任何外部依赖的情况下单文件部署运行。
+* **双数据库自适应与二进制构建**：项目同时支持 SQLite 和 PostgreSQL。在 SQLite 模式下对路径与锁行为进行了精细设计；Go 编译后可形成单一二进制，运行时不依赖框架命令。
 * **清晰的四层架构设计**：项目在内部（`internal/`）划分了配置层（Config）、错误与安全工具（Core）、数据模型（Model/Db）、请求/响应数据载体（DTO）以及业务逻辑（Service），实现了严格的展示与业务分离，行文清晰易读。
 
 ## 2. 先建立整体地图
@@ -41,8 +41,8 @@ backends/gin/
     ├── config/                           # 环境变量 → Settings 单例（init() 函数）
     ├── core/                             # 错误码 (APIError) + 鉴权原语 (bcrypt / JWT / refresh token)
     ├── db/
-    │   ├── database.go                   # gorm.Open + 执行 golang-migrate
-    │   └── migrations/{postgres,sqlite}/ # SQL 迁移文件，//go:embed 进二进制
+    │   ├── database.go                   # gorm.Open + 跨库连接字符串处理
+    │   └── migrations/{postgres,sqlite}/ # 历史 SQL 迁移参考（默认不执行）
     ├── model/models.go                   # GORM 结构体（带 `gorm:"..."` tag），对应数据库表
     ├── dto/                              # 请求 / 响应数据载体（带 `json:"..."` 和 `binding:"..."` tag）
     ├── service/                          # 业务层：auth / capsule / favorite / plaza / user / avatar / llm
@@ -87,7 +87,8 @@ PostgreSQL 或 SQLite
 ```bash
 cd backends/gin
 DB_DRIVER=sqlite ./run      # 零依赖
-./run                       # 默认 PostgreSQL（先 docker compose up -d postgres）
+../../scripts/db reset --seed # 显式准备数据库
+./run                       # 默认 PostgreSQL
 ```
 
 默认端口是 `29020`。启动后可访问：
@@ -124,7 +125,7 @@ GIN_ROOT=$PWD ./bin/hellotime-gin    # 二进制需要知道 static/ 目录在�
 ```go
 func main() {
     syncStaticAssets()                    // 从 spec/ 拷贝 SVG 到 static/
-    gormDB, err := db.Open()              // 建连接 + 跑 migrate.Up
+    gormDB, err := db.Open()              // 只建连接；schema 由 scripts/db 准备
     if err != nil { log.Fatalf(...) }
 
     gin.SetMode(gin.ReleaseMode)
@@ -263,28 +264,18 @@ func init() {
 - **`repoRoot()` 用 `runtime.Caller(0)`** 反向定位仓库根目录，向上走 4 层。这样无论从哪里启动二进制，都能找到 `spec/` 目录读 `catalog.json` 和提示词文件。
 - **跨数据库切换**：`DB_DRIVER` 是开关；`DB_URL` 是连接字符串，分别对应 `postgresql://...` 或 `sqlite://...`。`run` 脚本在调用前先标准化这两个变量。
 
-## 7. 数据库层：GORM + golang-migrate
+## 7. 数据库层：GORM + 仓库级 schema 管理
 
 ### 6.1 连接：`db/database.go`
-
-```go
-//go:embed migrations/postgres/*.sql
-var pgMigrationsFS embed.FS
-//go:embed migrations/sqlite/*.sql
-var sqliteMigrationsFS embed.FS
-```
-
-`//go:embed` 是 Go 1.16 引入的指令：编译时把指定文件读进二进制的 `embed.FS` 变量。**好处是 `./bin/hellotime-gin` 单文件就能跑迁移，不依赖外部目录**。
 
 `Open()` 的核心步骤：
 
 ```go
 db, err = gorm.Open(postgres.Open(dsn), cfg)         // 或 sqlite.Open(path+"?_foreign_keys=on&_journal_mode=WAL")
-runMigrations(db, driver)                            // 执行 migrate.Up
 return db, nil
 ```
 
-`runMigrations` 把 `embed.FS` 包成 `iofs.New(...)`，再用 `migrate.NewWithInstance` 跑到最新版本。`migrate.ErrNoChange`（没有可应用的迁移）被显式忽略，否则要返回错。
+`Open()` 不建表、不迁移、不 seed。这样可以保证所有后端/全栈都使用 `spec/db` 的同一套 schema 语义，契约验证前由根目录 `scripts/db` 显式准备数据库。
 
 ### 6.2 一个隐蔽的坑：SQLite URL 解析
 
@@ -313,7 +304,7 @@ type User struct {
 - 表名默认是 **结构体名的复数形式**：`User` → `users`，`Capsule` → `capsules`，`Favorite` → `favorites`，`RefreshToken` → `refresh_tokens`。
 - `Favorite` 用复合主键：两个字段都标 `primaryKey` 即可。
 
-> 本项目用 golang-migrate 管 schema，**不依赖 GORM 的 AutoMigrate**。GORM tag 实际上只在「GORM 生成 INSERT/UPDATE SQL 时」起作用（比如 `autoCreateTime` 让 GORM 在 INSERT 时自动填 `created_at`）。这是教学项目里两套工具职责清晰的取舍。
+> 本项目不依赖 GORM 的 AutoMigrate。GORM tag 实际上只在「GORM 生成 INSERT/UPDATE SQL 时」起作用（比如 `autoCreateTime` 让 GORM 在 INSERT 时自动填 `created_at`）。schema 以 `spec/db` 为准，由仓库级脚本落库。
 
 ### 6.4 常见 GORM 调用模式
 
@@ -556,15 +547,15 @@ func RespondErr(c *gin.Context, err error)   { ... }    // 统一错误响应
 - **`CtxUser` 用字符串而非 typed key**：教学项目简化。生产代码通常用 `type ctxKey struct{}; const userKey ctxKey = 1` 避免键冲突。
 - **`RespondErr` 用 `gin.H`** 写响应：`gin.H` 是 `map[string]any` 的别名，临时 JSON 用它最方便；正式 DTO 用结构体。
 
-## 12. 数据库迁移：golang-migrate
+## 12. 数据库 schema 与历史迁移参考
 
-`internal/db/migrations/{postgres,sqlite}/` 各一份 `000001_init.up.sql`（也有对应的 `down.sql`）。
+`internal/db/migrations/{postgres,sqlite}/` 保留了早期的 `000001_init.up.sql`，文件头已说明它们是历史参考，不随运行脚本执行。
 
-- 文件名规范：`<版本号>_<描述>.up.sql` / `.down.sql`，版本号严格递增。
-- `Open()` 启动时自动 `migrate.Up()` 把数据库升到最新版本。
-- 两套 SQL 差异是「方言降级」：Postgres 用 `TIMESTAMPTZ`、`pg_trgm`、`gen_random_uuid()`；SQLite 用 `DATETIME`（不是 TEXT！见 6.2 的坑）、`length()`、应用层生 UUID。
+- 仓库当前约束是：schema 初始化、重建、seed 由根目录 `scripts/db` 读取 `spec/db` 统一完成。
+- Gin 后端只保留 GORM model，作为应用读写时的结构映射。
+- 两套历史 SQL 的差异仍有阅读价值：Postgres 用 `TIMESTAMPTZ`、`pg_trgm`、`gen_random_uuid()`；SQLite 用 TEXT/函数约束做方言降级。
 
-要新增表 / 字段：再放一对 `000002_xxx.up.sql / .down.sql`（两套都加），重启即可。**不要修改已经发布的迁移**——执行过的环境会因校验和不一致而启动失败。
+要新增表 / 字段：先修改 `spec/db` 与仓库级维护脚本；如果想保留 Gin 迁移阅读样例，再同步更新 `internal/db/migrations/`。
 
 ## 13. 测试
 
@@ -596,7 +587,7 @@ func TestHealth(t *testing.T) {
 | 加一个新 HTTP 接口 | ① `internal/handler/` 新增 / 编辑函数；② `cmd/server/main.go` 在对应 `Group` 里注册路由 |
 | 加一个请求 / 响应字段 | `internal/dto/*.go` 修改对应 struct（注意 `json` / `binding` tag） |
 | 加一个业务规则 | 在对应的 `service/*.go` 函数里加判断，必要时 `return nil, core.XxxErr(...)` |
-| 加一张表 / 一列 | ① `internal/db/migrations/{postgres,sqlite}/000<n>_*.up.sql / .down.sql` 各一对；② `internal/model/models.go` 增加 / 修改 struct |
+| 加一张表 / 一列 | ① 先改 `spec/db` 与仓库级维护脚本；② `internal/model/models.go` 增加 / 修改 struct；③ 如需保留样例，再同步历史 SQL |
 | 加一个查询条件 | 在 service 里用 `db.Where(...)` 链式追加；复杂查询用 `Table().Select().Joins().Where().Scan(&dst)` |
 | 加一个配置项 | `internal/config/config.go` 在 `Settings` 加字段，在 `init()` 从环境变量读取 |
 | 加一个跨切关注（日志、指标、限流） | 写一个 `gin.HandlerFunc` 中间件，在 `main.go` 用 `r.Use(...)` 或 `group.Use(...)` 挂上 |
@@ -605,7 +596,7 @@ func TestHealth(t *testing.T) {
 
 ## 15. 学到这里之后
 
-读到这里，你已经掌握了 Gin 项目最常见的 80%：路由分组、中间件链、`*gin.Context`、`ShouldBindJSON`、GORM 单行/批量/事务/行锁、`embed.FS` + golang-migrate、统一的 `APIError` 错误模型、`sync.Once / sync.Map` 并发原语、闭包注入依赖。
+读到这里，你已经掌握了 Gin 项目最常见的 80%：路由分组、中间件链、`*gin.Context`、`ShouldBindJSON`、GORM 单行/批量/事务/行锁、统一的 `APIError` 错误模型、`sync.Once / sync.Map` 并发原语、闭包注入依赖。
 
 下一步建议：
 

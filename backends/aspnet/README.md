@@ -95,3 +95,4 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh aspnet   # SQLite，1
   （否则 register 同插 user+token 会触发 FK 失败）。
 - `tests/` 在子目录，已用 `DefaultItemExcludes` 从主工程默认 glob 排除，避免被一并编译。
 - `hello start` 不注入 `PORT` / `REPO_ROOT`：默认端口直接是登记端口 29050；`REPO_ROOT` 由 `run` 脚本导出绝对路径。
+- 详细代码导读见 [TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)。

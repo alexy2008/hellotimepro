@@ -38,7 +38,7 @@ backends/elysia/
 └── src/
     ├── main.ts        # Elysia 应用入口、路由注册、静态资源服务
     ├── config.ts      # 环境变量 → env 配置对象
-    ├── db.ts          # PostgreSQL / SQLite 连接、启动迁移、事务封装
+    ├── db.ts          # PostgreSQL / SQLite 连接、事务封装（保留历史 schema helper）
     ├── services.ts    # auth / me / capsules / plaza / favorites / suggestion 业务逻辑
     ├── security.ts    # JWT、密码哈希、refresh token 原语
     ├── validation.ts  # Zod 请求 schema
@@ -117,8 +117,6 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh elysia
 `main.ts` 是整个 Web 服务的装配层。启动顺序是：
 
 ```typescript
-await migrate();
-
 const app = new Elysia()
   .onError(({ error }) => errorResponse(error))
   .get("/static/avatars/:file", ...)
@@ -131,7 +129,7 @@ const app = new Elysia()
 
 几个要点：
 
-- **启动先迁移**：`await migrate()` 在监听端口前执行，保证表结构已经存在。
+- **启动只装配服务**：数据库 schema 由根目录 `scripts/db` 显式准备，`main.ts` 不在监听前建表或迁移。
 - **路由集中注册**：Elysia 使用链式 API 注册路由，每个 `.get/.post/.patch/.delete` 都对应一个 HTTP 端点。
 - **静态资源直读 spec**：`/static/avatars/:file` 和 `/static/icons/:file` 通过 `Bun.file(...)` 读取仓库 `spec/` 下的 SVG。
 - **统一错误兜底**：`.onError(({ error }) => errorResponse(error))` 捕获没有被 `route(...)` 包住的异常。
@@ -241,7 +239,7 @@ export const env = {
 `db.ts` 做四件事：
 
 - 根据 `env.dbDriver` 建立 PostgreSQL 或 SQLite 连接。
-- 启动时执行对应方言的 schema 初始化。
+- 按驱动选择 PostgreSQL 连接池或 Bun 内置 SQLite，并提供统一查询/事务 API。
 - 提供统一的 `query(...)`、`one(...)` 查询函数。
 - 提供跨库事务封装 `tx(...)`。
 
@@ -282,14 +280,16 @@ function pgSql(sql: string): string {
 
 这样 service 层 SQL 不需要为两套数据库写两遍。
 
-### 6.3 启动迁移
+### 6.3 schema 生命周期
 
-`migrate()` 根据当前驱动执行 `pgSchema` 或 `sqliteSchema`。这些 schema 与 `spec/db/schema.sql` 等价，但根据方言做了必要差异：
+仓库当前约束是：schema 初始化、重建、seed 都由根目录 `scripts/db` 读取 `spec/db` 统一完成。Elysia 后端启动时只建立连接，不建表、不迁移、不导入数据。
+
+`db.ts` 中仍保留 `migrate()`、`pgSchema`、`sqliteSchema`，它们是早期实现留下的历史参考，便于读者理解“如果不用 ORM，原生 SQL 需要如何为 PostgreSQL / SQLite 各写一份 schema”。当前 `main.ts` 不调用它。
 
 - PostgreSQL：`TIMESTAMPTZ`、布尔类型、正则 CHECK、索引。
 - SQLite：`TEXT` 存 UUID / 时间，`INTEGER` 存 boolean，启用外键。
 
-本实现使用 `CREATE TABLE IF NOT EXISTS`，契约验证脚本会在启动前清空数据库，因此每次验证都是干净 schema。
+契约验证脚本会在启动前通过仓库级数据库脚本准备干净 schema，因此每次验证都从同一份 `spec/db` 出发。
 
 ### 6.4 事务封装
 
@@ -569,7 +569,7 @@ allowedAvatarIds()
 
 Elysia 实现选择原生 SQL + 小型方言适配，而不是 Drizzle/TypeORM，主要是为了展示 Bun/Elysia 下更轻的后端写法：
 
-- schema 初始化 SQL 清晰可见，容易对照 `spec/db/schema.sql`。
+- 历史 schema helper 清晰可见，容易对照 `spec/db/schema.sql` 理解两种方言差异。
 - 事务和锁语义显式，尤其适合解释 `favorite_count` 一致性。
 - 业务代码只依赖 `query / one / tx` 三个数据库原语，迁移到 ORM 也有明确边界。
 
@@ -604,16 +604,17 @@ favorite_count AS "favoriteCount"
 1. 先改 `spec/api/openapi.yaml`。
 2. 改 `src/validation.ts` 对应 Zod schema。
 3. 改 `src/services.ts` 业务规则。
-4. 如字段要持久化，改 `src/db.ts` 两套 schema。
+4. 如字段要持久化，先改 `spec/db` 与仓库级数据库维护脚本；必要时同步历史 schema helper。
 5. 改 `src/types.ts` DTO 映射。
 6. 跑 SQLite 和 PostgreSQL 契约验证。
 
 ### 13.4 改数据库 schema
 
 1. 以 `spec/db/schema.sql` 为事实源。
-2. 同步修改 `src/db.ts` 的 `pgSchema` 和 `sqliteSchema`。
-3. 确认 SQLite 方言差异：UUID/TIMESTAMPTZ/BOOLEAN/CHECK/索引。
-4. 跑：
+2. 同步修改仓库级数据库维护脚本。
+3. 如需保持阅读样例完整，再同步 `src/db.ts` 的 `pgSchema` 和 `sqliteSchema`。
+4. 确认 SQLite 方言差异：UUID/TIMESTAMPTZ/BOOLEAN/CHECK/索引。
+5. 跑：
 
 ```bash
 DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh elysia
@@ -663,6 +664,6 @@ cd backends/elysia
 3. `src/envelope.ts` 和 `src/errors.ts`：看统一响应与错误码。
 4. `src/security.ts`：看 JWT、密码、refresh token 原语。
 5. `src/services.ts`：按 auth、capsule、plaza、favorite 分块读业务规则。
-6. `src/db.ts`：最后看数据库连接、迁移和事务。
+6. `src/db.ts`：最后看数据库连接、方言适配和事务。
 
 这样读会比从 `db.ts` 开始更容易，因为你先知道“业务想做什么”，再看“底层如何支持”。

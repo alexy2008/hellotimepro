@@ -13,7 +13,7 @@
 HelloTime Pro 的 NestJS 后端实现基于 **Node.js + NestJS + TypeScript** 核心骨架，并选用 **TypeORM** 作为数据库对象关系映射工具、**Passport** 进行基于 JWT 的身份验证、**class-validator** 驱动声明式数据校验，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
 
 * **NestJS 与 TypeScript（企业级模块化与强类型设计）**：采用 TypeScript 的强类型约束和面向对象元数据设计，借助 NestJS 强大的依赖注入（DI）容器与高度内聚的模块（Modules）系统，为 Node.js 环境提供企业级、高度可控的架构标准。
-* **TypeORM 与跨库自适应（自动执行迁移与方言自适应）**：选用现代化的 TypeORM 框架作为数据访问层，并创新设计了跨库列类型辅助机制（如 `timestampColumn` 在 PostgreSQL 和 SQLite 间自动适配类型）。同时配置了 `migrationsRun: true` 实现启动时自动运行 SQL schema 迁移。
+* **TypeORM 与跨库自适应（实体映射与方言自适应）**：选用现代化的 TypeORM 框架作为数据访问层，并设计了跨库列类型辅助机制（如 `timestampColumn` 在 PostgreSQL 和 SQLite 间自动适配类型）。数据库 schema 初始化、reset、seed 由仓库级 `scripts/db` 统一维护，Nest 服务只连接已经准备好的数据库；迁移类保留为 TypeORM schema 表达样例。
 * **class-validator 与 ValidationPipe（声明式拦截与过滤）**：通过 DTO（数据传输对象）类的属性装饰器完成请求边界声明，依靠全局 `ValidationPipe` 拦截非法请求并自动过滤多余字段，在请求抵达业务层前构筑类型安全边界。
 * **全周期的管道/守卫/拦截器/过滤器生态**：高度遵循 NestJS 标准的 AOP（面向切面编程）生命周期。采用 Passport JWT Strategy 配合守卫（Guards）实现鉴权拦截、拦截器（Interceptors）完成统一成功响应包装、全局过滤器（Filters）捕获异常并映射为契约约定的错误响应。
 
@@ -42,7 +42,7 @@ backends/nest/
     ├── database/
     │   ├── database.module.ts             # TypeORM 动态连接配置（PG / SQLite 二选一）
     │   ├── column-helpers.ts             # 跨库列类型辅助函数（timestamptz vs text）
-    │   └── migrations/{postgres,sqlite}/ # TypeORM 迁移文件（独立一套）
+    │   └── migrations/{postgres,sqlite}/ # TypeORM 迁移参考（默认不执行）
     ├── entities/                          # TypeORM 实体（对应数据库表）
     ├── common/
     │   ├── api.exception.ts              # 业务异常类 + 工厂函数
@@ -282,8 +282,8 @@ TypeOrmModule.forRootAsync({
         database: parseSqliteFile(dbUrl),
         entities,
         migrations: [`${migrationDir}/*.{ts,js}`],
-        migrationsRun: true,    // 启动时自动执行迁移
-        synchronize: false,     // 不使用 TypeORM 自动同步（依赖迁移文件管理 schema）
+        migrationsRun: false,   // 服务启动不修改 schema
+        synchronize: false,     // 不使用 TypeORM 自动同步（schema 由 scripts/db 维护）
         prepareDatabase: (db) => {
           db.pragma('foreign_keys = ON');
           db.pragma('journal_mode = WAL');
@@ -297,8 +297,8 @@ TypeOrmModule.forRootAsync({
 
 关键选项：
 
-- **`migrationsRun: true`**：启动时 TypeORM 自动执行尚未运行的迁移，类似 Flyway 的 `migrate` 或 golang-migrate 的 `Up`。
-- **`synchronize: false`**：绝对不要在生产环境打开——它会根据实体自动修改数据库 schema，可能删表删列。本项目完全依赖迁移文件管理 schema。
+- **`migrationsRun: false`**：服务启动只建立连接，不执行迁移；schema 初始化、reset、seed 统一由根目录 `scripts/db` 完成。
+- **`synchronize: false`**：绝对不要在生产环境打开——它会根据实体自动修改数据库 schema，可能删表删列。本项目统一由 `scripts/db` 管理 schema。
 - **`prepareDatabase`**：SQLite 专有的钩子，设置外键约束和 WAL 模式。
 
 ### 6.2 跨库列类型：`column-helpers.ts`
@@ -422,9 +422,9 @@ export class InitSchema1700000000000 implements MigrationInterface {
 }
 ```
 
-启动时 `migrationsRun: true` 让 TypeORM 自动执行未运行的迁移（按时间戳排序）。类名里的时间戳 `1700000000000` 是版本号，递增保证顺序。
+当前运行配置不会自动执行这些迁移类。它们保留为 Nest/TypeORM 读者理解 schema 表达方式的参考：类名里的时间戳 `1700000000000` 是版本号，递增保证顺序。
 
-要新增表或字段：在两套目录下各新建一个 `<时间戳>-<描述>.ts`，重启即可。**不要修改已执行过的迁移**——TypeORM 会校验已执行迁移的哈希值。
+要新增表或字段：先修改 `spec/db` 与仓库级维护脚本；如果需要保持 Nest 的迁移样例完整，再在两套目录下各新建一个 `<时间戳>-<描述>.ts`。**不要修改已发布的迁移样例**。
 
 ## 8. 错误处理：`common/api.exception.ts`
 
@@ -740,7 +740,7 @@ await request(app.getHttpServer()).post('/api/v1/auth/register').send({...}).exp
 | 加一个新 HTTP 接口 | ① 在对应模块的 `*.controller.ts` 里加方法；② 如果是新模块，在对应 `*.module.ts` 里声明 controller，并在 `app.module.ts` 里 `imports` 新模块 |
 | 加一个请求 / 响应字段 | 修改对应 `dto/*.dto.ts` 里的 class（记得加 class-validator 装饰器） |
 | 加一个业务规则 | 在对应 `*.service.ts` 方法里加判断，`throw` 对应的 `ApiException` 工厂函数 |
-| 加一张表 / 一列 | ① 在 `entities/` 新增或修改实体（加 `@Column`、`@Entity` 等注解）；② 在 `database/migrations/{postgres,sqlite}/` 各新建一个带时间戳的迁移类 |
+| 加一张表 / 一列 | ① 先改 `spec/db` 与仓库级维护脚本；② 在 `entities/` 新增或修改实体；③ 如需保留样例，再同步 `database/migrations/{postgres,sqlite}/` |
 | 加一个查询条件 | 在 service 里用 `.andWhere(...)` 追加；复杂查询用 `createQueryBuilder()` 链式构造 |
 | 加一个配置项 | 在 `config/configuration.ts` 的 `AppConfig` 接口加字段，在工厂函数里从 `process.env` 读取 |
 | 加一个跨切关注（日志、限流） | 写一个 `@Injectable()` 类实现 `NestInterceptor` 或 `CanActivate`，在 `main.ts` 用 `app.useGlobalInterceptors/Filters/Guards` 注册，或在 module/controller 上用 `@UseInterceptors/@UseGuards` 局部注册 |
@@ -757,7 +757,7 @@ await request(app.getHttpServer()).post('/api/v1/auth/register').send({...}).exp
 | DI 容器 | Spring IoC（classpath 扫描） | 手动构造/传参 | NestJS DI（模块显式声明） |
 | 请求验证 | Bean Validation（`@Valid`） | go-playground/validator + binding tag | class-validator + `ValidationPipe` |
 | ORM | Spring Data JPA / Hibernate | GORM | TypeORM |
-| 数据库迁移 | Flyway | golang-migrate | TypeORM MigrationInterface |
+| schema 表达样例 | Flyway SQL（默认不自动执行） | 历史 SQL 迁移参考 | TypeORM MigrationInterface（默认不自动执行） |
 | 鉴权 | Spring Security / 自定义 Filter | 中间件函数 | Passport Strategy + Guard |
 | 全局异常 | `@RestControllerAdvice` | `middleware.RespondErr` | `@Catch()` ExceptionFilter |
 | 响应包装 | controller 手动 `Envelope.ok(...)` | `dto.OK(...)` | `EnvelopeInterceptor` 自动包装 |

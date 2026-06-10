@@ -90,3 +90,4 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh ktor   # SQLite，104
 
 - Gradle 默认输出目录 `build/` 与本目录的可执行脚本 `build` 冲突，已在 `build.gradle.kts` 改名为 `build-out/`。
 - `hello start` 不注入 `PORT`，默认端口直接是登记端口 29090。
+- 详细代码导读见 [TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)。

@@ -5,8 +5,8 @@
 ## 快速开始
 
 ```bash
-# 可选：启动 Postgres
-docker compose -f ../../docker-compose.yml up -d postgres
+# PostgreSQL（默认）：先由仓库级脚本显式准备数据库
+../../scripts/db reset --seed
 
 # 默认跑 Postgres
 ./run
@@ -29,8 +29,8 @@ DB_DRIVER=sqlite ./run
 | 一致性构建（锁安装 + import） | `./build` |
 | 切换 SQLite | `DB_DRIVER=sqlite ./run` |
 | 指定端口 | `PORT=29011 ./run` |
-| 生成新迁移 | `uv run alembic revision -m "msg" --autogenerate` |
-| 手动 upgrade | `uv run alembic upgrade head` |
+| 准备数据库 | `../../scripts/db reset --seed` |
+| 手动迁移参考 | `uv run alembic upgrade head`（仅确认目标库为空时使用） |
 
 ## 目录结构
 
@@ -46,7 +46,7 @@ app/
 ├── deps.py        FastAPI Depends（current_user_* / get_db）
 └── main.py        应用入口 + 错误处理 + 静态资源挂载
 
-alembic/           迁移脚本（以 spec/db/schema.sql 为基准）
+alembic/           Alembic 迁移参考（运行脚本不自动执行）
 tests/             pytest 单测
 static/            启动时从 spec/ 同步（gitignored）
 ```
@@ -75,6 +75,7 @@ static/            启动时从 spec/ 同步（gitignored）
 ## 契约验证
 
 ```bash
+DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh fastapi
 ../../verification/scripts/verify-contract.sh fastapi
 ```
 

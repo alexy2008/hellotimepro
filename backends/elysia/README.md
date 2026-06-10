@@ -7,8 +7,8 @@ M2 扩散后端之一：**Bun + Elysia + TypeScript + 原生 SQL**。端口 **29
 ## 快速开始
 
 ```bash
-# 可选：启动 Postgres
-docker compose -f ../../docker-compose.yml up -d postgres
+# PostgreSQL（默认）：先由仓库级脚本显式准备数据库
+../../scripts/db reset --seed
 
 # 默认跑 Postgres（端口 29030）
 ./run
@@ -52,7 +52,7 @@ DB_DRIVER=sqlite ./run
 src/
 ├── main.ts        Elysia 应用入口、路由注册、静态资源服务
 ├── config.ts      环境变量配置
-├── db.ts          PostgreSQL / SQLite 连接、迁移、事务封装
+├── db.ts          PostgreSQL / SQLite 连接、事务封装（保留历史 schema helper）
 ├── services.ts    auth / me / capsules / plaza / favorites / suggestion 业务逻辑
 ├── security.ts    JWT、密码哈希、refresh token 原语
 ├── validation.ts  Zod 请求 schema
@@ -73,7 +73,7 @@ src/
 
 - UUID：应用层以 `randomUUID()` 生成 UUID。PostgreSQL 使用 `UUID` 列类型（schema 中以 `gen_random_uuid()` 为默认值），SQLite 使用 `TEXT` 列存储。
 - 时间：应用层统一写入 ISO 8601 字符串；PostgreSQL 使用 `TIMESTAMPTZ`，SQLite 使用 `TEXT`。
-- 迁移：服务启动时在 `db.ts` 执行对应方言的 `CREATE TABLE IF NOT EXISTS` schema。
+- schema 生命周期：服务启动只连接数据库；初始化、reset、seed 由根目录 `scripts/db` 显式完成。
 - 收藏计数：`addFavorite` / `removeFavorite` 在事务内更新 favorites 行和 `favorite_count`；PostgreSQL 使用 `SELECT ... FOR UPDATE`，SQLite 使用 `BEGIN IMMEDIATE`。
 
 ## 实现特色

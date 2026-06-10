@@ -3,14 +3,14 @@
 本文面向已经熟悉 Python 基本语法，但还不熟悉 Web 框架、FastAPI、SQLAlchemy 或后端分层设计的读者。读完后，你应该能回答三件事：
 
 - 一个 HTTP 请求进入后端后，代码按什么顺序执行。
-- FastAPI、Pydantic、SQLAlchemy、Alembic 分别负责什么。
+- FastAPI、Pydantic、SQLAlchemy、Alembic 参考迁移分别负责什么。
 - 想新增一个接口、字段或业务规则时，应该改哪些文件。
 
 ## 1. 技术选型与设计特色
 
-HelloTime Pro 的 FastAPI 后端实现基于 **Python + FastAPI + SQLAlchemy** 核心骨架，并选用 **Pydantic** 进行数据校验与 Schema 定义、**Alembic** 管理数据库迁移、**pytest** 驱动自动化测试，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+HelloTime Pro 的 FastAPI 后端实现基于 **Python + FastAPI + SQLAlchemy** 核心骨架，并选用 **Pydantic** 进行数据校验与 Schema 定义，保留 **Alembic** 迁移文件作为参考实现的 schema 落地样例，使用 **pytest** 驱动自动化测试，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。运行时数据库生命周期由仓库级 `scripts/db` 统一维护，后端只连接已经准备好的数据库。其具体选型考量与设计特色如下：
 
-* **FastAPI（高性能异步 Web 框架与自动文档）**：依托 Python 的异步（async/await）生态，搭配 Uvicorn 运行，提供极高的并发请求处理性能。框架天然集成 OpenAPI 规范，能根据代码定义自动且实时生成交互式 API 调试文档（Swagger UI）。
+* **FastAPI（类型化 Web 框架与自动文档）**：本实现采用同步路由函数与同步 SQLAlchemy Session，突出 FastAPI 的依赖注入、Pydantic 边界校验和自动 OpenAPI 文档，而不是演示 async 数据访问。搭配 Uvicorn 运行，框架天然集成 Swagger UI，便于教学和调试。
 * **Pydantic（严格的输入校验与类型契约）**：接口边界上的输入与输出数据完全通过 Pydantic Schema 进行结构化声明与校验。在请求到达业务逻辑前即完成严格的字段校验与类型转换，提供安全可靠的类型安全边界。
 * **SQLAlchemy（灵活的双数据库引擎）**：采用 SQLAlchemy ORM 作为数据库访问层，并配置了跨驱动连接池与方言支持。使后端无需修改任何核心代码，即可通过环境变量一键在生产级 PostgreSQL 与轻量级 SQLite 之间进行无缝切换。
 * **分层解耦的架构设计**：项目严格遵循**呈现层 -> 应用层 -> 领域层 -> 基础设施层**的经典四层架构。路由逻辑（Routers）、数据校验（Schemas）、业务逻辑（Services）与数据模型（Models）各司其职，保证了极佳的模块化与可维护性。
@@ -38,7 +38,7 @@ backends/fastapi/
 │   ├── models/              # SQLAlchemy ORM 模型：数据库表的 Python 表达
 │   ├── db/                  # 数据库 engine、session、跨驱动类型
 │   └── core/                # 配置、错误、安全工具
-├── alembic/                 # 数据库迁移
+├── alembic/                 # Alembic 迁移参考（run 不自动执行）
 ├── tests/                   # pytest 测试
 ├── run                      # 开发运行脚本
 ├── test                     # 测试脚本
@@ -96,9 +96,9 @@ cd backends/fastapi
 1. 用 `uv sync` 安装依赖。
 2. 当 `DB_DRIVER=sqlite` 且未设置 `DB_URL` 时，自动使用 `data/sqlite/hellotime.db`。
 3. 把普通 PostgreSQL URL 标准化为 SQLAlchemy 需要的 `postgresql+psycopg://`。
-4. 执行 `alembic upgrade head`，把数据库 schema 升到最新。
-5. 默认注入演示数据。
-6. 用 `uvicorn app.main:app` 启动 FastAPI。
+4. 用 `uvicorn app.main:app` 启动 FastAPI。
+
+注意：`run` 不创建 schema、不执行 Alembic、不注入演示数据。数据库初始化、reset、seed 必须显式使用根目录 `scripts/db`。
 
 ## 4. 入口：`app/main.py`
 
@@ -378,7 +378,12 @@ class User(Base):
 
 ## 10. 迁移：`alembic`
 
-ORM 模型是 Python 代码里的表结构描述，真正创建数据库表的是 Alembic 迁移。
+ORM 模型是 Python 代码里的表结构描述。仓库当前约束是：真正的 schema 初始化、重建、seed 都由根目录 `scripts/db` 读取 `spec/db` 统一完成，`backends/fastapi/run` 不会隐式执行 Alembic。
+
+因此这里的 Alembic 文件有两个用途：
+
+- 作为参考实现阶段留下的 Python 迁移样例，展示 SQLAlchemy/Alembic 如何表达同一份 schema。
+- 当你需要手动验证空库建表时，可以显式运行 `uv run alembic upgrade head`。如果目标库已经由 `scripts/db init/reset` 准备过，直接运行 Alembic 会因为表已存在而失败。
 
 迁移文件在：
 
@@ -394,13 +399,13 @@ alembic/versions/0001_initial.py
 - `refresh_tokens`
 - 索引和检查约束
 
-`alembic/env.py` 会读取 `settings.db_url`，复用 `build_engine()`，因此运行迁移时和应用运行时使用同一套数据库配置。
+`alembic/env.py` 会读取 `settings.db_url`，复用 `build_engine()`，因此手动运行迁移时和应用运行时使用同一套数据库配置。
 
 如果未来新增字段，一般步骤是：
 
 1. 修改 `app/models/*.py`。
 2. 修改 `app/schemas/*.py`，如果该字段出现在 API 中。
-3. 新增 Alembic migration。
+3. 先修改 `spec/db` 与仓库级维护脚本；如需保留 FastAPI 迁移样例，再新增 Alembic migration。
 4. 补测试。
 
 ## 11. 业务层：`app/services`
@@ -659,7 +664,7 @@ raise errors.not_found("胶囊不存在")
 
 - 设置 `DB_DRIVER=sqlite`。
 - 设置测试数据库路径 `_pytest.db`。
-- 执行 Alembic migration。
+- `./test` 脚本会先对临时 SQLite 库显式执行 Alembic migration；应用运行脚本不会隐式迁移业务库。
 - 每个测试前清空业务表。
 - 提供 `client` fixture，用 FastAPI `TestClient` 发送请求。
 - 提供 `db` fixture，用于直接测试 service。
@@ -816,7 +821,7 @@ def session(user: User = Depends(current_user_required)) -> Envelope[UserOut]:
 1. 改 `app/models/capsule.py`，给 `Capsule` 增加列。
 2. 改 `app/schemas/capsule.py`，决定创建和返回时是否包含 `mood`。
 3. 改 `capsule_service.create()`，把请求字段写入模型。
-4. 新增 Alembic migration，给数据库加列。
+4. 先修改 `spec/db` 与仓库级数据库维护脚本；如需保留 FastAPI 样例，再新增 Alembic migration。
 5. 改测试，覆盖创建、查询、列表返回。
 6. 如果属于 API 契约，更新 `spec/api/openapi.yaml`。
 
@@ -826,7 +831,7 @@ def session(user: User = Depends(current_user_required)) -> Envelope[UserOut]:
 - `schemas`：API 输入输出。
 - `services`：业务规则。
 - `api/v1`：HTTP 路由。
-- `alembic`：数据库迁移。
+- `alembic`：参考迁移样例；运行时 schema 由 `scripts/db` 维护。
 - `tests`：行为保证。
 
 ## 20. 初学者常见困惑
