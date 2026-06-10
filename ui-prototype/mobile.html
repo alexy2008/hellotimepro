@@ -1042,10 +1042,19 @@
                 <label for="createTitle">胶囊标题 (Title)</label>
                 <div style="display: flex; gap: var(--space-2); align-items: stretch; margin-top: 4px">
                   <input type="text" id="createTitle" placeholder="写一句封面的导语，如“写给三年后的自己”" maxlength="60" style="flex: 1" oninput="onTitleInput()" />
-                  <button type="button" class="cy-btn cy-btn--ghost" id="createAiBtn" onclick="aiGenerateSuggested()" style="white-space: nowrap; font-size: 11px; padding: 4px 8px; border-radius: var(--radius-md)" disabled>✨ AI 生成</button>
+                  <button type="button" class="cy-btn cy-btn--ghost" id="createAiBtn" onclick="aiGenerateSuggested()" style="white-space: nowrap; font-size: 11px; padding: 4px 8px; border-radius: var(--radius-md)">✨ AI 生成</button>
                 </div>
               </div>
               <div id="createAiInfo" style="font-size: 10px; color: var(--color-text-secondary); margin-top: -6px; padding: 0 4px; display: none">已为你建议解封时间</div>
+              
+              <!-- AI 推荐主题/灵感区 -->
+              <div id="recoContainer" class="mobile-input-card" style="display: none; margin-top: -6px; padding: var(--space-3); background: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
+                  <label style="margin: 0; font-size: 11px; color: var(--color-text-muted); font-weight: 500;">✨ 没有头绪？试试这些灵感</label>
+                  <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" id="recoRefreshBtn" onclick="loadRecommendations()" style="font-size: 10px; padding: 2px 6px; border-radius: var(--radius-sm); height: auto; line-height: 1;">换一批</button>
+                </div>
+                <div id="recoChipsList" style="display: flex; flex-wrap: wrap; gap: var(--space-2);"></div>
+              </div>
               
               <div class="mobile-input-card">
                 <label for="createContent">内容 (Content)</label>
@@ -1559,6 +1568,7 @@
     renderMeGrid();
     renderAvatarSelector();
     syncUserUI();
+    loadRecommendations();
 
     // 防抖搜索
     let searchTimeout;
@@ -1586,16 +1596,28 @@
     document.getElementById('statusBarTime').innerText = `${h}:${m}`;
   }
 
-  // 校验并改变是否到期
+  // 校验并改变是否到期，且实时刷新页面上的所有倒计时
   function checkCapsuleExpiration() {
     const now = new Date().getTime();
     let hasChanged = false;
+
+    // 实时更新页面上所有倒计时的文本
+    document.querySelectorAll('[data-countdown-open-at]').forEach(el => {
+      const openAt = el.getAttribute('data-countdown-open-at');
+      const diffText = getCountdownString(openAt);
+      el.innerText = diffText;
+    });
+
     capsules.forEach(c => {
       const openTime = new Date(c.openAt).getTime();
       if (!c.isOpened && openTime <= now) {
         c.isOpened = true;
         hasChanged = true;
         triggerIslandNotification('🔓 胶囊开启成功！', c.title);
+        // 如果当前详情抽屉开启，并且展示的是刚到期的胶囊，则刷新详情抽屉
+        if (currentDetailId === c.id) {
+          updateDetailSheet(c);
+        }
       }
     });
     if (hasChanged) {
@@ -1769,7 +1791,7 @@
             <span class="cy-capsule__code">${c.code}</span>
           </div>
           <h3 class="cy-capsule__title">${c.title}</h3>
-          <p class="cy-capsule__countdown">⏳ 还剩 ${diffText}</p>
+          <p class="cy-capsule__countdown">⏳ 还剩 <span data-countdown-open-at="${c.openAt}" data-capsule-id="${c.id}">${diffText}</span></p>
         `;
       }
 
@@ -1943,34 +1965,155 @@
 
   let aiGenerated = false;
 
+  const allRecommendations = [
+    { title: "写给一年后的我", hint: "反思当下的烦恼，定下小目标" },
+    { title: "2026年终总结", hint: "在年末解锁，回顾这一年的成长" },
+    { title: "三十岁生日寄语", hint: "跨越年龄的成长心声" },
+    { title: "给未来的孩子", hint: "记录此刻作为父母的敬畏与温情" },
+    { title: "树洞：解压密码", hint: "把难过和迷茫封存，交给时间铺平" },
+    { title: "新婚前夜的自我", hint: "记住心动的瞬间，承诺未来的包容" },
+    { title: "毕业十周年聚会", hint: "与同窗好友约定在未来重温青春" },
+    { title: "第一笔工资纪念", hint: "记录初入社会的期许与成就感" },
+    { title: "旅行者的时空信标", hint: "记录在异国他乡的所思所感" },
+    { title: "写给未来的伴侣", hint: "对未来另一半的温柔期许" }
+  ];
+
+  const mockSuggestions = [
+    {
+      title: "写给一年后的我",
+      content: "你好，一年后的我。当你收到这封信时，是否已经改掉了拖延的习惯？\n\n此刻的我正在为项目上线忙碌，心中充满了对未来的期许。愿你比现在的我更从容，更优秀。\n\n不要忘记曾经的热爱，继续勇敢前行！",
+      openInDays: 365,
+      generatedBy: "openai:gpt-4.1-mini"
+    },
+    {
+      title: "减肥契约与打卡",
+      content: "这是一份在时间链条上锁死的目标契约。\n\n我在此写下目标：\n1. 养成规律健康的饮食习惯，少油低脂少外卖；\n2. 保持运动和锻炼习惯，达到理想的身体状态与体形；\n3. 达成一项为自己设立的工作目标。\n\n当你今天开启这封信时，请坦诚地面对当年的自我。愿你已经实现了这个蜕变！",
+      openInDays: 180,
+      generatedBy: "openai:gpt-4.1-mini"
+    },
+    {
+      title: "树洞：给迷茫的自己",
+      content: "今天积攒了许多说不出口的压力，所以我决定把它上锁在这里。\n\n我不打算把这种情绪发在朋友圈，也不想带给身边的人。这只是历史长河中一朵微不足道的浪花，我写下它，然后松开双手，把它交给时间去抚平。\n\n希望解封那一天的你，早已释怀，正微笑着看着今晚的迷茫。加油，一切都会好起来的。",
+      openInDays: 30,
+      generatedBy: "openai:gpt-4.1-mini"
+    },
+    {
+      title: "我的十年奋斗史",
+      content: "跨越十年的光阴，这是一封来自 2026 年的问候。\n\n十年的跨度足够改变许多事。你是否还在做着当年的探索？身边的老朋友是否还在常联系？你又是否遇到了那个想要共度一生的人？\n\n无论十年后的世界变成什么样，我都希望你温和而坚定，依然像当年那个少年一样，眼睛里闪烁着星光。",
+      openInDays: 3650,
+      generatedBy: "openai:gpt-4.1-mini"
+    },
+    {
+      title: "写给新婚之夜的我",
+      content: "亲爱的自己：\n\n当你开启这封信的时候，或许你正沉浸在人生新阶段的喜悦中。我想问你：身旁的伴侣是否正是今晚你所深爱的那个人？你们是否依然保留着最初的心动与默契？\n\n婚姻需要长久的包容与支持，希望未来的你多一些温柔，少一些脾气。祝你幸福！",
+      openInDays: 1825,
+      generatedBy: "openai:gpt-4.1-mini"
+    }
+  ];
+
+  let recos = [];
+  function loadRecommendations() {
+    const refreshBtn = document.getElementById('recoRefreshBtn');
+    if (refreshBtn) {
+      refreshBtn.disabled = true;
+      refreshBtn.innerText = '换一批中…';
+    }
+    
+    setTimeout(() => {
+      // 随机洗牌并挑选 5 个
+      const shuffled = [...allRecommendations].sort(() => 0.5 - Math.random());
+      recos = shuffled.slice(0, 5);
+      
+      const listEl = document.getElementById('recoChipsList');
+      if (listEl) {
+        listEl.innerHTML = '';
+        const palettes = ["brand", "accent", "signal"];
+        recos.forEach((reco, i) => {
+          const p = palettes[i % palettes.length];
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'cy-btn cy-btn--ghost cy-btn--sm';
+          btn.style.whiteSpace = 'nowrap';
+          btn.style.border = `1px solid var(--color-${p}-primary)`;
+          btn.style.borderRadius = 'var(--radius-full)';
+          btn.style.fontSize = '11px';
+          btn.style.padding = '4px 10px';
+          btn.title = reco.hint;
+          btn.onclick = () => pickRecommendation(reco);
+          btn.innerText = reco.title;
+          listEl.appendChild(btn);
+        });
+      }
+      
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.innerText = '换一批';
+      }
+      
+      // 更新可见性
+      onTitleInput();
+    }, 400);
+  }
+
+  function pickRecommendation(reco) {
+    const titleInput = document.getElementById('createTitle');
+    titleInput.value = reco.title;
+    document.getElementById('createContent').value = '';
+    aiGenerated = false;
+    
+    // 隐藏推荐区
+    onTitleInput();
+    
+    // 自动调用 AI 生成
+    aiGenerateSuggested();
+  }
+
   function onTitleInput() {
     const title = document.getElementById('createTitle').value.trim();
-    const btn = document.getElementById('createAiBtn');
-    btn.disabled = !title;
+    const recoContainer = document.getElementById('recoContainer');
+    if (recoContainer) {
+      if (!title && recos.length > 0) {
+        recoContainer.style.display = 'block';
+      } else {
+        recoContainer.style.display = 'none';
+      }
+    }
   }
 
   function simulateCapsuleSuggestion(title) {
-    const t = title.toLowerCase();
+    const t = title ? title.toLowerCase() : "";
     let content = `你好，这封信写于 2026 年，此刻我正站在时光的分水岭。\n\n我想问未来的你几个问题：你是否达成了当年的愿景？是否依然保持着纯真与好奇心？\n\n不管结果如何，请记住今晚写下这段话时的感觉 —— 只要迈出第一步，就永远来得及。`;
     let openInDays = 365; // 1年
     let source = 'openai:gpt-4.1-mini';
+    let generatedTitle = "";
 
-    if (t.includes('胖') || t.includes('瘦') || t.includes('重') || t.includes('减肥') || t.includes('flag') || t.includes('体重')) {
-      content = `这是一份在时间链条上锁死的目标契约。\n\n我在此写下目标：\n1. 养成规律健康的饮食习惯，少油低脂少外卖；\n2. 保持运动和锻炼习惯，达到理想的身体状态与体形；\n3. 达成一项为自己设立的工作目标。\n\n当你今天开启这封信时，请坦诚地面对当年的自我。愿你已经实现了这个蜕变！`;
-      openInDays = 180; // 半年
-    } else if (t.includes('儿') || t.includes('女') || t.includes('娃') || t.includes('宝') || t.includes('孩')) {
-      content = `亲爱的宝贝：\n\n当你开启这封信的时候，你已经迎来了意义非凡的成长时刻（也许是你的成人礼）。写这封信的今晚，你还那么小，正躺在襁褓里发出细微的呼吸。我握着你稚嫩的小手，第一次体验到成为父母的温暖与敬畏。\n\n我不强求你未来多么完美，我只希望你健康、自由，拥有探索这个世界的勇气。我们永远是你的港湾。`;
-      openInDays = 3650; // 10年
-    } else if (t.includes('树洞') || t.includes('秘密') || t.includes('难过') || t.includes('累') || t.includes('压力')) {
-      content = `今天积攒了许多说不出口的压力，所以我决定把它上锁在这里。\n\n我不打算把这种情绪发在朋友圈，也不想带给身边的人。这只是历史长河中一朵微不足道的浪花，我写下它，然后松开双手，把它交给时间去抚平。\n\n希望解封那一天的你，早已释怀，正微笑着看着今晚的迷茫。加油，一切都会好起来的。`;
-      openInDays = 30; // 30天
-    } else if (t.includes('十年') || t.includes('10年') || t.includes('未来')) {
-      content = `跨越十年的光阴，这是一封来自 2026 年的问候。\n\n十年的跨度足够改变许多事。你是否还在做着当年的探索？身边的老朋友是否还在常联系？你又是否遇到了那个想要共度一生的人？\n\n无论十年后的世界变成什么样，我都希望你温和而坚定，依然像当年那个少年一样，眼睛里闪烁着星光。`;
-      openInDays = 3650;
+    if (!title) {
+      // 随机选一个 mock
+      const idx = Math.floor(Math.random() * mockSuggestions.length);
+      const sel = mockSuggestions[idx];
+      generatedTitle = sel.title;
+      content = sel.content;
+      openInDays = sel.openInDays;
+      source = sel.generatedBy;
+    } else {
+      if (t.includes('胖') || t.includes('瘦') || t.includes('重') || t.includes('减肥') || t.includes('flag') || t.includes('体重')) {
+        content = `这是一份在时间链条上锁死的目标契约。\n\n我在此写下目标：\n1. 养成规律健康的饮食习惯，少油低脂少外卖；\n2. 保持运动和锻炼习惯，达到理想的身体状态与体形；\n3. 达成一项为自己设立的工作目标。\n\n当你今天开启这封信时，请坦诚地面对当年的自我。愿你已经实现了这个蜕变！`;
+        openInDays = 180; // 半年
+      } else if (t.includes('儿') || t.includes('女') || t.includes('娃') || t.includes('宝') || t.includes('孩')) {
+        content = `亲爱的宝贝：\n\n当你开启这封信的时候，你已经迎来了意义非凡的成长时刻（也许是你的成人礼）。写这封信的今晚，你还那么小，正躺在襁褓里发出细微的呼吸。我握着你稚嫩的小手，第一次体验到成为父母的温暖与敬畏。\n\n我不强求你未来多么完美，我只希望你健康、自由，拥有探索这个世界的勇气。我们永远是你的港湾。`;
+        openInDays = 3650; // 10年
+      } else if (t.includes('树洞') || t.includes('秘密') || t.includes('难过') || t.includes('累') || t.includes('压力')) {
+        content = `今天积攒了许多说不出口的压力，所以我决定把它上锁在这里。\n\n我不打算把这种情绪发在朋友圈，也不想带给身边的人。这只是历史长河中一朵微不足道的浪花，我写下它，然后松开双手，把它交给时间去抚平。\n\n希望解封那一天的你，早已释怀，正微笑着看着今晚的迷茫。加油，一切都会好起来的。`;
+        openInDays = 30; // 30天
+      } else if (t.includes('十年') || t.includes('10年') || t.includes('未来')) {
+        content = `跨越十年的光阴，这是一封来自 2026 年的问候。\n\n十年的跨度足够改变许多事。你是否还在做着当年的探索？身边的老朋友是否还在常联系？你又是否遇到了那个想要共度一生的人？\n\n无论十年后的世界变成什么样，我都希望你温和而坚定，依然像当年那个少年一样，眼睛里闪烁着星光。`;
+        openInDays = 3650;
+      }
     }
 
     const openAtDate = new Date(new Date().getTime() + openInDays * 24 * 60 * 60 * 1000);
     return {
+      title: generatedTitle,
       content,
       openInDays,
       openAt: openAtDate.toISOString(),
@@ -1979,8 +2122,9 @@
   }
 
   function aiGenerateSuggested() {
-    const title = document.getElementById('createTitle').value.trim();
-    if (!title) return;
+    const titleInput = document.getElementById('createTitle');
+    const title = titleInput.value.trim();
+    const autoTitle = !title;
 
     const btn = document.getElementById('createAiBtn');
     btn.disabled = true;
@@ -1999,6 +2143,13 @@
 
       document.getElementById('createContent').value = res.content;
 
+      // 如果是空标题模式且标题为空，回填标题
+      if (res.title && autoTitle) {
+        titleInput.value = res.title;
+        // 更新可见性（隐藏灵感区）
+        onTitleInput();
+      }
+
       // 设置时间 (建议的时间)
       const openAtDate = new Date(res.openAt);
       const tzoffset = (new Date()).getTimezoneOffset() * 60000;
@@ -2008,7 +2159,8 @@
       // 来源及提示
       const source = res.generatedBy === "local-template" ? "本地模板（LLM 未启用）" : res.generatedBy;
       const infoEl = document.getElementById('createAiInfo');
-      infoEl.innerHTML = `已为你生成正文，建议 ${res.openInDays} 天后开启 · 来源：${source}`;
+      const titleNote = res.title && autoTitle ? "标题与正文均由 AI 生成" : "已为你生成正文";
+      infoEl.innerHTML = `${titleNote}，建议 ${res.openInDays} 天后开启 · 来源：${source}`;
       infoEl.style.display = 'block';
 
       aiGenerated = true;
@@ -2017,7 +2169,7 @@
 
       closeGlobalModal();
       showToast('✨ AI 建议内容与时间已注入');
-      triggerIslandNotification('✨ AI 建议生成成功', title);
+      triggerIslandNotification('✨ AI 建议生成成功', res.title || title);
     }, 1500);
   }
 
@@ -2174,7 +2326,7 @@
             <span class="cy-capsule__code">${c.code}</span>
           </div>
           <h3 class="cy-capsule__title">${c.title}</h3>
-          <p class="cy-capsule__countdown">⏳ 还剩 ${diffText}</p>
+          <p class="cy-capsule__countdown">⏳ 还剩 <span data-countdown-open-at="${c.openAt}" data-capsule-id="${c.id}">${diffText}</span></p>
         `;
       }
 
@@ -2365,7 +2517,7 @@
       bodyArea.innerHTML = `
         <div style="text-align:center">
           <div class="sealed-countdown-dial">
-            <span class="sealed-countdown-dial__time" id="dialTimeVal">${timeStr}</span>
+            <span class="sealed-countdown-dial__time" id="dialTimeVal" data-countdown-open-at="${c.openAt}" data-capsule-id="${c.id}">${timeStr}</span>
             <span class="sealed-countdown-dial__label">倒计时</span>
           </div>
           <p style="font-size:11px; color:var(--color-text-muted); line-height:1.5; margin:10px auto; max-width:240px">
@@ -2510,19 +2662,25 @@
 
   // 关于面板
   function showAboutSheet() {
-    showGlobalModal('ℹ️ 关于 HelloTime Pro', `这是一款多技术栈对比教学项目中的手机客户端设计原型。
-
-  在页脚处，您可获取由后端健康节点 (/api/v1/health) 提供的实时技术栈清单。`, `
-      <div style="text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:10px; font-size:11px; color:var(--color-text-muted); line-height:1.6">
-        <div><strong>当前版本:</strong> v0.1.0 Pro</div>
-        <div><strong>设计令牌体系:</strong> tokens.css (Cyber Dark)</div>
-        <div><strong>API 端口对齐:</strong> FastAPI :29010</div>
-        <div><strong>底座运行状态:</strong> 🟢 HEALTHY</div>
-      </div>
-      <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px" class="cy-stack">
-        <span class="cy-stack__item"><img src="../spec/icons/fastapi.svg" alt="">FastAPI</span>
-        <span class="cy-stack__item"><img src="../spec/icons/python.svg" alt="">Python</span>
-        <span class="cy-stack__item"><img src="../spec/icons/postgresql.svg" alt="">PostgreSQL</span>
+    showGlobalModal('ℹ️ 关于 HelloTime Pro', `一款时光胶囊 Web 应用——写下一段话，设定未来某刻才能开启，内容上锁后不可修改。支持胶囊广场浏览、AI 辅助创作、收藏与账户管理。同时也是一个多技术栈对比学习项目，同一份产品需求由多套前后端框架各自实现，共享同一份 API 契约、数据库 schema 与设计 token。`, `
+      <div style="text-align:left; background:rgba(0,0,0,0.25); padding:12px; border-radius:10px; font-size:11px; color:var(--color-text-secondary); line-height:1.6">
+        <div style="margin-bottom: 6px; font-weight: bold; color: var(--color-text-primary)">前端技术栈：</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom: 12px" class="cy-stack">
+          <span class="cy-stack__item" style="padding: 2px 6px; font-size: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--color-border-subtle); border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><img src="../spec/icons/react.svg" alt="" style="width:12px;height:12px">React</span>
+          <span class="cy-stack__item" style="padding: 2px 6px; font-size: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--color-border-subtle); border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><img src="../spec/icons/typescript.svg" alt="" style="width:12px;height:12px">TypeScript</span>
+        </div>
+        <div style="margin-bottom: 6px; font-weight: bold; color: var(--color-text-primary)">当前后端技术栈：</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom: 8px" class="cy-stack">
+          <span class="cy-stack__item" style="padding: 2px 6px; font-size: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--color-border-subtle); border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><img src="../spec/icons/fastapi.svg" alt="" style="width:12px;height:12px">FastAPI</span>
+          <span class="cy-stack__item" style="padding: 2px 6px; font-size: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--color-border-subtle); border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><img src="../spec/icons/python.svg" alt="" style="width:12px;height:12px">Python</span>
+          <span class="cy-stack__item" style="padding: 2px 6px; font-size: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--color-border-subtle); border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><img src="../spec/icons/postgresql.svg" alt="" style="width:12px;height:12px">PostgreSQL</span>
+        </div>
+        <div style="font-size: 10px; color: var(--color-text-muted); border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 8px;">
+          <div><strong>当前版本:</strong> v0.1.0 Pro</div>
+          <div><strong>设计令牌体系:</strong> tokens.css (Cyber Dark)</div>
+          <div><strong>API 端口对齐:</strong> FastAPI :29010</div>
+          <div><strong>底座运行状态:</strong> 🟢 HEALTHY</div>
+        </div>
       </div>
     `);
   }

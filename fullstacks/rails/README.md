@@ -7,6 +7,8 @@ Ruby + Ruby on Rails + Hotwire 实现的 HelloTime Pro 全栈，满足 `spec/` �
 这是全栈实现里的第二个「服务端渲染」代表，与 `fullstacks/spring-mvc`（Thymeleaf + HTMX）对照——
 Rails 这版用 **Hotwire（Turbo + Stimulus）** 承载交互，展示 Rails 8 的招牌前端方案。
 
+完整代码导读见 [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md)。
+
 ## 技术栈
 
 | 角色 | 选型 |

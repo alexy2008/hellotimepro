@@ -62,7 +62,7 @@ fullstacks/laravel/
   app/
     Http/Controllers/Api/V1/HelloTimeApiController.php  # JSON 契约入口
     Http/Controllers/Web/                              # Blade 页面与表单入口
-    Services/HelloTimeService.php                      # 应用服务层
+    Services/{Auth,Capsule,Plaza,Favorite,Profile,...}Service.php  # 应用服务层
     Exceptions/ApiError.php                            # 契约错误
   resources/views/                                     # Blade 页面/组件
   routes/{api,web}.php                                 # Laravel 路由表
@@ -73,9 +73,9 @@ fullstacks/laravel/
 
 ## 实现要点
 
-- Laravel 路由和控制器是 HTTP 边界，业务规则集中在 `HelloTimeService`，便于和其他栈横向对比。
+- Laravel 路由和控制器是 HTTP 边界，业务规则集中在 `app/Services/*`，便于和其他栈横向对比。
 - API 保持 Bearer token 契约；SSR 页面登录后写入 `ht_access` / `ht_refresh` httpOnly cookie，浏览器 fetch `/api/v1/*` 时由服务层解析 cookie 复用同一套 API 鉴权。
-- 收藏写操作用事务同步维护 `favorite_count`；前端点击收藏使用同步 XHR，避免「点完马上进入我收藏的」时 SSR 页面查询早于收藏提交。
+- 收藏写操作用事务同步维护 `favorite_count`；当前前端点击收藏使用 Alpine fetch 调同源 `/api/v1/me/favorites*`。
 - Laravel migration 文件用于展示 Laravel 写法；项目验证和本地数据生命周期仍以 `spec/db` + `scripts/db` 为准。
 
 更完整的代码导读见 [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md)。
