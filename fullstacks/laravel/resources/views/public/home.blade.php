@@ -43,8 +43,10 @@
       <input type="hidden" name="sort" value="{{ $sort }}">
       <input type="hidden" name="filter" value="{{ $filter }}">
       <span class="cy-search__icon" aria-hidden="true">🔍</span>
+      {{-- 仅当搜索框仍持有焦点时才提交：停止输入即实时过滤；若中途点了卡片/收藏等
+           （焦点已离开），则不触发这次迟到的整页跳转，避免与后续导航相撞致 ERR_ABORTED。 --}}
       <input type="search" class="cy-search__input" name="q" placeholder="搜索标题或昵称…" maxlength="50" value="{{ $q }}"
-             @input.debounce.300ms="$el.form.submit()">
+             @input.debounce.300ms="document.activeElement === $el && $el.form.submit()">
     </form>
   </div>
 

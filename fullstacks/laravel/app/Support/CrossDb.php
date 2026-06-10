@@ -4,12 +4,12 @@ namespace App\Support;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * 跨库基础设施层：屏蔽 PostgreSQL 与 SQLite 在 id、时间戳、布尔三处的存储差异，
- * 并提供原始 SQL 读取的薄封装。所有领域服务通过它访问底层而不直接关心驱动。
+ * 跨库格式基础设施：屏蔽 PostgreSQL 与 SQLite 在 id、时间戳、布尔三处的存储差异。
+ * 数据访问已统一走 Eloquent；本类只负责「存储格式 ↔ 对外契约」的边界换算，供模型 Cast、
+ * 服务层（查询绑定/写入）与 Mapper（输出）复用。
  *
  * - id：SQLite 用 32 位无横线 hex（与 spec/db seed 对齐），Postgres 用标准带横线 UUID；对外一律输出标准 UUID。
  * - 时间戳：SQLite 用 ISO-8601 `T…+00:00` 文本，Postgres 用 timestamptz；对外一律输出 `…Z`。
@@ -25,23 +25,6 @@ class CrossDb
     public function isSqlite(): bool
     {
         return $this->driver() === 'sqlite';
-    }
-
-    // ---- 原始 SQL 读取封装 ----
-
-    public function row(string $sql, array $params = []): ?array
-    {
-        return $this->toArray(DB::selectOne($sql, $params));
-    }
-
-    public function rows(string $sql, array $params = []): array
-    {
-        return array_map(fn ($row) => (array) $row, DB::select($sql, $params));
-    }
-
-    public function toArray(mixed $row): ?array
-    {
-        return $row ? (array) $row : null;
     }
 
     // ---- 布尔 ----

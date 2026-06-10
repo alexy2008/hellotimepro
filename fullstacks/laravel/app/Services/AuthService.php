@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Exceptions\ApiError;
+use App\Models\RefreshToken;
+use App\Models\User;
 use App\Support\CrossDb;
 use App\Support\JwtCodec;
 use App\Support\Mapper;
@@ -17,6 +19,7 @@ use Illuminate\Support\Facades\RateLimiter;
 /**
  * 认证与会话：注册、登录（含失败限流）、refresh token 家族轮转/吊销、登出、
  * 当前用户解析（Bearer 或 httpOnly cookie 双通道）、改密（吊销全部 refresh token）。
+ * 数据访问走 Eloquent（User / RefreshToken 模型）。
  */
 class AuthService
 {
@@ -49,21 +52,20 @@ class AuthService
         if (!$this->avatars->valid($avatar)) $details[] = ['field' => 'avatarId', 'message' => '头像不存在'];
         if ($details) throw new ApiError(422, 'VALIDATION_ERROR', '请求参数不合法', $details);
 
-        if ($this->db->row('SELECT id FROM users WHERE email = ?', [$email])) {
-            throw new ApiError(409, 'CONFLICT', '邮箱已存在');
-        }
-        if ($this->db->row('SELECT id FROM users WHERE nickname = ?', [$nickname])) {
-            throw new ApiError(409, 'CONFLICT', '昵称已存在');
-        }
+        if (User::where('email', $email)->exists()) throw new ApiError(409, 'CONFLICT', '邮箱已存在');
+        if (User::where('nickname', $nickname)->exists()) throw new ApiError(409, 'CONFLICT', '昵称已存在');
 
-        $id = $this->db->newId();
         $now = $this->db->nowDb();
-        DB::insert(
-            'INSERT INTO users (id,email,password_hash,nickname,avatar_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?)',
-            [$id, $email, Hash::make($password), $nickname, $avatar, $now, $now],
-        );
+        $user = User::create([
+            'email' => $email,
+            'password_hash' => Hash::make($password),
+            'nickname' => $nickname,
+            'avatar_id' => $avatar,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
-        return $this->tokenPair($this->db->row('SELECT * FROM users WHERE id = ?', [$id]));
+        return $this->tokenPair($user);
     }
 
     public function login(array $body): array
@@ -74,8 +76,8 @@ class AuthService
             throw new ApiError(429, 'RATE_LIMITED', '登录失败过于频繁，请稍后再试');
         }
 
-        $user = $this->db->row('SELECT * FROM users WHERE email = ?', [$email]);
-        if (!$user || !Hash::check((string) ($body['password'] ?? ''), $user['password_hash'])) {
+        $user = User::where('email', $email)->first();
+        if (!$user || !Hash::check((string) ($body['password'] ?? ''), $user->password_hash)) {
             RateLimiter::hit($key, self::LOGIN_DECAY);
             throw new ApiError(401, 'UNAUTHORIZED', '邮箱或密码错误');
         }
@@ -90,25 +92,24 @@ class AuthService
         $hash = hash('sha256', $refreshToken);
 
         $result = DB::transaction(function () use ($hash) {
-            $row = $this->db->row(
-                'SELECT rt.id AS refresh_id, rt.user_id, rt.token_hash, rt.family_id, rt.expires_at, rt.created_at, rt.revoked_at, u.email, u.nickname, u.avatar_id FROM refresh_tokens rt JOIN users u ON u.id = rt.user_id WHERE rt.token_hash = ?',
-                [$hash],
-            );
-            if (!$row) return ['error' => [401, 'UNAUTHORIZED', 'refresh token 无效']];
+            $rt = RefreshToken::with('user')->where('token_hash', $hash)->lockForUpdate()->first();
+            if (!$rt) return ['error' => [401, 'UNAUTHORIZED', 'refresh token 无效']];
 
-            if (!empty($row['revoked_at'])) {
-                // 复用已吊销的 token：判定为家族泄露，吊销整族。
-                DB::update('UPDATE refresh_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE family_id = ?', [$this->db->nowDb(), $row['family_id']]);
+            if (!empty($rt->revoked_at)) {
+                // 复用已吊销的 token：判定为家族泄露，吊销整族（仅未吊销的置时间戳）。
+                RefreshToken::where('family_id', $rt->family_id)->whereNull('revoked_at')->update(['revoked_at' => $this->db->nowDb()]);
                 return ['error' => [401, 'UNAUTHORIZED', 'refresh token 已失效']];
             }
 
-            if ($this->db->parseTime($row['expires_at'])->getTimestamp() < time()) {
-                DB::update('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', [$this->db->nowDb(), $row['refresh_id']]);
+            if ($this->db->parseTime($rt->expires_at)->getTimestamp() < time()) {
+                $rt->revoked_at = $this->db->nowDb();
+                $rt->save();
                 return ['error' => [401, 'UNAUTHORIZED', 'refresh token 已过期']];
             }
 
-            DB::update('UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?', [$this->db->nowDb(), $row['refresh_id']]);
-            return ['data' => $this->tokenPair($row, $row['family_id'])];
+            $rt->revoked_at = $this->db->nowDb();
+            $rt->save();
+            return ['data' => $this->tokenPair($rt->user, $rt->family_id)];
         });
 
         if (isset($result['error'])) {
@@ -120,11 +121,13 @@ class AuthService
     public function logout(string $refreshToken): void
     {
         if ($refreshToken !== '') {
-            DB::update('UPDATE refresh_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE token_hash = ?', [$this->db->nowDb(), hash('sha256', $refreshToken)]);
+            RefreshToken::where('token_hash', hash('sha256', $refreshToken))
+                ->whereNull('revoked_at')
+                ->update(['revoked_at' => $this->db->nowDb()]);
         }
     }
 
-    public function currentUser(Request $request): ?array
+    public function currentUser(Request $request): ?User
     {
         $auth = $request->header('Authorization', '');
         $token = '';
@@ -138,10 +141,10 @@ class AuthService
         if ($token === '') return null;
         $claims = $this->jwt->decode($token);
         if (!$claims || empty($claims['sub'])) return null;
-        return $this->db->row('SELECT * FROM users WHERE id = ?', [$claims['sub']]);
+        return User::find($claims['sub']);
     }
 
-    public function requireUser(Request $request): array
+    public function requireUser(Request $request): User
     {
         $auth = $request->header('Authorization', '');
         if ($auth !== '' && !str_starts_with($auth, 'Bearer ')) {
@@ -152,42 +155,50 @@ class AuthService
         return $user;
     }
 
-    public function changePassword(array $user, array $body): void
+    public function changePassword(User $user, array $body): void
     {
-        if (!Hash::check((string) ($body['currentPassword'] ?? ''), $user['password_hash'])) {
+        if (!Hash::check((string) ($body['currentPassword'] ?? ''), $user->password_hash)) {
             throw new ApiError(401, 'UNAUTHORIZED', '当前密码错误');
         }
         $next = (string) ($body['newPassword'] ?? '');
         if (!$this->validate->password($next)) throw new ApiError(422, 'VALIDATION_ERROR', '新密码不符合要求');
-        DB::update('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?', [Hash::make($next), $this->db->nowDb(), $user['id']]);
-        DB::update('UPDATE refresh_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE user_id = ?', [$this->db->nowDb(), $user['id']]);
+
+        $user->password_hash = Hash::make($next);
+        $user->updated_at = $this->db->nowDb();
+        $user->save();
+
+        // 改密吊销全部未吊销 refresh token，迫使所有会话重新登录。
+        RefreshToken::where('user_id', $user->id)->whereNull('revoked_at')->update(['revoked_at' => $this->db->nowDb()]);
     }
 
     /** 签发 access + refresh token 对；familyId 非空表示沿用同一家族（轮转）。 */
-    private function tokenPair(array $user, ?string $familyId = null): array
+    private function tokenPair(User $user, ?string $familyId = null): array
     {
         $now = time();
-        $userId = $user['user_id'] ?? $user['id'];
         $access = $this->jwt->encode([
-            'sub' => $userId,
-            'nickname' => $user['nickname'],
-            'avatarId' => $user['avatar_id'],
+            'sub' => $user->id,
+            'nickname' => $user->nickname,
+            'avatarId' => $user->avatar_id,
             'iat' => $now,
             'exp' => $now + self::ACCESS_TTL,
         ]);
         $refresh = $this->jwt->base64url(random_bytes(32));
-        $familyId = $familyId ?: $this->db->newId();
-        DB::insert(
-            'INSERT INTO refresh_tokens (id,user_id,token_hash,family_id,expires_at,created_at,revoked_at) VALUES (?,?,?,?,?,?,NULL)',
-            [$this->db->newId(), $userId, hash('sha256', $refresh), $familyId, $this->db->dbTimestamp(new DateTimeImmutable('+7 days', new DateTimeZone('UTC'))), $this->db->nowDb()],
-        );
-        $fresh = $this->db->row('SELECT * FROM users WHERE id = ?', [$userId]);
+
+        RefreshToken::create([
+            'user_id' => $user->id,
+            'token_hash' => hash('sha256', $refresh),
+            'family_id' => $familyId ?: $this->db->newId(),
+            'expires_at' => $this->db->dbTimestamp(new DateTimeImmutable('+7 days', new DateTimeZone('UTC'))),
+            'created_at' => $this->db->nowDb(),
+            'revoked_at' => null,
+        ]);
+
         return [
             'accessToken' => $access,
             'refreshToken' => $refresh,
             'accessTokenExpiresIn' => self::ACCESS_TTL,
             'refreshTokenExpiresIn' => self::REFRESH_TTL,
-            'user' => $this->mapper->userDto($fresh),
+            'user' => $this->mapper->userDto($user),
         ];
     }
 

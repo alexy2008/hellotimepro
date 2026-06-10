@@ -3,15 +3,16 @@
 namespace App\Services;
 
 use App\Exceptions\ApiError;
+use App\Models\Capsule;
+use App\Models\User;
 use App\Support\CrossDb;
 use App\Support\Mapper;
 use DateTimeImmutable;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
  * 胶囊生命周期：创建（含校验 + 唯一码）、按胶囊码查看、删除（所有者校验）、"我创建的"列表。
- * 内容与开启时间一经创建即不可变（符合设计约束）。
+ * 内容与开启时间一经创建即不可变（符合设计约束）。数据访问全部走 Eloquent。
  */
 class CapsuleService
 {
@@ -21,7 +22,7 @@ class CapsuleService
     ) {
     }
 
-    public function createCapsule(array $user, array $body): array
+    public function createCapsule(User $user, array $body): array
     {
         $title = trim((string) ($body['title'] ?? ''));
         $content = (string) ($body['content'] ?? '');
@@ -40,44 +41,59 @@ class CapsuleService
         }
         if ($details) throw new ApiError(422, 'VALIDATION_ERROR', '请求参数不合法', $details);
 
-        $id = $this->db->newId();
-        $code = $this->uniqueCode();
         $now = $this->db->nowDb();
-        DB::insert(
-            'INSERT INTO capsules (id,owner_id,code,title,content,open_at,in_plaza,favorite_count,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
-            [$id, $user['id'], $code, $title, $content, $this->db->dbTimestamp($openAt), $this->db->boolParam($inPlaza), 0, $now, $now],
-        );
+        $capsule = Capsule::create([
+            'owner_id' => $user->id,
+            'code' => $this->uniqueCode(),
+            'title' => $title,
+            'content' => $content,
+            'open_at' => $this->db->dbTimestamp($openAt),
+            'in_plaza' => $inPlaza,
+            'favorite_count' => 0,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $capsule->load('owner');
 
-        return $this->mapper->capsuleDetailById($id, $user['id']);
+        return $this->mapper->capsuleDetail($capsule, $user->id);
     }
 
     public function capsuleByCode(string $code, ?string $viewerId): array
     {
         $code = strtoupper($code);
         if (!preg_match('/^[A-Z0-9]{8}$/', $code)) throw new ApiError(422, 'VALIDATION_ERROR', '胶囊码格式错误');
-        $row = $this->db->row('SELECT id FROM capsules WHERE code = ?', [$code]);
-        if (!$row) throw new ApiError(404, 'NOT_FOUND', '胶囊不存在');
-        return $this->mapper->capsuleDetailById($row['id'], $viewerId);
+        // has('owner') 复刻原 INNER JOIN users 语义：owner 缺失的孤儿胶囊视作不存在。
+        $capsule = Capsule::with('owner')->has('owner')->where('code', $code)->first();
+        if (!$capsule) throw new ApiError(404, 'NOT_FOUND', '胶囊不存在');
+
+        return $this->mapper->capsuleDetail($capsule, $viewerId);
     }
 
-    public function myCapsules(array $user, array $query): array
+    public function myCapsules(User $user, array $query): array
     {
         [$page, $size] = $this->mapper->pageParams($query);
-        $total = (int) $this->db->row('SELECT COUNT(*) AS n FROM capsules WHERE owner_id = ?', [$user['id']])['n'];
-        $offset = ($page - 1) * $size;
-        $rows = $this->db->rows("SELECT c.*, u.nickname, u.avatar_id FROM capsules c JOIN users u ON u.id = c.owner_id WHERE c.owner_id = ? ORDER BY c.created_at DESC LIMIT {$size} OFFSET {$offset}", [$user['id']]);
-        return ['items' => array_map(fn ($r) => $this->mapper->listItem($r, $user['id']), $rows), 'pagination' => $this->mapper->pagination($page, $size, $total)];
+        $total = Capsule::where('owner_id', $user->id)->count();
+        $rows = Capsule::with('owner')
+            ->has('owner')
+            ->where('owner_id', $user->id)
+            ->orderByDesc('created_at')
+            ->forPage($page, $size)
+            ->get();
+
+        return [
+            'items' => $rows->map(fn (Capsule $c) => $this->mapper->listItem($c, $user->id))->all(),
+            'pagination' => $this->mapper->pagination($page, $size, $total),
+        ];
     }
 
-    public function deleteCapsule(array $user, string $id): void
+    public function deleteCapsule(User $user, string $id): void
     {
         $canonical = $this->db->canonicalUuid($id);
         if ($canonical === null) throw new ApiError(404, 'NOT_FOUND', '胶囊不存在');
-        $dbId = $this->db->idToDb($canonical);
-        $cap = $this->db->row('SELECT owner_id FROM capsules WHERE id = ?', [$dbId]);
-        if (!$cap) throw new ApiError(404, 'NOT_FOUND', '胶囊不存在');
-        if ($cap['owner_id'] !== $user['id']) throw new ApiError(403, 'FORBIDDEN', '不能删除他人的胶囊');
-        DB::delete('DELETE FROM capsules WHERE id = ?', [$dbId]);
+        $capsule = Capsule::find($this->db->idToDb($canonical));
+        if (!$capsule) throw new ApiError(404, 'NOT_FOUND', '胶囊不存在');
+        if ($capsule->owner_id !== $user->id) throw new ApiError(403, 'FORBIDDEN', '不能删除他人的胶囊');
+        $capsule->delete();
     }
 
     private function uniqueCode(): string
@@ -86,7 +102,7 @@ class CapsuleService
         for ($attempt = 0; $attempt < 20; $attempt++) {
             $code = '';
             for ($i = 0; $i < 8; $i++) $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
-            if (!$this->db->row('SELECT id FROM capsules WHERE code = ?', [$code])) return $code;
+            if (!Capsule::where('code', $code)->exists()) return $code;
         }
         throw new ApiError(500, 'INTERNAL_ERROR', '胶囊码生成失败');
     }
