@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# release 编译 + 预热 cargo 依赖缓存（首次较慢，之后 ./run 增量构建秒级）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+cargo build --release

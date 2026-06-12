@@ -197,9 +197,9 @@
 |---|---|---|---|
 | `backends/elysia/` | Bun + Elysia + TypeScript；原生 SQL + 轻量方言适配；与 NestJS 同为 TypeScript 生态，风格更函数式 | ✅ 92/92 | ✅ 92/92 |
 | `backends/nest/` | NestJS 11 + TypeORM + Passport JWT；分层与 FastAPI / Spring Boot 对应，TS 社区标准企业框架 | ✅ 92/92 | ✅ 92/92 |
-| `backends/ktor/`（待） | Kotlin + Exposed / JPA；有 Spring Boot 作参照后更顺 | — | — |
-| `backends/aspnet/`（待） | ASP.NET Core + EF Core；C#，文档完备，写法独特值得一看 | — | — |
-| `backends/axum/`（待） | Rust + sqlx；类型安全极致，适合展示所有权模型 | — | — |
+| `backends/ktor/` | Kotlin + Exposed + HikariCP；`CrossDbColumns` 按方言分流列读写（2026-06-05 落地） | ✅ 104/104 | ✅ 104/104 |
+| `backends/aspnet/` | ASP.NET Core + EF Core 8；接管 SQLite 的 DateTimeOffset 存储格式保住字符串比较（2026-06-06 落地） | ✅ 104/104 | ✅ 104/104 |
+| `backends/axum/` | Rust + Axum 0.8 + sqlx 手写 SQL（Value/Cell 跨库编解码层，`?` 占位 PG 端转 `$n`）；SQLite 池上限 1 串行化（2026-06-12 落地） | ✅ 104/104 | ✅ 104/104 |
 | `backends/vapor/` | Swift + Vapor 4 + SQLKit 手写 SQL（跨库值编解码层）；仅 macOS（2026-06-12 落地，Swift 包在 `server/` 子目录避开 SwiftPM 目录身份与依赖 `vapor` 的冲突） | ✅ 104/104 | ✅ 104/104 |
 | `backends/drogon/`（待） | C++20 + CMake；v1 工具链已趟通，排最后因编译循环慢 | — | — |
 

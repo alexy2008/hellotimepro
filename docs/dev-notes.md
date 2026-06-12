@@ -451,3 +451,33 @@ ignore 列表排除），`config/application.rb` 顶部 `require_relative` 后�
   `LOG_LEVEL=info`。
 - bcrypt：Vapor 内置 `Bcrypt` 直接兼容 seed 的 `$2b$`（Python bcrypt 生成）。
 - 验收：2026-06-12 双驱动各 `verify-contract.sh vapor` **104/104**；`./test` 13 个纯函数单元用例全绿。
+
+## 11. Axum 后端（backends/axum，Rust + Axum 0.8 + sqlx）
+
+### 11.1 sqlx 双驱动取舍
+
+- roadmap 指定 sqlx，但 **不用 `query!` 宏**（编译期检查绑定单一 DB）也 **不用 `Any` 驱动**
+  （类型推断受限，PG 的 uuid/timestamptz 列得在 SQL 里逐处 `::uuid` 强转，SQL 就不再是一份）。
+- 落地方案：运行时 `sqlx::query` + 自研编解码层——绑定走 `Value` 枚举（Uuid/Ts/Bool/I64/Str，
+  按驱动分流成原生类型或 hex/ISO TEXT/0-1），读取走 `Cell` 枚举（行解码成驱动无关形态，
+  访问器按 Cell 实际形态还原）。SQL 用 `?` 占位写一份，PG 执行前顺序替换为 `$1..$n`
+  （约定 SQL 文本不含字面 `?`）。
+- SQLite 行解码必须按**值的实际存储类**（`ValueRef::type_info()`）分发，列声明类型对
+  `COUNT(*)`、`(a IS NOT NULL)` 这类表达式不可靠。
+
+### 11.2 工程要点
+
+- Cargo 没有 SwiftPM 的目录身份坑：包名取自 `Cargo.toml` 的 `name`（hellotime-axum），
+  目录叫 `axum` 与依赖 crate `axum` 不冲突，平铺 `backends/axum/` 即可。
+- SQLite 串行化用 **池上限 1**（`SqlitePoolOptions::max_connections(1)`）即是天然 FIFO 门闩，
+  比自写 actor/mutex 简单；纪律是一个 service 方法只 acquire 一次连接，否则自锁。
+- 事务不走 sqlx 的 `Transaction` 类型（enum 两臂连接类型会分叉），显式
+  `BEGIN`/`BEGIN IMMEDIATE` + `conn.finish(result)`（Ok→COMMIT / Err→ROLLBACK）；
+  refresh 重用检测的"先提交吊销再 401"用 outcome 枚举 + COMMIT 后转错误，同 Vapor/Spring。
+- **regex crate 不支持 lookahead**：密码 `(?=.*[A-Za-z])(?=.*\d)` 改为显式字符扫描；
+  axum 0.8 路径参数语法是 `{param}`（0.7 的 `/:param` 已废弃）。
+- 请求体 DTO 字段全 `Option` + handler 用 `Result<Json<T>, JsonRejection>` 显式接住：
+  缺字段交给校验层出 422+details，坏 JSON 在 handler 层转 422，与其它栈行为对齐。
+- 显式 null 免费：serde_json 的 `Value::Null` 本来就序列化为 `null`，无 Swift 那类丢键问题。
+- 验收：2026-06-12 双驱动各 `verify-contract.sh axum` **104/104**（均一次通过）；
+  `./test` 25 个纯函数单元用例全绿。release 冷构建约 4-5 分钟，预热后增量秒级。
