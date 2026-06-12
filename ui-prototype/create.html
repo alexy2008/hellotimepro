@@ -65,7 +65,82 @@
 
       <div class="cy-field">
         <label for="open_at">开启时间 <span style="color: var(--color-text-muted); font-weight: 400">· 最早 60 秒后</span></label>
-        <input class="cy-input" id="open_at" type="datetime-local" required />
+        <div class="cy-datetime-wrapper" id="datetime-wrapper">
+          <!-- 隐藏的原生输入框用于进行 HTML5 必填验证和存储最终值 -->
+          <input id="open_at" type="datetime-local" required style="display: none;" />
+          
+          <!-- 替代的触发器元素，呈现赛博风 UI -->
+          <div class="cy-datetime-trigger" tabindex="0" id="open_at_trigger">
+            <span class="cy-datetime-trigger__icon">📅</span>
+            <span class="cy-datetime-trigger__text" id="open_at_text">选择未来的解锁时刻...</span>
+            <span class="cy-datetime-trigger__badge" id="open_at_relative_badge" style="display: none;"></span>
+            <span class="cy-datetime-trigger__chevron">▼</span>
+          </div>
+
+          <!-- 展开后的具体选择面板（日历 + 时间滚轮） -->
+          <div class="cy-datetime-picker" id="datetime-picker" style="display: none;">
+            <!-- 顶部高科技装饰条 -->
+            <div class="cy-picker-tech-top"></div>
+
+            <div class="cy-datetime-picker__header">
+              <button type="button" class="cy-datetime-picker__arrow" id="prev-month-btn">◀</button>
+              <span class="cy-datetime-picker__title" id="month-year-label">2026 年 6 月</span>
+              <button type="button" class="cy-datetime-picker__arrow" id="next-month-btn">▶</button>
+            </div>
+            
+            <div class="cy-datetime-picker__body">
+              <!-- 左侧日历网格 -->
+              <div class="cy-datetime-picker__calendar">
+                <div class="cy-datetime-picker__weekdays">
+                  <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                </div>
+                <div class="cy-datetime-picker__days" id="calendar-days-grid"></div>
+                
+                <!-- 快捷选项行 -->
+                <div class="cy-picker-presets">
+                  <button type="button" class="cy-preset-pill" data-preset="1m">1分钟后</button>
+                  <button type="button" class="cy-preset-pill" data-preset="1h">1小时后</button>
+                  <button type="button" class="cy-preset-pill" data-preset="tomorrow">明天</button>
+                  <button type="button" class="cy-preset-pill" data-preset="nextyear">1年后</button>
+                </div>
+              </div>
+              
+              <!-- 中间纵向分割线 -->
+              <div class="cy-datetime-picker__divider"></div>
+
+              <!-- 右侧时间磁吸滚动列 -->
+              <div class="cy-datetime-picker__time">
+                <div class="cy-time-columns-label">
+                  <span>时</span>
+                  <span>分</span>
+                </div>
+                <div class="cy-time-columns">
+                  <!-- 小时选择列 -->
+                  <div class="cy-time-col-wrapper">
+                    <div class="cy-time-arrow cy-time-arrow--up">▲</div>
+                    <div class="cy-time-col" id="hour-col" data-unit="hour"></div>
+                    <div class="cy-time-arrow cy-time-arrow--down">▼</div>
+                  </div>
+                  <!-- 分钟选择列 -->
+                  <div class="cy-time-col-wrapper">
+                    <div class="cy-time-arrow cy-time-arrow--up">▲</div>
+                    <div class="cy-time-col" id="minute-col" data-unit="minute"></div>
+                    <div class="cy-time-arrow cy-time-arrow--down">▼</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 面板底部：倒计时相对显示 + 确认/取消按钮 -->
+            <div class="cy-datetime-picker__footer">
+              <div class="cy-datetime-picker__info" id="picker-relative-time-info">⏳ 解锁倒计时：--</div>
+              <div class="cy-datetime-picker__actions">
+                <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" id="picker-cancel-btn">取消</button>
+                <button type="button" class="cy-btn-picker-confirm" id="picker-confirm-btn">确定</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="cy-field__hint">时区以你当前所在时区为准，保存时会转换为 UTC。</span>
       </div>
 
