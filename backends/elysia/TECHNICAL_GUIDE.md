@@ -10,12 +10,12 @@
 
 ## 1. 技术选型与设计特色
 
-HelloTime Pro 的 Elysia 后端实现基于 **Bun + Elysia + Bun:sqlite / pg** 核心骨架，采用纯 TypeScript 编写，并选用 **Zod** 作为数据校验工具、**jose** 进行高安全度的 JWT 处理、**bcryptjs** 处理密码哈希，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
+HelloTime Pro 的 Elysia 后端实现基于 **Bun + Elysia + Bun:sqlite / pg** 核心骨架，采用纯 TypeScript 编写，并选用 **Zod** 作为数据校验工具、**jose** 进行 JWT 处理、**bcryptjs** 处理密码哈希，同时支持 **PostgreSQL** 和 **SQLite** 双数据库驱动切换。其具体选型考量与设计特色如下：
 
-* **Bun 与 Elysia（极致的运行速度与超轻量框架）**：依托 Bun 的原生高性能 JavaScript 运行时，搭配其内置的 HTTP 服务器，提供卓越的 I/O 并发处理性能。Elysia 框架极其轻量且专为 Bun 优化，提供流畅的链式路由注册与类型安全的数据响应。
-* **TypeScript 与 Zod（类型共享与严格数据校验）**：在后端接口层面通过 Zod Schema 进行请求体的强类型验证，不仅在请求到达业务层前拦截不合法输入，还可通过 TypeScript 实现潜在的“端到端”类型推导与契约对齐。
-* **双数据库方言自适应与轻量 SQL 原生连接**：项目摒弃复杂的重量级 ORM，选用轻量级 SQL 原生连接，并自制了跨数据库占位符（`?` 自动适配 pg 的 `$N`）与连接池包装。通过环境变量即可一键在生产级 PostgreSQL（异步池）与 Bun 内置的高速 SQLite（同步 WAL 事务锁）之间无缝切换。
-* **经典四层架构与业务解耦**：项目严格按照经典的呈现层（Routes）、应用层（Services）、领域层（Security）与基础设施层（Db）进行四层架构划分。业务代码与底层的 Elysia 路由或数据库客户端互不耦合，开发与维护体验极其清爽。
+* **Bun 与 Elysia（轻运行时与轻框架）**：依托 Bun 的原生 JavaScript/TypeScript 运行时和内置 HTTP 能力，Elysia 用链式 API 显式注册路由，样板代码很少。
+* **TypeScript 与 Zod（显式边界校验）**：请求体不使用 Elysia `t` schema，而是统一走 Zod `parse(...)`，方便把错误转换成项目统一的 `details` 结构，也便于和 Nuxt/TS 生态对齐。
+* **双数据库方言自适应与原生 SQL**：项目摒弃重量级 ORM，选用 `pg` + `bun:sqlite`，用 `query / one / tx` 三个数据库原语封装占位符适配、连接池和事务。schema 生命周期由仓库级 `scripts/db` 维护，应用启动不建表。
+* **轻量函数式分层**：这不是 Spring/Nest 式严格四层架构，而是 Elysia 风格的轻量分层：`main.ts` 负责路由，`services/` 按业务域拆分规则，`db.ts` 只负责连接、查询和事务。
 
 ## 2. 先建立整体地图
 
@@ -38,8 +38,14 @@ backends/elysia/
 └── src/
     ├── main.ts        # Elysia 应用入口、路由注册、静态资源服务
     ├── config.ts      # 环境变量 → env 配置对象
-    ├── db.ts          # PostgreSQL / SQLite 连接、事务封装（保留历史 schema helper）
-    ├── services.ts    # auth / me / capsules / plaza / favorites / suggestion 业务逻辑
+    ├── db.ts          # PostgreSQL / SQLite 连接、占位符适配、事务封装
+    ├── services.ts    # 业务服务 barrel export
+    ├── services/
+    │   ├── auth.ts      # 注册、登录、refresh、profile、改密
+    │   ├── capsules.ts  # 胶囊创建 / 查询 / 删除
+    │   ├── plaza.ts     # 广场列表、我的胶囊、我的收藏
+    │   ├── favorites.ts # 收藏 / 取消收藏
+    │   └── ai.ts        # 胶囊建议与推荐
     ├── security.ts    # JWT、密码哈希、refresh token 原语
     ├── validation.ts  # Zod 请求 schema
     ├── envelope.ts    # 统一成功 / 错误响应壳
@@ -65,7 +71,7 @@ src/main.ts 中的 route(...) / routeEmpty(...)
   │ Zod parse(...) 校验请求体
   │ requireClaims / readClaims 解析 Bearer token
   ▼
-src/services.ts
+src/services/*
   │ 业务规则、事务、DTO 组装
   ▼
 src/db.ts
@@ -83,7 +89,8 @@ PostgreSQL 或 SQLite
 ```bash
 cd backends/elysia
 DB_DRIVER=sqlite ./run      # SQLite，零外部服务依赖
-./run                       # 默认 PostgreSQL（先启动 Postgres）
+../../scripts/db reset --seed # 显式准备数据库
+./run                       # 默认 PostgreSQL
 ```
 
 默认端口是 `29030`。启动后可访问：
@@ -155,7 +162,7 @@ const app = new Elysia()
 
 ## 5. Elysia 的几个关键思想
 
-Elysia 是 Bun 生态里的轻量 Web 框架。这个项目没有使用插件式 DI 或 ORM 装饰器，整体刻意保持显式：路由在 `main.ts`，业务在 `services.ts`，数据库在 `db.ts`。
+Elysia 是 Bun 生态里的轻量 Web 框架。这个项目没有使用插件式 DI 或 ORM 装饰器，整体刻意保持显式：路由在 `main.ts`，业务按域拆到 `services/`，数据库在 `db.ts`。
 
 ### 4.1 路由上下文
 
@@ -236,10 +243,9 @@ export const env = {
 
 ## 7. 数据库层：`src/db.ts`
 
-`db.ts` 做四件事：
+`db.ts` 做三件事：
 
 - 根据 `env.dbDriver` 建立 PostgreSQL 或 SQLite 连接。
-- 按驱动选择 PostgreSQL 连接池或 Bun 内置 SQLite，并提供统一查询/事务 API。
 - 提供统一的 `query(...)`、`one(...)` 查询函数。
 - 提供跨库事务封装 `tx(...)`。
 
@@ -284,10 +290,7 @@ function pgSql(sql: string): string {
 
 仓库当前约束是：schema 初始化、重建、seed 都由根目录 `scripts/db` 读取 `spec/db` 统一完成。Elysia 后端启动时只建立连接，不建表、不迁移、不导入数据。
 
-`db.ts` 中仍保留 `migrate()`、`pgSchema`、`sqliteSchema`，它们是早期实现留下的历史参考，便于读者理解“如果不用 ORM，原生 SQL 需要如何为 PostgreSQL / SQLite 各写一份 schema”。当前 `main.ts` 不调用它。
-
-- PostgreSQL：`TIMESTAMPTZ`、布尔类型、正则 CHECK、索引。
-- SQLite：`TEXT` 存 UUID / 时间，`INTEGER` 存 boolean，启用外键。
+因此 `db.ts` 不包含 `CREATE TABLE` 字符串，也不导出 `migrate()`。如果要理解 schema，请直接读 `spec/db/schema.sql` 和仓库级数据库维护脚本。
 
 契约验证脚本会在启动前通过仓库级数据库脚本准备干净 schema，因此每次验证都从同一份 `spec/db` 出发。
 
@@ -410,7 +413,7 @@ requireClaims(headers)
 
 ### 8.3 refresh token 轮转
 
-`services.ts` 中的 `refresh(rawToken)` 流程：
+`services/auth.ts` 中的 `refresh(rawToken)` 流程：
 
 1. 对 raw token 做 SHA-256。
 2. 查 `refresh_tokens.token_hash`。
@@ -420,13 +423,13 @@ requireClaims(headers)
 
 改密成功后会撤销该用户所有未撤销 refresh token，强制客户端重新登录。
 
-## 10. 业务层：`src/services.ts`
+## 10. 业务层：`src/services/`
 
-`services.ts` 是实现业务规则的地方。路由层只做参数提取和鉴权，真正的规则应该放在这里。
+`src/services.ts` 只是一个 5 行的 barrel export，真正的业务规则按域拆在 `src/services/` 下。路由层只做参数提取和鉴权，真正的规则应该放在这些 service 文件里。
 
 ### 9.1 用户与认证
 
-主要函数：
+`services/auth.ts` 主要函数：
 
 - `register(...)`
 - `login(...)`
@@ -445,7 +448,7 @@ requireClaims(headers)
 
 ### 9.2 胶囊
 
-主要函数：
+`services/capsules.ts` 主要函数：
 
 - `createCapsule(...)`
 - `getCapsuleByCode(...)`
@@ -569,7 +572,7 @@ allowedAvatarIds()
 
 Elysia 实现选择原生 SQL + 小型方言适配，而不是 Drizzle/TypeORM，主要是为了展示 Bun/Elysia 下更轻的后端写法：
 
-- 历史 schema helper 清晰可见，容易对照 `spec/db/schema.sql` 理解两种方言差异。
+- SQL 查询和字段映射清晰可见，容易对照 `spec/db/schema.sql` 理解运行时读写。
 - 事务和锁语义显式，尤其适合解释 `favorite_count` 一致性。
 - 业务代码只依赖 `query / one / tx` 三个数据库原语，迁移到 ORM 也有明确边界。
 
@@ -587,7 +590,7 @@ favorite_count AS "favoriteCount"
 ### 13.1 新增一个公开 GET 接口
 
 1. 在 `spec/api/openapi.yaml` 先定义路径、响应和错误码。
-2. 在 `src/services.ts` 写业务函数。
+2. 在 `src/services/` 对应业务域文件里写业务函数，并从 `src/services.ts` 导出。
 3. 在 `src/main.ts` 注册 `.get("/api/v1/...", ...)`。
 4. 成功响应用 `route(set, ...)`，不要手写 envelope。
 5. 增加或更新黑盒契约测试。
@@ -603,8 +606,8 @@ favorite_count AS "favoriteCount"
 
 1. 先改 `spec/api/openapi.yaml`。
 2. 改 `src/validation.ts` 对应 Zod schema。
-3. 改 `src/services.ts` 业务规则。
-4. 如字段要持久化，先改 `spec/db` 与仓库级数据库维护脚本；必要时同步历史 schema helper。
+3. 改 `src/services/` 对应业务规则。
+4. 如字段要持久化，先改 `spec/db` 与仓库级数据库维护脚本。
 5. 改 `src/types.ts` DTO 映射。
 6. 跑 SQLite 和 PostgreSQL 契约验证。
 
@@ -612,9 +615,8 @@ favorite_count AS "favoriteCount"
 
 1. 以 `spec/db/schema.sql` 为事实源。
 2. 同步修改仓库级数据库维护脚本。
-3. 如需保持阅读样例完整，再同步 `src/db.ts` 的 `pgSchema` 和 `sqliteSchema`。
-4. 确认 SQLite 方言差异：UUID/TIMESTAMPTZ/BOOLEAN/CHECK/索引。
-5. 跑：
+3. 确认 SQLite 方言差异：UUID/TIMESTAMPTZ/BOOLEAN/CHECK/索引。
+4. 跑：
 
 ```bash
 DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh elysia
@@ -663,7 +665,7 @@ cd backends/elysia
 2. `src/validation.ts`：看请求体怎么校验。
 3. `src/envelope.ts` 和 `src/errors.ts`：看统一响应与错误码。
 4. `src/security.ts`：看 JWT、密码、refresh token 原语。
-5. `src/services.ts`：按 auth、capsule、plaza、favorite 分块读业务规则。
+5. `src/services/`：按 auth、capsules、plaza、favorites、ai 分文件读业务规则。
 6. `src/db.ts`：最后看数据库连接、方言适配和事务。
 
 这样读会比从 `db.ts` 开始更容易，因为你先知道“业务想做什么”，再看“底层如何支持”。

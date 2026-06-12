@@ -52,8 +52,9 @@ DB_DRIVER=sqlite ./run
 src/
 ├── main.ts        Elysia 应用入口、路由注册、静态资源服务
 ├── config.ts      环境变量配置
-├── db.ts          PostgreSQL / SQLite 连接、事务封装（保留历史 schema helper）
-├── services.ts    auth / me / capsules / plaza / favorites / suggestion 业务逻辑
+├── db.ts          PostgreSQL / SQLite 连接、占位符适配、事务封装
+├── services.ts    业务服务 barrel export
+├── services/      auth / capsules / plaza / favorites / ai 分域业务逻辑
 ├── security.ts    JWT、密码哈希、refresh token 原语
 ├── validation.ts  Zod 请求 schema
 ├── envelope.ts    统一响应壳与错误响应
@@ -84,6 +85,7 @@ src/
 - **胶囊不可提前泄露**：未到 `openAt` 时详情与列表预览均不返回正文内容。
 - **收藏幂等**：重复收藏返回 200，重复取消返回 204。
 - **静态资源直读 spec**：`/static/avatars/*` 与 `/static/icons/*` 从仓库 `spec/` 提供。
+- **轻量函数式分层**：路由集中注册，业务按域拆分到 `src/services/`，数据库只暴露 `query / one / tx` 三个原语。
 
 ## 契约验证
 
