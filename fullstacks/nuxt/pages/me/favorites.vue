@@ -26,6 +26,8 @@ async function load() {
 }
 
 watch(page, load, { immediate: true });
+
+useHead({ title: "我收藏的" });
 </script>
 
 <template>

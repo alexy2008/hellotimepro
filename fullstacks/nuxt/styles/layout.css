@@ -979,6 +979,7 @@
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+/* cy-btn--hero 的渐变底色决定了文字必须是纯白，不随主题翻转——有意豁免 token 规则。*/
 .cy-btn--hero.cy-btn--primary {
   background: var(--gradient-primary-flow);
   background-size: 200% 200%;

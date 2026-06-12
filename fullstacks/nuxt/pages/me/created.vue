@@ -38,6 +38,8 @@ async function withdraw(id: string) {
     alert(e instanceof Error ? e.message : "撤回失败");
   }
 }
+
+useHead({ title: "我创建的" });
 </script>
 
 <template>

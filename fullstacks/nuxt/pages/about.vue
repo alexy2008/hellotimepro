@@ -38,6 +38,8 @@ const backendItems = computed<StackItem[]>(() => {
 const backendFramework = computed(
   () => health.value?.stack.items.find((it) => it.role === "framework")?.name ?? "—",
 );
+
+useHead({ title: "关于" });
 </script>
 
 <template>

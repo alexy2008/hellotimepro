@@ -29,6 +29,8 @@ async function submit() {
     busy.value = false;
   }
 }
+
+useHead({ title: "登录" });
 </script>
 
 <template>

@@ -17,6 +17,8 @@ const { user, hydrated } = storeToRefs(auth);
 const heroLink = computed(() => (user.value ? "/create" : "/register"));
 const emptyLink = computed(() => (user.value ? "/create" : "/register"));
 
+useHead({ title: "广场" });
+
 // 服务端预取首屏广场（按 store 当前默认 sort/filter/page），结果 seed 进 store，
 // 模板照常绑定 store。useAsyncData 会把服务端取到的数据序列化进 payload，客户端
 // hydrate 时直接复用、不重复请求。

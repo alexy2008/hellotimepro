@@ -304,6 +304,16 @@ API 契约要求 Bearer token。SSR 页面更适合 httpOnly cookie，所以 Lar
 
 access token 是 HS256 JWT，有效期 1 小时。refresh token 是随机不透明字符串，数据库只存 SHA-256 hash、family id、过期时间和撤销时间。refresh 时 rotate；复用已撤销 token 会吊销整个 family。
 
+**为何不用 Laravel auth middleware / FormRequest？**
+
+生产 Laravel 项目通常在路由层加 `->middleware('auth:sanctum')` 或自定义 guard，让鉴权与业务逻辑解耦；FormRequest 则把输入校验提升为独立类。本实现刻意选择在 `HelloTimeApiController` 里手工调 `$this->auth->requireUser($request)` / `$this->auth->currentUser($request)`，原因是：
+
+1. **跨栈同构**：所有五个全栈（next / nuxt / spring-mvc / rails / laravel）的 API 端点都用「在控制器/handler 里显式鉴权」的模式，读者可把五份代码并排，鉴权逻辑在同一个层次出现，不因框架差异而跳层。
+2. **鉴权逻辑可见**：public vs. protected 端点的区别一眼就能从 `requireUser` vs. `currentUser` 看出来，不需要查路由文件的中间件列表。
+3. **教学项目规模**：只有一个 Controller、不到 30 个端点；middleware 带来的复用收益远小于引入的间接层开销。
+
+真实规模的 Laravel 项目建议走 guard + middleware——尤其是端点多、权限复杂的场景。
+
 ### 7.3 收藏和 `favorite_count`
 
 `FavoriteService` 在 `DB::transaction()` 里用 Eloquent 维护收藏：

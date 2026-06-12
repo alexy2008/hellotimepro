@@ -20,8 +20,6 @@ Route::post('/create', [CapsuleController::class, 'store']);
 Route::post('/me/capsules/{id}/delete', [CapsuleController::class, 'destroy']);
 
 Route::get('/c/{code}', [PageController::class, 'capsule']);
-Route::get('/capsules/{code}', [PageController::class, 'capsule']);
-Route::get('/plaza/{id}', [PageController::class, 'plazaDetail']);
 
 Route::get('/me', [PageController::class, 'me']);
 Route::get('/me/created', [PageController::class, 'created']);

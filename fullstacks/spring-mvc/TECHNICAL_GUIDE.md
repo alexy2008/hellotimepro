@@ -352,19 +352,80 @@ Controller 不直接访问 Repository，模板也不直接查数据库。
 
 ## 8. 客户端交互：HTMX + `static/js/app.js`
 
-### 8.1 广场搜索
+### 8.1 HTMX 是什么，以及本实现为什么用它
 
-广场搜索使用 HTMX。注意触发事件必须覆盖 Playwright `fill()` 会派发的 `input` 事件；如果只监听 `keyup`，自动化测试填值后不会触发搜索。
+HTMX 是一个 ~14 KB 的库（无构建步骤、无 npm），允许用 HTML 属性（`hx-get`、`hx-post`、`hx-target`、`hx-swap`…）触发 AJAX 请求，并把响应 HTML 插入 / 替换页面指定区域。整个页面不需要客户端路由，也不需要 Virtual DOM——服务端返回 HTML 片段，浏览器直接更新 DOM。
 
-### 8.2 收藏切换为什么用同步 XHR
+在「5 个全栈」里，Next / Nuxt 的局部刷新靠 React / Vue 状态驱动客户端组件重渲；Spring MVC 版刻意选 HTMX，展示另一条路：**服务端渲染 + HTML-over-the-wire**，客户端 JS 降到最小。Rails 版用 Hotwire（Turbo）走同一思路，两者并排读价值很高。
 
-UI 冒烟有路径会“点收藏后立刻导航到 `/me/favorites`”。如果收藏请求还在飞，下一页 SSR 查询可能先执行，导致刚收藏的卡片不出现。
+### 8.2 广场搜索：HTMX 局部刷新
 
-Spring MVC 版保留事务和行锁来维护 `favorite_count`，收藏写比普通读慢一点，所以已登录收藏按钮用同步 `XMLHttpRequest` 调 `/ui/capsules/{id}/favorite-toggle`，等数据库提交后再允许后续导航。匿名点击在浏览器侧 confirm 后跳登录，不发请求。
+广场搜索输入框与排序按钮都带 HTMX 属性，触发时向服务端请求 HTML 片段并替换页面里的 `#plaza-grid` 区域：
 
-### 8.3 AI 与资料页直接调 JSON API
+```html
+<!-- plaza.html：搜索输入框 -->
+<input name=”q”
+       hx-get=”/ui/plaza/grid”
+       hx-trigger=”input changed delay:300ms, search”
+       hx-target=”#plaza-grid”
+       hx-sync=”this:replace”>
 
-创建页的 AI 推荐/生成、资料页保存和改密都直接 fetch `/api/v1/*`。这让它们与契约端点保持同一行为，也便于 UI smoke 用路由 mock 验证 AI 分支。
+<!-- 排序按钮（热门） -->
+<button hx-get=”/ui/plaza/grid”
+        hx-target=”#plaza-grid”
+        hx-include=”[name='q']”
+        hx-vals='{“sort”:”hot”}'>🔥 热门</button>
+```
+
+关键属性说明：
+
+| 属性 | 作用 |
+|---|---|
+| `hx-get=”/ui/plaza/grid”` | 触发时向该 URL 发 GET 请求 |
+| `hx-trigger=”input changed delay:300ms, search”` | `input` 事件（300ms 防抖）或 `search` 事件都会触发 |
+| `hx-target=”#plaza-grid”` | 把响应 HTML 插入 `id=”plaza-grid”` 的元素 |
+| `hx-sync=”this:replace”` | 若有正在进行的同名请求则取消前者，保证只执行最新一次 |
+| `hx-include=”[name='q']”` | 把页面上 `name=”q”` 的元素值一并提交（排序按钮不含搜索框，需要显式包含） |
+| `hx-vals='{“sort”:”hot”}'` | 追加额外参数（不在 form/input 里的字段） |
+
+服务端：`FragmentController.plazaGrid()` 处理 `GET /ui/plaza/grid`，把结果存进 `Model`，返回 `”fragments/plaza-grid :: grid”`——这是 Thymeleaf 片段语法，只渲染 `plaza-grid.html` 里 `th:fragment=”grid”` 的那一块 HTML，不包含完整页面结构。
+
+> **Playwright 陷阱**：`hx-trigger=”input changed delay:300ms, search”` 的 `input` 覆盖了 Playwright `fill()` 派发的 `input` 事件。若只写 `keyup`，自动化测试填值后不会触发搜索。
+
+### 8.3 与 Hotwire（Turbo Frame）的对照
+
+Rails 版的广场搜索用 Turbo Frame：
+
+```html
+<!-- Rails: index.html.erb -->
+<turbo-frame id=”plaza-grid”>
+  <%= render partial: “public/plaza_grid” %>
+</turbo-frame>
+
+<input data-turbo-action=”replace” ...>
+```
+
+两种方案都是「服务端返回 HTML 替换页面局部区域」，但机制不同：
+
+| 维度 | HTMX | Turbo Frame |
+|---|---|---|
+| 触发方式 | `hx-*` 属性 | `<turbo-frame>` + 表单/链接 target |
+| 响应格式 | 任意 HTML 片段 | 包含同 id `<turbo-frame>` 的完整响应 |
+| 同步控制 | `hx-sync` 属性 | Turbo 自动管理 |
+| JS 大小 | ~14 KB | ~60 KB（含 Turbo Drive、Stream） |
+| Rails 集成 | 框架无关 | Rails 官方支持 |
+
+### 8.4 收藏切换为什么用同步 XHR
+
+UI 冒烟有路径”点收藏后立刻导航到 `/me/favorites`”。如果收藏请求还在飞，下一页 SSR 查询可能先执行，导致刚收藏的卡片不出现。
+
+Spring MVC 版保留事务和行锁来维护 `favorite_count`，收藏写比普通读慢一点，所以已登录收藏按钮用同步 `XMLHttpRequest` 调 `/ui/capsules/{id}/favorite-toggle`，等数据库提交后再允许后续导航。匿名点击在浏览器侧 `confirm` 后跳登录，不发请求。
+
+服务端 `FragmentController.favoriteToggle()` 返回 `{“favorited”: true, “favoriteCount”: 3}` JSON，客户端 `app.js` 收到后直接更新按钮图标和计数显示——这里不走 HTMX，直接用原生 XHR 是为了同步等待响应。
+
+### 8.5 AI 与资料页直接调 JSON API
+
+创建页的 AI 推荐/生成、资料页保存和改密都直接 `fetch /api/v1/*`。这让它们与契约端点保持同一行为，也便于 UI smoke 用路由 mock 验证 AI 分支。浏览器发请求时不带 `Authorization` 头，`CookieTokenFilter` 会把 `ht_access` cookie 注入为 `Bearer` 头，复用同一套 Bearer 鉴权控制器。
 
 ## 9. 样式：Tailwind v4 + 设计令牌
 

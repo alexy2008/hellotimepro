@@ -12,14 +12,22 @@
 
 ## 1. 技术选型与设计特色
 
-HelloTime Pro 的 Nuxt 全栈实现基于 **Nuxt 3 + Vue 3 + TypeScript** 核心骨架，并选用 **Drizzle ORM** 作为双数据库抽象层、**Pinia** 进行客户端状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制跨端样式规范。其具体选型考量与设计特色如下：
+| 角色 | 选型 | 说明 |
+|---|---|---|
+| 框架 | Nuxt 3 + Nitro | 文件系统路由；`pages/` = UI，`server/api/v1/` = REST API |
+| UI | Vue 3 组合式 API | 与 `frontends/vue3-ts` 共用组件逻辑，同构对比 |
+| 客户端状态 | Pinia | Vue 官方状态库；SSR 侧用 `useAsyncData` 取数，无 store 重复请求 |
+| 数据访问 | Drizzle ORM | 双 schema（PG / SQLite），类型安全查询 |
+| 鉴权 | jose（HS256 JWT） | access 存 Pinia 内存，refresh 存 localStorage；XSS 暴露面取舍见 Design Notes |
+| 样式 | Tailwind CSS v4 + 设计令牌 | 零硬编码颜色，暗/亮主题 CSS 变量 |
 
-* **Nuxt 3 与 Nitro（优雅的 Vue 全栈生态）**：依托 Nuxt 的文件系统路由与高性能 Nitro 服务端引擎，将基于 Vue 3 组合式 API 的前端界面与基于 h3 的后端 API 端点无缝集成至单个 Node 进程中，天然免去了跨域（CORS）与多套服务部署的繁琐逻辑。
-* **通用渲染与 `useAsyncData`（首屏即数据）**：开启 SSR 后，公开读页（广场、胶囊详情）在服务端预渲染，借助 `useAsyncData` 在服务端直接命中同进程的 Nitro 处理器取数，首屏 HTML 即带内容，利于 SEO 与分享链接；鉴权与强交互页面则按 `routeRules` 保持客户端渲染。这种「按路由选渲染方式」的混合渲染（Hybrid Rendering）是 Nuxt 相对纯 SPA 的核心增量。
-* **极速自动导入与类型系统（极佳的 DX 体验）**：利用 Nuxt 强大的自动导入（Auto-Imports）机制，开发者无需手动引入 Vue、Pinia、自定义组件或组合式函数即可直接调用。配合全栈 TypeScript 的共享类型，极大缩减了样板代码，提升了研发效率。
-* **Drizzle ORM 与双数据库引擎（通用数据抽象）**：采用轻量化、类型安全的 Drizzle ORM，在服务端根据环境变量动态加载 PostgreSQL (node-postgres) 或 SQLite (better-sqlite3) 驱动，实现同一份业务代码在不同数据库方言下的无感适配。
-* **Pinia 与 JWT 轮转（工程级状态与安全）**：使用 Pinia 构建模块化的单例状态管理，并结合基于 Web Crypto API (jose 库) 的 HS256 JWT 及 Refresh Token 家族轮转机制，在为 Vue 3 提供响应式状态流的同时，打造了严密的用户身份与会话保护屏障。
-* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：通过项目共用的设计令牌（CSS 变量）与新一代 Tailwind CSS v4 编译器，完美契合应用原生的暗/亮色主题，带来高品质、流畅的跨端响应式页面呈现。
+**混合渲染（Hybrid Rendering）是这个实现的核心卖点**：
+
+- `nuxt.config.ts` 的 `routeRules` 把 `/create`、`/me/**` 标记为 `ssr: false`（SPA 孤岛），其余路由走 SSR。
+- 公开读页（广场、胶囊详情）服务端预渲染，`useAsyncData` 在 Nitro 进程内命中 API 处理器取数（无真实 HTTP 往返），首屏 HTML 带内容，利于 SEO 与分享卡片。
+- 鉴权相关页面保持客户端渲染的原因：登录态存 `localStorage`，服务端读不到；若对这些页面 SSR，auth 中间件会在服务端把已登录用户误判为未登录并重定向到 `/login`。
+- Nuxt 的**自动导入**（Auto-Imports）机制让代码里不需要写 `import { ref, computed } from 'vue'`、不需要写 `import { useAuthStore } from '@/stores/auth'`——Nuxt 在构建时自动扫描并注入。这减少了样板代码，但要理解「这个函数哪儿来的」需要先了解自动导入规则。
+- **`RouterLink` vs `NuxtLink`**：UI 组件使用 `RouterLink`（vue-router 原生），与 `frontends/vue3-ts` 保持逐行同构，方便两个实现并排对比。`NuxtLink` 是 `RouterLink` 的超集（加了视口预取等），生产项目应优先用 `NuxtLink`。
 
 ## 2. 先建立整体地图
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# 跑单元测试（phpunit via artisan）：CrossDb 格式转换 + JwtCodec 签发/校验。
+# 契约层走 verification/scripts/verify-contract.sh；UI 层走 verify-ui-smoke.sh。
 set -euo pipefail
 
 cd "$(dirname "$0")"

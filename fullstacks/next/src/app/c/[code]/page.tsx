@@ -1,5 +1,6 @@
 // 胶囊详情 —— React Server Component：服务端按胶囊码取数（viewer 来自会话 cookie），
 // 直接渲染。交互（收藏、复制、到点自动揭示）由客户端组件 CapsuleDetail 承担。
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getCapsuleByCode } from "@/services/capsules";
 import { getServerViewer } from "@/lib/server/session";
@@ -9,6 +10,28 @@ import { isApiError } from "@/lib/server/errors";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+// generateMetadata 与 page 共享同一次取数（Next 会自动去重）。
+// 胶囊标题用于 <title> 与 og:title，方便分享链接展示正确卡片。
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}): Promise<Metadata> {
+  const { code } = await params;
+  const viewer = await getServerViewer();
+  try {
+    const capsule = await getCapsuleByCode(code.toUpperCase(), viewer?.id ?? null);
+    return {
+      title: `${capsule.title} · HelloTime Pro`,
+      description: capsule.isOpened
+        ? `由 ${capsule.creator.nickname} 创建的时间胶囊`
+        : `一封来自过去的信，尚未开启`,
+    };
+  } catch {
+    return { title: "胶囊不存在 · HelloTime Pro" };
+  }
+}
 
 export default async function CapsuleByCodePage({
   params,

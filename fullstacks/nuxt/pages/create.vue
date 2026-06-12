@@ -8,6 +8,7 @@ import RecommendationStrip from "@/components/RecommendationStrip.vue";
 import { isoToLocalInput, localInputToIso } from "@/utils/format";
 
 definePageMeta({ middleware: "auth-client" });
+useHead({ title: "创建胶囊" });
 
 const router = useRouter();
 

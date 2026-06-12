@@ -50,6 +50,8 @@ async function submit() {
     busy.value = false;
   }
 }
+
+useHead({ title: "注册" });
 </script>
 
 <template>

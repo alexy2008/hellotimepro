@@ -12,13 +12,20 @@
 
 ## 1. 技术选型与设计特色
 
-HelloTime Pro 的 Next.js 全栈实现基于 **Next.js (App Router) + React + TypeScript** 核心骨架，并选用 **Drizzle ORM** 作为双数据库抽象层、**Zustand** 进行客户端状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制跨端样式规范。其具体选型考量与设计特色如下：
+| 角色 | 选型 | 说明 |
+|---|---|---|
+| 框架 | Next.js 15（App Router） | 文件系统路由；页面/API 同进程，省去 CORS |
+| UI | React 19（RSC + 客户端孤岛） | 公开读页在服务端取数渲染，交互组件按需 `"use client"` |
+| 客户端状态 | Zustand 5 | 轻量，无 Context Provider 包裹 |
+| 数据访问 | Drizzle ORM | 双 schema（PG / SQLite），类型安全查询 |
+| 鉴权 | jose（HS256 JWT）+ bcryptjs | access 存内存，refresh 存 localStorage；RSC 侧加 httpOnly session cookie |
+| 样式 | Tailwind CSS v4 + 设计令牌 | 零硬编码颜色，暗/亮主题 CSS 变量 |
 
-* **Next.js App Router（全栈一体化与声明式路由）**：利用 Next.js 的文件系统路由，将前端 React 声明式 UI 与后端的 REST API 端点（Route Handlers）无缝打包在单一 Node 进程中。这不仅消除了跨进程调用与跨域（CORS）配置的开销，也实现了极佳的开发与部署一致性。
-* **RSC 与编译期防火墙（高效与安全性）**：通过 React Server Components (RSC) 的服务端执行优势以及 `"server-only"` 编译标记，确保数据库连接、敏感密钥等服务端逻辑在构建阶段被严格隔离，绝不泄露至浏览器端，同时提供编译期的安全防火墙。
-* **Drizzle ORM（双数据库适配与类型安全）**：采用轻量级、类型安全的 Drizzle ORM，通过动态导入技术无缝适配 PostgreSQL (node-postgres) 和 SQLite (better-sqlite3) 双数据库引擎。其「TypeScript 即 SQL」的设计理念，确保了从数据库 Schema 到业务查询的全链路类型安全。
-* **Zustand 与 JWT 轮转（轻量状态与安全凭证）**：使用 Zustand 维护客户端状态，并配合 HS256 JWT（基于 jose 库的 Web Crypto 实现）及 Refresh Token 家族轮转机制，在保证轻量化状态管理的同时，实现了金融级的身份安全防范。
-* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：通过通用的设计令牌（CSS 变量）与 Tailwind CSS v4 的新一代编译器，提供无缝的暗/亮主题切换和极具现代感、响应式的视觉系统。
+**与其他全栈的定位差异**：
+
+- 对比 `fullstacks/nuxt`：同样是「Node 全栈」，但路由/组件模型用 React 而非 Vue；RSC 让服务端组件无需额外 API 调用就能取数渲染，这是 App Router 的核心卖点。
+- 对比 `fullstacks/spring-mvc / rails / laravel`：Next 仍是组件化思维——UI 是 JSX，不是模板；交互靠客户端 JS 孤岛，不靠 HTMX / Hotwire / Alpine。
+- **`server-only` 编译期防火墙**：`services/*`、`db/*`、`lib/server/*` 顶部 `import "server-only"`，误将其引入客户端组件会在 `next build` 阶段报错——不是运行时保护，是构建期保证。注意：`db/index.ts` 中的类型断言使用了 `any`（`eslint-disable`），以换取双驱动共用同一套 Drizzle 查询 API；「全链路类型安全」在业务代码层成立，驱动切换层有意降级。
 
 ## 2. 先建立整体地图
 

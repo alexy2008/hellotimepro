@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 启动 Next.js 全栈服务器（端口 7177，含 API + UI）。
 #
-#   DB_DRIVER=postgres (默认) 需要 docker compose up -d postgres
-#   DB_DRIVER=sqlite          使用 ../../data/sqlite/hellotime.db
+#   DB_DRIVER=postgres (默认) 需要本机 PG（连接信息见 data/.hello-state.json）
+#   DB_DRIVER=sqlite          使用 data/sqlite/hellotime-next.db
 #
 # 启动前自动：
 #   1) npm install（首次）

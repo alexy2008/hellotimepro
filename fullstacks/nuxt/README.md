@@ -5,7 +5,7 @@ Nuxt 3 + Nitro + TypeScript fullstack implementation. UI routes live in `pages/`
 ## Run
 
 ```bash
-docker compose up -d postgres
+./scripts/db init                # 初始化数据库（本机 PG，首次需要）
 ./scripts/hello start nuxt
 ```
 

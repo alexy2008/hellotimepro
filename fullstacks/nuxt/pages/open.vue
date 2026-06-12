@@ -35,6 +35,8 @@ async function paste() {
     err.value = "粘贴失败：请允许浏览器访问剪贴板";
   }
 }
+
+useHead({ title: "开启胶囊" });
 </script>
 
 <template>

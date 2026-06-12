@@ -71,6 +71,11 @@ function onExpired() {
 function onChange(c: CapsuleDetailT) {
   cap.value = c;
 }
+
+// 动态标题：胶囊有标题时输出「{标题} · HelloTime Pro」，利于 SEO 与分享卡片。
+useHead(() => ({
+  title: cap.value?.title ?? code.value,
+}));
 </script>
 
 <template>

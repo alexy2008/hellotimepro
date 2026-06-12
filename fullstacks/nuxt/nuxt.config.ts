@@ -37,4 +37,16 @@ export default defineNuxtConfig({
   nitro: {
     preset: "node-server",
   },
+  // 全站默认 <title> 与 meta；SSR 页面可在组件内用 useHead() 覆盖为动态值（详情页、关于页等）。
+  app: {
+    head: {
+      titleTemplate: "%s · HelloTime Pro",
+      title: "HelloTime Pro",
+      meta: [
+        { charset: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { name: "description", content: "写一封信给未来的自己——多技术栈教学项目" },
+      ],
+    },
+  },
 });

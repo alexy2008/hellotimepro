@@ -96,6 +96,8 @@ function resetProfile() {
     avatarId.value = user.value.avatarId;
   }
 }
+
+useHead({ title: "个人资料" });
 </script>
 
 <template>
