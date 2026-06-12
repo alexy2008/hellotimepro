@@ -11,7 +11,6 @@
   import RegisterPage from "@/pages/RegisterPage.svelte";
   import CreatePage from "@/pages/CreatePage.svelte";
   import CapsuleByCodePage from "@/pages/CapsuleByCodePage.svelte";
-  import PlazaDetailPage from "@/pages/PlazaDetailPage.svelte";
   import MeCreatedPage from "@/pages/MeCreatedPage.svelte";
   import MeFavoritesPage from "@/pages/MeFavoritesPage.svelte";
   import MeProfilePage from "@/pages/MeProfilePage.svelte";
@@ -45,11 +44,8 @@
   <Route path="/create">
     <MainLayout><AuthGate><CreatePage /></AuthGate></MainLayout>
   </Route>
-  <Route path="/capsules/:code" let:params>
+  <Route path="/c/:code" let:params>
     <MainLayout><CapsuleByCodePage code={params.code} /></MainLayout>
-  </Route>
-  <Route path="/plaza/:id" let:params>
-    <MainLayout><PlazaDetailPage id={params.id} /></MainLayout>
   </Route>
 
   <Route path="/me">

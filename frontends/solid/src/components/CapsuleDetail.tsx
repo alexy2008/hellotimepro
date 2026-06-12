@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { CapsuleDetail as CapsuleDetailT } from "@/types";
 import { avatarUrl } from "@/utils/avatar";
 import { countdownTo, fmtDateTime } from "@/utils/format";
@@ -7,13 +7,38 @@ import { FavoriteButton } from "./FavoriteButton";
 function CalendarUnit(props: { value: () => number; label: string }) {
   const str = () => String(props.value()).padStart(2, "0");
   const isLong = () => str().length > 2;
+  const [shown, setShown] = createSignal(str());
+  const [phase, setPhase] = createSignal<"idle" | "fold" | "unfold">("idle");
+
+  // str() が変わったとき、idle 状態なら fold アニメを開始する。
+  // untrack で shown/phase の読み取りを追跡から外し、str のみを依存にする。
+  createEffect(() => {
+    const s = str();
+    untrack(() => {
+      if (phase() === "idle" && s !== shown()) setPhase("fold");
+    });
+  });
+
+  function handleAnimationEnd() {
+    const s = str();
+    if (phase() === "fold") {
+      setShown(s);
+      setPhase("unfold");
+    } else if (phase() === "unfold") {
+      setShown(s);
+      setPhase("idle");
+    }
+  }
 
   return (
     <div class={`cy-cal-unit${isLong() ? " cy-cal-unit--wide" : ""}`}>
       <div
-        class={`cy-cal-card${isLong() ? " cy-cal-card--wide" : ""}`}
+        class={`cy-cal-card${isLong() ? " cy-cal-card--wide" : ""}${
+          phase() !== "idle" ? ` cy-cal-card--${phase()}` : ""
+        }`}
+        onAnimationEnd={handleAnimationEnd}
       >
-        <div class="cy-cal-num">{str()}</div>
+        <div class="cy-cal-num">{shown()}</div>
         <div class="cy-cal-crease" />
       </div>
       <div class="cy-cal-label">{props.label}</div>

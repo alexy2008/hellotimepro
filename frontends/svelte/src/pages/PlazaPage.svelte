@@ -47,7 +47,6 @@
   <CapsuleGrid
     items={plazaStore.items}
     loading={plazaStore.loading}
-    hrefFn={(c) => `/plaza/${c.id}`}
   >
     {#snippet empty()}
       <div class="cy-empty">

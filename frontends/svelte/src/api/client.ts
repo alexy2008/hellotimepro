@@ -219,11 +219,6 @@ export const api = {
     request<CapsuleDetail>(`/api/v1/capsules/${encodeURIComponent(code)}`, {
       auth: true,
     }),
-  plazaById: (id: string) =>
-    request<CapsuleDetail>(`/api/v1/plaza/capsules/${encodeURIComponent(id)}`, {
-      auth: true,
-    }),
-
   // ---- 广场
   plaza: (q: PlazaQuery = {}) => {
     const params = new URLSearchParams();

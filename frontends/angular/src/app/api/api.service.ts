@@ -155,7 +155,7 @@ export class ApiService {
 
   suggestCapsule = (body: CapsuleSuggestionRequest) =>
     this.request<CapsuleSuggestion>('/api/v1/capsule-suggestion', {
-      method: 'POST', body,
+      method: 'POST', body, auth: false,
     });
 
   capsuleRecommendations = (params: { count?: number; locale?: string } = {}) => {

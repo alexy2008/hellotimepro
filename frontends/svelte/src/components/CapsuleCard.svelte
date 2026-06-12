@@ -26,7 +26,7 @@
   }: Props = $props();
 
   const opened = $derived(capsule.isOpened);
-  const cardHref = $derived(href ?? `/capsules/${capsule.code}`);
+  const cardHref = $derived(href ?? `/c/${capsule.code}`);
 
   // 倒计时（仅未开启卡片需要每秒刷新）
   const cd = createCountdown(() => !opened);

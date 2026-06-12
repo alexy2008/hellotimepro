@@ -6,7 +6,13 @@ import { avatarUrl } from '@/utils/avatar';
 import { countdownTo, fmtDateTime } from '@/utils/format';
 import type { CapsuleDetail } from '@/types';
 
-interface CalUnit { value: number; label: string }
+interface CalUnit {
+  label: string;
+  value: number;
+  shown: string;
+  wide: boolean;
+  phase: 'idle' | 'fold' | 'unfold';
+}
 
 @Component({
   selector: 'app-capsule-detail',
@@ -43,8 +49,11 @@ interface CalUnit { value: number; label: string }
           </div>
           <div class="cy-cal">
             @for (unit of calUnits(); track unit.label) {
-              <div class="cy-cal-unit">
-                <div class="cy-cal-card"><div class="cy-cal-num">{{ pad(unit.value) }}</div><div class="cy-cal-crease"></div></div>
+              <div [class]="'cy-cal-unit' + (unit.wide ? ' cy-cal-unit--wide' : '')">
+                <div [class]="calCardClass(unit)" (animationend)="onCalAnimEnd(unit)">
+                  <div class="cy-cal-num">{{ unit.shown }}</div>
+                  <div class="cy-cal-crease"></div>
+                </div>
                 <div class="cy-cal-label">{{ unit.label }}</div>
               </div>
               @if (!$last) { <span class="cy-cal-sep">:</span> }
@@ -139,12 +148,38 @@ export class CapsuleDetailComponent implements OnInit, OnChanges, OnDestroy {
   private updateCd() {
     const c = countdownTo(this.capsule().openAt);
     this.cd.set(c);
-    this.calUnits.set([
+
+    const entries = [
       { value: c.days, label: '天' },
       { value: c.hours, label: '时' },
       { value: c.minutes, label: '分' },
       { value: c.seconds, label: '秒' },
-    ]);
+    ];
+    this.calUnits.update(prev => entries.map((e, i) => {
+      const str = String(e.value).padStart(2, '0');
+      const old = prev[i];
+      if (!old) return { label: e.label, value: e.value, shown: str, wide: str.length > 2, phase: 'idle' as const };
+      if (old.phase !== 'idle') return { ...old, value: e.value, wide: str.length > 2 };
+      if (old.shown === str) return { ...old, value: e.value };
+      return { label: e.label, value: e.value, shown: old.shown, wide: str.length > 2, phase: 'fold' as const };
+    }));
+  }
+
+  calCardClass(unit: CalUnit): string {
+    let cls = 'cy-cal-card';
+    if (unit.wide) cls += ' cy-cal-card--wide';
+    if (unit.phase !== 'idle') cls += ` cy-cal-card--${unit.phase}`;
+    return cls;
+  }
+
+  onCalAnimEnd(unit: CalUnit) {
+    this.calUnits.update(units => units.map(u => {
+      if (u.label !== unit.label) return u;
+      const str = String(u.value).padStart(2, '0');
+      if (u.phase === 'fold') return { ...u, shown: str, wide: str.length > 2, phase: 'unfold' as const };
+      if (u.phase === 'unfold') return { ...u, shown: str, phase: 'idle' as const };
+      return u;
+    }));
   }
 
   private async tryAutoOpen() {
@@ -159,8 +194,6 @@ export class CapsuleDetailComponent implements OnInit, OnChanges, OnDestroy {
       }
     }
   }
-
-  pad(n: number) { return String(n).padStart(2, '0'); }
 
   copyCode() {
     void navigator.clipboard.writeText(this.capsule().code);

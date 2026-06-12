@@ -7,7 +7,7 @@ M1 参考前端实现：React 19 + TypeScript + Vite 6 + Tailwind v4 + Zustand +
 ```bash
 # 一次性：起一个后端（默认 FastAPI）
 cd ../../
-docker compose up -d postgres
+./scripts/db init                # 初始化数据库（本机 PG，首次需要）
 ./scripts/hello start fastapi
 ./scripts/hello switch fastapi   # 把 :9080 指向 fastapi
 

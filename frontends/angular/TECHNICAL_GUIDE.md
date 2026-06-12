@@ -96,7 +96,7 @@ ApiService.plaza({...}) → fetch("/api/v1/plaza/capsules")
 cd frontends/angular
 ./run                          # 开发模式，端口 7175
 ./build                        # 生产构建到 dist/
-./test                         # 类型检查（教学项目暂未加单测，./test 跑 tsc --noEmit）
+./test                         # 单元测试（vitest run）+ 类型检查
 ```
 
 打开浏览器访问 `http://localhost:7175`。`./run` 做的事：
@@ -485,6 +485,213 @@ export class ApiService {
 - **自动 refresh**：与 React/Vue 版完全一致——`refreshing` 单例 Promise 去重，重放原请求时打 `_retry` 标记防死循环。
 - **`configure(...)` 解耦循环依赖**：`ApiService` 不能 `inject(AuthStore)`（store 反过来注入了 service），所以由 AuthStore 的 `onInit` hook 主动调用 `api.configure({...})`。
 
+### 9.1 延伸：HttpClient + Interceptor 的 Angular 原生写法
+
+> 本节是**对照阅读**，不是本项目的实际代码。读完可以理解"为什么生产项目几乎都用 HttpClient"，以及它与 fetch 方案的差异在哪里。
+
+#### 为什么 Angular 有 HttpClient？
+
+`HttpClient` 是 Angular 内置的 HTTP 客户端，封装了 `XMLHttpRequest`（或 `fetch`，Angular 18+ 可选）。它返回 **RxJS Observable** 而非 Promise，这让请求可以在任何时机 `.pipe(takeUntilDestroyed())` 自动取消、可以用操作符链式转换结果。更重要的是，它内置了**拦截器（Interceptor）机制**：所有经过 `HttpClient` 的请求/响应都会流过一个拦截器管道，这是处理 auth header 注入和 token 刷新的 Angular 原生方案。
+
+#### 整体架构
+
+```
+HttpClient.get('/api/v1/me')
+    │
+    ▼ 经过拦截器管道
+authInterceptor          ← 注入 Bearer header；捕获 401 后刷新并重放
+    │
+    ▼
+实际 HTTP 请求
+    │
+    ▼ 拦截器管道（响应方向）
+Observable<Envelope<User>>
+    │
+    ▼
+组件 / store .pipe(map(env => env.data!))
+```
+
+#### 第一步：配置 `provideHttpClient`
+
+```ts
+// app.config.ts
+import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideRouter(routes, withComponentInputBinding()),
+    provideHttpClient(
+      withInterceptors([authInterceptor]),
+      withFetch(),           // Angular 18+：HttpClient 底层改用 fetch（可选）
+    ),
+  ],
+};
+```
+
+#### 第二步：标记公开端点（`HttpContextToken`）
+
+`HttpContextToken` 是一个"请求级元数据"机制——给某一次请求打上标签，拦截器读取后决定是否处理：
+
+```ts
+// api/auth.interceptor.ts
+import { HttpContextToken } from '@angular/common/http';
+
+// 默认 false = 需要鉴权；调用时 .set(SKIP_AUTH, true) 标记为公开端点
+export const SKIP_AUTH = new HttpContextToken<boolean>(() => false);
+```
+
+使用方：
+```ts
+this.http.get('/api/v1/health', {
+  context: new HttpContext().set(SKIP_AUTH, true),
+})
+```
+
+#### 第三步：函数式 Auth Interceptor
+
+```ts
+// api/auth.interceptor.ts
+import {
+  HttpInterceptorFn, HttpRequest, HttpHandlerFn,
+  HttpErrorResponse, HttpContext,
+} from '@angular/common/http';
+import { inject } from '@angular/core';
+import { catchError, from, switchMap, throwError } from 'rxjs';
+import { AuthStore } from '@/stores/auth.store';
+import { SKIP_AUTH } from './auth.interceptor';
+
+// 模块级 Promise 去重：多个并发请求同时 401 时，只发一次 refresh
+let refreshingPromise: Promise<string | null> | null = null;
+
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  const auth = inject(AuthStore);
+
+  // 1. 注入 Bearer header（公开端点跳过）
+  const authed = !req.context.get(SKIP_AUTH) && auth.accessToken()
+    ? req.clone({ setHeaders: { Authorization: `Bearer ${auth.accessToken()}` } })
+    : req;
+
+  return next(authed).pipe(
+    catchError((err: unknown) => {
+      // 2. 捕获 401：尝试 refresh 后重放一次
+      if (
+        err instanceof HttpErrorResponse &&
+        err.status === 401 &&
+        !req.context.get(SKIP_AUTH) &&
+        auth.refreshToken() &&
+        !req.url.includes('/auth/refresh')  // 防止 refresh 本身也被拦截
+      ) {
+        return from(doRefresh(auth)).pipe(
+          switchMap((newToken) => {
+            if (!newToken) return throwError(() => err);
+            const retried = req.clone({
+              setHeaders: { Authorization: `Bearer ${newToken}` },
+            });
+            return next(retried);
+          }),
+        );
+      }
+      return throwError(() => err);
+    }),
+  );
+};
+
+async function doRefresh(auth: InstanceType<typeof AuthStore>): Promise<string | null> {
+  // 并发去重：复用同一个飞行中的 Promise
+  if (refreshingPromise) return refreshingPromise;
+
+  refreshingPromise = (async () => {
+    try {
+      const res = await fetch('/api/v1/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: auth.refreshToken() }),
+      });
+      const env = await res.json();
+      if (!res.ok || !env.success || !env.data) {
+        patchState(auth, { user: null, accessToken: null, refreshToken: null });
+        return null;
+      }
+      patchState(auth, {
+        accessToken: env.data.accessToken,
+        refreshToken: env.data.refreshToken,
+      });
+      return env.data.accessToken as string;
+    } catch {
+      return null;
+    } finally {
+      refreshingPromise = null;
+    }
+  })();
+
+  return refreshingPromise;
+}
+```
+
+> **注意**：`doRefresh` 里仍然用了原生 `fetch` 直接调 `/auth/refresh`，目的是绕过拦截器管道——如果用 `HttpClient` 发 refresh，会再次经过同一个拦截器，遇到新的 401 又会触发 refresh，造成无限循环。这是 HttpClient 拦截器方案里一个常见的微妙之处。
+
+#### 第四步：ApiService 改用 HttpClient
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class ApiService {
+  private http = inject(HttpClient);
+
+  // 公开端点：传 context 跳过 auth 拦截
+  health = () =>
+    this.http
+      .get<Envelope<HealthData>>('/api/v1/health', {
+        context: new HttpContext().set(SKIP_AUTH, true),
+      })
+      .pipe(map((env) => env.data!));
+
+  // 登录后端点：拦截器自动注入 Bearer，无需手写 header
+  me = () =>
+    this.http.get<Envelope<User>>('/api/v1/me').pipe(map((env) => env.data!));
+
+  plaza = (q: PlazaQuery = {}) =>
+    this.http
+      .get<Envelope<PaginatedCapsules>>('/api/v1/plaza/capsules', {
+        params: new HttpParams({ fromObject: filterEmpty(q) }),
+      })
+      .pipe(map((env) => env.data!));
+}
+```
+
+组件里消费 Observable：
+
+```ts
+// 选项 A：.subscribe（命令式，记得在 ngOnDestroy 取消订阅）
+this.api.me().subscribe((user) => this.user.set(user));
+
+// 选项 B：转为 Promise，跟现有 async/await 代码风格统一
+const user = await firstValueFrom(this.api.me());
+
+// 选项 C：配合 takeUntilDestroyed() 自动取消
+this.api.plaza().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(...);
+```
+
+#### 两种方案对比
+
+| | 本项目（原生 fetch） | HttpClient + Interceptor |
+|---|---|---|
+| **返回类型** | `Promise<T>` | `Observable<T>`（可转 Promise） |
+| **Auth header** | `request<T>` 内部手写 | 拦截器统一注入，ApiService 无感 |
+| **401 处理** | `request<T>` 里条件判断 + 递归重放 | `catchError` 操作符 + `switchMap` |
+| **并发 refresh 去重** | `refreshing: Promise` 单例 | 同上，只是放在拦截器模块里 |
+| **公开端点标记** | `opts.auth: false` 参数 | `HttpContextToken` |
+| **请求取消** | `AbortController`（需手写） | `.pipe(takeUntilDestroyed())` 自动 |
+| **测试** | `vi.stubGlobal("fetch", mock)` 直接 | `HttpClientTestingModule` + `HttpTestingController` |
+| **跨栈对比可读性** | ✅ 与其余四家逐行等价 | ❌ 需要先懂 RxJS |
+| **Angular 生产惯用法** | ❌（非典型） | ✅ |
+
+#### 本项目的选择
+
+本项目刻意选择 fetch 方案，因为五家前端（React/Vue/Angular/Svelte/Solid）的 API 客户端**核心算法同构**——同样的 refresh 去重、同样的 `_retry` 防死循环、同样的 `configureApi` 回调解耦——读者可以把 React 的 `api/client.ts` 和 Angular 的 `api/api.service.ts` 并排，差别只在"函数模块 vs 可注入 class"，HTTP 层本身是同一道题。一旦换成 RxJS 管道，这一层的对比价值就消失了。
+
+如果你在真实 Angular 项目里复刻这套逻辑，HttpClient + Interceptor 是更正确的方向。
+
 ## 10. 状态层：NgRx Signal Store
 
 [`@ngrx/signals`](https://ngrx.io/guide/signals) 是 NgRx 的现代化 store——基于 signals，没有 reducer/action 样板代码。本项目用它做四个 store：`AuthStore`、`PlazaStore`、`ThemeStore`、`CapsuleStore`。
@@ -812,7 +1019,18 @@ ngOnDestroy() {
 
 ## 14. 测试
 
-`./test` 当前只跑 `tsc --noEmit -p tsconfig.app.json`（类型检查）——教学项目暂未加单元测试。生产 Angular 项目通常用 [Jest](https://jestjs.io/) 或 [Karma](https://karma-runner.github.io/) + Angular Testing Library。
+`./test` 跑 **vitest run**，覆盖两个文件共 7 个用例：
+
+| 文件 | 用例 | 测什么 |
+|---|---|---|
+| `src/app/api/api.service.test.ts` | 3 | `ApiService` 的 refresh 重放：missing access token → refresh → 重发；401 过期 → refresh → 重放；logout 不触发 refresh |
+| `src/app/utils/format.test.ts` | 4 | `countdownTo` 分解秒数、过期判断；`fmtNumber` 千分位；local ↔ iso 往返 |
+
+这两类是全栈前端测试里**最值得测**的东西：auth refresh 是有副作用的并发逻辑，format 工具是跨组件复用的纯函数。
+
+vitest 直接 `new ApiService()` 实例化（无需 TestBed），用 `vi.stubGlobal("fetch", ...)` mock 网络，与其他四家前端的测试口径完全一致，可并排对比。
+
+Angular 的其他测试选项：组件渲染可用 [Angular Testing Library](https://testing-library.com/docs/angular-testing-library/intro/) + `TestBed`；E2E 用 Playwright（项目 `verification/ui/` 已有 25 个黑盒冒烟用例覆盖全流程）。
 
 ## 15. 常见改动指南
 
@@ -839,4 +1057,4 @@ ngOnDestroy() {
 - 把项目同时启起来：`hello start angular`、`hello start react-ts`、`hello start vue3-ts`，三个并排对比同一页面。React 走 Hook + 重渲染、Vue 走 ref + 模板指令、Angular 走装饰器 + signal——理念差异一目了然。
 - 在 `AuthStore.refreshMe` 加 `console.log`，刷新页面观察「水合 → effect 触发 → /me 调用」的连锁反应。
 
-之后可以再深入研究 Angular 的几个常见进阶主题：`HttpClient` + interceptor（替代 fetch）、Reactive Forms（替代 `[(ngModel)]` 的 Template Driven Forms）、`OnPush` 变更检测策略（性能优化）、RxJS Observables（异步流的 Angular 原生范式）、SSR / Hydration（`@angular/ssr`）、zoneless 模式。本项目刻意保持极简，把这些留给后续。
+之后可以再深入研究 Angular 的几个常见进阶主题：`HttpClient` + interceptor（原理和与本项目 fetch 方案的对比见 §9.1）、Reactive Forms（替代 `[(ngModel)]` 的 Template Driven Forms）、`OnPush` 变更检测策略（性能优化）、RxJS Observables（异步流的 Angular 原生范式）、SSR / Hydration（`@angular/ssr`）、zoneless 模式。本项目刻意保持极简，把这些留给后续。
