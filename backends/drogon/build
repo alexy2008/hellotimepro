@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Release 编译 + 预热（首次需 FetchContent 拉取并编译 drogon，约几分钟）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+cmake -S "$HERE" -B "$HERE/build-out" -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build "$HERE/build-out"

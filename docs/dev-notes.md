@@ -481,3 +481,36 @@ ignore 列表排除），`config/application.rb` 顶部 `require_relative` 后�
 - 显式 null 免费：serde_json 的 `Value::Null` 本来就序列化为 `null`，无 Swift 那类丢键问题。
 - 验收：2026-06-12 双驱动各 `verify-contract.sh axum` **104/104**（均一次通过）；
   `./test` 25 个纯函数单元用例全绿。release 冷构建约 4-5 分钟，预热后增量秒级。
+
+## 12. Drogon 后端（backends/drogon，C++20 + Drogon 1.9 + 协程）
+
+### 12.1 Transaction 异步析构提交竞态（核心坑）
+
+- drogon `orm::Transaction` 的提交时机是**最后一个 shared_ptr 析构时异步发 COMMIT**。
+  直接依赖析构：响应先于提交发出 → 客户端立刻发下一请求 → PG 连接池把它路由到
+  另一条连接 → 读不到刚写的数据。症状是**偶发且每轮失败点不同**（register 后 401、
+  创建后搜索不到）；SQLite 连接数 1 天然 FIFO 完全无感，只有 PG 暴露。
+- 解法：`setCommitCallback` 包 `CallbackAwaiter` 成 `Db::awaitCommit(std::move(trans))`，
+  释放最后引用触发析构提交、回调 resume——提交落地后才返回。
+- 三纪律：catch 里必须显式 `rollback()`（析构默认是提交不是回滚）；`co_return` 不能写在
+  try 里（绕过 awaitCommit）；awaitCommit 必须 move（靠释放最后引用触发）。
+
+### 12.2 C++/drogon 工程要点
+
+- **catch 块里不能 `co_await`**（语言限制）：LLM 重试/回落、退避等"失败后异步补救"
+  一律改"catch 记 flag，try 外 co_await"。事务 rollback() 是同步方法不受限。
+- 跨库用**全文本绑定**：PG 走 libpq 文本协议由列上下文推断（uuid/timestamptz/boolean
+  都接受 ISO 文本），SQLite 靠列亲和性收编 '0'/'1'；LIMIT/OFFSET 内联整数绕开两库
+  对文本参数的不一致。`?` 占位统一转 `$1..$n`——SQLite 的 `$1` 恰好是合法命名参数。
+- 读回 PG timestamptz 文本要容忍：空格分隔、截尾小数、**2 位短偏移 `+00`**。
+- bcrypt：C++ 无标准实现，复制本仓库 nest 后端 `node_modules/bcrypt/src` 的 OpenBSD
+  源（ISC 许可）进 third_party/，零新增外部来源；`$2b$` 签发、`$2a$/$2b$` 互验，
+  单元测试内嵌 Python bcrypt 已知向量。
+- `execSqlCoro` 是变参模板，动态参数表用 `switch(params.size())` 0..10 逐档展开
+  （参数已统一 string，每档单一类型组合）。
+- std::regex 无 lookahead / `\p{L}`：密码显式字符扫描；昵称 UTF-8 码点扫描
+  （ASCII 严格、非 ASCII 放行）。长度按码点计数。
+- 构建：FetchContent 锁 v1.9.12 静态链接；brew libpq 是 keg-only 要显式加
+  CMAKE_PREFIX_PATH；构建目录 `build-out/`（`build` 名被脚本占用，同 ktor）。
+- 验收：2026-06-13 双驱动各 `verify-contract.sh drogon` **104/104**（PG 连跑两轮验证
+  竞态修复稳定）；`./test` 35 项纯函数断言全绿。

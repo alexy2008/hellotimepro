@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# 单元测试（纯函数层：校验/时间格式/JWT/bcrypt/UUID/LLM 解析，无需数据库）。
+# 契约行为由 verification/contract 黑盒覆盖。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+cmake -S "$HERE" -B "$HERE/build-out" -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
+cmake --build "$HERE/build-out" --target hellotime-drogon-tests >/dev/null
+exec "$HERE/build-out/hellotime-drogon-tests" "$@"

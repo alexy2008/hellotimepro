@@ -201,7 +201,7 @@
 | `backends/aspnet/` | ASP.NET Core + EF Core 8；接管 SQLite 的 DateTimeOffset 存储格式保住字符串比较（2026-06-06 落地） | ✅ 104/104 | ✅ 104/104 |
 | `backends/axum/` | Rust + Axum 0.8 + sqlx 手写 SQL（Value/Cell 跨库编解码层，`?` 占位 PG 端转 `$n`）；SQLite 池上限 1 串行化（2026-06-12 落地） | ✅ 104/104 | ✅ 104/104 |
 | `backends/vapor/` | Swift + Vapor 4 + SQLKit 手写 SQL（跨库值编解码层）；仅 macOS（2026-06-12 落地，Swift 包在 `server/` 子目录避开 SwiftPM 目录身份与依赖 `vapor` 的冲突） | ✅ 104/104 | ✅ 104/104 |
-| `backends/drogon/`（待） | C++20 + CMake；v1 工具链已趟通，排最后因编译循环慢 | — | — |
+| `backends/drogon/` | C++20 + Drogon 1.9 + 协程；文本化跨库编解码（PG 文本协议推断 / SQLite 列亲和性）；显式 awaitCommit 修复异步析构提交竞态；bcrypt 复用仓内 nest 的 OpenBSD 源（2026-06-13 落地） | ✅ 104/104 | ✅ 104/104 |
 
 #### 前端（2 个）
 
