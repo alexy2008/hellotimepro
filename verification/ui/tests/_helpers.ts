@@ -64,7 +64,7 @@ export function uniqueNickname(prefix = "ui"): string {
 }
 
 export function capsulePath(code: string): string {
-  return process.env.FRONTEND_TARGET === "svelte" ? `/capsules/${code}` : `/c/${code}`;
+  return `/c/${code}`;
 }
 
 export function capsuleCard(page: Page, title: string) {
@@ -194,7 +194,7 @@ export async function createCapsuleViaUi(
   await page.getByRole("button", { name: "1 分钟后（测试）" }).click();
   await page.getByRole("button", { name: /上锁封存/ }).click();
   await page.waitForURL(
-    (url) => url.pathname.includes("/c/") || url.pathname.includes("/capsules/"),
+    (url) => url.pathname.includes("/c/"),
     { timeout: 10_000 },
   );
   const code = page.url().split("/").pop() ?? "";

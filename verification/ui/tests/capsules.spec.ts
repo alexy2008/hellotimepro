@@ -155,7 +155,7 @@ test("空标题直接 AI 生成会同时补全标题与正文并可提交", asyn
   await page.getByRole("button", { name: "1 分钟后（测试）" }).click();
   await page.getByRole("button", { name: /上锁封存/ }).click();
   await page.waitForURL(
-    (url) => url.pathname.includes("/c/") || url.pathname.includes("/capsules/"),
+    (url) => url.pathname.includes("/c/"),
     { timeout: 10_000 },
   );
 });

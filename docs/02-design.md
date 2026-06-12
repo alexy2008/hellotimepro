@@ -443,30 +443,27 @@ DB_URL=sqlite://../../data/hellotime.db
 
 | 栈 | 状态方案 | 路由 |
 |---|---|---|
-| Vue 3 | **Pinia**（auth / capsule / plaza store） | `vue-router` |
+| Vue 3 | **Pinia**（auth / plaza store；capsule 逻辑内联在页面） | `vue-router` |
 | React | **Zustand**（小而直接，符合 React 生态风气） | `react-router` |
 | Angular | **Signal Store (@ngrx/signals)**（Signals 原生融合） | Angular Router |
 | Svelte 5 | **runes + 模块级 store**（Svelte 官方推荐） | `svelte-routing` |
-| Solid | **createSignal + createContext**（Solid 的惯用法） | `@solidjs/router` |
+| Solid | **模块级 createStore + createSignal**（Solid 的惯用法） | `@solidjs/router` |
 
 > 选择理由：**Pinia** 是 Vue 生态标准；对其他栈特意不统一，因为"各栈用各自习惯"本身就是教学目标。
 
-### 9.3 Tailwind + Design Tokens
+### 9.3 样式：Design Tokens + cy-* 共享类
 
-流水线：
+真正的样式体系分三层，均位于 `spec/styles/`：
 
 ```
-spec/styles/tokens.css (真源)
-        │
-        │   build step: scripts/build-tokens.mjs
-        ▼
-spec/tokens/tokens.json
-        │
-        ├─→ tailwind.config.ts preset (所有前端共用)
-        └─→ 各全栈的 Tailwind 配置
+spec/styles/palette.css   ← 色阶变量（brand-50..900 等，原始值）
+spec/styles/tokens.css    ← 语义令牌（--color-text-primary、--space-4…；含 dark 主题覆盖）
+spec/styles/cyber.css     ← 共享组件类（cy-btn、cy-capsule、cy-cal、cy-form、cy-badge……）
 ```
 
-Tailwind 不允许写任意色值，只允许用语义 token 类：`bg-surface-1`、`text-brand-primary`、`border-plaza-divider`。原始色阶（`brand-50..900`）对 utility 可见，但组件层应优先使用语义类。
+各前端 / 全栈的 `src/styles/index.css` 直接 `@import` 这三个文件，加上 Tailwind v4（用于少量 utility 布局类）。
+
+**组件层禁止硬编码色值**；颜色一律使用 `--color-*` CSS 变量或 `cy-*` class，不得使用 `brand-50` 等原始色阶。
 
 ### 9.4 组件清单（所有前端 / 全栈必须有）
 
@@ -477,7 +474,7 @@ Tailwind 不允许写任意色值，只允许用语义 token 类：`bg-surface-1
 - `CapsuleCard`（广场列表项）
 - `CapsuleGrid`（含 sort / filter / 关键词搜索）
 - `PlazaToolbar`（`CapsuleGrid` 顶部：sort segmented + filter segmented + `SearchInput` 300ms 防抖）
-- `CapsuleForm`（创建）
+- `CapsuleForm`（创建；各栈内联在 `CreatePage` 中，不单独抽组件）
 - `CapsuleCodeInput`（8 位码输入）
 - `CapsuleDetail`（未开启倒计时 + 已开启正文）
 - `FavoriteButton`（含匿名用户跳登录提示）
