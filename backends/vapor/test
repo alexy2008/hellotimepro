@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# 单元测试（纯函数层：校验/时间格式/JWT/跨库 UUID，无需数据库）。
+# 契约行为由 verification/contract 黑盒覆盖。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE/server"
+
+export REPO_ROOT
+swift test "$@"

@@ -424,3 +424,30 @@ ignore 列表排除），`config/application.rb` 顶部 `require_relative` 后�
 - 开发态运行（`rails server -e development`）：Propshaft + importmap 动态服务资产，无需 precompile；冷启动快。
 - 样式：Tailwind v4 CLI（构建期 Node）复用 spec 样式链，输出 `public/css/app.css`（已提交兜底），`layout.css` 自 spring-mvc 复用。
 - 验收：2026-06-06 双驱动各 `verify-contract.sh rails` **104/104**、`verify-ui-smoke.sh rails` **25/25**。
+
+## 10. Vapor 后端（backends/vapor，Swift + Vapor 4 + SQLKit）
+
+### 10.1 SwiftPM 目录身份与依赖 vapor 冲突（核心坑）
+
+- SwiftPM **根包身份取自所在目录名**（不是 manifest 的 `name:`）。包直接放在 `backends/vapor/` 时根包身份为
+  `vapor`，与依赖 `vapor/vapor.git`（身份同为 `vapor`）冲突，报
+  `cyclic dependency between packages hellotime-vapor -> hellotime-vapor requires tools-version 6.0`；
+  升 tools-version 6.0 后则变成 `.product(name: "Vapor", package: "vapor")` 解析到根包自身、找不到产品。
+- 解法：Swift 包放进 `backends/vapor/server/` 子目录（身份变 `server`），`run`/`build`/`test` 脚本在外层 cd 进去。
+  任何放在叫 "vapor" 的目录里的 Vapor 项目都会踩此坑。
+
+### 10.2 跨库与契约要点
+
+- 跨库编解码与 Spring/Ktor 同构：SQLite 存 32 位无横线 hex UUID + ISO-8601 TEXT（微秒 + `+00:00`，与 seed
+  逐字符兼容，TEXT 列上字符串比较即时间比较）；PG 原生 `uuid`/`timestamptz`。绑定/读取各三个助手收敛全部差异。
+- SQLite 用**单连接 + actor FIFO 门闩**串行化（等价 Ktor 池=1），事务 `BEGIN IMMEDIATE`；
+  约定 service 公共方法只进一次事务边界（门闩不可重入）。
+- **显式 null**：Swift 合成 Encodable 对 Optional 走 `encodeIfPresent` 直接丢键，而契约 strict equal 断言
+  `data`/`errorCode`/`content` 为显式 `null`——响应统一手工构造 JSON 枚举树（`Web/Json.swift`）输出。
+- 收藏计数并发：`INSERT ... ON CONFLICT DO NOTHING RETURNING` 判定真插入 + 原子自增，免行锁（PG/SQLite 语法一致）。
+- Vapor 默认 ErrorMiddleware 的错误 JSON 不是契约外壳：`app.middleware = .init()` 重置后换自研中间件；
+  `DecodingError` → 422、`AbortError(404)` → NOT_FOUND 外壳。
+- 运行环境 `--env production` 时 Vapor 默认日志级别 notice，会吞掉 LLM 日志规范要求的 INFO——`run` 里默认
+  `LOG_LEVEL=info`。
+- bcrypt：Vapor 内置 `Bcrypt` 直接兼容 seed 的 `$2b$`（Python bcrypt 生成）。
+- 验收：2026-06-12 双驱动各 `verify-contract.sh vapor` **104/104**；`./test` 13 个纯函数单元用例全绿。

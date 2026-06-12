@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# 启动 Vapor 后端。DB_DRIVER / DB_URL / LLM_* 由 scripts/hello 注入；端口默认登记端口 29060。
+# Swift 包在 server/ 子目录（SwiftPM 根包身份取自目录名，backends/vapor 会与依赖 vapor 冲突）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
+cd "$HERE/server"
+
+export REPO_ROOT
+export DB_DRIVER="${DB_DRIVER:-postgres}"
+# hello CLI 不注入 PORT，默认端口必须直接是登记端口。
+export PORT="${PORT:-29060}"
+# LLM 日志规范要求 INFO 级别可见；production env 下 Vapor 默认 notice，显式拉回 info。
+export LOG_LEVEL="${LOG_LEVEL:-info}"
+
+# 增量构建（已预热时 ~1s）；exec 保持同进程组，hello stop 的 killpg 才能连同清掉。
+swift build -c release >&2
+BIN="$(swift build -c release --show-bin-path)/App"
+exec "$BIN" serve --env production

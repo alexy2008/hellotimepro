@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# 一致性构建：release 编译并预热 SwiftPM 依赖缓存（让随后的 ./run 冷启动落在契约验证的就绪窗口内）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE/server"
+
+swift build -c release
+echo "✓ Vapor backend built"

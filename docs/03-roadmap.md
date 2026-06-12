@@ -200,7 +200,7 @@
 | `backends/ktor/`（待） | Kotlin + Exposed / JPA；有 Spring Boot 作参照后更顺 | — | — |
 | `backends/aspnet/`（待） | ASP.NET Core + EF Core；C#，文档完备，写法独特值得一看 | — | — |
 | `backends/axum/`（待） | Rust + sqlx；类型安全极致，适合展示所有权模型 | — | — |
-| `backends/vapor/`（待） | Swift + Fluent；仅 macOS，排后是因为受限而不是难 | — | — |
+| `backends/vapor/` | Swift + Vapor 4 + SQLKit 手写 SQL（跨库值编解码层）；仅 macOS（2026-06-12 落地，Swift 包在 `server/` 子目录避开 SwiftPM 目录身份与依赖 `vapor` 的冲突） | ✅ 104/104 | ✅ 104/104 |
 | `backends/drogon/`（待） | C++20 + CMake；v1 工具链已趟通，排最后因编译循环慢 | — | — |
 
 #### 前端（2 个）
