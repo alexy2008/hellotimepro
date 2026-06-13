@@ -54,7 +54,7 @@ NestJS 的模块/控制器/服务与 Spring Boot 的 Component 体系高度对�
 | JPA Repository | TypeORM Repository |
 | Flyway | TypeORM MigrationInterface |
 
-## 切换数据库
+## 切换数据库驱动
 
 ```bash
 DB_DRIVER=sqlite ./run     # SQLite（默认路径：data/sqlite/hellotime-nest.db）
@@ -64,6 +64,15 @@ DB_DRIVER=postgres ./run   # PostgreSQL
 DB_URL=postgresql://user:pass@localhost:5432/mydb ./run
 ```
 
+## 实现特色
+
+- **装饰器 + DI 纵切**：每个域是一个 Module（Controller / Service / Module 三件套），结构最规整；构造器注入贯穿全栈。
+- **统一响应壳**：`common/interceptors` 把成功响应包成 `{ success, data, message }`，`common/filters` 把 `ApiError` 与异常映射成 spec errorCode。
+- **Passport JWT 鉴权链**：`@nestjs/passport` + `passport-jwt` 解析 Bearer，`common/guards` 守卫受保护端点；公开端点忽略无效 token 按匿名处理。
+- **跨库列适配**：`database/column-helpers.ts` 用 TypeORM `ValueTransformer` 处理 SQLite 字符串 ↔ `Date`、UUID 文本互转，PG 走原生类型。
+- **refresh token rotate + family**：每次 `/auth/refresh` 发新撤旧、family 延续；重放已撤销 token 整族作废；改密吊销该用户全部 refresh token。
+- **收藏计数事务一致**：收藏 / 取消在事务内原子更新 `favorite_count`；幂等约束（重复收藏 200、取消不存在 204）。
+
 ## 验证
 
 ```bash
@@ -71,3 +80,7 @@ DB_URL=postgresql://user:pass@localhost:5432/mydb ./run
 DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh nest
 ./verification/scripts/verify-contract.sh nest  # postgres
 ```
+
+通过记录：PostgreSQL & SQLite 各 **104/104**。
+
+更完整的代码导读见 [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md)。

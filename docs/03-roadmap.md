@@ -366,17 +366,17 @@
 
 **目标**：视觉 / 行为细节打磨，跨栈对比文档就绪，发布 v1.0。
 
-**状态**：🔄 **进行中（2026-06-13）** — 后端深度 Review 完成，`backend-comparison.md` 已扩写至全部 10 家；其余对比文档、视觉打磨、发布标签待完成。
+**状态**：🔄 **进行中（2026-06-14）** — 三套对比文档与三套 review 已就位；鉴权 / schema / README 模板三份规范文档于 2026-06-14 补齐。剩余：阅读导览、视觉打磨、A11y、压测、发布标签。
 
 **交付物**
 
 - [x] `docs/backend-comparison.md`（全 10 家，2026-06-13 扩写完成）
-- [x] `docs/backend-review.md`（十后端逐行精读评分报告，2026-06-13）
-- [ ] `docs/frontend-comparison.md`、`docs/fullstack-comparison.md`
+- [x] `docs/frontend-comparison.md`、`docs/fullstack-comparison.md`（各 5 家，2026-06-05 / 06-10）
+- [x] `docs/backend-review.md`、`docs/frontend-review.md`、`docs/fullstack-review.md`（逐行精读评分）
+- [x] `docs/auth.md`（鉴权全流程：令牌策略 / rotate+family / 改密吊销 / 前端协作，2026-06-14）
+- [x] `docs/db-schema.md`（ERD + 字段级注解 + 跨库方言映射，2026-06-14）
+- [x] `docs/readme-template.md` + README 对齐（模板 + 对齐审计；nuxt 重写、nest 补实现特色，2026-06-14）
 - [ ] `docs/multi-stack-reading-guide.md`
-- [ ] `docs/auth.md`（鉴权全流程图）
-- [ ] `docs/db-schema.md`（schema 可视化）
-- [ ] 所有实现 README 格式统一（对照 `docs/readme-template.md`）
 - [ ] 视觉回锅：渐变 / 动效 / 微交互增强
 - [ ] A11y 审查：键盘可达、WCAG AA 对比度
 - [ ] 广场接口 p95 < 200ms（5 万行测试数据）
