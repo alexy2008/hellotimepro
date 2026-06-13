@@ -68,7 +68,7 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
 - **跨库值编解码**（`Infra/Database.swift`）：业务 SQL 只写一份，UUID / 时间戳 / 布尔在绑定与读取时按驱动分流——
   SQLite 存 32 位无横线 hex TEXT、ISO-8601 TEXT（微秒 + `+00:00`，与 seed 完全一致，保证字符串比较的
   `open_at <= now` / `ORDER BY created_at` 正确）、0/1 整数；Postgres 用原生 `uuid` / `timestamptz` / `boolean` 直传。
-- **SQLite 单连接 + FIFO 门闩**：actor 实现的异步互斥把全部 SQLite 访问串行化（对应 Ktor "连接池大小为 1"），
+- **SQLite 单连接 + FIFO 门闩**：actor 实现的异步互斥把全部 SQLite 访问串行化，
   配合 `BEGIN IMMEDIATE` 避免写竞争。
 - **收藏计数并发安全**：幂等 UPSERT（`ON CONFLICT DO NOTHING RETURNING`）判定是否真插入 +
   原子 `favorite_count = favorite_count + 1`，无需行锁也不会重复计数。

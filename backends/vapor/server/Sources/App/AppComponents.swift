@@ -1,7 +1,7 @@
 import Vapor
 import Foundation
 
-/// 手工依赖装配（Vapor 无 DI 容器，构造函数注入即可）。对应 Ktor 的 AppComponents。
+/// 手工依赖装配（Vapor 无 DI 容器，构造函数注入即可）。
 struct AppComponents: Sendable {
     let config: AppConfig
     let db: AppDatabase

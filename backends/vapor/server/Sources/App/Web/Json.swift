@@ -4,7 +4,7 @@ import Foundation
 ///
 /// 选择它而不是 Codable 合成的原因：契约用 strict equal 断言 `data`/`errorCode`/`content`
 /// 等字段为 **显式 null**，而 Swift 合成的 Encodable 对 Optional 走 `encodeIfPresent`
-/// 直接省略键。JSON 枚举让 null 的输出完全可控（对应 Ktor 的 explicitNulls=true）。
+/// 直接省略键。JSON 枚举让 null 的输出完全可控。
 /// 同时也用于解析 LLM 返回的任意 JSON。
 enum JSON: Sendable {
     case null

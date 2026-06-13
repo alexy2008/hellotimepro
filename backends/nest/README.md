@@ -5,10 +5,11 @@ NestJS 11 + TypeORM + Passport JWT 实现，Node.js 生态企业级框架的标�
 ## 快速开始
 
 ```bash
-# PostgreSQL（需先启动 Postgres）
+# PostgreSQL（默认）：先由仓库级脚本显式准备数据库（后端不建表/迁移/seed）
+../../scripts/db reset --seed
 ./run
 
-# SQLite（无需依赖）
+# SQLite（无需外部依赖）
 DB_DRIVER=sqlite ./run
 ```
 

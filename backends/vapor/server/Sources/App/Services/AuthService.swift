@@ -1,7 +1,7 @@
 import Foundation
 import SQLKit
 
-/// 注册 / 登录 / 刷新 / 登出 / 改密。对应 Ktor 的 AuthService。
+/// 注册 / 登录 / 刷新 / 登出 / 改密。
 struct AuthService: Sendable {
     let config: AppConfig
     let db: AppDatabase

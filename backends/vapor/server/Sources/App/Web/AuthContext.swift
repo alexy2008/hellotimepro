@@ -1,6 +1,6 @@
 import Vapor
 
-/// 从 Authorization 头解析 Bearer JWT 并加载当前用户。对应 Ktor 的 AuthContext。
+/// 从 Authorization 头解析 Bearer JWT 并加载当前用户。
 struct AuthContext: Sendable {
     let security: SecurityService
     let db: AppDatabase

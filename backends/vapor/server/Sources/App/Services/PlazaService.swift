@@ -1,6 +1,6 @@
 import Foundation
 
-/// 广场列表 / 我创建的 / 我收藏的（分页查询）。对应 Ktor 的 PlazaService。
+/// 广场列表 / 我创建的 / 我收藏的（分页查询）。
 struct PlazaService: Sendable {
     let db: AppDatabase
     let capsules: CapsuleRepository
@@ -25,8 +25,8 @@ struct PlazaService: Sendable {
         default: throw ApiError.validation("filter 仅支持 all/opened/unopened", "filter")
         }
         // q：trim 后为空视为未传；超 50 → 422；大小写不敏感子串匹配。
-        var search = q?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if search?.isEmpty == true { search = nil }
+        let trimmedSearch = q?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let search = trimmedSearch?.isEmpty == true ? nil : trimmedSearch
         if let s = search, s.count > 50 {
             throw ApiError.validation("q 长度不得超过 50", "q")
         }

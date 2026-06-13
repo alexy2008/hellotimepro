@@ -1,7 +1,7 @@
 import Foundation
 import SQLKit
 
-/// 当前用户资料：查看 / 修改昵称头像。对应 Ktor 的 UserService。
+/// 当前用户资料：查看 / 修改昵称头像。
 struct UserService: Sendable {
     let db: AppDatabase
     let users: UserRepository

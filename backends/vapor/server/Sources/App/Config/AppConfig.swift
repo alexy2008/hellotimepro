@@ -2,7 +2,7 @@ import Foundation
 
 /// 应用配置：全部来源于环境变量（由 `scripts/hello start vapor` 注入），带合理默认值。
 ///
-/// 对应 Ktor 的 `AppConfig`。教学项目：JWT secret 默认值等生产级问题不作处理。
+/// 教学项目：JWT secret 默认值等生产级问题不作处理。
 struct AppConfig: Sendable {
     let serviceName = "hellotime-pro"
     let serviceVersion = "0.1.0"

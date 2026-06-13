@@ -1,7 +1,6 @@
 import Vapor
 
 /// 业务异常：由 ApiErrorMiddleware 统一转换为契约约定的 ErrorEnvelope + HTTP 状态码。
-/// 对应 Ktor 的 ApiException。
 struct ApiError: Error {
     let status: HTTPStatus
     let code: String

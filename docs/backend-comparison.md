@@ -1,345 +1,336 @@
-# HelloTime Pro · 五个后端实现全面对比
+# HelloTime Pro · 十个后端实现全面对比
 
-> 对比对象：`backends/` 下已完成并通过契约验证的 5 个后端
-> —— **FastAPI**（参考实现）、**Spring Boot**、**Gin**、**NestJS**、**Elysia**。
-> 数据采集日期：2026-06-03。代码量为物理行（`wc -l`，含注释空行），统计口径见 §3。
-> 姊妹篇：前端对比见 [`docs/frontend-comparison.md`](frontend-comparison.md)，全栈对比见 [`docs/fullstack-comparison.md`](fullstack-comparison.md)；单栈深读见各后端目录下的 `TECHNICAL_GUIDE.md`。
+> 对比对象：`backends/` 下已完成并通过契约验证的 **10 个**后端 ——
+> **FastAPI**（参考实现）、**Spring Boot**、**Gin**、**NestJS**、**Elysia**、**Ktor**、**ASP.NET Core**、**Vapor**、**Axum**、**Drogon**。
+> 数据采集日期：2026-06-13（逐行通读各家源码后重写，覆盖全部 10 家；前一版仅含先行 5 家）。代码量为物理行（`wc -l`，含注释空行），统计口径见 §3。
+> 姊妹篇：前端对比见 [`frontend-comparison.md`](frontend-comparison.md)，全栈对比见 [`fullstack-comparison.md`](fullstack-comparison.md)；
+> 打分评审见 [`backend-review.md`](backend-review.md)；单栈深读见各后端目录下的 `TECHNICAL_GUIDE.md`。
 
 ---
 
-## 1. 为什么这五个能放在一起比
+## 1. 为什么这十个能放在一起比
 
 它们实现的是**同一个产品**，且共享 `spec/` 这一份单一事实来源：
 
-- 同一份 API 契约（`spec/api/openapi.yaml`）；
+- 同一份 API 契约（`spec/api/openapi.yaml`，18 个端点）；
 - 同一套数据库 schema 语义（`spec/db/schema.sql`）；
 - 同一组 **104 个黑盒契约用例**（`verification/`），从外部验证，不关心内部实现；
-- 同一个双库约束：每个后端都要同时跑通 **PostgreSQL 和 SQLite**。
+- 同一个双库约束：每个后端都要同时跑通 **PostgreSQL 和 SQLite**；
+- schema 的初始化/重建/seed 一律由仓库级 `scripts/db` 维护，**后端自身不建表、不迁移、不 seed**（10 家统一）。
 
-这意味着五者之间的所有差异都是**纯粹的语言 / 框架 / 抽象选择差异**，而不是需求差异——
-这正是把它们并排阅读的价值：同一道题，五种母语的解法。
-
-全部 5 个后端均已通过 `verify-contract`（PG + SQLite 双驱动）。
+这意味着十者之间的所有差异都是**纯粹的语言 / 框架 / 抽象选择差异**，而不是需求差异——
+这正是把它们并排阅读的价值：同一道题，十种母语的解法。全部 10 个后端均已通过 `verify-contract`（PG + SQLite 双驱动）104/104。
 
 ---
 
 ## 2. 技术栈速览
 
-| 维度 | FastAPI | Spring Boot | Gin | NestJS | Elysia |
-|---|---|---|---|---|---|
-| 语言 | Python 3.12 | Java 21 | Go 1.22 | TypeScript (Node) | TypeScript (Bun) |
-| Web 框架 | FastAPI 0.115 | Spring Boot 3 (Web MVC) | Gin 1.10 | NestJS 11 | Elysia 1.4 |
-| 数据访问 | SQLAlchemy 2.0（ORM） | Spring Data JPA（Hibernate） | GORM | TypeORM | **原生 SQL**（`pg` / `bun:sqlite`） |
-| 迁移 | Alembic（Python DSL） | Flyway（SQL） | golang-migrate（SQL） | 由仓库级 `scripts/db` 统一 | 内置 schema 字符串 |
-| JWT | PyJWT | java-jwt (auth0) | golang-jwt | @nestjs/jwt + passport-jwt | jose |
-| 密码哈希 | bcrypt | spring-security-crypto (BCrypt) | x/crypto bcrypt | bcrypt | bcryptjs |
-| 入参校验 | Pydantic v2 | Bean Validation | validator + 手写 | class-validator | Zod |
-| 运行形态 | uvicorn ASGI | 胖 JAR (JVM) | 单一静态二进制 | node dist | `bun src/main.ts` |
-| 直接依赖数 | 10 | 11 | 8（+~35 间接） | 18 | **5** |
+| 后端 | 端口 | 语言 | Web 框架 | 数据访问 | 入参校验 | JWT | 密码哈希 | 运行形态 |
+|---|---|---|---|---|---|---|---|---|
+| **FastAPI** | 29010 | Python 3.12 | FastAPI 0.115 | SQLAlchemy 2.0（ORM） | Pydantic v2 | PyJWT | bcrypt | uvicorn ASGI |
+| **Spring Boot** | 29000 | Java 21 | Spring Boot 3（Web MVC） | Spring Data JPA（Hibernate） | Bean Validation + 手写 | java-jwt (auth0) | spring-security-crypto | 胖 JAR（JVM） |
+| **Gin** | 29020 | Go 1.22 | Gin 1.10 | GORM | validator + 手写 | golang-jwt | x/crypto bcrypt | 单一静态二进制 |
+| **NestJS** | 29040 | TypeScript (Node) | NestJS 11 | TypeORM | class-validator | @nestjs/jwt + passport | bcrypt | node dist |
+| **Elysia** | 29030 | TypeScript (Bun) | Elysia 1.4 | **原生 SQL**（`pg` / `bun:sqlite`） | Zod | jose | bcryptjs | `bun src/main.ts` |
+| **Ktor** | 29090 | Kotlin | Ktor 2.3（Netty） | Exposed（SQL DSL） | 手写 | java-jwt (auth0) | favre bcrypt | 胖 JAR（JVM） |
+| **ASP.NET** | 29050 | C# 12 | ASP.NET Core 8 | EF Core 8 | 手写 | Microsoft.IdentityModel | BCrypt.Net-Next | dotnet DLL |
+| **Vapor** | 29060 | Swift | Vapor 4（SwiftNIO） | SQLKit（手写 SQL） | 手写 | **手写 HS256** | Vapor 内置 Bcrypt | release 二进制 |
+| **Axum** | 29070 | Rust | Axum 0.8（Tokio） | sqlx（不用宏） | 手写 | **手写 HS256** | bcrypt crate | release 二进制 |
+| **Drogon** | 29080 | C++20 | Drogon 1.9 | Drogon ORM（裸 SQL） | 手写（std::regex + 码点） | **手写 HS256** | OpenBSD bcrypt（内嵌源码） | 静态二进制 |
 
 一句话画像：
 
-- **FastAPI** — 参考实现，类型注解 + 异步，分层最“标准教科书”。
-- **Spring Boot** — 企业级全家桶，约定优于配置，抽象层最厚。
-- **Gin** — 极简、显式、无魔法，一切都摆在明面上。
-- **NestJS** — Angular 式的 TS 企业框架，装饰器 + DI + 模块化。
-- **Elysia** — Bun 原生、函数式、原生 SQL，依赖最少、最“贴金属”。
+- **FastAPI** — 参考实现，类型注解 + 异步，分层最"标准教科书"，其余九家对齐它。
+- **Spring Boot** — 企业级全家桶，约定优于配置，抽象层最厚（`@Transactional` / `@JdbcType`）。
+- **Gin** — 极简、显式、无魔法，错误一律 `if err != nil`，一切摆在明面上。
+- **NestJS** — Angular 式 TS 企业框架，装饰器 + DI + 模块化纵切。
+- **Elysia** — Bun 原生、函数式、原生 SQL，依赖最少、最"贴金属"。
+- **Ktor** — Kotlin 协程 + Exposed DSL + 手动装配，轻量 JVM 教科书。
+- **ASP.NET** — EF Core + 中间件管线 + DI，.NET 现代最小宿主。
+- **Vapor** — SwiftNIO 全链路 async/await，actor 串行化 SQLite + 手工 JSON 树。
+- **Axum** — Rust 类型系统即正确性：`IntoResponse` 让漏接错误编译不过。
+- **Drogon** — C++20 协程，把"异步析构提交""catch 不能 co_await"写成必读章。
 
 ---
 
 ## 3. 代码量对比
 
 **统计口径**：仅计入各后端自己编写的实现源码（主语言），排除 `node_modules / vendor / target / dist / __pycache__` 等依赖与产物，
-排除单元测试与迁移 SQL（单列）。物理行数。
+排除迁移 SQL；**Axum / Drogon 的单元测试内联在源码文件里（`#[cfg(test)]` / assert 风格），无法单列，故计入**。物理行数。
 
-| 后端 | 语言 | 实现文件数 | 实现行数 | 行 / 文件 | 单测行数 | 迁移 / Schema |
-|---|---|---:|---:|---:|---:|---|
-| **Gin** | Go | 30 | **3 130** | 104 | —(黑盒为主) | 183 行（2 份 SQL）|
-| **Spring Boot** | Java | 38 | 2 851 | 75 | 120 | 258 行（4 份 Flyway SQL）|
-| **NestJS** | TS | 50 | 2 600 | 52 | —(黑盒为主) | —(仓库级 scripts/db) |
-| **FastAPI** | Python | 46 | 2 549 | 55 | 986 | 269 行（Alembic，Python）|
-| **Elysia** | TS | 11 | **1 839** | 167 | —(黑盒为主) | schema 内嵌于 `db.ts` |
+| 后端 | 语言 | 实现行数 | 备注 |
+|---|---:|---:|---|
+| **Drogon** | C++20 | **4 327** | 最多：头/实现分离 + UUID/JWT/base64url 全手写 + 变参分发样板 |
+| **Axum** | Rust | 3 760 | 含内联单测；`Value`/`Cell` 双枚举 + 显式错误传播 |
+| **Gin** | Go | 3 130 | Go 风格使然：显式 `if err != nil`、手写 DTO↔model 转换 |
+| **Spring Boot** | Java | 2 851 | Java 类型样板 + 两个 `@JdbcType` 跨库类（244 行） |
+| **ASP.NET** | C# | 2 789 | 控制器/服务/仓库/中间件分层完整 |
+| **Vapor** | Swift | 2 680 | 手工 JSON 树 + 跨库编解码 + 仓储 SQL |
+| **FastAPI** | Python | 2 549 | 参考实现；ORM 省掉查询装配 |
+| **Ktor** | Kotlin | 2 440 | Kotlin 表达力 + Exposed DSL 紧凑 |
+| **NestJS** | TS | 2 431 | 文件最多（~50）、每文件最小，模块化纵切 |
+| **Elysia** | TS | **1 719** | 最少：原生 SQL 比 ORM 紧凑 + Bun 内置能力 + 函数式扁平 |
 
 ### 怎么读这张表
 
-代码行数 ≈「语言表达力」与「抽象选择」的合成函数，而不是功能多少（功能都一样）：
+代码行数 ≈「语言表达力 × 抽象选择 × 手写程度」的合成，而非功能多少（功能都一样）：
 
-- **Gin 最多（3 130 行）但不是因为做得多，而是 Go 的风格使然**：错误必须显式 `if err != nil { return ... }`、
-  没有 ORM 的隐式装填、DTO ↔ model 之间要手写转换。`internal/service` 一层就占 1 640 行——
-  业务逻辑和数据装配都摊在明面上。代价是冗长，回报是**没有任何隐藏控制流**。
-- **Elysia 最少（1 839 行）且文件最大（167 行/文件）**：原生 SQL 比 ORM 调用更紧凑，函数式扁平组织
-  （`services.ts` / `db.ts` 等少数大文件，没有一层层的类），加上 Bun 内置 SQLite/测试/密码能力，
-  样板代码被压到最低。代价是单文件偏大、类型安全靠自觉。
-- **NestJS 文件最多（50 个）但每文件最小（52 行）**：装饰器 + 模块化把每个 feature 拆成
-  `module / controller / service / dto / entity` 一组小文件，结构极其规整，代价是文件数量爆炸、跳转成本高。
-- **FastAPI / Spring 居中**：ORM 省掉了查询装配代码（相比 Gin），但 Spring 有 Java 的类型样板、
-  FastAPI 有 Pydantic schema 的显式声明。两者都体现“分层清晰、各司其职”。
-- **测试行数**反映测试策略差异：FastAPI 作为参考实现自带 986 行单测（pytest），Spring 有少量切片测试，
-  其余三者主要依赖仓库级的 104 个黑盒契约用例（符合本项目“外部黑盒验证为准”的总原则）。
-
-### 分层行数分布（节选）
-
-```
-FastAPI/app          Gin/internal
-  services  1173       service   1640
-  api        385       handler    499
-  schemas    298       dto        238
-  core       222       core       199
-  models     129       config     142
-  db         107       middleware 133
-  repositories  6      db          77
-                       model       49
-```
-
-> 有意思的对照：FastAPI 的 `repositories` 只有 6 行——它把数据访问直接交给 SQLAlchemy ORM 在 service 层完成；
-> 而 Gin 没有独立 repository 目录，数据访问也压进了 `service`。两种“薄仓储”路线殊途同归，
-> 都把重量集中在 service 层（1173 vs 1640 行）。
+- **Drogon / Axum 最多**，不是做得多，而是**手写得多**：C++ 把 UUID、JWT、base64url、变参 SQL 分发全摊在明面上（drogon），
+  Rust 用 `Value`/`Cell` 双枚举显式表达跨库类型 + 错误必须显式 `?` 传播（axum）。回报是零隐藏控制流，代价是行数。
+- **Gin 居前**是 Go 风格的必然：错误显式返回、无 ORM 隐式装填、DTO↔model 手写转换。
+- **Elysia 最少**：原生 SQL 比 ORM 调用更紧凑，函数式扁平组织（少数大文件），Bun 内置 SQLite/密码/测试把样板压到最低。
+- **FastAPI / Ktor / NestJS 居中**：ORM/DSL 省掉查询装配代码，但各有声明样板（Pydantic schema / @Serializable DTO / 装饰器）。
+- **新增 5 家（Ktor/ASP.NET/Vapor/Axum/Drogon）整体偏多**：因为它们更多选择"手写而非引库"（尤其 JWT、跨库编解码），
+  把框架替你做的事显式化，教学透明度高、行数也高。
 
 ---
 
-## 4. 架构分层：五种组织哲学
+## 4. 架构分层：组织哲学
 
 | 后端 | 组织方式 | 目录骨架 |
 |---|---|---|
-| FastAPI | **按技术职责分层** | `api / services / repositories / models / schemas / core / db` |
-| Spring Boot | **经典 MVC 分层** | `web(controller) / service / repository / domain(entity) / config / db` |
-| Gin | **Go 标准布局** | `cmd/{server,migrate}` + `internal/{handler,service,model,dto,middleware,core,config,db}` |
-| NestJS | **按功能模块（feature module）** | `auth / capsules / plaza / favorites / me / health / llm / …`，每个内含 controller+service+dto |
-| Elysia | **扁平函数式** | `main / routes / services / db / llm / config`，少数大文件，几乎无类 |
+| FastAPI | 按技术职责分层 | `api / services / repositories / models / schemas / core / db` |
+| Spring Boot | 经典 MVC 分层 | `web(controller) / service / repository / domain(entity) / config / db` |
+| Gin | Go 标准布局 | `cmd/{server,migrate}` + `internal/{handler,service,model,dto,middleware,core,config,db}` |
+| NestJS | 按功能模块（feature module）纵切 | `auth / capsules / plaza / favorites / me / health / llm`，每个内含 controller+service+dto |
+| Elysia | 扁平函数式 | `main / services/ / db / llm / security / validation` |
+| Ktor | 手动装配分层 | `Application / AppComponents / config / db / repository / service / web / dto / domain` |
+| ASP.NET | 控制器分层 | `Program.cs` + `Controllers / Web / Services / Repositories / Infrastructure / Domain / Dto` |
+| Vapor | 值类型装配分层 | `entrypoint / AppComponents / Web / Services / Infra / Domain` |
+| Axum | 模块分层 | `main / state / config / web / services / infra / domain` |
+| Drogon | 头/实现分层 | `main / routes / services / db / repos / security / validation / mapper / *_service` |
 
-- **横切 vs 纵切**：FastAPI / Spring / Gin 是“横切”（先按技术层切，同一 feature 的代码散在各层）；
-  NestJS 是“纵切”（先按业务模块切，一个模块自带全套技术层）。Elysia 介于其间，按文件粗分。
-- **分层映射**：项目要求后端遵循 `presentation → application → domain → infrastructure`。
-  Spring 的 `controller→service→repository→entity` 与之最贴合，是 Java 系读者的首选样板；
-  FastAPI 的 `api→service→model` 是 Python 系最直观对应。
+- **横切 vs 纵切**：除 NestJS 是"纵切"（先按业务模块切，一个模块自带全套技术层）外，其余九家都是"横切"
+  （先按技术层切，同一 feature 的代码散在各层）。Elysia 介于其间，按文件粗分。
+- **DI 风格三档**：① 容器/自动装配（Spring 的 `@Service` 扫描、NestJS 的 DI、ASP.NET 的 `AddScoped/AddSingleton`）；
+  ② 手动构造函数注入（Ktor `AppComponents`、Vapor `AppComponents`、Axum `AppState`、Drogon `AppState`）；
+  ③ 函数 + 闭包注入（Gin 的 `handler(db)`、Elysia 的模块函数、FastAPI 的 `Depends`）。
+  新增 5 家里 4 家选**手动装配**——依赖图集中、源码可见、无运行时扫描，刻意为教学保持轻量。
+- **分层映射**：项目要求 `presentation → application → domain → infrastructure`。Spring 的 `controller→service→repository→entity`
+  与之最贴合；ASP.NET / Ktor / Vapor / Axum 的 `web/routes → services → repos/infra` 同构可逐文件对应。
 
 ---
 
 ## 5. 数据访问：从原生 SQL 到重型 ORM 的谱系
 
-把五者按“距离 SQL 的远近”排成一条谱系，是理解它们最快的方式：
-
 ```
-原生 SQL ───────────────────────────────────────────► 重型 ORM
-Elysia          Gin            FastAPI / NestJS         Spring Data JPA
-(手写 SQL)   (GORM 链式)    (SQLAlchemy / TypeORM)   (声明式方法名 + JPQL)
-```
-
-**一端：Elysia 手写 SQL**（`src/services.ts`）——查询就是字符串，列名手动别名成驼峰：
-
-```sql
-SELECT c.id, c.owner_id AS "ownerId", c.open_at AS "openAt",
-       c.in_plaza AS "inPlaza", c.favorite_count AS "favoriteCount"
-FROM capsules c WHERE c.id = ? AND c.in_plaza = ?
+原生 SQL ───────────────────────────────────────────────────────────► 重型 ORM
+Elysia    Vapor   Axum   Drogon  │  Gin     Ktor    │  FastAPI  NestJS  ASP.NET  Spring
+(手写)   (SQLKit) (sqlx) (裸SQL) │ (GORM)  (Exposed) │ (SQLAlchemy/TypeORM/EF/JPA)
+         ── 一份 SQL + 自建编解码 ──   ── 类型安全 query builder ──   ── 对象映射 / 声明式方法名 ──
 ```
 
-**另一端：Spring Data JPA**（`repository/CapsuleRepository.java`）——大部分查询连 SQL 都不用写，
-方法名即查询；复杂查询用 JPQL（面向对象而非面向表）：
+- **最左：手写 / 裸 SQL（Elysia / Vapor / Axum / Drogon）**——SQL 是字符串或参数化 raw，列名手动别名成驼峰；
+  跨库差异靠**自建一层值编解码**收敛（见 §6）。控制力最强、行为最透明，代价是样板多、类型安全靠自觉（Vapor/Axum 用枚举补回一部分类型）。
+- **中间：query builder（Gin 的 GORM 链式 / Ktor 的 Exposed DSL）**——把表映射成强类型对象，
+  列名拼错在编译期报错（Exposed 尤其），但仍能下沉到接近 SQL 的粒度。
+- **最右：重型 ORM（FastAPI SQLAlchemy / NestJS TypeORM / ASP.NET EF Core / Spring JPA）**——CRUD 省代码、对象模型自然，
+  Spring Data 甚至"方法名即查询"。代价是跨库时抽象层会"反咬一口"（§6 A）。
 
-```java
-public interface CapsuleRepository extends JpaRepository<CapsuleEntity, UUID> {
-  Optional<CapsuleEntity> findByCode(String code);
-  Page<CapsuleEntity> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
-
-  @Modifying
-  @Query("update CapsuleEntity c set c.favoriteCount = c.favoriteCount + 1 where c.id = :id")
-  int incrementFavoriteCount(@Param("id") UUID id);
-
-  @Query("""
-      select c from CapsuleEntity c
-      where c.inPlaza = true
-        and ( :filter = 'all' or (:filter='opened' and c.openAt <= :now) or … )
-      """)
-  Page<CapsuleEntity> findPlazaPage(…);
-}
-```
-
-**中间地带**：Gin 的 GORM（链式 query builder + struct tag）、FastAPI 的 SQLAlchemy 2.0（`select()` 构造器）、
-NestJS 的 TypeORM（Repository API + QueryBuilder）——都是“对象化的 SQL”，把表映射成类型，但仍能下沉到接近 SQL 的粒度。
-
-**权衡**：越靠原生 SQL 端，控制力越强、行为越透明、跨库越直白（见 §6），但样板越多、类型安全越靠自觉；
-越靠 ORM 端，CRUD 越省代码、对象模型越自然，但跨库时抽象层会“反咬一口”（Spring 的例子见下节）。
+**权衡规律**：越靠原生 SQL 端，跨库越直白、行数越高、类型安全越靠自觉；越靠 ORM 端，CRUD 越省、跨库适配越要钻进框架底层 SPI。
 
 ---
 
-## 6. 同一道难题的五种解法：PostgreSQL / SQLite 双库适配
+## 6. 同一道难题：PostgreSQL / SQLite 双库适配
 
-这是整个项目最能体现差异的地方。约束相同：**同一份业务代码要同时支持 PG 与 SQLite**，
-而两者在 **UUID** 和 **时间戳** 上语义不同（PG 有原生 `uuid` / `timestamptz`，SQLite 只有 `TEXT`）。
-五个后端给出了五种截然不同的解法，且呈现一条清晰规律。
+约束相同：**同一份业务代码要同时支持 PG 与 SQLite**，而两者在 **UUID** 与 **时间戳** 上语义不同
+（PG 有原生 `uuid` / `timestamptz`，SQLite 只有 `TEXT` / `INTEGER`）。十家按"抽象厚度"给出三类解法：
 
-### ① Elysia：维护两份 schema + 运行时分流
+### A. 重型 ORM —— 在类型层挂适配器（5 家）
 
-最直白。`db.ts` 里直接放两份完整 DDL 字符串（`pgSchema` / `sqliteSchema`），
-查询时按 handle 类型分流，并把 `?` 占位符转成 PG 的 `$1,$2`：
+ORM 不知道怎么把 `uuid`/时间戳 存进 SQLite TEXT，于是各自在**类型/列定义层**插一个转换器：
 
-```ts
-function pgSql(sql: string) {            // ?  →  $1, $2, …
-  let i = 0; return sql.replace(/\?/g, () => `$${++i}`);
-}
-// PG: UUID 列 + TIMESTAMPTZ;  SQLite: TEXT(36) + TEXT(ISO)
-```
+| 后端 | 机制 |
+|---|---|
+| FastAPI | SQLAlchemy `Uuid`（SQLite 存 CHAR(32) hex）+ `UTCDateTime` TypeDecorator（读时补 UTC tz） |
+| NestJS | `ColumnOptions` 工厂 + `ValueTransformer`（按 `DB_DRIVER` 返回 `text+transformer` 或 `timestamptz`/`uuid`） |
+| ASP.NET | EF Core `ValueConverter`（仅 SQLite provider 挂 `GuidToHex` / `TimestampToIso`） |
+| Ktor | Exposed 自定义 `ColumnType`（`CrossUuidColumnType` / `CrossTimestampColumnType`，按方言分流 `sqlType()`） |
+| Spring | Hibernate 自定义 `@JdbcType` + **自实现 `ValueBinder`**（连 null 也要按方言给正确的 `setNull` 类型） |
 
-### ② FastAPI：SQLAlchemy `TypeDecorator`
+> **抽象层最厚 → 跨库要钻得最深**：Spring 的 JPA 平时最省心，但要拗它跨库时必须一路下沉到 Hibernate 的
+> `JdbcType` / `ValueBinder` 这种底层 SPI——抽象帮你挡住的复杂度，在边界处原样还回来。
 
-在 ORM 类型层补一块。`UTCDateTime` 解决“SQLite 读出的 datetime 丢了时区”问题，
-读写时强制补 UTC，让上层永远拿到 tz-aware：
+### B. query builder —— 驱动分流 + 行锁分支（2 家）
 
-```python
-class UTCDateTime(TypeDecorator):
-    impl = DateTime(timezone=True)
-    def process_result_value(self, value, dialect):
-        return value.replace(tzinfo=timezone.utc) if value and value.tzinfo is None else value
-```
+| 后端 | 机制 |
+|---|---|
+| Gin | GORM 同时挂 `driver/postgres` 与 `driver/sqlite`；时间/UUID 走 GORM 默认序列化；行锁 `clause.Locking` 仅 PG |
+| Ktor | Exposed 列类型按方言分流（同 A 类）；`forUpdate()` 仅在非 SQLite 方言调用 |
 
-### ③ NestJS：`ColumnOptions` 工厂 + `ValueTransformer`
+（Ktor 同时属 A 与 B：它的跨库列类型是 A 类做法，查询风格是 B 类 DSL。）
 
-按 `DB_DRIVER` 返回不同的列定义，时间用 transformer 在 `Date ↔ ISO 字符串`间转换：
+### C. 一份 SQL + 自建值编解码层（4 家）
 
-```ts
-export function timestampColumn(): ColumnOptions {
-  return isSqlite() ? { type: 'text', transformer: dateTransformer } : { type: 'timestamptz' };
-}
-export function uuidColumn(): ColumnOptions {
-  return isSqlite() ? { type: 'text' } : { type: 'uuid' };
-}
-```
+不靠 ORM，业务 SQL 只写一份（`?` 占位，PG 端转 `$n`），差异收敛在"绑定"和"读取"两个点：
 
-### ④ Gin：双 driver + 分库 SQL 迁移
+| 后端 | 绑定侧 | 读取侧 |
+|---|---|---|
+| Vapor | `uuidValue/dateValue/boolValue` 助手 | `uuid/date/bool` 助手 |
+| Axum | `Value` 枚举（Uuid/Ts/Bool/I64/Str） | `Cell` 枚举 + `DbRow` 访问器（cell-driven） |
+| Drogon | 绑定参数**全部 std::string**（文本协议） | `row_get`（统一 `as<string>` 再按格式还原） |
+| Elysia | 原生 SQL + `pgSql()` 把 `?`→`$n`；值在 service 里预格式化 | 列别名驼峰，直接取 |
 
-GORM 同时挂 `driver/postgres` 与 `driver/sqlite`，迁移文件按库分目录
-（`migrations/postgres/` 与 `migrations/sqlite/`），让 SQL 各写各的，代码层几乎不感知差异。
+> **更正前一版**：旧文档说 Elysia"在 `db.ts` 内嵌两份完整 DDL schema"——这已过时。Elysia 现在和其余九家一样，
+> schema 完全交给 `scripts/db`，`src/` 下不再有 `CREATE TABLE`；`db.ts` 只剩连接 + `query/one/tx` 原语。
 
-### ⑤ Spring Boot：自定义 Hibernate `JdbcType` + 自实现 `ValueBinder`
-
-**抽象层最厚，于是跨库要钻得最深**。`CrossDbUuidJdbcType` 继承 `VarcharJdbcType`，按方言分流：
-PG 用 `setObject`/`getObject` 直传 `UUID`，SQLite 用 32 位无横线 hex 字符串；
-还得自实现 `ValueBinder` 来正确处理 `null`（PG 的 uuid 列 `setNull` 要用 `Types.OTHER`）：
-
-```java
-public void bind(PreparedStatement st, X value, int index, WrapperOptions opt) {
-  if (value == null)      st.setNull(index, isSqlite(opt) ? Types.VARCHAR : Types.OTHER);
-  else if (isSqlite(opt)) st.setString(index, toHex(unwrap(value)));   // 32-hex
-  else                    st.setObject(index, unwrap(value));          // 原生 uuid
-}
-```
-
-### 规律
-
-> **抽象层的厚度，与跨库适配的成本成正比。**
-
-- Elysia / Gin 贴近 SQL，跨库 = 多写一份 SQL，简单直接、行数低；
-- FastAPI / NestJS 在 ORM 的类型层加一个适配器（`TypeDecorator` / `ColumnOptions`），中等成本；
-- Spring 的 JPA 抽象最厚、最“自动”，平时最省心，但要拗它跨库时，必须一路下沉到 Hibernate 的
-  `JdbcType` / `ValueBinder` 这种底层 SPI——抽象帮你挡住的复杂度，在边界处会原样还回来。
-
-（Spring 双驱动的这段经验，也记录在 `docs/dev-notes.md` 与项目记忆中。）
+**关键不变式（C 类与 A 类的 6 家显式保证）**：SQLite 的 ISO-8601 TEXT 时间戳与 Python seed 的 `isoformat()` 逐字符一致，
+使"字符串比较即时间比较"，`open_at <= now` 过滤和 `ORDER BY created_at` 在 TEXT 列上无需任何函数转换——详见 §7。
 
 ---
 
-## 7. 鉴权实现
+## 7. 时间戳格式：两种策略（读代码后的精确结论）
 
-五者都实现了同一套 **JWT(HS256) + refresh token 轮换 + family 追踪**（`refresh_tokens` 表的 `family_id` / `revoked`）。差异只在库的选择：
+承 §6 的关键不变式——SQLite 把时间戳存成 TEXT，要让 `open_at <= now` / `ORDER BY created_at` 的**字符串比较**等价于时间比较，
+存储格式必须与 seed（Python `isoformat()` → `+00:00`、可变小数）一致。十家其实分两个策略：
 
-| | JWT 库 | 密码哈希 | 备注 |
-|---|---|---|---|
-| FastAPI | PyJWT | bcrypt | 依赖注入 `Depends(get_current_user)` 解析 token |
-| Spring | java-jwt (auth0) | spring-security-crypto | 未引入完整 Spring Security，仅用其 `BCryptPasswordEncoder` |
-| Gin | golang-jwt/v5 | x/crypto bcrypt | 中间件 `middleware/auth.go` 解析 |
-| NestJS | @nestjs/jwt + passport-jwt | bcrypt | Passport 策略 + `@UseGuards(JwtAuthGuard)` |
-| Elysia | jose | bcryptjs | 函数式中间件 / `derive` 注入用户 |
+| 策略 | 后端 | 做法 |
+|---|---|---|
+| **① 显式对齐 seed 的 `+00:00`** | Spring / Ktor / ASP.NET / Vapor / Axum / Drogon（6） | 各有专门的 WRITE formatter / 编解码助手，渲染成 `…THH:mm:ss[.fraction]+00:00`（**零偏移写 `+00:00` 而非 `Z`**），与 seed 逐字符相同 |
+| **② 交给 ORM/驱动默认** | FastAPI / Gin / NestJS / Elysia（4） | FastAPI 走 SQLAlchemy `DateTime`（空格分隔、无偏移；`UTCDateTime` 只在读时补 tz，不定制存储串）；Gin 走 GORM 驱动默认；NestJS / Elysia 用 `toISOString()`（输出 `…Z` + 固定 3 位毫秒） |
 
-值得一提：Spring **刻意只取 spring-security-crypto 的密码编码器**，没有引入完整的 Spring Security 过滤器链，
-以保持与其他后端同构的、轻量的鉴权流程——这是“用框架的零件而非全家桶”的务实选择。
+策略 ② 的格式与 seed **并不逐字符相同**，但四家契约仍 104/104——因为：① 同一后端写入与读取/`now` 绑定用同一格式，自身自洽；
+② 跨格式比较只在"seed 行与运行时行处于同一秒"时才可能错序，而测试不构造这种场景。这是一处**潜在的边角分歧**，
+不影响契约，但说明"字符串比较即时间比较"这条不变式只有显式对齐的 6 家在严格意义上成立。
 
----
-
-## 8. 并发与一致性
-
-`favorite_count` 是 denormalized 字段（避免 plaza 排序时 JOIN），收藏 / 取消收藏时必须与 `favorites` 表一致地增减。各后端按本栈惯用法在事务里维护：
-
-- **Spring** 最“正规”：`@Lock(PESSIMISTIC_WRITE)` 悲观锁 + `@Modifying` 的原子 `update … set favoriteCount = favoriteCount + 1`；
-- **Elysia** 手写 `tx()`：PG 走 `BEGIN/COMMIT`、SQLite 走 `BEGIN IMMEDIATE`，在事务内更新；
-- **Gin / NestJS / FastAPI** 各用 GORM / TypeORM / SQLAlchemy 的事务 API 包裹。
-
-> 注：本项目定位为教学项目，生产级的高并发竞态（如多实例下计数漂移）不作为修复优先项；
-> 这里关注的是“各栈如何表达事务与原子更新”，而非压测表现。
+> 教学价值：这正是"同一道跨库题、不同抽象层导致不同严谨度"的真实案例——手写编解码的 6 家被迫直面格式，
+> 反而把不变式钉死；交给 ORM 的 4 家省了事，却把格式一致性悄悄让渡给了框架默认。
 
 ---
 
-## 9. 依赖、构建与运行形态
+## 8. 鉴权：库 vs 手写
 
-| | 直接依赖 | 构建产物 | 启动 | 冷启动直觉 |
+十家都实现同一套 **JWT(HS256) + refresh token 轮转 + family 追踪**（`refresh_tokens` 表的 `family_id` / `revoked_at`），
+差异在"用库还是手写"：
+
+| | JWT | 备注 |
+|---|---|---|
+| FastAPI / Spring / Gin / NestJS / Elysia / Ktor / ASP.NET（7） | **用库** | PyJWT / java-jwt / golang-jwt / @nestjs/jwt / jose / java-jwt / Microsoft.IdentityModel |
+| Vapor / Axum / Drogon（3） | **手写 HS256** | `base64url(header).base64url(payload).HMAC-SHA256`，各 ~20-30 行：swift-crypto `HMAC<SHA256>` / `hmac`+`sha2` crate / OpenSSL `HMAC(EVP_sha256())` |
+
+- 手写三家共同点：校验顺序 = 形态 → 签名（**常数时间比较**：`HMAC.isValidAuthenticationCode` / `verify_slice` / `CRYPTO_memcmp`）→ payload → `exp`；
+  过期返回 `access_token_expired`、其余 `invalid_token`（契约区分这两个 message）。
+- refresh token 十家一致：32 字节随机 → base64url 下发，落库只存 SHA-256 hex。
+- 两个特例：**ASP.NET** 因 `Microsoft.IdentityModel` 强制 HS256 密钥 ≥256 位，用 SHA-256 把任意 secret 派生成 32 字节密钥，
+  并设 `ClockSkew = 0` 去掉默认 5 分钟过期宽限；**Spring** 刻意只取 spring-security-crypto 的密码编码器，不引入完整 Security 过滤器链。
+
+---
+
+## 9. 事务一致性：refresh 轮转的四个流派
+
+`refresh_token` 轮转有个安全要点：旧 token 被**重放**时，必须**先提交"整个 family 吊销"、再返回 401**——
+若在事务内抛错，会把吊销一起回滚，留下重放缺口。同一个要求，十家给出四种结构：
+
+| 流派 | 后端 | 机制 |
+|---|---|---|
+| **① 声明式** | Spring | `@Transactional(noRollbackFor = ApiException.class)`——直接 `throw`，靠注解保证吊销不被回滚（**原版**） |
+| **② 提交后再抛** | FastAPI | 先 `db.commit()` 提交吊销，再 `raise`（Python 异常不回滚已提交事务） |
+| **③ outcome 模式** | Gin / Ktor / ASP.NET / Vapor / Axum / Drogon（6） | 事务内不抛业务错、返回 `Outcome` 枚举（或重放分支返回 nil 让事务提交），**提交后**在事务外把 Reused/Invalid 转成 401 |
+| **④ 无事务** | NestJS | `findOne` → 改 → `save`，**既无事务也无行锁**（注释自陈"生产应加行锁/原子操作"，教学简化） |
+
+流派 ③ 是"手写事务"后端模拟流派 ①（Spring 声明式）的产物，各家措辞还互相点名 `noRollbackFor`。
+**`favorite_count` 计数**也分两风格：原子 SQL 表达式 `favorite_count + 1`（Gin/Ktor/Vapor/Axum/Drogon/Spring）vs EF 变更跟踪读-改-写
+（ASP.NET `capsule.FavoriteCount += 1`，靠 `FOR UPDATE` 行锁保证）；PG 路径普遍用 `SELECT ... FOR UPDATE` 锁胶囊行，SQLite 靠单写事务。
+
+> **NestJS 是唯一不用事务的实现**——见 [`backend-review.md`](backend-review.md) §3-C5。契约全过（教学项目可接受），
+> 但"十家事务同构"的叙事对它不成立。
+
+---
+
+## 10. 依赖、构建与运行形态
+
+| 后端 | 直接依赖 | 构建产物 | 启动 | 冷启动直觉 |
 |---|---|---|---|---|
-| Elysia | 5 | 无需构建（Bun 直跑 TS） | `bun src/main.ts` | 最快 |
-| Gin | 8（+~35 间接） | **单一静态二进制** | `./server` | 极快、无运行时依赖 |
-| FastAPI | 10 | 无（解释执行） | `uvicorn` | 快 |
-| NestJS | 18 | `dist/`（tsc 编译） | `node dist/main` | 中 |
-| Spring Boot | 11 | 胖 JAR | `java -jar` (JVM) | 最慢（JVM 预热） |
+| Elysia | ~6 | 无需构建（Bun 直跑 TS） | `bun src/main.ts` | 最快 |
+| Vapor | 4（SwiftPM 顶层包） | release 二进制 | `./run`（增量 swift build） | 首次编译数分钟，之后快 |
+| ASP.NET | ~6 NuGet | `bin/Release` DLL | `dotnet` | 中（含 JIT 预热） |
+| Gin | ~8 直接（+~35 间接） | **单一静态二进制** | `./server` | 极快、零运行时依赖 |
+| FastAPI | ~14 | 无（解释执行） | `uvicorn` | 快 |
+| Ktor | ~16 | 胖 JAR | `java -jar` (JVM) | 慢（JVM 预热） |
+| Axum | ~17 | release 二进制 | `./server` | 首次全量编译最久，产物零依赖 |
+| NestJS | ~19 | `dist/`（tsc 编译） | `node dist/main` | 中 |
+| Spring Boot | ~11 | 胖 JAR | `java -jar` (JVM) | 慢（JVM 预热） |
+| Drogon | 1 大依赖（drogon，FetchContent 静态链接）+ OpenSSL/jsoncpp | 静态二进制（`build-out/`） | `./run` | **首次编译 4-5 分钟**（编 drogon 本体），之后增量 |
 
-- **Elysia / Gin 在“轻”这件事上是两个极端代表**：Elysia 靠运行时（Bun）内置一切把依赖压到 5 个；
-  Gin 靠编译期把一切打进一个静态二进制，部署时零运行时依赖。
-- **NestJS 依赖最多（18）**，是企业框架“电池全包”的体现（DI、Passport、TypeORM、class-validator…）。
-- **Spring 的胖 JAR + JVM** 启动最慢但运维生态最成熟，是大型团队的稳态选择。
+- **"轻"的两极**：Elysia 靠运行时（Bun）内置一切把依赖压到最少；Gin / Rust / C++ 靠编译期把一切打进二进制，部署零运行时依赖。
+- **JVM 两家（Spring/Ktor）** 启动最慢但运维生态最成熟；**C++（Drogon）** 首次构建成本最高（静态链接框架本体）。
+- **NestJS 依赖最多**，是企业框架"电池全包"（DI、Passport、TypeORM、class-validator…）的体现。
 
 ---
 
-## 10. LLM 集成
+## 11. LLM 集成
 
-五个后端都各有一个独立的 LLM 客户端模块，给“胶囊主题建议 / 推荐”端点供能：
+十家各有一个独立 LLM 客户端模块，给"胶囊主题建议 / 推荐"端点供能，且**全部遵守 `CLAUDE.md` 的结构化日志规范**：
+请求前 / 成功 / 失败三时机各打一条 `LLM request|response|error`，带 `model / elapsed_ms / tokens / status` 字段，
+便于 `grep "LLM "` 统一排查。
 
 | 后端 | LLM 客户端 |
 |---|---|
 | FastAPI | `app/services/llm_client.py`（**参考实现**，其余对齐它） |
 | Spring | `service/LlmClientService.java` |
 | Gin | `internal/service/llm.go` |
-| NestJS | `src/llm/`（独立模块 + suggestion/recommendation 两个 feature 模块） |
+| NestJS | `src/llm/llm-client.service.ts` |
 | Elysia | `src/llm.ts` |
+| Ktor | `service/LlmClient.kt` |
+| ASP.NET | `src/Services/LlmClient.cs` |
+| Vapor | `Services/LlmClient.swift` |
+| Axum | `services/llm.rs` |
+| Drogon | `src/llm_client.cc` |
 
-所有实现都遵守 `CLAUDE.md` 规定的**结构化日志规范**：请求前 / 成功 / 失败三个时机各打一条
-`LLM request|response|error` 日志，带 `model / elapsed_ms / tokens / status` 等字段，便于 `grep "LLM "` 统一排查。
+共性（移植自参考实现）：只重试瞬时传输错误、坏 JSON 与 HTTP 4xx 不重试、Chrome UA 避 Cloudflare 1010、关闭 `thinking` 提速、
+`chat`/`responses`/`auto` 风格切换；建议端点失败走本地模板兜底（`generatedBy=local-template`），推荐端点失败返回空列表（`generatedBy=none`）。
 （网关 SSL EOF 重试、CF 1010 改 UA 等坑见 `docs/dev-notes.md`。）
 
 ---
 
-## 11. 入参校验与错误处理风格
+## 12. 入参校验与错误处理风格
 
-同一份契约错误码，五种校验表达：
+同一份契约错误码（`VALIDATION_ERROR` 等 8 个 → 对应 HTTP 状态），两种校验路线：
 
-- **FastAPI / Pydantic**：类型即校验，`EmailStr` / 字段约束声明在 schema 上，框架自动 422。
-- **NestJS / class-validator**：DTO 字段上挂 `@IsEmail()` 等装饰器 + 全局 `ValidationPipe`。
-- **Spring / Bean Validation**：DTO 上 `@NotNull / @Size`，`@Valid` 触发，`@ControllerAdvice` 兜底。
-- **Elysia / Zod**：路由上挂 schema，`zod` 解析失败即拒；最函数式。
-- **Gin / validator + 手写**：struct tag `binding:"required"` + 大量手写校验分支——最显式、也最啰嗦。
+- **声明式 / 库（4 家）**：FastAPI（Pydantic 类型即校验）、NestJS（class-validator 装饰器 + `ValidationPipe`）、
+  Spring（Bean Validation `@NotNull/@Size` + `@Valid`）、Elysia（Zod schema 解析）。省代码，但有"魔法"。
+- **手写（6 家）**：Gin（validator tag + 手写分支）、Ktor / ASP.NET / Vapor / Axum / Drogon（集中在 `Validation.*`，
+  正则 + 长度按**字符/码点**计数，密码"含字母含数字"因多数 regex 引擎不支持 lookahead 改显式扫描）。最透明、也最啰嗦。
 
-声明式（Pydantic/Zod/装饰器）省代码但有“魔法”；Gin 的手写校验最透明但贡献了它领先的行数。
+错误外壳统一由各家的"出口"兜底：FastAPI exception handler、Spring `@RestControllerAdvice`、Gin `RespondErr`、
+NestJS 异常 Filter、Elysia 错误处理、Ktor `StatusPages`、ASP.NET `ErrorHandlingMiddleware`、Vapor `ApiErrorMiddleware`、
+Axum `IntoResponse`（**类型系统直接表达，漏接编译不过**）、Drogon `guarded()` 模板。十家最终都产出
+`{ success:false, data:null, message, errorCode, details? }`，且分页参数统一"缺失用默认、存在但非整数 → 422"。
 
 ---
 
-## 12. 横向总结与“该读哪一个”
+## 13. 横向总结与"该读哪一个"
 
-| 你是… | 推荐先读 | 会学到 |
-|---|---|---|
-| 想要标准答案 | **FastAPI** | 参考实现，分层清晰、类型注解直观，所有其他栈都对齐它 |
-| Java / 企业背景 | **Spring Boot** | 经典分层 + JPA；以及“重型 ORM 在边界处的代价” |
-| 喜欢透明、无魔法 | **Gin** | 一切显式：错误处理、SQL 装配、依赖；代价是行数 |
-| TS / 大型团队规范 | **NestJS** | DI + 模块化 + 装饰器，企业级 TS 的标准长相 |
-| 追求极简 / 性能 | **Elysia** | 原生 SQL + 函数式 + 最少依赖，最“贴金属”的写法 |
+| 你想学 / 看 | 首选 |
+|---|---|
+| 标准、好懂、文档最全的参考 | **FastAPI**（参考实现，879 行手册 + 986 行单测） |
+| 企业级 Java、声明式事务、最厚抽象 | **Spring Boot**（`@Transactional` / `@JdbcType`） |
+| "没有任何隐藏控制流"的显式风格 | **Gin**（错误显式返回、链式 GORM） |
+| 装饰器 + DI + 模块化纵切 | **NestJS** |
+| 最少依赖、最贴金属、原生 SQL | **Elysia**（1719 行，Bun 内置一切） |
+| Kotlin 协程 + 类型安全 SQL DSL | **Ktor**（Exposed + 挂起事务，初学者友好） |
+| .NET 现代最小宿主 + EF Core | **ASP.NET**（DI 生命周期 + ValueConverter） |
+| Swift 并发：actor 串行化、async/await 全链路 | **Vapor**（`AsyncGate` 是范例） |
+| "用类型系统保证正确性" | **Axum**（`IntoResponse` + `Value/Cell` 双枚举） |
+| C++ 协程的真实坑与最贴底层的实现 | **Drogon**（异步析构提交、catch 不能 co_await） |
 
-**贯穿全文的一条主线**：功能完全相同的五个后端，代码量从 1 839 到 3 130 行不等，
-差距不来自做了多少，而来自**语言的表达力**与**抽象的取舍**。原生 SQL 省行数但要自己兜底，
-重型 ORM 省 CRUD 但在跨库边界会让你下沉到底层 SPI——
-没有免费的抽象，只有把复杂度搬到了不同的地方。这正是这套多栈教学项目想让你亲手摸到的东西。
+**最有价值的对照读法**：挑同一条链路（如 `POST /me/favorites` 或 refresh 轮转），在 2-3 家之间并排读——
+
+- **跨库适配**：`backends/spring-boot`（`@JdbcType`）↔ `backends/axum`（`Value/Cell` 枚举）↔ `backends/drogon`（纯文本协议）——同一道题，三种抽象层次。
+- **协程并发**：`backends/ktor`（连接池=1）↔ `backends/vapor`（AsyncGate actor）↔ `backends/drogon`（手写 awaitCommit）——三种"协程语言"如何串行化 SQLite 单写、如何处理提交时机。
+- **事务安全**：§9 的四个流派，从 Spring 一行 `noRollbackFor` 到 Drogon 的 outcome 枚举 + `awaitCommit`，看同一个安全要求在不同语言里的代价。
+
+这就是这个项目最大的价值：**同一道题，十种母语的解法。**
 
 ---
 
 ### 附：复现本文数据
 
 ```bash
-# 代码量（以 gin 为例，其余替换路径/扩展名）
-find backends/gin -name '*.go' ! -name '*_test.go' -not -path '*/vendor/*' -print0 | xargs -0 wc -l | tail -1
+# 代码量（以 drogon 为例，其余替换路径/扩展名；axum/drogon 含内联单测）
+find backends/drogon/src \( -name '*.cc' -o -name '*.h' \) -print0 | xargs -0 wc -l | tail -1
 
-# 契约验证（双库）
-./verification/scripts/verify-contract.sh <fastapi|spring|gin|nest|elysia>
+# 契约验证（双库，任一后端）
+./verification/scripts/verify-contract.sh <fastapi|spring-boot|gin|nest|elysia|ktor|aspnet|vapor|axum|drogon>
 DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <…>
 ```

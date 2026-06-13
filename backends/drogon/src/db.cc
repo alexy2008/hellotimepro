@@ -167,6 +167,27 @@ drogon::Task<drogon::orm::Result> Db::query(drogon::orm::DbClientPtr exec,
         case 10:
             co_return co_await exec->execSqlCoro(q, p[0], p[1], p[2], p[3], p[4], p[5], p[6],
                                                  p[7], p[8], p[9]);
+        case 11:
+            co_return co_await exec->execSqlCoro(q, p[0], p[1], p[2], p[3], p[4], p[5], p[6],
+                                                 p[7], p[8], p[9], p[10]);
+        case 12:
+            co_return co_await exec->execSqlCoro(q, p[0], p[1], p[2], p[3], p[4], p[5], p[6],
+                                                 p[7], p[8], p[9], p[10], p[11]);
+        case 13:
+            co_return co_await exec->execSqlCoro(q, p[0], p[1], p[2], p[3], p[4], p[5], p[6],
+                                                 p[7], p[8], p[9], p[10], p[11], p[12]);
+        case 14:
+            co_return co_await exec->execSqlCoro(q, p[0], p[1], p[2], p[3], p[4], p[5], p[6],
+                                                 p[7], p[8], p[9], p[10], p[11], p[12], p[13]);
+        case 15:
+            co_return co_await exec->execSqlCoro(q, p[0], p[1], p[2], p[3], p[4], p[5], p[6],
+                                                 p[7], p[8], p[9], p[10], p[11], p[12], p[13],
+                                                 p[14]);
+        case 16:
+            co_return co_await exec->execSqlCoro(q, p[0], p[1], p[2], p[3], p[4], p[5], p[6],
+                                                 p[7], p[8], p[9], p[10], p[11], p[12], p[13],
+                                                 p[14], p[15]);
+        // 当前最大用量：capsules 插入 10 个绑定参数（repos.cc）。上限 16，新增字段时按需扩档。
         default:
             throw ApiError::internal("绑定参数过多: " + std::to_string(p.size()));
     }

@@ -1,7 +1,7 @@
 import Foundation
 
 /// 手写字段校验（与 spec/openapi.yaml 的正则/长度约束一致）。
-/// 失败统一抛 VALIDATION_ERROR → 422。对应 Ktor 的 Validation。
+/// 失败统一抛 VALIDATION_ERROR → 422。
 enum Validation {
     private static let emailRe = regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     private static let passwordRe = regex("^(?=.*[A-Za-z])(?=.*\\d).{8,128}$")

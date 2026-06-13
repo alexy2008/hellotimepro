@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**HelloTime Pro** is a multi-stack teaching project: the same time-capsule web app implemented across 10 backends, 5 frontends, and 5 full-stacks. All implementations share a single API contract and design system defined in `spec/`. **M0 and M1 are complete**: the reference FastAPI + React implementation is built and verified. Current work is M2 expansion.
+**HelloTime Pro** is a multi-stack teaching project: the same time-capsule web app implemented across 10 backends, 5 frontends, and 5 full-stacks. All implementations share a single API contract and design system defined in `spec/`. **M0–M3 are complete**: all 20 implementations are built and verified (dual-driver contract 104/104 + UI smoke 25/25). Current work is M4 — cross-stack comparison docs, polish, and v1.0 release.
 
 ## Commands
 

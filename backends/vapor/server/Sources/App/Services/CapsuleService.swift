@@ -1,7 +1,7 @@
 import Foundation
 import SQLKit
 
-/// 胶囊创建 / 按码查询 / 广场详情 / 删除。对应 Ktor 的 CapsuleService。
+/// 胶囊创建 / 按码查询 / 广场详情 / 删除。
 struct CapsuleService: Sendable {
     static let codeAlphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 

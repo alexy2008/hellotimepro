@@ -189,7 +189,7 @@
 
 **目标**：剩余 13 个实现全部达到"契约绿"。
 
-**状态**：🔄 **进行中（2026-06-04）** — 13 个实现中 5 个已完成（2 后端 + 2 前端 + 1 全栈），8 个待开始。前端矩阵已全部完成（5/5）；全栈 `spring-mvc` 已落地。
+**状态**：✅ **已完成并验收（2026-06-13）** — 全部 13 个实现落地：后端 8/8（elysia · nest · ktor · aspnet · vapor · axum · drogon，以及 M3 最后一个 drogon 于 06-13 完成）；前端 2/2（svelte · solid）；全栈 3/3（spring-mvc · rails · laravel）。所有实现均通过双驱动契约验证。
 
 #### 后端（8 个）
 
@@ -214,8 +214,8 @@
 
 | 实现 | 要点 | 契约 PG | 契约 SQLite | UI 冒烟 |
 |---|---|---|---|---|
-| `fullstacks/rails/`（待） | ERB + Turbo + Hotwire；Rails 约定优于配置的全栈典范 | — | — | — |
-| `fullstacks/laravel/`（待） | Blade + Alpine.js；PHP 现代全栈的最佳代表 | — | — | — |
+| `fullstacks/rails/` | ERB + Turbo + Hotwire；Rails 约定优于配置的全栈典范（2026-06-06 落地） | ✅ 104/104 | ✅ 104/104 | ✅ 25/25 |
+| `fullstacks/laravel/` | Blade + Alpine.js；PHP 现代全栈的最佳代表；Eloquent ORM 重构（2026-06-10 落地） | ✅ 104/104 | ✅ 104/104 | ✅ 25/25（SQLite） |
 | `fullstacks/spring-mvc/` | Thymeleaf + HTMX；Java 系服务端渲染，与前后端分离形成强对比（hello 登记名 `spring-mvc`，端口 7179） | ✅ 104/104 | ✅ 104/104 | ✅ 25/25 |
 
 #### 已完成的横切改进
@@ -346,15 +346,33 @@
 - 2026-06-04：`./verification/scripts/verify-ui-smoke.sh spring-mvc`（PostgreSQL） 通过，**25/25**（~13.7s）；`DB_DRIVER=sqlite ...` 通过，**25/25**（~12.8s）。
 - 2026-06-04：`./build` 打包可执行 jar 成功；`./test` SmokeTest **2/2** 通过。
 
+#### Rails 全栈落地验收（2026-06-06）
+
+- 2026-06-06：`./verification/scripts/verify-contract.sh rails`（PostgreSQL） 通过，**104/104**；`DB_DRIVER=sqlite ...` 通过，**104/104**。
+- 2026-06-06：`./verification/scripts/verify-ui-smoke.sh rails`（PostgreSQL） 通过，**25/25**；`DB_DRIVER=sqlite ...` 通过，**25/25**。
+
+#### Laravel 全栈落地验收（2026-06-10 / 06-11）
+
+- 2026-06-10：`./verification/scripts/verify-contract.sh laravel`（PostgreSQL） 通过，**104/104**；`DB_DRIVER=sqlite ...` 通过，**104/104**（Eloquent ORM 重构后）。
+- 2026-06-11：`./verification/scripts/verify-ui-smoke.sh laravel`（SQLite） 通过，**25/25**。
+
+#### M3 总验收
+
+全部 13 个实现（8 后端 + 2 前端 + 3 全栈）均完成双驱动契约与 UI 冒烟验证。**M3 于 2026-06-13 drogon 落地后全员绿灯，20 个实现全部就位。**
+
 ---
 
 ### M4 · 打磨与发布（2 周）
 
 **目标**：视觉 / 行为细节打磨，跨栈对比文档就绪，发布 v1.0。
 
+**状态**：🔄 **进行中（2026-06-13）** — 后端深度 Review 完成，`backend-comparison.md` 已扩写至全部 10 家；其余对比文档、视觉打磨、发布标签待完成。
+
 **交付物**
 
-- [ ] `docs/backend-comparison.md`、`docs/frontend-comparison.md`、`docs/fullstack-comparison.md`
+- [x] `docs/backend-comparison.md`（全 10 家，2026-06-13 扩写完成）
+- [x] `docs/backend-review.md`（十后端逐行精读评分报告，2026-06-13）
+- [ ] `docs/frontend-comparison.md`、`docs/fullstack-comparison.md`
 - [ ] `docs/multi-stack-reading-guide.md`
 - [ ] `docs/auth.md`（鉴权全流程图）
 - [ ] `docs/db-schema.md`（schema 可视化）

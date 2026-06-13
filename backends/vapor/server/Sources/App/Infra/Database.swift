@@ -9,7 +9,7 @@ import Foundation
 /// 统一为 `withSQL` / `transaction` 两个原语，业务层只面对 SQLKit 的 `SQLDatabase`。
 ///
 /// - **PostgreSQL**：EventLoopGroupConnectionPool，事务用 BEGIN/COMMIT 包裹同一连接。
-/// - **SQLite**：单连接 + FIFO 门闩串行化全部访问（对应 Ktor 的"连接池大小为 1"），
+/// - **SQLite**：单连接 + FIFO 门闩串行化全部访问，
 ///   避免多连接写竞争出现 database is locked。
 /// - 每个 service 公共方法应只调用一次 withSQL/transaction，保证多步操作原子，
 ///   且不可嵌套（SQLite 门闩不可重入）。

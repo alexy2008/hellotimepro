@@ -2,7 +2,7 @@ import Foundation
 import Vapor
 
 /// 密码哈希（Vapor 内置 bcrypt，兼容 seed 的 $2b$）与 JWT（HS256，手写编解码）
-/// + refresh token 生成/哈希。对应 Ktor 的 SecurityService。
+/// + refresh token 生成/哈希。
 struct SecurityService: Sendable {
     let config: AppConfig
 
