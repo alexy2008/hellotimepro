@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SolidJS 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与定位</a>
+    <a href="#core">2 · 细粒度响应式核心</a>
+    <a href="#effect-trap">3 · createEffect 自动追踪坑</a>
+    <a href="#control">4 · 控制流 Show/For/Index</a>
+    <a href="#store">5 · 模块级 Signal/Store</a>
+    <a href="#render">6 · 渲染原理：没有 VDOM</a>
+    <a href="#favorite">7 · 收藏按钮：props 回灌</a>
+    <a href="#compare">8 · 四框架速查</a>
+    <a href="#pit">9 · 踩坑 FAQ</a>
+    <a href="#change">10 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#solid" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/solidjs.svg" alt="SolidJS"></div>
+      <div>
+        <h1>SolidJS</h1>
+        <p class="one">「响应式可以细到单个 DOM 节点」——组件函数只跑一次，无 VDOM、无 diff，点对点更新，产物最小（~91 KB），与 React 的最佳对照。</p>
+        <div class="stack-meta">
+          <span class="badge port">:7180</span><span class="badge violet">评审 90 / 100</span>
+          <span class="badge">Solid 1.9</span><span class="badge">TypeScript</span><span class="badge">Vite 6</span><span class="badge">@solidjs/router</span><span class="badge">模块级 createStore</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向<b>已会 React/Vue、第一次读 SolidJS</b> 的读者。本实现与 react-ts 功能完全一致、<code>api/types/utils</code> 逐字复用，最适合当「同一产品的 SolidJS 译本」来读。整理自 <code>frontends/solid/TECHNICAL_GUIDE.md</code>（601 行）。<b>两个核心直觉：组件函数只运行一次；响应式是细粒度的，状态读取在哪发生、更新就只刷新那一处 DOM。</b></div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>选型与一句话定位</h2>
+    <p>React 用「重跑函数 + 虚拟 DOM diff」实现声明式 UI；SolidJS 用「函数跑一次 + 细粒度订阅」实现同样的声明式 UI。<b>心智从「什么时候组件会重渲染」变成「这块响应式数据被谁订阅了」。</b></p>
+    <div class="callout green"><b>逻辑层逐字复用的实证：</b><code>api</code> / <code>types</code> / <code>utils</code> 在所有前端之间一字不差（Solid 直接复用 react-ts 的）——这正是契约驱动多栈的价值：<a href="../comparison.html#fe-state">业务逻辑与框架无关</a>，框架只负责把状态渲染成 DOM。真正体现 Solid 特色的是 <code>stores/</code>、<code>components/</code>、<code>pages/</code>。</div>
+
+    <h2 class="sec" id="core"><span class="n">2</span>细粒度响应式核心</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">createSignal · 最小响应式单元</h4><p class="small muted"><code>const [count, setCount] = createSignal(0)</code>。<b><code>count</code> 是 getter 函数，读值要调用 <code>count()</code></b>——只有「在响应式上下文里调用 getter」才会被记录为依赖。</p></div>
+      <div class="card"><h4 class="sub2">createStore · 嵌套对象细粒度响应</h4><p class="small muted">返回 proxy，<b>读属性路径就建立细粒度订阅</b>。<code>setCapsule("mine", {loading:true})</code> 只更新 <code>mine</code> 分片，订阅 <code>favorites</code> 的组件不被触动。</p></div>
+      <div class="card"><h4 class="sub2">createEffect / onMount / onCleanup</h4><p class="small muted"><code>createEffect</code> ≈ <code>useEffect</code> 但<b>依赖自动收集</b>（没有依赖数组）；<code>onMount</code> ≈ <code>useEffect(fn, [])</code>；<code>onCleanup</code> ≈ 清理函数。</p></div>
+      <div class="card"><h4 class="sub2">派生值：函数即 memo</h4><p class="small muted">派生通常就是普通函数 <code>const cd = () =&gt; countdownTo(...)</code>，读 <code>cd()</code> 时才算。昂贵计算才用 <code>createMemo</code>。</p></div>
+    </div>
+    <div class="callout pink"><b>props 不要解构！</b><code>function Card(props)</code> ✓ 用 <code>props.capsule.title</code> 保持响应性；<code>function Card({ capsule })</code> ✗ 解构读出当时快照、丢失后续更新。这是 React 老手最容易踩的坑。需要默认值用 <code>() =&gt; props.x ?? 默认</code>。</div>
+
+    <h2 class="sec" id="effect-trap"><span class="n">3</span>createEffect 会追踪你「顺手读到」的依赖（招牌坑）</h2>
+    <p>React 老手移植到 Solid 最隐蔽的坑，本项目实测踩过。<code>createEffect</code> 的依赖不是手写的，而是<b>自动收集 effect 同步执行期间读取过的所有响应式数据</b>——包括 effect 里调用的函数内部的同步读取。</p>
+    <pre><code>createEffect(() =&gt; {
+  if (auth.hydrated) void fetchPlaza();   // 看起来只依赖 auth.hydrated
+});
+async function fetchPlaza() {
+  const data = await api.plaza({
+    sort: plaza.sort, filter: plaza.filter, q: plaza.q,   // 这些读取在 await 之前，
+    page: plaza.page,                                      // 仍在 effect 的同步追踪窗口内！
+  });
+}</code></pre>
+    <div class="callout"><b>结果：</b>effect 实际依赖 <code>{auth.hydrated, plaza.sort, filter, q, page, pageSize}</code>。而 <code>setSort/setFilter</code> 本身已会调一次 <code>fetchPlaza()</code>，于是每次筛选/翻页都<b>请求两次</b>（序列号守卫会丢弃过期那次，结果正确但白白多打一次网络）。<b>对比 React：</b><code>useEffect(fn, [hydrated])</code> 依赖手写死，改 <code>plaza.sort</code> 不会重跑——React 版天然没这问题。这正是「自动依赖收集」的双刃剑。</div>
+    <pre><code>// 修法：untrack 把不想追踪的读取圈起来（本项目采用）
+createEffect(() =&gt; {
+  if (auth.hydrated) untrack(() =&gt; void fetchPlaza());  // effect 只订阅 auth.hydrated
+});</code></pre>
+
+    <h2 class="sec" id="control"><span class="n">4</span>控制流：Show / For / Index</h2>
+    <div class="grid g3">
+      <div class="card"><h4 class="sub2">&lt;Show&gt;</h4><p class="small muted">callback 形式把 <code>when</code> 收窄为非空 Accessor：<code>&lt;Show when={auth.user}&gt;{(user) =&gt; &lt;Chip name={user().nickname}/&gt;}&lt;/Show&gt;</code>，省去 <code>!</code> 断言。</p></div>
+      <div class="card"><h4 class="sub2">&lt;For&gt;</h4><p class="small muted">按<b>元素引用</b>协调，适合可增删的列表（广场、收藏）。</p></div>
+      <div class="card"><h4 class="sub2">&lt;Index&gt;</h4><p class="small muted">按<b>位置</b>协调，item 是 Accessor、index 是数字，适合定长按位场景——<code>CapsuleCodeInput</code> 的 8 个格子用它最贴切。</p></div>
+    </div>
+
+    <h2 class="sec" id="store"><span class="n">5</span>模块级 Signal / Store</h2>
+    <p>Solid 的响应式不依赖组件树，「全局 store」就是<b>模块顶层的 Signal/Store + 导出动作函数</b>，角色等同 Zustand 但更轻——没有 <code>create()</code>、没有 selector、没有 Provider。四个 store：<code>theme</code>（createSignal）、<code>auth/plaza/capsule</code>（createStore）。</p>
+    <pre><code>const [auth, setAuth] = createStore&lt;AuthStore&gt;({ user: null, hydrated: false });
+export { auth };
+export function setTokens(t) { setAuth({ user: t.user, ... }); persist(...); }
+configureApi({ getAccessToken: () =&gt; auth.accessToken, ... });   // 注入 api client</code></pre>
+    <div class="callout cyan"><b>createStore 的核心价值是路径更新 + 路径订阅：</b><code>setPlaza({loading:true})</code> 顶层合并（items 引用不变 → 订阅 items 的 <code>&lt;For&gt;</code> 不重渲染）；<code>setCapsule("mine","items", fn)</code> 路径定位 + 函数式更新。<b>序列号守卫</b> <code>let fetchSeq = 0</code> 刻意用闭包变量而非 store 字段——「把不该是响应式的东西放进响应式容器，是一种性能错误」。<b>跨 store 联动</b> <code>patchPlazaFavorited(...)</code> 不需要 Context/Provider，直接函数调用。</div>
+
+    <h2 class="sec" id="render"><span class="n">6</span>渲染原理：没有虚拟 DOM，更新去哪了</h2>
+    <p>理解这一点能解释前面所有「为什么 props 不能解构」「为什么读值要调用函数」的根因。<code>vite-plugin-solid</code> 在<b>编译期</b>把 JSX 转成真实 DOM 创建 + 细粒度更新表达式：</p>
+    <pre><code>&lt;h3&gt;{props.capsule.title}&lt;/h3&gt;
+// 编译成类似：
+const el = document.createElement("h3");
+insert(el, () =&gt; props.capsule.title);  // 包进 computation：title 变化时只重跑它，只改这个文本节点</code></pre>
+    <div class="callout green"><b>组件函数只运行一次</b>——职责是「建立 DOM 结构 + 注册细粒度 computation」，而非像 React 每次状态变化重跑、产出新 VDOM、再 diff。这就是为什么解构响应式数据会丢响应性：解构发生在那「唯一一次」执行里，拿到的是当时快照。<b>更新是点对点的</b>——<code>setCount(5)</code> 直接定位到订阅了 count 的那个节点去改，1000 行列表里改一个 item 标题，只有那一个 <code>&lt;h3&gt;</code> 被触碰。这是<a href="../comparison.html#fe-react">响应式模型谱系</a>里「细粒度阵营」的极致。</div>
+
+    <h2 class="sec" id="favorite"><span class="n">7</span>收藏按钮：乐观更新 + props 回灌</h2>
+    <p>体现 Solid 响应式细节的最佳样本。持有本地 signal 做即时反馈，又要能接受外部（store patch / 详情页）的更新：</p>
+    <pre><code>const [active, setActive] = createSignal(props.capsule.favoritedByMe);
+// 关键：props 变化时把外部最新值「回灌」进本地 signal（组件被复用在列表里，父级 patch 后必须同步）
+createEffect(() =&gt; {
+  setActive(props.capsule.favoritedByMe);
+  setCount(props.capsule.favoriteCount);
+});</code></pre>
+    <p class="small muted">这个 <code>createEffect</code> 在 React 里对应「<code>useEffect(() =&gt; setActive(props...), [props...])</code>」，但 Solid 自动追踪 <code>props.capsule.favoritedByMe</code>，省去依赖数组。<a href="../comparison.html#fe-state">五栈同一个收藏按钮的接缝对比 →</a></p>
+
+    <h2 class="sec" id="compare"><span class="n">8</span>四框架速查</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>概念</th><th>SolidJS</th><th>React</th><th>Vue 3</th><th>Svelte 5</th></tr></thead><tbody>
+      <tr><td>组件函数执行</td><td><b>只一次</b></td><td>每次渲染</td><td>setup 一次</td><td>一次</td></tr>
+      <tr><td>局部状态</td><td><code>createSignal</code>→<code>x()</code></td><td><code>useState</code>→<code>x</code></td><td><code>ref</code>→<code>x.value</code></td><td><code>$state</code>→<code>x</code></td></tr>
+      <tr><td>副作用</td><td><code>createEffect</code> 自动依赖</td><td><code>useEffect</code> 手写依赖</td><td><code>watchEffect</code></td><td><code>$effect</code></td></tr>
+      <tr><td>列表</td><td><code>&lt;For&gt;/&lt;Index&gt;</code></td><td><code>.map()</code></td><td><code>v-for</code></td><td><code>{#each}</code></td></tr>
+      <tr><td>渲染模型</td><td>细粒度，无 VDOM</td><td>虚拟 DOM diff</td><td>虚拟 DOM diff</td><td>编译期，无 VDOM</td></tr>
+    </tbody></table></div>
+
+    <h2 class="sec" id="pit"><span class="n">9</span>踩坑 FAQ（本实现实测）</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>现象</th><th>原因</th><th>对策</th></tr></thead><tbody>
+      <tr><td>改了 store 字段组件不更新</td><td>把 props/store 字段<b>解构</b>成普通变量</td><td>一律 <code>props.x</code> 访问；默认值用 <code>() =&gt; props.x ?? d</code></td></tr>
+      <tr><td>effect 莫名多跑、请求翻倍</td><td>effect 自动追踪了调用函数里的同步读取</td><td><code>untrack(() =&gt; fn())</code> 圈住</td></tr>
+      <tr><td><code>style={{marginLeft:"auto"}}</code> 不生效</td><td>Solid 用 <b>kebab-case 键 + 带单位值</b></td><td><code>style={{"margin-left":"auto", gap:"6px"}}</code></td></tr>
+      <tr><td><code>setTimeout</code> 类型报错</td><td>装了 <code>@types/node</code> 返回 <code>NodeJS.Timeout</code></td><td>用 <code>window.setTimeout</code> 拿浏览器的 <code>number</code></td></tr>
+      <tr><td>首页 <code>&lt;A href="/"&gt;</code> 一直高亮</td><td>路由前缀匹配</td><td>加 <code>end</code> 属性精确匹配</td></tr>
+    </tbody></table></div>
+
+    <h2 class="sec" id="change"><span class="n">10</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加页面/路由</td><td><code>pages/</code> 新增 + <code>App.tsx</code> 的 <code>&lt;Route&gt;</code></td></tr>
+      <tr><td>加 API 端点</td><td><code>api/client.ts</code> 的 <code>api</code> 对象 + <code>types/index.ts</code></td></tr>
+      <tr><td>加全局状态</td><td><code>stores/</code> 新建模块级 Signal/Store + 导出动作</td></tr>
+      <tr><td>改视觉令牌</td><td>改 <code>spec/styles/tokens.css</code>（不要在组件硬编码）</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="svelte.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Svelte 5</div></a>
+      <a href="next.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一组 · 全栈 →</div><div class="ttl" style="font-weight:700">Next.js</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · SolidJS 详解 · 整理自 frontends/solid/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

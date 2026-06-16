@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drogon 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与理由</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#core">3 · 协程三件事</a>
+    <a href="#db">4 · 文本协议跨库</a>
+    <a href="#commit">5 · 异步析构提交坑（必读）</a>
+    <a href="#catch">6 · catch 里不能 co_await</a>
+    <a href="#auth">7 · 全手写安全原语</a>
+    <a href="#readcode">8 · 从注册请求读代码</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#drogon" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/drogon.svg" alt="Drogon"></div>
+      <div>
+        <h1>Drogon</h1>
+        <p class="one">C++20 协程 + 裸 SQL + 全文本协议绑定，十家里「最贴底层、最少依赖」的一个——把两个 C++ 协程真坑写成必读章节。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29080</span><span class="badge violet">评审 92 / 100</span>
+          <span class="badge">C++20</span><span class="badge">Drogon 1.9</span><span class="badge">裸 SQL · 文本协议</span><span class="badge">手写 HS256</span><span class="badge">OpenBSD bcrypt</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 C++（类/模板/<code>std::optional</code>/智能指针/lambda）但没接触过 C++20 协程或 Drogon 的读者。整理自 <code>backends/drogon/TECHNICAL_GUIDE.md</code>（454 行）。<b>UUID 是手写的、JWT 是 OpenSSL HMAC 拼的、bcrypt 是复制进来的源码、跨库差异靠纯文本协议抹平</b>——代价是样板多、踩坑深，回报是没有任何隐藏魔法。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与理由</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Drogon 1.9 · FetchContent 静态链接</h4><p class="small muted">C++ 生态最成熟的异步 HTTP 框架，自带 ORM/HttpClient/协程。brew 无 formula，用 FetchContent 锁定版本可复现。首次编译 4-5 分钟（编 drogon 本体）。</p></div>
+      <div class="card"><h4 class="sub2">裸 SQL（不用 Mapper&lt;T&gt;）</h4><p class="small muted"><code>Mapper&lt;T&gt;</code> 模板对跨库双驱动反而碍事；<code>execSqlCoro</code> + 手写 SQL 与其它栈一致。</p></div>
+      <div class="card"><h4 class="sub2">C++20 协程</h4><p class="small muted">回调金字塔在 10+ 步的事务流程里不可维护；<code>Task&lt;&gt;</code>/<code>execSqlCoro</code> 已成熟。refresh 轮转有 6+ 步，几乎不可能用回调写。</p></div>
+      <div class="card"><h4 class="sub2">OpenBSD bcrypt（third_party）</h4><p class="small muted">C++ 无标准 bcrypt；复制本仓库 nest 后端 <code>node_modules/bcrypt</code> 的 ISC 许可源码，零新增外部依赖。</p></div>
+    </div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>Trantor 事件循环（多 IO 线程）→ 协程 handler lambda（<code>co_await guarded([&]{ ... })</code>，<code>auth_context::requiredUser</code> 解析 Bearer、<code>requireJsonBody</code> 取参）→ services.cc 协程（<code>co_await state-&gt;db-&gt;transaction()</code>）→ repos.cc → db.cc（<code>co_await execSqlCoro</code>，一份 SQL 文本协议绑定）→ PG（池 8）或 SQLite（单连接，天然串行）。</p>
+
+    <h2 class="sec" id="core"><span class="n">3</span>C++20 协程 + Drogon 的三件事</h2>
+    <div class="mech"><div class="h"><span class="tag">机制一</span><code>Task&lt;T&gt;</code> 与 <code>co_await</code>：为什么用协程不用回调</div><div class="b">
+      <p class="small muted"><code>co_await</code> 一个 <code>Task&lt;T&gt;</code> 就拿到结果 <code>T</code>，写法和同步代码一样直；底层是「挂起当前协程、IO 完成后在事件循环线程恢复」。没有协程，「查用户 → 验密码 → 插 token → 提交」要写成四层嵌套回调（callback hell），refresh 轮转 6+ 步几乎不可维护。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制二</span><code>guarded()</code>：协程版的「异常 → 错误外壳」</div><div class="b">
+      <p class="small muted">C++ 没有 Rust 的 <code>IntoResponse</code>、也没有 Spring 的 <code>@RestControllerAdvice</code>。用模板函数 <code>guarded()</code> 充当统一异常出口，所有 handler 主体都套在里面：<code>ApiError</code> → 对应状态码，<code>DrogonDbException</code> / <code>std::exception</code> → 500（写 LOG_ERROR，不泄漏崩溃栈）。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制三</span>handler = 协程 lambda + <code>shared_ptr&lt;AppState&gt;</code> 注入</div><div class="b">
+      <p class="small muted">每个路由是返回 <code>Task&lt;HttpResponsePtr&gt;</code> 的 lambda，按值捕获 <code>state</code>，主体套 <code>guarded()</code>。固定套路：取参 → 调 service → <code>envelope::ok</code> 包壳。jsoncpp 的 <code>Json::nullValue</code> 序列化就是字面 <code>null</code>，天然满足契约的显式 null。</p></div></div>
+
+    <h2 class="sec" id="db"><span class="n">4</span>文本协议跨库（db.cc）</h2>
+    <p>与 Axum 的 <code>Value</code>/<code>Cell</code> 枚举不同，这里更激进：<b>绑定参数全部是 <code>std::string</code></b>。</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>语义类型</th><th>绑定文本</th><th>PG 行为</th><th>SQLite 行为</th></tr></thead><tbody>
+      <tr><td>UUID</td><td>PG 带横线 / SQLite 32-hex</td><td>列上下文推断为 uuid</td><td>TEXT 直存</td></tr>
+      <tr><td>时间戳</td><td><code>…T….SSSSSS+00:00</code>（双驱动同格式）</td><td>timestamptz 文本解析</td><td>TEXT 直存（与 seed 逐字符一致）</td></tr>
+      <tr><td>布尔</td><td><code>'1'</code> / <code>'0'</code></td><td>boolean 接受 0/1</td><td>INTEGER 亲和性</td></tr>
+    </tbody></table></div>
+    <div class="callout"><b>变参分发 <code>switch (params.size())</code>：</b><code>execSqlCoro</code> 是变参模板，运行时的 <code>std::vector&lt;std::string&gt;</code> 无法直接展开成可变模板实参——<code>Db::query</code> 用 <code>switch</code> 0..16 逐档手动展开（当前最大用量 10，上限 16 按需扩档）。<b>UUID 是手写的：</b><code>arc4random_buf</code> 取 16 字节、手动置 version 4 / variant 位、<code>snprintf</code> 成串。这是<a href="../comparison.html#be-dualdb">双库三解法</a>的「C 类」最激进的一版。</div>
+
+    <h2 class="sec" id="commit"><span class="n">5</span>事务：异步析构提交的坑（必读）</h2>
+    <p>drogon <code>Transaction</code> 的提交时机是<b>最后一个 shared_ptr 析构时异步发送 COMMIT</b>。直接依赖析构会出现：响应已发出 → 客户端立刻发下一请求 → PG 连接池（8 连接）把它路由到另一条连接 → <b>刚写的数据还没提交，读不到</b>。本实现首轮 PG 契约就撞上了（register 后随即 401、创建后搜索不到，且两次失败点不同——典型竞态特征）。</p>
+    <pre><code>struct CommitAwaiter : drogon::CallbackAwaiter&lt;bool&gt; {
+    void await_suspend(std::coroutine_handle&lt;&gt; handle) {
+        trans_->setCommitCallback([this, handle](bool committed) {
+            setValue(committed);   // 把提交结果回传给 co_await
+            handle.resume();       // 在提交回调里唤醒协程
+        });
+        trans_.reset();            // 释放最后引用 → 析构发 COMMIT → 触发上面的回调
+    }
+};</code></pre>
+    <div class="callout pink"><b>关键顺序是先挂回调、再 <code>reset</code>：</b>reset 释放掉最后一个事务引用触发析构发 COMMIT，COMMIT 落地后回调 <code>handle.resume()</code>，<code>co_await awaitCommit(...)</code> 之后的代码才继续——把「不可控的异步析构提交」改造成「可 await 的提交」，回到和其它栈一致的「提交完成才返回」语义。三个纪律：① catch 里必须 <code>rollback</code>（析构语义是 commit）；② <code>co_return</code> 不能写在 try 里；③ <code>awaitCommit</code> 必须 move。这是全项目最有价值的语言级战例。</div>
+
+    <h2 class="sec" id="catch"><span class="n">6</span>C++ 协程限制：catch 里不能 co_await</h2>
+    <p>语言规定 catch handler 内禁止 <code>co_await</code>。所有「失败后异步补救」都要改写成<b>「catch 记 flag，try 外 co_await」</b>——本实现有三处：LLM auto 风格回落 chat、chat 的 thinking 字段 400 重试、postJson 的退避重试。事务的 <code>rollback()</code> 是<b>同步方法</b>所以不受限（这也是 §5 里 catch 能直接 rollback 的原因）。</p>
+
+    <h2 class="sec" id="auth"><span class="n">7</span>全手写安全原语（security.cc）</h2>
+    <div class="grid g3">
+      <div class="card"><h4 class="sub2">JWT HS256（OpenSSL HMAC）</h4><p class="small muted">签发约 20 行。校验顺序：三段形态 → <code>CRYPTO_memcmp</code> <b>常数时间</b>比签名（防时序侧信道）→ 解析 payload → 检查 <code>exp</code>。过期 <code>access_token_expired</code>、其余 <code>invalid_token</code>。</p></div>
+      <div class="card"><h4 class="sub2">bcrypt（third_party）</h4><p class="small muted">调 <code>third_party/openbsd_bcrypt</code>，cost 10、<code>'b'</code> 变体，<code>arc4random_buf</code> 取盐；验证前先做形态防御再 <code>CRYPTO_memcmp</code> 常数时间比对。</p></div>
+      <div class="card"><h4 class="sub2">base64url 也是手写的</h4><p class="small muted"><code>security.cc</code> 末尾自带 <code>base64url</code>/<code>base64urlDecode</code>（URL 安全字母表、无 padding），供 JWT 三段和 refresh token 共用——又一处「不引库、摊在明面上」。</p></div>
+    </div>
+    <div class="callout green"><b><code>third_party/openbsd_bcrypt</code> 来历透明：</b>三个文件原样复制自本仓库 <code>backends/nest/node_modules/bcrypt/src/</code>——即 npm <code>bcrypt</code> 包内嵌的 OpenBSD 实现（Niels Provos 原版，ISC/BSD 许可，保留原始版权头）。理由：已在依赖树内、nest 用它通过过同一套契约、零新增外部来源。</div>
+
+    <h2 class="sec" id="readcode"><span class="n">8</span>从真实请求读代码：注册</h2>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">① 校验（validation.cc，按 UTF-8 码点计数）→ 422</div><div class="arrow">↓</div>
+      <div class="node">② <span class="mono">security::hashPassword</span>（bcrypt，<b>事务外</b>慢操作）</div><div class="arrow">↓</div>
+      <div class="node">③ <span class="mono">co_await db->transaction()</span> 开事务</div><div class="arrow">↓</div>
+      <div class="node">④ try：唯一性预检 → <span class="mono">newUuid()</span> 手写 UUID → <span class="mono">repo_users::insert</span> → <span class="mono">issueTokenPair</span></div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#ff2d91">⑤ <span class="mono">catch(...) { trans->rollback(); throw; }</span> 失败显式回滚</div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#5ed49a">⑥ <span class="mono">co_await Db::awaitCommit(move(trans))</span> 等提交落地 → <span class="mono">envelope::ok(..., k201Created)</span></div>
+    </div></div><div class="cap">校验 → 慢哈希放事务外 → 事务内做 IO → catch 回滚 → awaitCommit——这个后端处理写请求的标准姿势</div></div>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想改什么</th><th>动哪里</th></tr></thead><tbody>
+      <tr><td>新增端点</td><td><code>routes.cc</code> 注册 + handler（记得 <code>guarded</code> 包装）；业务进 <code>services.cc</code></td></tr>
+      <tr><td>新增字段校验</td><td><code>validation.cc</code>（按码点计数）</td></tr>
+      <tr><td>绑定参数超 10 个</td><td><code>db.cc</code> 的 <code>switch</code> 已扩到 16 档；再多按需加档</td></tr>
+      <tr><td>调事务边界</td><td><code>services.cc</code> 的 try/rollback/awaitCommit 三件套（纪律见 §5）</td></tr>
+      <tr><td>加「失败后异步补救」</td><td>记 flag、在 catch 外 <code>co_await</code>（§6 协程限制）</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="axum.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Axum</div></a>
+      <a href="react.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一组 · 前端 →</div><div class="ttl" style="font-weight:700">React</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Drogon 详解 · 整理自 backends/drogon/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

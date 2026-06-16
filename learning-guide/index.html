@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HelloTime Pro · 多技术栈学习资料</title>
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <span class="nav-brand"><img src="assets/logo.svg" alt="logo"><span>HelloTime&nbsp;<b>Pro</b></span></span>
+    <span class="nav-links">
+      <a href="index.html" class="active">总体介绍</a>
+      <a href="design.html">设计</a>
+      <a href="comparison.html">前后端对比</a>
+      <a href="implementations.html">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<header class="hero">
+  <img src="assets/logo.svg" alt="HelloTime Pro" class="logo">
+  <h1>同一道题，<span class="grad">二十种母语</span>的解法</h1>
+  <p class="lead">HelloTime Pro 是一个多技术栈对比学习项目：围绕同一个「时间胶囊」业务，用 <b>10 个后端 · 5 个前端 · 5 套全栈</b> 给出 20 份等价实现，共享同一份 API 契约、同一套设计令牌、同一组验证脚本。</p>
+  <p class="sub">本资料由项目内 <code>docs/</code> 与 <code>spec/</code> 文档整理而成 · 面向第一次接触本项目的读者 · 图文导览</p>
+</header>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#what">1 · 这是什么</a>
+    <a href="#numbers">2 · 一眼看懂的数字</a>
+    <a href="#story">3 · 业务场景</a>
+    <a href="#roles">4 · 角色与旅程</a>
+    <a href="#arch">5 · 架构总览</a>
+    <a href="#repo">6 · 仓库结构</a>
+    <a href="#ports">7 · 端口分配</a>
+    <a href="#spec">8 · 规范即事实源</a>
+    <a href="#threads">9 · 三条贯穿主线</a>
+    <a href="#how">10 · 怎么读这份资料</a>
+  </aside>
+
+  <main class="content">
+
+    <h2 class="sec" id="what"><span class="n">1</span>这是什么</h2>
+    <p>HelloTime Pro <b>不是一个应用，而是一组等价实现</b>。它围绕同一个业务场景（时间胶囊 + 用户体系 + 胶囊广场），横向展示 20 种技术栈如何解同一道题。所有实现对外表现（API、UI、行为）必须一致，<b>内部</b>则使用各自技术栈的地道写法（Signals / 组合式 / Hooks / Runes / 协程 / actor……），让读者能在一个仓库里高密度对比差异。</p>
+
+    <div class="callout cyan"><b>核心承诺：</b>因为契约、数据库语义、设计令牌、验证脚本全部共享，所以二十者之间的<b>所有差异都是纯粹的语言 / 框架 / 抽象选择差异</b>，而不是需求差异。这正是把它们并排阅读的价值。</div>
+
+    <p class="muted">本项目专为<b>教学 / 对比 / 研究</b>设计，不面向生产。它是老项目 <a href="https://github.com/">HelloTimeByClaude</a> 的破坏式升级：新增用户账号、胶囊广场、收藏、「我的」空间；移除管理员模块与桌面/移动端；把 SQLite 单驱动换成 PostgreSQL / SQLite 双驱动，把硬编码配色换成语义化设计令牌。</p>
+
+    <h2 class="sec" id="numbers"><span class="n">2</span>一眼看懂的数字</h2>
+    <div class="grid g4">
+      <div class="stat"><div class="big">20</div><div class="lbl">等价实现<br>10 后端 · 5 前端 · 5 全栈</div></div>
+      <div class="stat"><div class="big">104</div><div class="lbl">黑盒契约用例<br>× PG/SQLite 双驱动</div></div>
+      <div class="stat"><div class="big">25</div><div class="lbl">Playwright<br>UI 冒烟用例</div></div>
+      <div class="stat"><div class="big">100%</div><div class="lbl">全员通过<br>契约 + UI 冒烟</div></div>
+    </div>
+    <p class="muted small" style="margin-top:14px">截至 2026-06，全部 20 个实现均已构建并验证通过：后端 / 全栈 <code>verify-contract</code> 双驱动各 104/104；前端 / 全栈 <code>verify-ui-smoke</code> 各 25/25。验证脚本从外部黑盒验证，不信任实现自报。</p>
+
+    <h2 class="sec" id="story"><span class="n">3</span>业务场景：时间胶囊</h2>
+    <p>业务载体是「<b>时间胶囊</b>」——用户写下一段内容，封存一个未来的开启时刻（<code>openAt</code>），到期前任何人都读不到正文，到期后才能开启阅读。围绕它长出三个支柱功能：</p>
+    <div class="grid g3">
+      <div class="card">
+        <h4 class="sub2">🔒 封存与开启</h4>
+        <p class="small muted">创建胶囊时定下标题、正文与开启时间，得到一个 8 位 <code>[A-Z0-9]</code> 唯一码。胶囊一经创建，内容与时间<b>不可修改</b>（可删除）。未到期返回 meta、隐藏正文；到期后返回完整正文。</p>
+      </div>
+      <div class="card">
+        <h4 class="sub2">🌐 胶囊广场</h4>
+        <p class="small muted">所有 <code>inPlaza=true</code> 的胶囊聚合成广场，支持<b>最热（收藏数）/ 最新</b>排序、已开 / 未开过滤、按标题或昵称模糊搜索、分页。列表永不返回正文。</p>
+      </div>
+      <div class="card">
+        <h4 class="sub2">⭐ 收藏与「我的」</h4>
+        <p class="small muted">登录用户可收藏任意广场胶囊（不能收藏自己的、不能收藏私密的）。「我的」空间分「我创建的 / 我收藏的」，可改昵称、头像、密码。</p>
+      </div>
+    </div>
+
+    <h2 class="sec" id="roles"><span class="n">4</span>角色与代表性旅程</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h4 class="sub2">匿名用户</h4>
+        <p class="small">浏览广场、排序、过滤、搜索、通过 8 位码开启胶囊、阅读已到期公开胶囊。</p>
+        <p class="small muted">❌ 不能：创建胶囊、收藏、查看「我的」。触发收藏时前端引导登录。</p>
+      </div>
+      <div class="card">
+        <h4 class="sub2">注册用户</h4>
+        <p class="small">匿名用户的一切 + 创建胶囊 + 收藏 / 取消收藏 + 「我创建的 / 我收藏的」 + 改密码 / 昵称 / 头像。</p>
+        <p class="small muted">❌ 不能：管理他人胶囊。<b>没有管理员角色。</b></p>
+      </div>
+    </div>
+    <div class="callout">典型旅程：<b>匿名浏览</b> → 看到喜欢的胶囊想收藏 → 触发登录提示 → <b>注册即登录</b> → 回首页<b>创建胶囊</b>、写内容选时间、获得 8 位码分享 → 别处用<b>码开启</b>，未到期看倒计时，到期读正文。</div>
+
+    <h2 class="sec" id="arch"><span class="n">5</span>架构总览</h2>
+    <p><code>spec/</code> 是<b>源头</b>：任意实现要改行为，必须先动 spec、再动实现。验证脚本对着 spec 跑。10 个后端长得完全不同，但从外面看都是「同一个服务」；5 个前端通过 <code>:9080</code> 反向代理访问「当前选中」的后端——<b>同一个前端，换后端看差异</b>；5 个全栈各自闭环，不走代理。</p>
+
+    <div class="figure">
+      <div class="diagram">
+        <svg viewBox="0 0 900 470" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+          <defs>
+            <linearGradient id="gspec" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#6b46ff"/><stop offset="1" stop-color="#341a8f"/>
+            </linearGradient>
+            <linearGradient id="gprox" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#00b8d4"/><stop offset="1" stop-color="#14d4f0"/>
+            </linearGradient>
+            <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/>
+            </marker>
+          </defs>
+
+          <!-- spec -->
+          <rect x="30" y="180" width="160" height="118" rx="14" fill="url(#gspec)" stroke="#8467ff"/>
+          <text x="110" y="208" text-anchor="middle" fill="#fff" font-size="16" font-weight="800">spec/</text>
+          <text x="110" y="232" text-anchor="middle" fill="#e4dcff" font-size="12">openapi.yaml</text>
+          <text x="110" y="250" text-anchor="middle" fill="#e4dcff" font-size="12">tokens.css</text>
+          <text x="110" y="268" text-anchor="middle" fill="#e4dcff" font-size="12">schema.sql</text>
+          <text x="110" y="286" text-anchor="middle" fill="#e4dcff" font-size="12">avatars/</text>
+          <text x="110" y="160" text-anchor="middle" fill="#a58eff" font-size="12" font-weight="700">单一事实源</text>
+
+          <!-- verification -->
+          <rect x="30" y="40" width="160" height="84" rx="12" fill="#14141f" stroke="#262635"/>
+          <text x="110" y="70" text-anchor="middle" fill="#f7f7fb" font-size="14" font-weight="700">verification/</text>
+          <text x="110" y="92" text-anchor="middle" fill="#80808f" font-size="11.5">verify-contract.sh</text>
+          <text x="110" y="108" text-anchor="middle" fill="#80808f" font-size="11.5">verify-ui-smoke.sh</text>
+
+          <!-- arrows from spec -->
+          <path d="M190,210 C240,210 250,150 300,128" fill="none" stroke="#80808f" stroke-width="1.6" marker-end="url(#arr)"/>
+          <text x="232" y="158" fill="#a58eff" font-size="11" font-weight="700">drives</text>
+          <path d="M110,124 L110,176" fill="none" stroke="#80808f" stroke-width="1.6" marker-end="url(#arr)"/>
+          <text x="120" y="152" fill="#80808f" font-size="10.5">validates</text>
+
+          <!-- backends -->
+          <rect x="330" y="40" width="540" height="120" rx="12" fill="#0e0e18" stroke="#262635"/>
+          <text x="348" y="64" fill="#f7f7fb" font-size="13" font-weight="700">backends/ · 10 个后端</text>
+          <text x="855" y="64" text-anchor="end" fill="#80808f" font-size="11">:29000–:29090</text>
+          <g font-size="10.5" fill="#d7d7e2" text-anchor="middle">
+            <rect x="346" y="78" width="92" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="392" y="97">FastAPI</text>
+            <rect x="444" y="78" width="92" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="490" y="97">Spring</text>
+            <rect x="542" y="78" width="92" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="588" y="97">Gin</text>
+            <rect x="640" y="78" width="92" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="686" y="97">NestJS</text>
+            <rect x="738" y="78" width="116" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="796" y="97">Elysia</text>
+            <rect x="346" y="116" width="92" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="392" y="135">Ktor</text>
+            <rect x="444" y="116" width="92" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="490" y="135">ASP.NET</text>
+            <rect x="542" y="116" width="92" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="588" y="135">Vapor</text>
+            <rect x="640" y="116" width="92" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="686" y="135">Axum</text>
+            <rect x="738" y="116" width="116" height="30" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="796" y="135">Drogon</text>
+          </g>
+
+          <!-- proxy -->
+          <rect x="470" y="196" width="260" height="44" rx="10" fill="url(#gprox)"/>
+          <text x="600" y="223" text-anchor="middle" fill="#04222a" font-size="13" font-weight="800">:9080 反向代理（switch 切后端）</text>
+          <path d="M600,160 L600,194" fill="none" stroke="#80808f" stroke-width="1.6" marker-end="url(#arr)"/>
+
+          <!-- frontends -->
+          <rect x="330" y="280" width="540" height="70" rx="12" fill="#0e0e18" stroke="#262635"/>
+          <text x="348" y="304" fill="#f7f7fb" font-size="13" font-weight="700">frontends/ · 5 个 SPA</text>
+          <text x="855" y="304" text-anchor="end" fill="#80808f" font-size="11">:7173–:7180</text>
+          <g font-size="10.5" fill="#d7d7e2" text-anchor="middle">
+            <rect x="346" y="314" width="92" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="392" y="332">React</text>
+            <rect x="444" y="314" width="92" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="490" y="332">Vue 3</text>
+            <rect x="542" y="314" width="92" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="588" y="332">Angular</text>
+            <rect x="640" y="314" width="92" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="686" y="332">Svelte</text>
+            <rect x="738" y="314" width="116" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="796" y="332">Solid</text>
+          </g>
+          <path d="M600,280 L600,242" fill="none" stroke="#80808f" stroke-width="1.6" marker-end="url(#arr)"/>
+          <text x="612" y="266" fill="#80808f" font-size="10.5">proxy</text>
+
+          <!-- fullstacks -->
+          <rect x="330" y="370" width="540" height="72" rx="12" fill="#0e0e18" stroke="#262635"/>
+          <text x="348" y="394" fill="#f7f7fb" font-size="13" font-weight="700">fullstacks/ · 5 套全栈（自包含，不走代理）</text>
+          <text x="855" y="394" text-anchor="end" fill="#80808f" font-size="11">:7177–:7182</text>
+          <g font-size="10.5" fill="#d7d7e2" text-anchor="middle">
+            <rect x="346" y="404" width="92" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="392" y="422">Next.js</text>
+            <rect x="444" y="404" width="92" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="490" y="422">Nuxt</text>
+            <rect x="542" y="404" width="92" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="588" y="422">Spring MVC</text>
+            <rect x="640" y="404" width="92" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="686" y="422">Rails</text>
+            <rect x="738" y="404" width="116" height="28" rx="7" fill="#181824" stroke="#3a3a4d"/><text x="796" y="422">Laravel</text>
+          </g>
+        </svg>
+      </div>
+      <div class="cap">spec 驱动所有实现，验证脚本黑盒校验；前端经 :9080 代理访问任一后端，全栈各自闭环</div>
+    </div>
+
+    <h2 class="sec" id="repo"><span class="n">6</span>仓库结构</h2>
+    <pre><code>HelloTimePro/
+├── spec/              # 单一事实源（OpenAPI / tokens / schema / avatars / icons）
+├── backends/          # 10 个后端实现（:29000–:29090）
+├── frontends/         # 5 个前端 SPA（:7173–:7180）
+├── fullstacks/        # 5 套全栈（:7177–:7182，自包含）
+├── verification/      # 契约验证 + UI 冒烟脚本
+├── scripts/           # hello CLI（dev-manager v2）+ db 维护脚本
+├── docs/              # 设计与对比文档（本资料的素材来源）
+└── ui-prototype/      # 设计原型（纯 HTML/CSS）</code></pre>
+    <p class="muted small">每个实现自带 <code>./run</code> / <code>./build</code> / <code>./test</code> 三件套，脚本仅支持 macOS / Linux。数据库的 schema 初始化 / 重建 / seed 一律由仓库级 <code>scripts/db</code> 维护，<b>实现自身不建表、不迁移、不 seed</b>。</p>
+
+    <h2 class="sec" id="ports"><span class="n">7</span>端口分配</h2>
+    <p>为与老仓库共存（两套可同时跑），Pro 用全新端口段：<b>2xxxx 给后端，7xxx 给前端 / 全栈，9xxx 给开发基础设施</b>。</p>
+    <div class="grid g2">
+      <div class="tbl-wrap">
+        <table class="compact">
+          <thead><tr><th>后端</th><th>端口</th><th>前端</th><th>端口</th></tr></thead>
+          <tbody>
+            <tr><td>Spring Boot</td><td><span class="badge port">29000</span></td><td>Vue 3</td><td><span class="badge port">7173</span></td></tr>
+            <tr><td>FastAPI</td><td><span class="badge port">29010</span></td><td>React</td><td><span class="badge port">7174</span></td></tr>
+            <tr><td>Gin</td><td><span class="badge port">29020</span></td><td>Angular</td><td><span class="badge port">7175</span></td></tr>
+            <tr><td>Elysia</td><td><span class="badge port">29030</span></td><td>Svelte</td><td><span class="badge port">7176</span></td></tr>
+            <tr><td>NestJS</td><td><span class="badge port">29040</span></td><td>Solid</td><td><span class="badge port">7180</span></td></tr>
+            <tr><td>ASP.NET</td><td><span class="badge port">29050</span></td><td>—</td><td>—</td></tr>
+            <tr><td>Vapor</td><td><span class="badge port">29060</span></td><td colspan="2"></td></tr>
+            <tr><td>Axum</td><td><span class="badge port">29070</span></td><td colspan="2"></td></tr>
+            <tr><td>Drogon</td><td><span class="badge port">29080</span></td><td colspan="2"></td></tr>
+            <tr><td>Ktor</td><td><span class="badge port">29090</span></td><td colspan="2"></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tbl-wrap">
+        <table class="compact">
+          <thead><tr><th>全栈</th><th>端口</th></tr></thead>
+          <tbody>
+            <tr><td>Next.js</td><td><span class="badge port">7177</span></td></tr>
+            <tr><td>Nuxt</td><td><span class="badge port">7178</span></td></tr>
+            <tr><td>Spring MVC</td><td><span class="badge port">7179</span></td></tr>
+            <tr><td>Rails</td><td><span class="badge port">7181</span></td></tr>
+            <tr><td>Laravel</td><td><span class="badge port">7182</span></td></tr>
+            <tr><td>SPA → 后端代理</td><td><span class="badge port cyan">9080</span></td></tr>
+            <tr><td>dev-manager Web UI</td><td><span class="badge port cyan">9090</span></td></tr>
+            <tr><td>PostgreSQL（本地）</td><td><span class="badge port cyan">55432</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h2 class="sec" id="spec"><span class="n">8</span>规范即单一事实源</h2>
+    <p>这是整个项目的第一原则，也是「二十份代码可逐文件并排阅读」的根本保证：</p>
+    <div class="grid g2">
+      <div class="card">
+        <h4 class="sub2">三份共享契约</h4>
+        <ul class="small">
+          <li><code>spec/api/openapi.yaml</code> — 18 个端点的完整 API 契约</li>
+          <li><code>spec/db/schema.sql</code> — PostgreSQL 参考 schema（四张表）</li>
+          <li><code>spec/styles/{palette,tokens,cyber}.css</code> — 色阶 / 语义令牌 / 共享组件类</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 class="sub2">五条设计原则</h4>
+        <ul class="small">
+          <li><b>规范即事实源</b>：实现从 spec 对齐，不许自定义</li>
+          <li><b>栈内正交</b>：每栈用自己的地道写法</li>
+          <li><b>外部一致</b>：路由 / JSON / 错误码 / 样式肉眼可比</li>
+          <li><b>最小脚手架</b>：run / build / test 三脚本即入口</li>
+          <li><b>教学可读优先于性能极致</b></li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 class="sec" id="threads"><span class="n">9</span>三条贯穿全项目的主线</h2>
+    <p>三篇对比文档（前端 / 后端 / 全栈）反复印证同一组结论。读懂它们，二十栈的「脾气」就都解释得通：</p>
+    <div class="grid g3">
+      <div class="card">
+        <div class="badge violet">主线一</div>
+        <h4 class="sub2" style="margin-top:10px">业务逻辑与框架可彻底解耦</h4>
+        <p class="small muted">前端 <code>api/types/utils</code> 那 529 行纯 TS 在 React/Vue/Solid 间<b>几乎逐字相同</b>；全栈「业务 Service 只有一份」。框架真正决定的只是「状态层 + 视图层」。</p>
+      </div>
+      <div class="card">
+        <div class="badge cyan">主线二</div>
+        <h4 class="sub2" style="margin-top:10px">某个核心模型是一切差异的根</h4>
+        <p class="small muted">前端是<b>响应式模型</b>（组件跑几次、依赖怎么追踪）；全栈是<b>渲染模型</b>（HTML 在哪生成）；后端是<b>数据访问抽象层厚度</b>。其余差异都从这里派生。</p>
+      </div>
+      <div class="card">
+        <div class="badge pink">主线三</div>
+        <h4 class="sub2" style="margin-top:10px">抽象的成本只会换地方出现</h4>
+        <p class="small muted">源码写得最少的 Angular 产物最重；ORM 平时最省心、跨库时要下沉到底层 SPI。<b>没有免费的午餐，只有不同的账单。</b></p>
+      </div>
+    </div>
+
+    <h2 class="sec" id="how"><span class="n">10</span>怎么读这份资料</h2>
+    <div class="flow">
+      <div class="step"><div class="num">1</div><div class="bd"><b><a href="design.html">设计</a></b> —— 先看架构、数据模型、API 契约、鉴权与双库策略，建立对「契约长什么样」的整体认知。</div></div>
+      <div class="step"><div class="num">2</div><div class="bd"><b><a href="comparison.html">前后端对比</a></b> —— 三大阵营（后端十家 / 前端五家 / 全栈五家）的横向对比，是全资料的灵魂。</div></div>
+      <div class="step"><div class="num">3</div><div class="bd"><b><a href="implementations.html">实现详解</a></b> —— 二十张实现卡片，每张含技术栈、定位、亮点、取舍与评审打分，按需查阅。</div></div>
+    </div>
+
+    <div class="pagenav">
+      <a href="design.html" class="next" style="margin-left:auto">
+        <div class="dir">下一页 →</div>
+        <div class="ttl">设计：架构 · 数据模型 · 鉴权 · 双库</div>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="footer">
+  HelloTime Pro · 多技术栈对比学习项目 · 本资料整理自仓库 <code>docs/</code> 与 <code>spec/</code> 文档<br>
+  教学 / 对比 / 研究用途 · 不面向生产 · MIT License
+</footer>
+
+</body>
+</html>

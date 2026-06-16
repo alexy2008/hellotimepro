@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Drift">
+  <defs>
+    <radialGradient id="dr-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#262635"/>
+      <stop offset="100%" stop-color="#06060c"/>
+    </radialGradient>
+  </defs>
+  <circle cx="64" cy="64" r="62" fill="url(#dr-bg)"/>
+  <circle cx="64" cy="64" r="62" fill="none" stroke="#55556a" stroke-width="1.5" opacity="0.7"/>
+  <!-- 漂移波浪 -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M20 50 Q 42 32, 64 50 T 108 50" stroke="#b0b0c0" stroke-width="3"/>
+    <path d="M20 66 Q 42 48, 64 66 T 108 66" stroke="#8467ff" stroke-width="3"/>
+    <path d="M20 82 Q 42 64, 64 82 T 108 82" stroke="#40e4ff" stroke-width="3"/>
+  </g>
+  <circle cx="64" cy="64" r="6" fill="#eeeef4"/>
+</svg>

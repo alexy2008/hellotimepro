@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vapor 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#core">3 · Swift 并发四件事</a>
+    <a href="#gate">4 · AsyncGate 门闩（必读）</a>
+    <a href="#json">5 · 手工 JSON 树</a>
+    <a href="#crossdb">6 · 跨库值编解码</a>
+    <a href="#tx">7 · 事务与一致性</a>
+    <a href="#auth">8 · 手写 JWT 与安全</a>
+    <a href="#readcode">9 · 从注册请求读代码</a>
+    <a href="#change">10 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#vapor" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/vapor.svg" alt="Vapor"></div>
+      <div>
+        <h1>Vapor</h1>
+        <p class="one">SwiftNIO 全链路 <code>async throws</code>，用 actor 收纳共享状态串行化 SQLite + 手工 JSON 树控显式 null——Swift 并发模型的地道展示。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29060</span><span class="badge violet">评审 91 / 100</span>
+          <span class="badge">Swift</span><span class="badge">Vapor 4 (SwiftNIO)</span><span class="badge">SQLKit 手写 SQL</span><span class="badge">手写 HS256</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 Swift（struct/enum/actor/async/闭包/协议）但没接触过 Vapor/SwiftNIO 的读者。整理自 <code>backends/vapor/TECHNICAL_GUIDE.md</code>（427 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Vapor 4 + SwiftNIO</h4><p class="small muted">Swift 服务端事实标准。HTTP 由 SwiftNIO 事件循环承载，路由处理器全是 <code>async throws</code> 函数，async/await 全链路异步。</p></div>
+      <div class="card"><h4 class="sub2">SQLKit 手写 SQL（不用 Fluent）</h4><p class="small muted">schema 由 <code>spec/db</code> 外部管理，SQLite/PG 列表示差异大。参数化 <code>raw</code> SQL + 自建跨库编解码层比 Fluent 模型映射更直接、更可教学。</p></div>
+      <div class="card"><h4 class="sub2">手写 JWT HS256</h4><p class="small muted">签发/校验各约 20 行（swift-crypto 的 HMAC + base64url），省掉 jwt-kit 依赖树。</p></div>
+      <div class="card"><h4 class="sub2">手工 JSON 树</h4><p class="small muted"><code>JSON</code> 枚举替代 Codable 合成——契约要求 <code>data/errorCode/content</code> 输出<b>显式 null</b>，而 Swift 合成 Encodable 对 Optional 走 <code>encodeIfPresent</code> 直接丢键。</p></div>
+    </div>
+    <div class="callout"><b>目录为什么叫 server：</b>SwiftPM 根包身份取自所在目录名。若包直接放在 <code>backends/vapor/</code>，根包身份 <code>vapor</code> 会与依赖包 <code>vapor</code> 同名，报 <code>cyclic dependency</code>。挪进 <code>server/</code> 子目录即可。</div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>SwiftNIO 事件循环 → 中间件栈 <code>CORSMiddleware → ApiErrorMiddleware</code>（自研，替换 Vapor 默认 ErrorMiddleware，因为它的错误 JSON 不是契约外壳）→ 路由 async 闭包（<code>authContext.required/optional</code> 解析 Bearer、<code>req.content.decode</code> 反序列化）→ Services（<code>async throws</code>，<code>db.transaction { sql in }</code>）→ Repositories → AppDatabase（SQLKit raw SQL + 跨库编解码）。</p>
+
+    <h2 class="sec" id="core"><span class="n">3</span>Swift / Vapor 的四个关键思想</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">① 全链路 async/await</h4><p class="small muted">handler 是 <code>async throws</code> 闭包，从 handler 一路 <code>await</code> 到数据库，写法同步直观、执行全异步。鉴权是<b>显式第一行</b> <code>required(req)</code>/<code>optional(req)</code>。</p></div>
+      <div class="card"><h4 class="sub2">② 用 actor 收纳共享状态</h4><p class="small muted">可变状态放进 <code>actor</code>，编译器保证串行访问、无数据竞争。两个 actor：<code>LoginRateLimiter</code>（失败计数）、<code>AsyncGate</code>（SQLite 门闩）。</p></div>
+      <div class="card"><h4 class="sub2">③ 值类型 struct + 构造注入</h4><p class="small muted"><code>AppComponents</code> 手动 new 出仓储 → 服务，除两个 actor 与 <code>AppDatabase</code> 外全是值类型 struct。依赖图集中、源码可见、无运行时扫描。</p></div>
+      <div class="card"><h4 class="sub2">④ 手工 JSON 枚举树</h4><p class="small muted"><code>enum JSON</code> 的 Encodable 对 <code>.null</code> 调 <code>encodeNil()</code> 输出字面 <code>null</code>；也用来解析 LLM 任意 JSON，<code>intValue</code> 宽容取整。</p></div>
+    </div>
+
+    <h2 class="sec" id="gate"><span class="n">4</span>AsyncGate：actor 实现的 FIFO 门闩（必读）</h2>
+    <p>SQLite 单连接被并发请求争用时，需要一把「异步互斥锁」——但不能用阻塞锁（会卡死 SwiftNIO 的事件循环线程）。<code>AsyncGate</code> 用 actor + <code>CheckedContinuation</code> 实现一把<b>不阻塞线程、先到先得</b>的门闩：</p>
+    <pre><code>actor AsyncGate {
+    private var busy = false
+    private var waiters: [CheckedContinuation&lt;Void, Never&gt;] = []
+    func acquire() async {
+        if !busy { busy = true; return }                      // 空闲：直接拿锁
+        await withCheckedContinuation { waiters.append($0) }   // 占用：挂起排队
+    }
+    func release() {
+        if waiters.isEmpty { busy = false }                   // 无人等：释放
+        else { waiters.removeFirst().resume() }               // 有人等：FIFO 唤醒队首
+    }
+}</code></pre>
+    <div class="callout green"><b>为什么是 actor：</b>actor 隔离让「检查 busy + 改状态」天然原子。<b>为什么不阻塞：</b>等待者挂起成 continuation 存进数组，事件循环线程立刻空出去干别的，轮到时 <code>resume()</code> 续跑——等价「连接池大小为 1」但用协程挂起代替线程阻塞。<b>为什么 FIFO：</b><code>removeFirst()</code> 按到达顺序唤醒避免饿死。这与 <a href="ktor.html">Ktor 池=1</a>、<a href="axum.html">Axum 池上限 1</a> 解决的是同一个问题。</div>
+
+    <h2 class="sec" id="json"><span class="n">5</span>手工 JSON 树：为什么不用 Codable 合成</h2>
+    <p>契约用 strict equal 断言 <code>data/errorCode/content</code> 为显式 <code>null</code>，而 Swift 合成的 Encodable 对 Optional 走 <code>encodeIfPresent</code> 直接丢键。所以响应一律用 <code>JSON</code> 枚举手工构造：</p>
+    <pre><code>enum JSON: Sendable { case null, bool(Bool), int(Int), double(Double),
+                      string(String), array([JSON]), object([String: JSON]) }
+// .null 的 Encodable 实现调 encodeNil() → 输出字面 null</code></pre>
+
+    <h2 class="sec" id="crossdb"><span class="n">6</span>跨库值编解码</h2>
+    <p>业务 SQL 只写一份，差异收敛在六个助手里（绑定 <code>uuidValue/dateValue/boolValue</code>；读取 <code>uuid/date/bool</code>）：</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>列</th><th>SQLite</th><th>PostgreSQL</th></tr></thead><tbody>
+      <tr><td>UUID</td><td>32 位无横线 hex TEXT</td><td>原生 <code>uuid</code></td></tr>
+      <tr><td>时间戳</td><td>ISO-8601 TEXT：微秒 + <code>+00:00</code></td><td>原生 <code>timestamptz</code></td></tr>
+      <tr><td>布尔</td><td>0/1 整数</td><td>原生 <code>boolean</code></td></tr>
+    </tbody></table></div>
+    <div class="callout cyan">SQLite 的 TEXT 格式与 Python seed（<code>isoformat()</code>）逐字符兼容，<b>同一格式下字符串比较即时间比较</b>，<code>open_at &lt;= :now</code> 与 <code>ORDER BY created_at</code> 在 TEXT 列上仍正确。这是<a href="../comparison.html#be-dualdb">双库三解法</a>的「C 类 · 一份 SQL + 自建值编解码」。</div>
+
+    <h2 class="sec" id="tx"><span class="n">7</span>事务与一致性</h2>
+    <p>两个原语：<code>db.withSQL { }</code>（无显式事务）、<code>db.transaction { }</code>（BEGIN/COMMIT，异常 ROLLBACK）。SQLite 事务用 <code>BEGIN IMMEDIATE</code> 直接拿写锁。约定：service 公共方法只调一次（门闩不可重入）。</p>
+    <ul class="clean small">
+      <li><b>收藏计数：</b><code>INSERT ... ON CONFLICT DO NOTHING RETURNING</code> 返回行 ⇒ 真插入 ⇒ 原子 +1；没返回 ⇒ 已收藏 ⇒ 回读原值。并发 5 连击不重复计数。</li>
+      <li><b>refresh 轮转：</b>重用检测命中时先提交家族吊销再抛 401。事务内返回 <code>RefreshOutcome</code> 枚举，<code>throw</code> 放事务外（等价 Spring <code>noRollbackFor</code>，<a href="../comparison.html#be-tx">流派 ③</a>）。PG 对 token 行加 <code>FOR UPDATE</code>。</li>
+      <li><b>login 同手法：</b>密码错时事务内返回 nil（干净提交），出事务后再 <code>recordFailure</code> + 抛 401。</li>
+    </ul>
+
+    <h2 class="sec" id="auth"><span class="n">8</span>手写 JWT 与安全</h2>
+    <pre><code>func createAccessToken(user: User) -> String {
+    let signingInput = "\(base64url(header)).\(base64url(payload))"
+    let mac = HMAC&lt;SHA256&gt;.authenticationCode(for: Data(signingInput.utf8), using: key)
+    return "\(signingInput).\(base64url(Data(mac)))"
+}</code></pre>
+    <p class="small muted">校验顺序：形状（3 段）→ 签名（<code>HMAC.isValidAuthenticationCode</code>，<b>常数时间</b>）→ 解析 payload → <code>exp</code>。过期返回 <code>access_token_expired</code>、其它 <code>invalid_token</code>（契约区分）。bcrypt 用 Vapor 内置 <code>Bcrypt</code>（cost 10），兼容 seed 的 <code>$2b$</code>。refresh token 32 字节随机 → base64url，库里只存 SHA-256 hex。</p>
+
+    <h2 class="sec" id="readcode"><span class="n">9</span>从真实请求读代码：注册</h2>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">① 校验（Validation）→ 缺字段/格式错 → 422</div><div class="arrow">↓</div>
+      <div class="node">② <span class="mono">security.hashPassword</span>（bcrypt，<b>事务外</b>慢操作）</div><div class="arrow">↓</div>
+      <div class="node">③ <span class="mono">db.transaction { sql in }</span>（SQLite 经 AsyncGate 串行）</div><div class="arrow">↓</div>
+      <div class="node">④ 唯一性预检 ⑤ <span class="mono">users.insert</span> ⑥ <span class="mono">issueTokenPair</span></div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#5ed49a">⑦ 闭包正常返回 → COMMIT；throw → ROLLBACK → <span class="mono">Envelope.ok(..., .created)</span></div>
+    </div></div><div class="cap">transaction { } 闭包替你管好 BEGIN/COMMIT/ROLLBACK——比 Drogon 手写 awaitCommit、Axum 手写 finish 更省心的一版</div></div>
+
+    <h2 class="sec" id="change"><span class="n">10</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想改什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>新增端点</td><td><code>Web/Routes.swift</code> 注册 + 对应 Service 加方法</td></tr>
+      <tr><td>改字段校验</td><td><code>Services/Validation.swift</code></td></tr>
+      <tr><td>改跨库存储格式</td><td><code>Infra/Database.swift</code> 编解码助手 + <code>IsoDate.swift</code>（须双驱动复验）</td></tr>
+      <tr><td>加共享可变状态</td><td>放进 actor（参照 <code>LoginRateLimiter</code>），别用裸全局变量</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="aspnet.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">ASP.NET Core</div></a>
+      <a href="axum.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Axum</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Vapor 详解 · 整理自 backends/vapor/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spring Boot 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#tree">3 · 目录结构</a>
+    <a href="#core">4 · Spring 三大核心机制</a>
+    <a href="#aop">5 · AOP 代理：@Transactional</a>
+    <a href="#web">6 · Web 层与统一外壳</a>
+    <a href="#dto">7 · DTO + Bean Validation</a>
+    <a href="#domain">8 · 实体与跨库时间列</a>
+    <a href="#jpa">9 · Spring Data JPA</a>
+    <a href="#service">10 · 服务层与 refresh 轮转</a>
+    <a href="#test">11 · 测试</a>
+    <a href="#change">12 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#spring-boot" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/springboot.svg" alt="Spring Boot"></div>
+      <div>
+        <h1>Spring Boot</h1>
+        <p class="one">企业级全家桶：IoC/DI 容器 + 注解驱动 + AOP 声明式事务 + Spring Data JPA，抽象层最厚，<code>controller→service→repository→entity</code> 与四层映射最贴合。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29000</span><span class="badge violet">评审 92 / 100</span>
+          <span class="badge">Java 21</span><span class="badge">Spring Boot 3</span><span class="badge">Spring Data JPA</span><span class="badge">Hibernate</span><span class="badge">Flyway · Jackson</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 Java 语法（类/接口/泛型/Lambda/record）但还没系统接触 Spring Boot 的读者。整理自 <code>backends/spring-boot/TECHNICAL_GUIDE.md</code>（612 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Spring Boot 3 + IoC/DI</h4><p class="small muted">控制反转容器以单例管理 service / controller / repository，自动配置（Auto-Configuration）开箱即用，极大提高企业级装配效率。</p></div>
+      <div class="card"><h4 class="sub2">Spring Data JPA + 方言自适应</h4><p class="small muted">方法名自动解析生成 SQL；针对跨库时间列时区差异自制全局 <code>OffsetDateTimeStringConverter</code>，并用 JPA 悲观锁（<code>PESSIMISTIC_WRITE</code>）保证行级并发一致。</p></div>
+      <div class="card"><h4 class="sub2">Bean Validation + @RestController</h4><p class="small muted">DTO（record）属性贴 <code>@NotBlank/@Size/@Pattern</code>，配合 <code>@Valid</code> 开启边界拦截，声明式路由映射简洁直观。</p></div>
+      <div class="card"><h4 class="sub2">声明式事务 + 异常拦截（AOP）</h4><p class="small muted">基于 AOP 用 <code>@Transactional</code> 无侵入管理事务；<code>@RestControllerAdvice</code> 全局异常处理器把 <code>ApiException</code> 统一转成契约错误响应。</p></div>
+    </div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>请求经内嵌 Tomcat → DispatcherServlet → 按 URL 找到 <code>@RestController</code> 方法 → Bean Validation 校验 <code>@Valid @RequestBody</code> → service（<code>@Transactional</code>）→ repository（Spring Data JPA）→ Hibernate 生成 SQL。返回方向 service 把实体转成 record，控制器用 <code>Envelope.ok(...)</code> 包一层，Jackson 序列化成 JSON。</p>
+    <div class="figure"><div class="diagram">
+      <svg viewBox="0 0 860 168" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif"><defs><marker id="sa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+      <g font-size="11.5" text-anchor="middle">
+        <rect x="14" y="64" width="96" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="62" y="82" fill="#f7f7fb">内嵌 Tomcat</text><text x="62" y="98" fill="#80808f" font-size="10.5">Servlet 容器</text>
+        <rect x="128" y="64" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="188" y="82" fill="#f7f7fb">DispatcherServlet</text><text x="188" y="98" fill="#80808f" font-size="10.5">按 URL 找方法</text>
+        <rect x="266" y="64" width="120" height="42" rx="9" fill="#0e0e18" stroke="#6b46ff"/><text x="326" y="82" fill="#c8b8ff">@RestController</text><text x="326" y="98" fill="#80808f" font-size="10.5">@Valid 校验</text>
+        <rect x="404" y="64" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="464" y="82" fill="#f7f7fb">@Service</text><text x="464" y="98" fill="#80808f" font-size="10.5">@Transactional</text>
+        <rect x="542" y="64" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="602" y="82" fill="#f7f7fb">Repository</text><text x="602" y="98" fill="#80808f" font-size="10.5">Spring Data JPA</text>
+        <rect x="680" y="64" width="120" height="42" rx="9" fill="#14141f" stroke="#5ed49a"/><text x="740" y="82" fill="#d7d7e2">Hibernate</text><text x="740" y="98" fill="#80808f" font-size="10.5">PG / SQLite</text>
+      </g>
+      <g stroke="#80808f" stroke-width="1.4" fill="none"><path d="M110,85 L126,85" marker-end="url(#sa)"/><path d="M248,85 L264,85" marker-end="url(#sa)"/><path d="M386,85 L402,85" marker-end="url(#sa)"/><path d="M524,85 L540,85" marker-end="url(#sa)"/><path d="M662,85 L678,85" marker-end="url(#sa)"/></g></svg>
+    </div></div>
+
+    <h2 class="sec" id="tree"><span class="n">3</span>目录结构</h2>
+    <div class="tree">src/main/java/com/hellotimepro/springboot/
+├── HelloTimeProApplication.java  <span class="c"># main 入口，@SpringBootApplication</span>
+├── config/{AppProperties,WebConfig}.java  <span class="c"># 配置载体 + CORS/静态资源</span>
+├── domain/                       <span class="c"># JPA 实体（@Entity）</span>
+├── repository/                   <span class="c"># Spring Data JPA 仓库接口</span>
+├── service/                      <span class="c"># 业务层（@Service / @Transactional）</span>
+├── dto/Dtos.java                 <span class="c"># 请求/响应 record，全部集中一文件</span>
+└── web/                          <span class="c"># @RestController + 全局异常 + 错误码</span></div>
+    <div class="callout"><code>@SpringBootApplication</code> = <code>@Configuration</code> + <code>@EnableAutoConfiguration</code>（按 classpath 自动装配 Tomcat/Jackson/Hibernate）+ <code>@ComponentScan</code>（扫描 <code>@Service/@Repository/@RestController</code> 纳入容器）。</div>
+
+    <h2 class="sec" id="core"><span class="n">4</span>Spring 的三个核心机制</h2>
+    <p>Spring Boot 没有「魔法」，但有三件事是 Java 程序员第一次看 Spring 最易困惑的。看懂它们，后面的注解都是它们的语法糖。</p>
+    <div class="mech">
+      <div class="h"><span class="tag">机制一</span>IoC 控制反转 + 构造器注入</div>
+      <div class="b"><p class="small muted"><code>@Service</code> 让 Spring 启动时把类实例化成<b>单例</b>放进容器；看到构造函数需要某个依赖，自动从容器找到对应 bean 传进来。好处：测试可传 mock、切换实现不改调用方、依赖关系一目了然。</p>
+      <pre><code>@Service
+public class FavoriteService {
+  private final CapsuleRepository capsules;
+  public FavoriteService(CapsuleRepository capsules) {  // 由 Spring 注入
+    this.capsules = capsules;
+  }
+}</code></pre></div>
+    </div>
+    <div class="mech">
+      <div class="h"><span class="tag">机制二</span>注解驱动 + 反射</div>
+      <div class="b"><p class="small muted"><code>@RestController/@GetMapping/@Valid/@Transactional</code> 本身什么都不做，只是「标签」。真正干活的是 Spring 启动时扫描这些标签并注册行为。看代码时凡是看到注解，默念一句：<b>「这是给 Spring 看的标签，行为在框架那边」</b>。</p></div>
+    </div>
+
+    <h2 class="sec" id="aop"><span class="n">5</span>机制三 · AOP 代理：<code>@Transactional</code> 为什么能工作</h2>
+    <p>方法上贴了 <code>@Transactional</code> 但代码里没有任何 <code>commit()</code>。Spring 启动时不直接把你写的类放进容器，而是创建一个<b>代理类</b>（运行时生成的子类），重写带注解的方法：</p>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">代理.register(req)</div><div class="arrow">↓</div>
+      <div class="node"><span class="mono">txManager.begin()</span></div><div class="arrow">↓</div>
+      <div class="node">try { result = 原始.register(req); <span class="mono">txManager.commit()</span> }</div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#ff2d91">catch (RuntimeException e) { <span class="mono">txManager.rollback()</span>; throw e }</div>
+    </div></div><div class="cap">调用方拿到的是代理实例，方法调用自动「被」事务化</div></div>
+    <div class="callout pink"><b>常见陷阱：</b>在同一个类内部调用另一个 <code>@Transactional</code> 方法<b>不会</b>走代理（<code>this.foo()</code> 绕开了代理对象），事务不生效。本项目都在「外部进入服务的入口方法」上加注解，避开此坑。</div>
+
+    <h2 class="sec" id="web"><span class="n">6</span>Web 层与统一外壳</h2>
+    <p>控制器只做「校验 + 取 user + 转 DTO」。统一外壳 <code>Envelope</code> 是一个 record，所有成功返回都 <code>Envelope.ok(...)</code>，错误由 <code>GlobalExceptionHandler</code> 用 <code>ErrorEnvelope</code> 构造。</p>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">鉴权：AuthContext</h4><p class="small muted">控制器不直接解析 JWT，统一调 <code>auth.required(authorization)</code>（必须登录）或 <code>auth.optional(...)</code>（影响 <code>favoritedByMe</code>）。</p><p class="small muted"><b>刻意不引入 spring-boot-starter-security</b>，只用它的 BCryptPasswordEncoder，让鉴权流程一眼看穿，便于教学。</p></div>
+      <div class="card"><h4 class="sub2">全局异常：@RestControllerAdvice</h4><p class="small muted">跨所有控制器的异常拦截器，按类型路由到 <code>@ExceptionHandler</code>：<code>ApiException</code> / <code>MethodArgumentNotValidException</code>（校验）/ <code>Exception</code>（兜底 500）。业务可放心 <code>throw ApiException.notFound(...)</code>。</p></div>
+    </div>
+
+    <h2 class="sec" id="dto"><span class="n">7</span>DTO + Bean Validation</h2>
+    <p>整个 DTO 集中写在 <code>Dtos.java</code>，全是 record（自动生成字段/构造/equals/访问器）。注解是 Jakarta Bean Validation 规范，<code>@Valid</code> 触发，失败抛 <code>MethodArgumentNotValidException</code> → 全局处理器转 422 + 逐字段 details。</p>
+    <pre><code>public record RegisterRequest(
+    @NotBlank @Email @Size(max = 254) String email,
+    @NotBlank @Size(min = 8, max = 128)
+    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).{8,128}$") String password,
+    @NotBlank @Size(min = 2, max = 20) String nickname,
+    @NotBlank @Size(min = 2, max = 20) String avatarId
+) {}</code></pre>
+
+    <h2 class="sec" id="domain"><span class="n">8</span>实体与跨库时间列</h2>
+    <p>JPA 实体用 <code>@Entity/@Table/@Id/@Column</code>。<code>@JdbcTypeCode(SqlTypes.VARCHAR)</code> 把 UUID 当 VARCHAR 存（让 PG 与 SQLite 一致）；复合主键用 <code>@Embeddable</code> + <code>@EmbeddedId</code>。</p>
+    <div class="callout green"><b><code>OffsetDateTimeStringConverter</code>：</b>SQLite 没有原生时间类型，用 TEXT 存。这个全局 <code>@Converter(autoApply = true)</code> 写入时把 <code>OffsetDateTime</code>→Timestamp(UTC)、读出时还原。<code>autoApply=true</code> 让所有实体的 <code>OffsetDateTime</code> 字段自动经过它，业务代码不感知。这是<a href="../comparison.html#be-dualdb">双库三解法</a>里的「A 类 · 类型层挂适配器」。</div>
+
+    <h2 class="sec" id="jpa"><span class="n">9</span>Spring Data JPA：写接口，框架生成 SQL</h2>
+    <p>继承 <code>JpaRepository&lt;T, ID&gt;</code> 就自动拥有 <code>save/findById/findAll/delete/count</code>。方法名即查询：<code>findByEmail</code> → <code>SELECT … WHERE email = ?</code>。三种进阶写法：</p>
+    <div class="grid g3">
+      <div class="card"><h4 class="sub2">@Query · JPQL</h4><p class="small muted">操作「实体名」而非表名。<code>findPlazaPage</code> 用命名参数 + <code>Pageable</code>，Spring 自动加 LIMIT/OFFSET 并执行 count，包成 <code>Page</code>（页码从 0 开始）。</p></div>
+      <div class="card"><h4 class="sub2">@Modifying · 原子 UPDATE</h4><p class="small muted"><code>set favoriteCount = favoriteCount + 1</code>，配 <code>flushAutomatically/clearAutomatically</code>。用原子 UPDATE 而非「load → +1 → save」让并发收藏不丢计数。</p></div>
+      <div class="card"><h4 class="sub2">@Lock · 行锁</h4><p class="small muted"><code>@Lock(PESSIMISTIC_WRITE)</code> 对应 <code>SELECT … FOR UPDATE</code>。Postgres 路径用它串行化并发收藏；SQLite 单写事务本身足够。</p></div>
+    </div>
+
+    <h2 class="sec" id="service"><span class="n">10</span>服务层与 refresh 轮转</h2>
+    <p>控制器薄，业务都在 <code>service/</code>。<code>refresh</code> 是最复杂的一段，关键是<b>声明式</b>事务流派：</p>
+    <pre><code>@Transactional(noRollbackFor = ApiException.class)
+public AuthTokens refresh(...) {
+  // 默认 unchecked 异常会触发回滚，但「重放检测时把整族 revoke 然后抛 401」
+  // 需要把 revoke 的写入提交掉，所以告诉 Spring 别为 ApiException 回滚
+  ...
+  if (row.revokedAt != null) { revokeFamily(...); throw ApiException.unauthorized(...); }
+}</code></pre>
+    <div class="callout cyan">这是<a href="../comparison.html#be-tx">事务四流派</a>里的「① 声明式」——直接 throw，靠 <code>noRollbackFor</code> 保证吊销不被回滚。其余手写事务的后端（Gin/Ktor/…）用 outcome 枚举模拟这一行为，注释还互相点名 <code>noRollbackFor</code>。其它服务：<code>AvatarService</code> 用 <code>@PostConstruct</code> 在 bean 初始化后缓存头像目录；<code>LlmClientService</code> 用 JDK <code>HttpClient</code> 先试 <code>/responses</code> 失败再退 <code>/chat/completions</code>，两层降级失败用本地模板兜底。</div>
+
+    <h2 class="sec" id="test"><span class="n">11</span>测试：SmokeTest</h2>
+    <p><code>@SpringBootTest(RANDOM_PORT)</code> 启动完整容器 + 内嵌 Tomcat 监听随机端口，<code>TestRestTemplate</code> 发 HTTP。端到端 smoke：注册 → 创建胶囊 → 校验未到点 content 为 null → 第二用户收藏 → 校验 hot 排序 → refresh 轮转后旧/新 token 都被废（重放检测）。覆盖 spec 最关键的不变式（I2 计数一致、I3 到点前不可见、refresh 一次性）。</p>
+
+    <h2 class="sec" id="change"><span class="n">12</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加一个新接口</td><td><code>web/</code> 新增 <code>@RestController</code> 方法，调 service</td></tr>
+      <tr><td>加请求/响应字段</td><td><code>dto/Dtos.java</code> 改 record（加校验注解）</td></tr>
+      <tr><td>加业务规则</td><td><code>*Service</code> 加判断，<code>throw ApiException.xxx(...)</code></td></tr>
+      <tr><td>加表/列</td><td>① 先改 <code>spec/db</code> 与维护脚本；② <code>domain/</code> 加 <code>@Entity</code>；③ <code>repository/</code> 加接口</td></tr>
+      <tr><td>加配置项</td><td><code>application.yml</code> 加 key → <code>AppProperties</code> 加字段</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="fastapi.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">FastAPI</div></a>
+      <a href="gin.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Gin</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Spring Boot 详解 · 整理自 backends/spring-boot/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

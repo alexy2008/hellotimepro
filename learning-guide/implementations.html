@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实现详解 · HelloTime Pro 学习资料</title>
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-brand" style="text-decoration:none"><img src="assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="index.html">总体介绍</a>
+      <a href="design.html">设计</a>
+      <a href="comparison.html">前后端对比</a>
+      <a href="implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#scores">评分总览</a>
+    <a href="#backends" style="font-weight:700;color:var(--signal-200)">十个后端</a>
+    <a href="#fastapi">　FastAPI</a>
+    <a href="#spring-boot">　Spring Boot</a>
+    <a href="#gin">　Gin</a>
+    <a href="#nest">　NestJS</a>
+    <a href="#elysia">　Elysia</a>
+    <a href="#ktor">　Ktor</a>
+    <a href="#aspnet">　ASP.NET Core</a>
+    <a href="#vapor">　Vapor</a>
+    <a href="#axum">　Axum</a>
+    <a href="#drogon">　Drogon</a>
+    <a href="#frontends" style="font-weight:700;color:var(--accent-300)">五个前端</a>
+    <a href="#react">　React</a>
+    <a href="#vue">　Vue 3</a>
+    <a href="#angular">　Angular</a>
+    <a href="#svelte">　Svelte 5</a>
+    <a href="#solid">　SolidJS</a>
+    <a href="#fullstacks" style="font-weight:700;color:var(--success-300)">五套全栈</a>
+    <a href="#spring-mvc">　Spring MVC</a>
+    <a href="#rails">　Rails</a>
+    <a href="#next">　Next.js</a>
+    <a href="#nuxt">　Nuxt</a>
+    <a href="#laravel">　Laravel</a>
+  </aside>
+
+  <main class="content">
+    <header style="padding-top:34px">
+      <span class="badge green">实现详解</span>
+      <h1 style="font-size:38px;margin:14px 0 6px">二十个实现，逐一详解</h1>
+      <p class="lead" style="font-size:18px">每张卡片含技术栈、一句话定位、亮点、取舍与评审打分。打分整理自 <code>docs/backend-review.md</code> / <code>frontend-review.md</code> / <code>fullstack-review.md</code>（满分 100：契约一致性 30 + 技术特色 25 + 代码简洁 20 + 文档 15 + 工程化 10）。</p>
+      <div class="callout cyan">每张卡片底部的 <b>「阅读详解」</b> 链接通往该栈的<b>独立详解页</b>——从各自的 <code>TECHNICAL_GUIDE.md</code> 展开，含整体地图、分层架构、核心机制深读（配图）、从真实请求读代码、招牌坑与改动指南。</div>
+    </header>
+
+    <h2 class="sec" id="scores">评分总览</h2>
+    <p>分差很小是事实而非和稀泥：各栈底子几乎一样好。区分度主要落在「技术特色展示」与「工程化」两栏。</p>
+    <div class="grid g3">
+      <div class="card">
+        <h4 class="sub2" style="color:var(--signal-200)">后端 · 十家</h4>
+        <div class="barchart" style="margin:10px 0 0">
+          <div class="row"><span class="name">FastAPI</span><div class="track"><div class="fill c-cyan" style="width:94%"></div></div><span class="v">94</span></div>
+          <div class="row"><span class="name">Axum</span><div class="track"><div class="fill c-cyan" style="width:93%"></div></div><span class="v">93</span></div>
+          <div class="row"><span class="name">Spring Boot</span><div class="track"><div class="fill c-cyan" style="width:92%"></div></div><span class="v">92</span></div>
+          <div class="row"><span class="name">Ktor</span><div class="track"><div class="fill c-cyan" style="width:92%"></div></div><span class="v">92</span></div>
+          <div class="row"><span class="name">Drogon</span><div class="track"><div class="fill c-cyan" style="width:92%"></div></div><span class="v">92</span></div>
+          <div class="row"><span class="name">Gin</span><div class="track"><div class="fill c-cyan" style="width:91%"></div></div><span class="v">91</span></div>
+          <div class="row"><span class="name">ASP.NET</span><div class="track"><div class="fill c-cyan" style="width:91%"></div></div><span class="v">91</span></div>
+          <div class="row"><span class="name">Vapor</span><div class="track"><div class="fill c-cyan" style="width:91%"></div></div><span class="v">91</span></div>
+          <div class="row"><span class="name">Elysia</span><div class="track"><div class="fill c-cyan" style="width:90%"></div></div><span class="v">90</span></div>
+          <div class="row"><span class="name">NestJS</span><div class="track"><div class="fill c-cyan" style="width:89%"></div></div><span class="v">89</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h4 class="sub2" style="color:var(--accent-300)">前端 · 五家</h4>
+        <div class="barchart" style="margin:10px 0 0">
+          <div class="row"><span class="name">Vue 3</span><div class="track"><div class="fill c-pink" style="width:93%"></div></div><span class="v">93</span></div>
+          <div class="row"><span class="name">React</span><div class="track"><div class="fill c-pink" style="width:92%"></div></div><span class="v">92</span></div>
+          <div class="row"><span class="name">Svelte 5</span><div class="track"><div class="fill c-pink" style="width:91%"></div></div><span class="v">91</span></div>
+          <div class="row"><span class="name">SolidJS</span><div class="track"><div class="fill c-pink" style="width:90%"></div></div><span class="v">90</span></div>
+          <div class="row"><span class="name">Angular</span><div class="track"><div class="fill c-pink" style="width:85%"></div></div><span class="v">85</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h4 class="sub2" style="color:var(--success-300)">全栈 · 五家</h4>
+        <div class="barchart" style="margin:10px 0 0">
+          <div class="row"><span class="name">Spring MVC</span><div class="track"><div class="fill c-green" style="width:93%"></div></div><span class="v">93</span></div>
+          <div class="row"><span class="name">Rails</span><div class="track"><div class="fill c-green" style="width:92%"></div></div><span class="v">92</span></div>
+          <div class="row"><span class="name">Next.js</span><div class="track"><div class="fill c-green" style="width:89%"></div></div><span class="v">89</span></div>
+          <div class="row"><span class="name">Nuxt</span><div class="track"><div class="fill c-green" style="width:87%"></div></div><span class="v">87</span></div>
+          <div class="row"><span class="name">Laravel</span><div class="track"><div class="fill c-green" style="width:86%"></div></div><span class="v">86</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= 后端 ======================= -->
+    <h2 class="sec" id="backends"><span class="n" style="background:linear-gradient(135deg,#00b8d4,#14d4f0)">10</span>十个后端</h2>
+    <div class="impl-grid">
+
+      <div class="impl" id="fastapi">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/fastapi.svg" alt=""></div><div><h3>FastAPI <span class="badge cyan">参考实现</span></h3><div class="meta">Python 3.12 · :29010 · SQLAlchemy 2.0</div></div></div>
+        <p class="pos">参考实现：async + Pydantic v2 + SQLAlchemy，分层最「标准教科书」，是其余九家的模板与基准。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li><code>llm_client.py</code> 是全项目 LLM 客户端金标准（三风格切换 / 瞬时错误重试 / 坏 JSON 不重试 / CF UA 规避）</li><li>21 章手册最厚，含「从真实请求读代码」端到端走查 + 「初学者常见困惑」章</li><li>自带 986 行 pytest，十家唯一成规模单测，工程化满分</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>作为参考实现，「技术特色展示」分天然偏保守（读者已在别处见过同款 async 写法）</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:94%"></span></div><div class="score-val">94 / 100</div></div>
+      </div>
+
+      <div class="impl" id="spring-boot">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/springboot.svg" alt=""></div><div><h3>Spring Boot</h3><div class="meta">Java 21 · :29000 · Spring Data JPA</div></div></div>
+        <p class="pos">企业级全家桶，约定优于配置，抽象层最厚；<code>controller→service→repository→entity</code> 与四层映射最贴合。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>跨库用自定义 <code>@JdbcType</code> + 自实现 <code>ValueBinder</code>（连 null 也按方言处理）</li><li>真 <code>@Transactional(noRollbackFor)</code> + Flyway 参考脚本，诚实展示生产级做法</li><li>PG 路径 <code>SELECT … FOR UPDATE</code> 行锁 + 原子计数</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>抽象层最厚——平时最省心，跨库时必须下沉到 Hibernate 底层 SPI</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:92%"></span></div><div class="score-val">92 / 100</div></div>
+      </div>
+
+      <div class="impl" id="gin">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/gin.svg" alt=""></div><div><h3>Gin</h3><div class="meta">Go 1.22 · :29020 · GORM</div></div></div>
+        <p class="pos">极简、显式、无魔法，错误一律 <code>if err != nil</code>，所有控制流摆在明面上。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>handler 极薄零隐藏分支：<code>CurrentUser → ShouldBindJSON → service → dto.OK</code></li><li>Go 标准布局 <code>cmd/{server,migrate}</code> + <code>internal/{handler,service,…}</code></li><li>「没有任何隐藏控制流」的最佳示范</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>代码量最大（3130 行）是 Go 风格的必然——手写 DTO↔model 转换、显式错误传播，「冗长换透明」</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:91%"></span></div><div class="score-val">91 / 100</div></div>
+      </div>
+
+      <div class="impl" id="nest">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/nestjs.svg" alt=""></div><div><h3>NestJS</h3><div class="meta">TypeScript (Node) · :29040 · TypeORM</div></div></div>
+        <p class="pos">Angular 式 TS 企业框架，装饰器 + DI + 模块化纵切，结构最规整。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li><code>EnvelopeInterceptor</code> + 异常 Filter + Guard，最地道的横切关注点处理</li><li>每个 feature 模块 controller/service/dto 自带全套，规整度十家第一</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li><b>十家唯一不用事务</b>的实现（收藏计数两条独立语句、refresh 无事务无行锁，注释自陈教学简化）</li><li>文件最多、单文件最小，跳转成本最高</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:89%"></span></div><div class="score-val">89 / 100</div></div>
+      </div>
+
+      <div class="impl" id="elysia">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/elysia.svg" alt=""></div><div><h3>Elysia</h3><div class="meta">TypeScript (Bun) · :29030 · 原生 SQL</div></div></div>
+        <p class="pos">Bun 原生、函数式、原生 SQL，依赖最少（5 个）、最「贴金属」，代码量最少（1719 行）。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>已重构出内聚的 <code>services/{auth,capsules,plaza,favorites,ai}.ts</code>，十家唯一有「演进痕迹」</li><li>Bun 内置 SQLite/密码/测试，把样板压到最低，启动链路最短</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>类型安全靠自觉（原生 SQL 无编译期列校验）；纯逻辑单测薄</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:90%"></span></div><div class="score-val">90 / 100</div></div>
+      </div>
+
+      <div class="impl" id="ktor">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/ktor.svg" alt=""></div><div><h3>Ktor</h3><div class="meta">Kotlin · :29090 · Exposed DSL</div></div></div>
+        <p class="pos">Kotlin 协程 + Exposed DSL + 手动装配，轻量 JVM 的教科书写法。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>手册最适合初学者（明确面向「懂 Kotlin 但没接触过 Ktor/Exposed」的读者）</li><li><code>install(...)</code> 显式组合插件，与 Spring 自动装配形成清晰对照</li><li><code>CrossDbColumns.kt</code> 自定义列类型，点名「对应 Spring JDBC type / ASP.NET ValueConverter」——跨栈引用范例</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>无明显短板；<code>AppComponents</code> 手动维护构造顺序的代价手册已诚实说明</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:92%"></span></div><div class="score-val">92 / 100</div></div>
+      </div>
+
+      <div class="impl" id="aspnet">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/dotnet.svg" alt=""></div><div><h3>ASP.NET Core</h3><div class="meta">C# 12 · :29050 · EF Core 8</div></div></div>
+        <p class="pos">EF Core + 中间件管线 + DI，.NET 现代最小宿主。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>诚实展示 .NET 特有坑并给出解法：禁用 <code>[ApiController]</code> 自动 400 统一 422；HS256 密钥 ≥256 位用 SHA-256 派生；<code>ClockSkew=0</code> 去掉 5 分钟宽限</li><li><code>CrossDb.cs</code> 仅 SQLite provider 挂转换器，PG 交给 Npgsql，边界干净</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>无原则性问题；与 Ktor 同属「扎实但不抢戏」一档</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:91%"></span></div><div class="score-val">91 / 100</div></div>
+      </div>
+
+      <div class="impl" id="vapor">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/vapor.svg" alt=""></div><div><h3>Vapor</h3><div class="meta">Swift · :29060 · SQLKit 手写 SQL</div></div></div>
+        <p class="pos">SwiftNIO 全链路 <code>async throws</code>，actor 串行化 SQLite + 手写 JSON 树控显式 null。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li><b>actor 串行化 SQLite</b>：<code>AsyncGate</code>（actor 实现的 FIFO 异步互斥）是 Swift 并发模型的地道展示</li><li>手写 <code>JSON</code> 枚举树替代 Codable 合成——因契约要 <code>data</code>/<code>errorCode</code> 为<b>显式 null</b></li><li>独有「目录为何叫 server」踩坑记录（SwiftPM 同名 cyclic dependency）</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>冷启动需先 <code>./build</code> 预热（release 编译数分钟），否则契约脚本就绪窗口超时</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:91%"></span></div><div class="score-val">91 / 100</div></div>
+      </div>
+
+      <div class="impl" id="axum">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/axum.svg" alt=""></div><div><h3>Axum</h3><div class="meta">Rust · :29070 · sqlx（不用宏）</div></div></div>
+        <p class="pos">Rust 类型系统即正确性：<code>IntoResponse</code> 让「漏接错误」编译不过；自研 Value/Cell 跨库层。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li><b><code>IntoResponse</code> 让错误处理变成类型问题</b>：任何 <code>?</code> 直接产出契约错误外壳，漏接异常编译不过</li><li><b>自研 <code>Value</code>/<code>Cell</code> 跨库编解码层</b>（cell-driven），SQL 文本完全共享</li><li>已删除未使用的 sqlx <code>macros</code> feature，依赖更干净</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>无原则性问题；<code>?</code>→<code>$n</code> 替换依赖「SQL 文本不含字面 ?」的约定（手册已声明）</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:93%"></span></div><div class="score-val">93 / 100</div></div>
+      </div>
+
+      <div class="impl" id="drogon">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/drogon.svg" alt=""></div><div><h3>Drogon</h3><div class="meta">C++20 · :29080 · 裸 SQL · 全文本协议</div></div></div>
+        <p class="pos">C++20 协程，把「异步析构提交竞态」「catch 不能 co_await」两个真实坑写成必读章节。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li><b>两个 C++ 协程真坑成必读章</b>：异步析构提交竞态（<code>awaitCommit</code> 等提交落地再返回）；catch 里不能 co_await（改「记 flag、try 外 co_await」）</li><li><code>third_party/openbsd_bcrypt</code> 来历透明（复制本仓库 nest 的内嵌实现，保留 ISC 版权头）</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>构建成本最高：FetchContent 静态链接 drogon 本体，首次编译 4–5 分钟</li><li><code>std::regex</code> 不支持 <code>\p{L}</code>，昵称校验对 ≥U+0080 一律放行（略宽）</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:92%"></span></div><div class="score-val">92 / 100</div></div>
+      </div>
+
+    </div>
+
+    <!-- ======================= 前端 ======================= -->
+    <h2 class="sec" id="frontends"><span class="n" style="background:linear-gradient(135deg,#ff2d91,#ff4fa0)">5</span>五个前端</h2>
+    <div class="impl-grid">
+
+      <div class="impl" id="react">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/react.svg" alt=""></div><div><h3>React <span class="badge pink">参考实现</span></h3><div class="meta">React 19 · :7174 · Zustand</div></div></div>
+        <p class="pos">「UI 是状态的纯函数」——hooks + 单向数据流，生态最大、心智最主流，其余四栈对齐它。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li><code>api/client.ts</code> 注释最完整；CreatePage 的 AI 生成流（空标题回填、竞态序号、StrictMode 防重）是全项目交互最佳示范</li><li>react-router 7 <code>createBrowserRouter</code> data router + 组件式 <code>AuthGate</code> 守卫</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>倒计时逻辑在 CapsuleCard 与 CapsuleDetail 各写一遍（Vue/Svelte 用 composable 抽取更好）</li><li>内联 <code>style</code> 用量偏大，与 <code>cy-*</code> 类分工边界模糊</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:92%"></span></div><div class="score-val">92 / 100</div></div>
+      </div>
+
+      <div class="impl" id="vue">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/vue.svg" alt=""></div><div><h3>Vue 3 <span class="badge green">最高分</span></h3><div class="meta">Vue 3.5 · :7173 · Pinia</div></div></div>
+        <p class="pos">「响应式应该是自动的，结构应该是分区的」——Proxy 响应式 + SFC，渐进、平衡。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>执行最干净的一份：<code>useCountdown</code> / <code>useDebouncedRef</code> / <code>useClickOutside</code> composable 抽取得当、带用法示例</li><li>Pinia setup store + <code>wireAuthApi()</code> 显式接线，并注释「store 必须在 app 创建后才能用」的模块加载顺序坑</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>设计文档说 Vue 有 capsule store，实际没有（逻辑在页面内）——文档与实现不符，无行为影响</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:93%"></span></div><div class="score-val">93 / 100</div></div>
+      </div>
+
+      <div class="impl" id="angular">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/angular.svg" alt=""></div><div><h3>Angular</h3><div class="meta">Angular 19 · :7175 · NgRx Signal Store</div></div></div>
+        <p class="pos">「大型团队需要约定、结构与可治理性」——全家桶 + DI + Signals，约定最强、运行时最重。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>现代 Angular 到位：standalone 组件、<code>signalStore</code>、函数式 <code>CanActivateFn</code>、<code>@for/@if</code> 新控制流、内联模板；总代码最紧凑（2794 行）</li><li>唯一做路由级懒加载（<code>loadComponent</code>）、唯一把 fetch 封装成可注入 <code>ApiService</code></li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li><b>最大缺口</b>：<code>ApiService</code> 用原生 fetch 逐行复刻 React，砍掉了 Angular 最该展示的 <code>HttpClient</code> + interceptor</li><li>曾无单测（已补 vitest 7 例）</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:85%"></span></div><div class="score-val">85 / 100</div></div>
+      </div>
+
+      <div class="impl" id="svelte">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/svelte.svg" alt=""></div><div><h3>Svelte 5</h3><div class="meta">Svelte 5 Runes · :7176 · .svelte.ts 单例</div></div></div>
+        <p class="pos">「框架应该在编译期消失」——Runes 让响应式像写普通变量，产物最薄之一。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>Svelte 5 特性最「新」最完整：runes class store、<code>.svelte.ts</code> 单例、<code>Snippet</code> children、<code>$effect</code> 守卫、runes 工具</li><li>TECHNICAL_GUIDE 843 行五家最长，含 Svelte vs React vs Vue 对照表</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>曾路由偏离（<code>/capsules/:code</code> + 独有 <code>/plaza/:id</code>，逼验证脚本写实现感知特判）——已收敛到 <code>/c/:code</code></li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:91%"></span></div><div class="score-val">91 / 100</div></div>
+      </div>
+
+      <div class="impl" id="solid">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/solidjs.svg" alt=""></div><div><h3>SolidJS</h3><div class="meta">Solid 1.9 · :7180 · 模块级 createStore</div></div></div>
+        <p class="pos">「响应式可以细到单个 DOM 节点」——组件只跑一次，无 VDOM，点对点更新，产物最薄（91 KB）。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>细粒度响应式展示充分：闭包请求序号（注释「为什么不放 store 里——避免多余订阅」），<code>patchPlazaFavorited</code> 定点更新</li><li>手册独家内容最多：§14 渲染原理（无 VDOM 更新去哪了）、§17 实测踩坑 FAQ</li><li>逻辑层逐字复用 react-ts 的纯 TS，证明业务逻辑与框架彻底解耦</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>曾缺顶层 <code>./test</code> 包装脚本（已补）</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:90%"></span></div><div class="score-val">90 / 100</div></div>
+      </div>
+
+    </div>
+
+    <!-- ======================= 全栈 ======================= -->
+    <h2 class="sec" id="fullstacks"><span class="n" style="background:linear-gradient(135deg,#2bb87a,#5ed49a)">5</span>五套全栈</h2>
+    <div class="impl-grid">
+
+      <div class="impl" id="spring-mvc">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/springboot.svg" alt=""></div><div><h3>Spring MVC <span class="badge green">全栈最高</span></h3><div class="meta">Java 21 · :7179 · Thymeleaf + HTMX</div></div></div>
+        <p class="pos">传统 JVM SSR，用 HTMX 给经典 <code>@Controller</code> + Thymeleaf 补上声明式局部刷新。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>工程成熟度五家之首：全 service 正确 <code>@Transactional</code>（含 <code>noRollbackFor</code>）；<code>SmokeTest</code> 是真正的 HTTP 层集成测试</li><li><code>CookieTokenFilter</code> 设计优雅，cookie→Bearer 注入让 SSR fetch 复用同一套控制器</li><li>业务地基与 <code>backends/spring-boot</code> 复用，避免双份分叉</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>手册对招牌特色 HTMX 曾着墨偏少（已扩写为含属性表 + Turbo 对照）</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:93%"></span></div><div class="score-val">93 / 100</div></div>
+      </div>
+
+      <div class="impl" id="rails">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/rails.svg" alt=""></div><div><h3>Rails</h3><div class="meta">Ruby · :7181 · Hotwire (Turbo + Stimulus)</div></div></div>
+        <p class="pos">「HTML 本身就是 API，片段就是线缆协议」——Turbo Frame/Stream + Stimulus，客户端 JS 最省。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>最框架地道：12 个职责单一的 Stimulus controller；Turbo 负责导航，JS 只做增强</li><li>数据层注释教学价值最高：<code>FavoriteService</code> 事务 + PG 行锁 + 「SQLite 依赖单写事务」差异说明</li><li>冒烟直击风险点：固定跨库存储格式不变式（小数秒去尾零、uuid↔hex 往返）</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>冒烟只覆盖 CrossDb 纯逻辑，无 HTTP 层用例；<code>run</code>/<code>test</code> 硬编码 homebrew ruby 路径</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:92%"></span></div><div class="score-val">92 / 100</div></div>
+      </div>
+
+      <div class="impl" id="next">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/nextjs.svg" alt=""></div><div><h3>Next.js</h3><div class="meta">TypeScript · :7177 · App Router + RSC</div></div></div>
+        <p class="pos">「服务端和客户端是同一棵树的两种节点」——RSC 是默认，前后端边界模糊到同一棵组件树里。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li><b>RSC 不是摆设</b>：广场 / 胶囊详情在服务端直调 service 取数（无 HTTP 往返），孤岛只保留必要交互</li><li><code>lib/server/session.ts</code> 用 10 行注释讲清「为什么 Bearer 之外还要 httpOnly cookie」</li><li>路由层薄如纸（<code>withApi</code> + zod + service，一个 handler 十几行）</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>曾五家唯一无 README（已补）；曾未用 <code>generateMetadata</code> 动态标题（已补）</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:89%"></span></div><div class="score-val">89 / 100</div></div>
+      </div>
+
+      <div class="impl" id="nuxt">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/nuxt.svg" alt=""></div><div><h3>Nuxt</h3><div class="meta">TypeScript · :7178 · 混合渲染</div></div></div>
+        <p class="pos">「渲染方式应该能按路由逐个选」——通用渲染 + <code>routeRules</code> 一行决定 SSR 还是 CSR。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li><b>混合渲染教科书级展示</b>：<code>routeRules</code> 把 <code>/create</code>、<code>/me/**</code> 标成 SPA 孤岛，注释讲透「为什么鉴权页 SSR 有害无益」</li><li>SSR 数据一致性成熟：<code>useAsyncData</code> 服务端预取 + 登录用户客户端补取纠正 <code>favoritedByMe</code></li><li>服务端与 Next 逐行同构，是「换框架不换业务」最好教材</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>曾全站无 <code>&lt;title&gt;</code>（与「SSR 利于 SEO」动机自相矛盾，已修）；用 <code>RouterLink</code> 而非 <code>NuxtLink</code></li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:87%"></span></div><div class="score-val">87 / 100</div></div>
+      </div>
+
+      <div class="impl" id="laravel">
+        <div class="impl-head"><div class="ic"><img src="assets/icons/laravel.svg" alt=""></div><div><h3>Laravel</h3><div class="meta">PHP 8.3 · :7182 · Blade + Alpine.js</div></div></div>
+        <p class="pos">「服务端把数据备好、把 HTML 渲完，浏览器只点睛」——前后端边界锐利，Eloquent ORM 为招牌。</p>
+        <div class="lbl">亮点</div>
+        <ul class="good"><li>Eloquent 重构成色好：Model + 关系 + 自定义 Cast（<code>CrossDbBoolean</code>）+ <code>HasCrossDbKey</code> + <code>lockForUpdate</code> 行锁</li><li>手册 §1 是五家中最实事求是的（表格列双入口、无营销腔）</li><li><code>vite.config.js</code> 注释解释「JS 为何不走 Vite 构建」——对非常规选择主动给理由</li></ul>
+        <div class="lbl">取舍</div>
+        <ul class="warn"><li>测试套件曾空转（"No tests found" 却报 passed，已补 12 个 phpunit 单测）</li><li>曾保留旧 UI 路由别名（已收敛到 <code>/c/{code}</code>）</li></ul>
+        <div class="score-row"><div class="score-bar"><span style="width:86%"></span></div><div class="score-val">86 / 100</div></div>
+      </div>
+
+    </div>
+
+    <div class="callout cyan" style="margin-top:36px"><b>最有价值的对照读法：</b>挑同一条链路（如 <code>POST /me/favorites</code> 或 refresh 轮转），在 2–3 家之间并排读——跨库适配看 Spring（<code>@JdbcType</code>）↔ Axum（Value/Cell 枚举）↔ Drogon（纯文本协议）；协程并发看 Ktor（连接池=1）↔ Vapor（AsyncGate actor）↔ Drogon（手写 awaitCommit）。这就是本项目最大的价值：<b>同一道题，二十种母语的解法。</b></div>
+
+    <div class="pagenav">
+      <a href="comparison.html"><div class="dir">← 上一页</div><div class="ttl">前后端对比</div></a>
+      <a href="index.html" class="next"><div class="dir">回到 →</div><div class="ttl">总体介绍</div></a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="footer">HelloTime Pro · 实现详解 · 整理自 docs/backend-review.md · frontend-review.md · fullstack-review.md · 各实现 TECHNICAL_GUIDE.md</footer>
+
+<script>
+  // 每张实现卡片的 id 与其详解页文件名一一对应：为每张卡注入「阅读详解」链接
+  document.querySelectorAll(".impl[id]").forEach((card) => {
+    const name = card.querySelector(".impl-head h3")?.textContent.trim().split(" ")[0] || "详解";
+    const a = document.createElement("a");
+    a.className = "impl-more";
+    a.href = "stacks/" + card.id + ".html";
+    a.textContent = "阅读 " + name + " 详解";
+    card.appendChild(a);
+  });
+</script>
+</body>
+</html>

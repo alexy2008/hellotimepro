@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spring MVC 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与双入口</a>
+    <a href="#routing">2 · 注解路由</a>
+    <a href="#htmx">3 · HTMX 局部刷新</a>
+    <a href="#bridge">4 · CookieTokenFilter 桥</a>
+    <a href="#xhr">5 · 收藏为何用同步 XHR</a>
+    <a href="#db">6 · 跨库 JdbcType</a>
+    <a href="#turbo">7 · 与 Turbo 对照</a>
+    <a href="#compare">8 · 与 Next/Nuxt 对照</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#spring-mvc" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/springboot.svg" alt="Spring MVC"></div>
+      <div>
+        <h1>Spring MVC</h1>
+        <p class="one">传统 JVM SSR：经典 <code>@Controller</code> + Thymeleaf 整页渲染，用 HTMX 给老架构补上声明式局部刷新——工程最扎实，全栈最高分。</p>
+        <div class="stack-meta">
+          <span class="badge green">全栈最高 93</span><span class="badge port">:7179</span>
+          <span class="badge">Java 21</span><span class="badge">Spring Boot 3.3</span><span class="badge">Thymeleaf + HTMX</span><span class="badge">Spring Data JPA</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向想理解「传统 Java SSR 全栈如何在保持 <code>/api/v1/*</code> 契约不变的前提下用 Thymeleaf + HTMX 做服务端渲染」的读者。整理自 <code>fullstacks/spring-mvc/TECHNICAL_GUIDE.md</code>（479 行）。业务地基与 <a href="spring-boot.html">backends/spring-boot</a> 复用，避免双份分叉。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>选型与双入口</h2>
+    <p>同一个 Spring Boot 进程同时提供两套入口：</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>入口</th><th>消费者</th><th>鉴权</th><th>输出</th></tr></thead><tbody>
+      <tr><td><code>/api/v1/*</code></td><td>契约测试、浏览器 fetch</td><td><code>Authorization: Bearer</code></td><td>JSON envelope</td></tr>
+      <tr><td>页面 + <code>/ui/*</code></td><td>浏览器导航、HTMX、表单</td><td>httpOnly cookie</td><td>HTML 整页 / 片段 / 少量 JSON</td></tr>
+    </tbody></table></div>
+    <p class="small muted"><code>@RestController</code> 承载完整 JSON 契约；<code>@Controller</code> + Thymeleaf 承载 SSR 页面；HTMX 负责广场搜索/撤回等局部 HTML 替换；原生 JS 负责主题/头像/8 位码/AI/资料页 fetch 等浏览器行为；Spring Data JPA + Hibernate 负责双驱动持久化；<code>CookieTokenFilter</code> 把同源 cookie 自动转 Bearer。这是<a href="../comparison.html#fs-spectrum">边界谱系</a>右端「服务端模板 + 增强」的代表。</p>
+
+    <h2 class="sec" id="routing"><span class="n">2</span>注解路由：URL 写在 Controller 上</h2>
+    <p>Next/Nuxt 用文件系统路由，Spring MVC 用注解路由。SSR 页面是普通 Controller 返回 view name——<code>PublicViewController.plaza()</code> 返回 <code>"plaza"</code>，Spring 渲染 <code>templates/plaza.html</code>，Controller 通过 <code>Model</code> 放入数据，模板只负责展示。</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>Next/Nuxt</th><th>Spring MVC</th></tr></thead><tbody>
+      <tr><td><code>app/page.tsx</code> / <code>pages/index.vue</code></td><td><code>@GetMapping("/")</code></td></tr>
+      <tr><td><code>app/api/v1/health/route.ts</code></td><td><code>@GetMapping("/api/v1/health")</code></td></tr>
+      <tr><td><code>pages/c/[code].vue</code></td><td><code>@GetMapping("/c/{code}")</code></td></tr>
+    </tbody></table></div>
+
+    <h2 class="sec" id="htmx"><span class="n">3</span>HTMX：HTML 片段成为交互协议</h2>
+    <p>HTMX 是 ~14 KB 的库（无构建、无 npm），用 HTML 属性（<code>hx-get/hx-post/hx-target/hx-swap</code>）触发 AJAX 并把响应 HTML 插入页面指定区域——<b>不写 JS 就能局部刷新</b>。广场搜索不返回 JSON 再拼 DOM，而是：</p>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">input/change（300ms 防抖）</div><div class="arrow">↓</div>
+      <div class="node"><span class="mono">hx-get="/ui/plaza/grid"</span> → <span class="mono">FragmentController.plazaGrid()</span></div><div class="arrow">↓</div>
+      <div class="node">返回 <span class="mono">"fragments/plaza-grid :: grid"</span>（Thymeleaf 片段，只渲染那一块 HTML）</div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#5ed49a">HTMX 替换 <span class="mono">#plaza-grid</span> 区域</div>
+    </div></div></div>
+    <p class="small muted">关键属性：<code>hx-trigger="input changed delay:300ms"</code>（防抖）、<code>hx-target="#plaza-grid"</code>（插入位置）、<code>hx-sync="this:replace"</code>（取消前一个同名请求）、<code>hx-include="[name='q']"</code>（带上搜索框值）。<b>Playwright 陷阱：</b><code>input</code> 触发覆盖了 Playwright <code>fill()</code> 派发的 input 事件——若只写 <code>keyup</code>，自动化测试填值后不会触发搜索。</p>
+
+    <h2 class="sec" id="bridge"><span class="n">4</span>CookieTokenFilter：cookie → Bearer 桥</h2>
+    <p>契约要求 Bearer token，SSR 页面适合 httpOnly cookie。桥接规则：</p>
+    <pre><code>若请求路径是 /api/v1/* 且没有 Authorization 头 且带 ht_access cookie
+则包装请求，让 getHeader("Authorization") 返回 Bearer &lt;ht_access&gt;</code></pre>
+    <div class="callout cyan">因此：契约测试带真实 Bearer 时<b>不受影响</b>；无鉴权用例仍返回 401；浏览器同源 fetch 自动带 cookie 也能复用同一套 JSON 控制器。<code>CookieAuthService</code> 只在 access 缺失或过期时用 refresh 轮换，<b>避免每次导航都 refresh 导致 token family 被误吊销</b>（注释点名了 next/nuxt「急切刷新误登出」的坑）。这是<a href="../comparison.html#fs-bridge">cookie→Bearer 桥</a>的 Servlet Filter 写法。</div>
+
+    <h2 class="sec" id="xhr"><span class="n">5</span>收藏为何用同步 XHR（反直觉但正确）</h2>
+    <div class="callout pink">广场搜索、撤回胶囊都走 HTMX 局部替换，唯独收藏刻意用<b>同步 XHR</b>。原因：收藏的典型操作是「点收藏 → 立刻导航到 /me/favorites」。若用异步请求，这次导航会 <code>abort</code> 掉尚未完成的收藏请求，事务来不及提交，跳过去就看不到刚收藏的那条。<b>同步 XHR 阻塞到事务提交后才返回</b>，保证后续导航能看到刚写入的数据。这是「不是所有交互都适合声明式局部刷新」的典型取舍，与 <a href="rails.html">Rails</a> 同源（<a href="../comparison.html#fs-bridge">收藏同步 XHR</a>）。</div>
+
+    <h2 class="sec" id="db"><span class="n">6</span>跨库 JdbcType 与 favorite_count 一致性</h2>
+    <p>PG 用原生 <code>uuid</code>/<code>timestamptz</code>；SQLite 用 TEXT（32 位无横线 hex + 可排序 ISO-8601 文本）。差异集中在 <code>CrossDbUuidJdbcType</code> / <code>CrossDbOffsetDateTimeJdbcType</code>——是 Spring MVC 版对应 <a href="ktor.html">Ktor <code>CrossDbColumns</code></a>、Rails <code>CrossDb</code>、Laravel <code>CrossDb</code> 的实现（<a href="../comparison.html#fs-bridge">全栈跨库</a>「Hibernate JdbcType」）。</p>
+    <div class="callout"><code>FavoriteService</code> 在事务内维护 <code>favorite_count</code>：添加锁胶囊 + 插入 + 递增；取消删除 + 递减（不低于 0）。PG 用 <code>PESSIMISTIC_WRITE</code> 行锁防并发漂移，SQLite 依赖单写事务。<b>不要改成查询时 COUNT</b>——spec 明确要求 denormalized <code>favorite_count</code> 被维护。</div>
+
+    <h2 class="sec" id="turbo"><span class="n">7</span>HTMX 与 Hotwire（Turbo Frame）对照</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>维度</th><th>HTMX</th><th>Turbo Frame（Rails）</th></tr></thead><tbody>
+      <tr><td>触发方式</td><td><code>hx-*</code> 属性</td><td><code>&lt;turbo-frame&gt;</code> + 表单/链接 target</td></tr>
+      <tr><td>响应格式</td><td>任意 HTML 片段</td><td>含同 id <code>&lt;turbo-frame&gt;</code> 的完整响应</td></tr>
+      <tr><td>同步控制</td><td><code>hx-sync</code> 属性</td><td>Turbo 自动管理</td></tr>
+      <tr><td>JS 大小</td><td>~14 KB</td><td>~60 KB（含 Turbo Drive、Stream）</td></tr>
+      <tr><td>框架集成</td><td>框架无关</td><td>Rails 官方支持</td></tr>
+    </tbody></table></div>
+
+    <h2 class="sec" id="compare"><span class="n">8</span>与 Next/Nuxt 并排对比</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>关注点</th><th>Next/Nuxt</th><th>Spring MVC</th></tr></thead><tbody>
+      <tr><td>页面路由</td><td>文件系统路由</td><td><code>@Controller</code> + <code>@GetMapping</code></td></tr>
+      <tr><td>页面渲染</td><td>React/Vue 组件</td><td>Thymeleaf 模板</td></tr>
+      <tr><td>局部交互</td><td>Client Component / Vue + store</td><td>HTMX 片段 + 原生 JS</td></tr>
+      <tr><td>数据层</td><td>Drizzle + SQL schema</td><td>Spring Data JPA + Hibernate JdbcType</td></tr>
+      <tr><td>鉴权桥</td><td>cookie / server helper</td><td><code>CookieTokenFilter</code></td></tr>
+    </tbody></table></div>
+    <p class="small muted">关键差异：Next/Nuxt 的 UI 大多在客户端组件里组织状态；Spring MVC 的 UI 主要由服务端模板渲染，浏览器只承担局部增强。<a href="../comparison.html#fs-clientjs">客户端 JS</a> 仅 406 行（<code>static/js</code>），远少于同构阵营。</p>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>新增 JSON API</td><td><code>web/*Controller.java</code> 加 mapping，业务放 <code>service/*</code>，错误抛 <code>ApiException</code></td></tr>
+      <tr><td>新增页面</td><td><code>web/view/*ViewController.java</code> 加 route，准备 <code>Model</code>，新建 <code>templates/*.html</code></td></tr>
+      <tr><td>新增局部刷新</td><td>优先放 <code>FragmentController</code> 返回 Thymeleaf fragment</td></tr>
+      <tr><td>改 schema</td><td>先改 <code>spec/db</code> + <code>scripts/db</code>，再同步 Entity/Repository/JdbcType</td></tr>
+      <tr><td>改收藏</td><td>必须维护事务内 <code>favorite_count</code>，不绕过 <code>FavoriteService</code></td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="nuxt.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Nuxt</div></a>
+      <a href="rails.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Rails</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Spring MVC 详解 · 整理自 fullstacks/spring-mvc/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

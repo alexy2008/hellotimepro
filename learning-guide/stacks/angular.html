@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Angular 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#core">2 · Angular 五个核心概念</a>
+    <a href="#signals">3 · Signals 细粒度响应式</a>
+    <a href="#control">4 · 新控制流 @if/@for</a>
+    <a href="#router">5 · 路由：懒加载 + 函数式守卫</a>
+    <a href="#api">6 · 数据层：ApiService</a>
+    <a href="#httpclient">7 · HttpClient 对照（取舍）</a>
+    <a href="#store">8 · NgRx Signal Store</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#angular" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/angular.svg" alt="Angular"></div>
+      <div>
+        <h1>Angular</h1>
+        <p class="one">「大型团队需要约定、结构与可治理性」——全家桶 + 依赖注入 + Signals，约定最强、运行时最重；唯一做路由级懒加载、唯一把 fetch 封装成可注入服务。</p>
+        <div class="stack-meta">
+          <span class="badge port">:7175</span><span class="badge violet">评审 85 / 100</span>
+          <span class="badge">Angular 19</span><span class="badge">TypeScript</span><span class="badge">Signals</span><span class="badge">NgRx Signal Store</span><span class="badge">standalone</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 HTML/CSS/JS 但没接触过 Angular/TS/SPA 的读者。整理自 <code>frontends/angular/TECHNICAL_GUIDE.md</code>（1060 行，前端最长）。<b>核心心智：</b>所有依赖通过 <code>inject()</code> 拿到，状态用 signal 表达，模板里直接调用 signal 函数读值。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Angular 19 · 企业级架构</h4><p class="small muted">强大的 DI 系统 + 模块化服务 + 独立组件（Standalone），业界最严谨的架构范式。</p></div>
+      <div class="card"><h4 class="sub2">Angular Signals · 细粒度响应式</h4><p class="small muted">原生集成 Signals，细粒度依赖追踪实现模板与数据的精准重绘，告别 zone.js 暴力脏检查。</p></div>
+      <div class="card"><h4 class="sub2">NgRx Signal Store</h4><p class="small muted">内置生命周期钩子 <code>onInit</code> 自动水合，比 React/Vue 的手动触发更优雅。</p></div>
+      <div class="card"><h4 class="sub2">TypeScript 一等公民</h4><p class="small muted">装饰器元数据、模板类型检查、<code>input.required&lt;T&gt;()</code> 都用了 TS 类型，<b>几乎不可能裸 JS</b>。</p></div>
+    </div>
+
+    <h2 class="sec" id="core"><span class="n">2</span>Angular 的五个核心概念</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">① 装饰器 + 元数据</h4><p class="small muted"><code>@Component({selector, template, imports})</code> 编译时把元数据附在类上，CLI 读取生成执行代码。<code>@Injectable/@Input/@HostListener/@ViewChild</code> 同理。</p></div>
+      <div class="card"><h4 class="sub2">② 依赖注入 inject()</h4><p class="small muted">全局 DI 容器，<code>@Injectable({providedIn:'root'})</code> 全应用共享一个实例，组件 <code>inject(...)</code> 取用。必须在 injection context（构造/字段初始化）里调用。</p></div>
+      <div class="card"><h4 class="sub2">③ Signals 响应式</h4><p class="small muted">见 §3——读是函数调用 <code>count()</code>，写用 <code>.set()/.update()</code>，细粒度更新。</p></div>
+      <div class="card"><h4 class="sub2">④ 模板绑定</h4><p class="small muted"><code>[src]</code> 属性绑定、<code>(click)</code> 事件、<code>[(ngModel)]</code> 双向（需 <code>imports:[FormsModule]</code>）。</p></div>
+      <div class="card" style="grid-column:span 2"><h4 class="sub2">⑤ 新控制流 @if / @for / @switch</h4><p class="small muted">见 §4——逐步替代旧的 <code>*ngIf/*ngFor</code>，可读性强很多。</p></div>
+    </div>
+    <div class="callout"><b>DI vs import：</b>DI 让单元测试可「换掉」某服务（mock 替换真 ApiService），还允许不同作用域提供不同实例。对照表：拿状态 <code>useAuthStore()</code>(React/Vue) → <code>inject(AuthStore)</code>(Angular)；拿 API <code>import { api }</code> → <code>inject(ApiService)</code>。</div>
+
+    <h2 class="sec" id="signals"><span class="n">3</span>Signals：Angular 17+ 的细粒度响应式</h2>
+    <pre><code>const count = signal(0);
+console.log(count());              // ← 像调用函数一样读值
+count.set(5); count.update(c =&gt; c + 1);    // 写
+const doubled = computed(() =&gt; count() * 2);   // 派生，依赖自动追踪
+effect(() =&gt; console.log(count()));            // 副作用，依赖变化就重跑</code></pre>
+    <div class="callout cyan"><b>与其他栈的读值语法差异：</b>Angular 是<b>函数调用</b> <code>count()</code>，Vue 是 <code>count.value</code>，React 是直接值。模板里也直接调函数：<code>[disabled]="busy()"</code>、<code>@if (auth.user(); as user)</code>。这是<a href="../comparison.html#fe-react">响应式模型谱系</a>里「虚拟 DOM + Signal 自动追踪」的代表。本项目统一用新版 <code>input()/output()/signal()</code>，对 zoneless 友好。</div>
+
+    <h2 class="sec" id="control"><span class="n">4</span>新控制流 @if / @for</h2>
+    <pre><code>@if (loading() &amp;&amp; items().length === 0) {
+  &lt;div class="cy-empty"&gt;加载中…&lt;/div&gt;
+} @else if (!loading() &amp;&amp; items().length === 0) {
+  &lt;ng-content select="[empty]" /&gt;
+} @else {
+  &lt;div class="cy-grid"&gt;
+    @for (c of items(); track c.id) {        &lt;!-- track 对应 React/Vue 的 key --&gt;
+      &lt;app-capsule-card [capsule]="c" /&gt;
+    }
+  &lt;/div&gt;
+}</code></pre>
+    <p class="small muted">看起来像 JS 控制流，可读性比 <code>*ngIf/*ngFor</code> 强很多；<code>@for</code> 必须有 <code>track</code>；<code>@if (...; as user)</code> 是绑定别名（if + 局部变量）。内容投影用 <code>&lt;ng-content select="[empty]"&gt;</code>（对应 Vue 具名 slot、React children）。</p>
+
+    <h2 class="sec" id="router"><span class="n">5</span>路由：懒加载 + 函数式守卫</h2>
+    <p><b>唯一默认做路由级懒加载的栈：</b><code>loadComponent: () =&gt; import(...).then(m =&gt; m.XxxComponent)</code>——初始 bundle 不含冷门页面，访问时才下载（也是它 dist 里那么多 chunk 的来源）。守卫是<b>函数</b>：</p>
+    <pre><code>export const authGuard: CanActivateFn = (_route, state) =&gt; {
+  const auth = inject(AuthStore);
+  const router = inject(Router);
+  if (!auth.hydrated()) return true;                       // 水合前放行
+  if (auth.user() || auth.refreshToken()) return true;
+  void router.navigate(['/login'], { state: { from: state.url } });
+  return false;
+};</code></pre>
+
+    <h2 class="sec" id="api"><span class="n">6</span>数据层：ApiService（可注入服务）</h2>
+    <p><b>唯一把 fetch 封装成可注入 <code>@Injectable</code> 类的栈</b>（其余四栈用自由函数）。逻辑与 React/Vue 版完全一致——<code>refreshing</code> 单例去重、<code>_retry</code> 防死循环。</p>
+    <div class="callout cyan"><b>Angular 不需要 <code>configureApi</code> 注入回调破循环依赖</b>——但本实现仍用 <code>api.configure({...})</code>（由 AuthStore 的 <code>onInit</code> 主动调），刻意与 React/Vue 同构。这也是 Angular <a href="../comparison.html#fe-state">共享逻辑层只有 472 行</a>（少 57 行）的原因：它把「注入回调」换成了「注入服务」。<b>刻意用原生 fetch 而非 <code>HttpClient</code></b>，让五栈 API client 核心算法逐行对应阅读。</div>
+
+    <h2 class="sec" id="httpclient"><span class="n">7</span>HttpClient + Interceptor 对照（取舍）</h2>
+    <p>评审最大缺口：<b><code>HttpClient</code> + interceptor 恰是 Angular 网络层的看家惯用法</b>，auth/refresh 拦截器是其最经典的教学场景，本实现砍掉了它。手册用一整章给出对照写法：</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th></th><th>本项目（原生 fetch）</th><th>HttpClient + Interceptor</th></tr></thead><tbody>
+      <tr><td>返回类型</td><td><code>Promise&lt;T&gt;</code></td><td><code>Observable&lt;T&gt;</code></td></tr>
+      <tr><td>Auth header</td><td><code>request&lt;T&gt;</code> 内部手写</td><td>拦截器统一注入</td></tr>
+      <tr><td>401 处理</td><td>条件判断 + 递归重放</td><td><code>catchError</code> + <code>switchMap</code></td></tr>
+      <tr><td>公开端点标记</td><td><code>opts.auth: false</code></td><td><code>HttpContextToken</code></td></tr>
+      <tr><td>请求取消</td><td><code>AbortController</code> 手写</td><td><code>takeUntilDestroyed()</code> 自动</td></tr>
+      <tr><td>跨栈对比可读性</td><td>✅ 与四家逐行等价</td><td>❌ 需先懂 RxJS</td></tr>
+    </tbody></table></div>
+    <p class="small muted">选 fetch 的理由：一旦换成 RxJS 管道，「React 的 client.ts 与 Angular 的 api.service.ts 并排读」的对比价值就消失了，差别只剩「函数模块 vs 可注入 class」。真实 Angular 项目里 HttpClient + Interceptor 是更正确的方向。</p>
+
+    <h2 class="sec" id="store"><span class="n">8</span>NgRx Signal Store</h2>
+    <p><code>signalStore({providedIn:'root'}, withState(...), withMethods(...), withHooks(...))</code> 是工厂函数，组合多个「feature」生成 <code>@Injectable</code> 类。状态字段自动暴露为 signal（<code>store.items()</code>），写入用 <code>patchState(store, partial)</code>（不能 <code>store.items = ...</code>）。</p>
+    <div class="callout green"><b><code>withHooks.onInit</code> 是 Angular 最优雅之处：</b>store 首次被 inject 时自动触发，在里面 <code>api.configure({...})</code> + <code>store.hydrate()</code>。对比 React 写在模块顶层、Vue 要 <code>wireAuthApi()</code> 显式触发——Angular 由 DI 容器自动触发，使用方完全无感。<b>跨 store 联动</b> <code>plaza.patchFavorited(...)</code>、<b>序列号守卫</b> <code>let fetchSeq = 0</code> 与五栈同构。</div>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加新页面</td><td>① <code>pages/xxx/xxx.component.ts</code>；② <code>app.routes.ts</code> 用 <code>loadComponent</code> 加路由</td></tr>
+      <tr><td>加登录后页面</td><td>同上，路由加 <code>canActivate: [authGuard]</code></td></tr>
+      <tr><td>加 API 端点</td><td>① <code>types/index.ts</code>；② <code>ApiService</code> 类里加方法</td></tr>
+      <tr><td>加状态域</td><td><code>stores/xxx.store.ts</code> 用 <code>signalStore(...)</code></td></tr>
+      <tr><td>全局监听键盘/点击</td><td>组件类加 <code>@HostListener('document:keydown', ['$event'])</code>，自动清理</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="vue.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Vue 3</div></a>
+      <a href="svelte.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Svelte 5</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Angular 详解 · 整理自 frontends/angular/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

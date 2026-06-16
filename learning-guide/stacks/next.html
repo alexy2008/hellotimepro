@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next.js 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#dual">2 · 双入口架构</a>
+    <a href="#rsc">3 · Server vs Client Component</a>
+    <a href="#serveronly">4 · server-only 编译期防火墙</a>
+    <a href="#session">5 · RSC + httpOnly cookie 识别用户</a>
+    <a href="#db">6 · Drizzle 双数据库</a>
+    <a href="#withapi">7 · withApi 与三段式</a>
+    <a href="#diff">8 · 全栈 vs SPA+后端</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#next" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/nextjs.svg" alt="Next.js"></div>
+      <div>
+        <h1>Next.js</h1>
+        <p class="one">「服务端和客户端是同一棵树的两种节点」——RSC 是默认，前后端边界模糊到同一棵组件树里，同构全栈的当代标准答案。</p>
+        <div class="stack-meta">
+          <span class="badge port">:7177</span><span class="badge violet">评审 89 / 100</span>
+          <span class="badge">Next 15 (App Router)</span><span class="badge">React 19 RSC</span><span class="badge">Drizzle ORM</span><span class="badge">jose · Zustand</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 HTML/CSS/JS 但没接触过 Next.js/App Router/RSC/Drizzle 的读者。整理自 <code>fullstacks/next/TECHNICAL_GUIDE.md</code>（658 行）。核心问题：「在同一个 Next 进程里同时承担前后端的职责，目录、依赖、运行模型有什么不一样」。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Next 15 App Router</h4><p class="small muted">文件系统路由；页面/API 同进程，省去 CORS。</p></div>
+      <div class="card"><h4 class="sub2">React 19 · RSC + 客户端孤岛</h4><p class="small muted">公开读页在服务端取数渲染，交互组件按需 <code>"use client"</code>。</p></div>
+      <div class="card"><h4 class="sub2">Drizzle ORM · 双 schema</h4><p class="small muted">PG / SQLite 两套 schema，类型安全查询，<code>mode: "string"</code> 让 timestamp 两库类型同构。</p></div>
+      <div class="card"><h4 class="sub2">server-only 编译期防火墙</h4><p class="small muted"><code>services/*</code>、<code>db/*</code>、<code>lib/server/*</code> 顶部 <code>import "server-only"</code>，误引入客户端组件会在 <code>next build</code> 阶段报错。</p></div>
+    </div>
+
+    <h2 class="sec" id="dual"><span class="n">2</span>双入口架构：一个进程，两套接口</h2>
+    <p>App Router 核心约定是<b>文件夹即路由</b>，特殊文件名表达角色：</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>文件</th><th>角色</th><th>例子</th></tr></thead><tbody>
+      <tr><td><code>page.tsx</code></td><td>这条 URL 对应的<b>页面</b></td><td><code>app/login/page.tsx</code> → GET /login 返回 HTML</td></tr>
+      <tr><td><code>layout.tsx</code></td><td>子树共享的<b>布局壳</b></td><td><code>app/me/layout.tsx</code> 包住 /me/*</td></tr>
+      <tr><td><code>route.ts</code></td><td>这条 URL 的 <b>REST 端点</b></td><td><code>app/api/v1/health/route.ts</code> → 导出 <code>GET</code> 函数</td></tr>
+      <tr><td><code>[code]</code> 文件夹</td><td>动态路由参数</td><td><code>app/c/[code]/page.tsx</code> → /c/AB12CDEF</td></tr>
+    </tbody></table></div>
+    <div class="callout"><b>没有路由配置文件</b>——<code>src/app/x/y/z/page.tsx</code> 就是 /x/y/z。一个 <code>route.ts</code> 里可以 <code>export GET / POST / PATCH / DELETE</code> 并存。这是<a href="../comparison.html#fs-bridge">全栈双入口</a>在 Next 里的形态。</div>
+
+    <h2 class="sec" id="rsc"><span class="n">3</span>Server vs Client Component</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th></th><th>Server Component</th><th>Client Component</th></tr></thead><tbody>
+      <tr><td>标记</td><td>（默认）</td><td>文件顶部 <code>"use client"</code></td></tr>
+      <tr><td>运行在</td><td>只在服务端</td><td>SSR 一次 + 浏览器 hydrate 后接管</td></tr>
+      <tr><td><code>useState/useEffect</code></td><td>❌</td><td>✅</td></tr>
+      <tr><td><code>import</code> 数据库</td><td>✅ 直接读</td><td>❌</td></tr>
+      <tr><td><code>async function Page()</code></td><td>✅ 顶层 await</td><td>❌</td></tr>
+      <tr><td>打包进 JS bundle</td><td>❌ 不进</td><td>✅ 进</td></tr>
+    </tbody></table></div>
+    <div class="callout cyan"><b>RSC 不是摆设：</b>广场页 / 胶囊详情页是 <code>async function Page()</code>，直接 <code>import</code> 服务层 <code>plazaList()</code> 取数——<b>零 HTTP 开销</b>，调用链 <code>page.tsx → services/plaza.ts → db → Drizzle → DB</code>，首屏 HTML 已含数据、无 loading。<code>PlazaToolbar</code> 是 <code>"use client"</code> 孤岛，用户操作改写 URL，触发 Next 向服务端发新 RSC 请求重新查 DB。登录/创建/「我的」仍是 Client Component + <code>/api/v1/*</code>，与 SPA 保持一致便于对比。这是<a href="../comparison.html#fs-spectrum">边界谱系</a>最左端「边界模糊」的代表。</div>
+
+    <h2 class="sec" id="serveronly"><span class="n">4</span>server-only 编译期防火墙</h2>
+    <pre><code>// src/services/auth.ts
+import "server-only";   // 如果有客户端模块 import 这个文件，构建直接报错</code></pre>
+    <p class="small muted"><code>services/*</code>、<code>lib/server/*</code>、<code>db/*</code> 全部首行加——保证<b>数据库连接、JWT 密钥、bcrypt 绝对不会被打进浏览器 bundle</b>。如果某 Client Component 不小心 <code>import { login }</code>，<code>next build</code> 会失败并指出问题文件。这是<b>构建期保证</b>，比手动管理「哪些代码安全发到客户端」可靠得多。</p>
+
+    <h2 class="sec" id="session"><span class="n">5</span>RSC + httpOnly cookie 识别用户</h2>
+    <div class="callout pink"><b>问题：</b>RSC 在服务端执行，浏览器不会自动带 <code>Authorization: Bearer</code> 头（那是客户端 JS 行为），而 access token 存在 localStorage，<b>服务端读不到</b>。如何让服务端知道「当前请求是谁」？</div>
+    <p><b>方案：</b>登录/注册/刷新 Route Handler 返回 JSON 的同时，额外写一枚 httpOnly cookie <code>ht_session</code>。浏览器每次同源请求（包括 <code>GET /</code> 普通页面）自动携带，RSC 用 <code>getServerViewer()</code> 读取解码。</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>调用方</th><th>鉴权方式</th><th>在哪里</th></tr></thead><tbody>
+      <tr><td>浏览器客户端 JS（SPA 页）</td><td><code>Authorization: Bearer</code></td><td><code>requireClaims(req)</code> in Route Handler</td></tr>
+      <tr><td>RSC 服务端渲染</td><td><code>ht_session</code> httpOnly cookie</td><td><code>getServerViewer()</code> in page.tsx</td></tr>
+    </tbody></table></div>
+    <p class="small muted"><code>httpOnly</code> 意味着客户端 JS 无法通过 <code>document.cookie</code> 读到——XSS 无法直接窃取。这是<a href="../comparison.html#fs-bridge">cookie→身份桥</a>在 Next 的写法（其余四栈在更外层用 Filter/中间件翻译）。</p>
+
+    <h2 class="sec" id="db"><span class="n">6</span>Drizzle 双数据库</h2>
+    <p><code>db/index.ts</code> 按 <code>DB_DRIVER</code> <b>动态 <code>import()</code></b>（SQLite 模式不加载 <code>pg</code>，反之亦然）；用 <code>globalThis.__helloTimeDb</code> 单例跨 HMR 保留连接（dev 模式 HMR 重新执行模块会建死连接）。Schema 用 TS 对象描述表，Drizzle 自动推导类型；<code>schema-pg.ts</code> 与 <code>schema-sqlite.ts</code> 字段同名同含义、仅类型映射不同。这是<a href="../comparison.html#fs-bridge">全栈跨库</a>里的「双 schema + 动态驱动」。</p>
+    <div class="callout"><code>addFavorite/removeFavorite</code> 在注释里<b>明确写了「教学版接受非原子计数」</b>——没有用 <code>BEGIN/COMMIT</code> 显式事务。这是与 FastAPI/Spring Boot 参考实现的有意差别（next/nuxt 文档化了「不做事务的原因」，三家 MPA 全栈则给出生产级行锁做法，两边互为教学参照）。</div>
+
+    <h2 class="sec" id="withapi"><span class="n">7</span>withApi 与三段式</h2>
+    <p>每个 Route Handler 都是 <code>route.ts (HTTP) → services/*.ts (业务) → db/* (数据)</code> 三段式。<code>withApi</code> 统一响应包装：成功套 <code>{success:true, data}</code>、失败（<code>ApiError</code> 或未捕获异常）套 <code>{success:false, message, errorCode}</code>。业务代码只管 <code>return data</code> 或 <code>throw ApiError.notFound(...)</code>，不直接构造 Response——与 FastAPI 的 <code>ApiException</code> + 全局异常处理器异曲同工。</p>
+
+    <h2 class="sec" id="diff"><span class="n">8</span>全栈 vs SPA + 独立后端</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>维度</th><th>SPA + 独立后端</th><th>Next.js 全栈</th></tr></thead><tbody>
+      <tr><td>进程</td><td>两个（FastAPI + Vite）</td><td>一个（Next :7177）</td></tr>
+      <tr><td>跨域</td><td>需要 CORS / vite proxy</td><td>同源，无 CORS</td></tr>
+      <tr><td>类型共享</td><td>前端手写 TS 对应 Python schema</td><td>可共享 Zod schema</td></tr>
+      <tr><td>DB 连接</td><td>后端持有</td><td><code>server-only</code> 防火墙保证不泄露</td></tr>
+      <tr><td>「直接读 DB」</td><td>前端不可能</td><td>RSC 广场/胶囊页已实现</td></tr>
+    </tbody></table></div>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加页面</td><td>新建 <code>src/app/&lt;路径&gt;/page.tsx</code></td></tr>
+      <tr><td>加 REST 端点</td><td>新建 <code>src/app/api/v1/&lt;路径&gt;/route.ts</code>，导出 <code>GET/POST/...</code></td></tr>
+      <tr><td>写业务逻辑</td><td><code>src/services/xxx.ts</code>（首行 <code>import "server-only"</code>）</td></tr>
+      <tr><td>加表/列</td><td>① 改 <code>schema-{pg,sqlite}.ts</code>；② 新增 <code>drizzle/{pg,sqlite}/0002_xxx.sql</code></td></tr>
+      <tr><td>加共享校验</td><td><code>src/lib/validation/schemas.ts</code> 加 Zod，前后端复用</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="../implementations.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 返回</div><div class="ttl" style="font-weight:700">实现详解总览</div></a>
+      <a href="nuxt.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Nuxt</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Next.js 详解 · 整理自 fullstacks/next/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

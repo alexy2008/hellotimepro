@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elysia 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#tree">3 · 目录结构</a>
+    <a href="#core">4 · Elysia 关键机制</a>
+    <a href="#db">5 · 原生 SQL 与方言适配</a>
+    <a href="#tx">6 · 事务与收藏一致性</a>
+    <a href="#auth">7 · 鉴权与 refresh 轮转</a>
+    <a href="#noorm">8 · 为什么没有 ORM</a>
+    <a href="#test">9 · 测试与契约</a>
+    <a href="#change">10 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#elysia" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/elysia.svg" alt="Elysia"></div>
+      <div>
+        <h1>Elysia</h1>
+        <p class="one">Bun 原生、函数式、原生 SQL：依赖最少（5 个）、最「贴金属」，代码量全项目最少（1719 行）——Bun 内置一切把样板压到最低。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29030</span><span class="badge violet">评审 90 / 100</span>
+          <span class="badge">TypeScript (Bun)</span><span class="badge">Elysia 1.4</span><span class="badge">原生 SQL</span><span class="badge">Zod · jose · bcryptjs</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 TS/JS（模块/async/Promise）但还没接触 Bun/Elysia/SQL 方言适配的读者。整理自 <code>backends/elysia/TECHNICAL_GUIDE.md</code>（671 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Bun + Elysia · 轻运行时与轻框架</h4><p class="small muted">依托 Bun 原生 TS 运行时与内置 HTTP，Elysia 用链式 API 显式注册路由，样板代码很少，启动不需要单独编译。</p></div>
+      <div class="card"><h4 class="sub2">TypeScript + Zod · 显式边界校验</h4><p class="small muted">不用 Elysia 自带 <code>t</code> schema，统一走 Zod <code>parse(...)</code>——便于转成统一 <code>details</code> 结构，也与 Nuxt 全栈对齐。</p></div>
+      <div class="card"><h4 class="sub2">双库方言 + 原生 SQL</h4><p class="small muted">摒弃重量级 ORM，用 <code>pg</code> + <code>bun:sqlite</code>，靠 <code>query/one/tx</code> 三个原语封装占位符适配、连接池和事务。</p></div>
+      <div class="card"><h4 class="sub2">轻量函数式分层</h4><p class="small muted">不是严格四层架构，而是 Elysia 风格：<code>main.ts</code> 路由、<code>services/</code> 按域拆规则、<code>db.ts</code> 只管连接/查询/事务。</p></div>
+    </div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>请求经 <code>Bun.serve</code>（Elysia 封装）→ 路由匹配 method+path → <code>main.ts</code> 的 <code>route(...)</code>/<code>routeEmpty(...)</code>（读 body/params/query/headers、Zod <code>parse</code> 校验、<code>requireClaims/readClaims</code> 解析 Bearer）→ <code>services/*</code> → <code>db.ts</code> 的 <code>query/one/tx</code>。</p>
+    <div class="figure"><div class="diagram">
+      <svg viewBox="0 0 840 130" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif"><defs><marker id="ea" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+      <g font-size="12" text-anchor="middle">
+        <rect x="14" y="46" width="120" height="40" rx="9" fill="#0e0e18" stroke="#262635"/><text x="74" y="70" fill="#f7f7fb">Bun.serve</text>
+        <rect x="160" y="46" width="170" height="40" rx="9" fill="#0e0e18" stroke="#6b46ff"/><text x="245" y="64" fill="#c8b8ff">main.ts · route()</text><text x="245" y="80" fill="#80808f" font-size="10.5">Zod parse + claims</text>
+        <rect x="356" y="46" width="140" height="40" rx="9" fill="#0e0e18" stroke="#262635"/><text x="426" y="70" fill="#f7f7fb">services/*</text>
+        <rect x="522" y="46" width="150" height="40" rx="9" fill="#0e0e18" stroke="#00b8d4"/><text x="597" y="64" fill="#80efff">db.ts</text><text x="597" y="80" fill="#80808f" font-size="10.5">query / one / tx</text>
+        <rect x="698" y="46" width="130" height="40" rx="9" fill="#14141f" stroke="#5ed49a"/><text x="763" y="70" fill="#d7d7e2">PG / SQLite</text>
+      </g>
+      <g stroke="#80808f" stroke-width="1.4" fill="none"><path d="M134,66 L158,66" marker-end="url(#ea)"/><path d="M330,66 L354,66" marker-end="url(#ea)"/><path d="M496,66 L520,66" marker-end="url(#ea)"/><path d="M672,66 L696,66" marker-end="url(#ea)"/></g></svg>
+    </div></div>
+
+    <h2 class="sec" id="tree"><span class="n">3</span>目录结构</h2>
+    <div class="tree">backends/elysia/src/
+├── main.ts        <span class="c"># Elysia 入口、路由注册、静态资源</span>
+├── config.ts      <span class="c"># 环境变量 → env 对象</span>
+├── db.ts          <span class="c"># 连接、占位符适配、事务封装</span>
+├── services/{auth,capsules,plaza,favorites,ai}.ts  <span class="c"># 按域拆分（已重构出模块）</span>
+├── security.ts    <span class="c"># JWT、密码哈希、refresh token 原语</span>
+├── validation.ts  <span class="c"># Zod 请求 schema</span>
+├── envelope.ts errors.ts  <span class="c"># 统一响应壳 + ApiError</span>
+└── types.ts       <span class="c"># 数据库行 → 响应 DTO 映射</span></div>
+
+    <h2 class="sec" id="core"><span class="n">4</span>Elysia 的几个关键机制</h2>
+    <div class="grid g3">
+      <div class="card"><h4 class="sub2">路由上下文</h4><p class="small muted">handler 收到 <code>{ set, body, params, request }</code>。<code>set.status</code> 设状态码，查询参数直接用标准 <code>new URL(request.url).searchParams</code>。</p></div>
+      <div class="card"><h4 class="sub2">显式包装响应</h4><p class="small muted"><code>route(set, fn, 200)</code> 成功包成统一 envelope；<code>routeEmpty(fn, 204)</code> 返回空 body；两者都捕获异常交给 <code>errorResponse</code>。</p></div>
+      <div class="card"><h4 class="sub2">校验用 Zod</h4><p class="small muted">统一 <code>parse(registerSchema, body)</code>。<code>safeParse</code> 适合转成 <code>details:[{field,message}]</code>，复杂规则（Unicode 正则/密码强度）更直观。</p></div>
+    </div>
+    <pre><code>.post("/api/v1/capsules", ({ set, body, request }) =>
+  route(set, async () => {
+    const claims = await requireClaims(request.headers);    // ① 要求登录
+    return createCapsule(claims.id, parse(createCapsuleSchema, body));  // ② 校验 ③ 调 service
+  }, 201),                                                  // ④ 包成 201</code></pre>
+
+    <h2 class="sec" id="db"><span class="n">5</span>原生 SQL 与方言适配：<code>db.ts</code></h2>
+    <p><code>db.ts</code> 做三件事：建连接（PG 用 <code>pg.Pool</code>、SQLite 用 Bun 内置 <code>Database</code> + PRAGMA）、提供 <code>query/one</code>、提供事务 <code>tx</code>。Bun 的 <code>bun:sqlite</code> 是同步、<code>pg</code> 是异步，<code>db.ts</code> 把两者都包成 async 让 service 不关心差异。</p>
+    <div class="callout cyan"><b>占位符适配：</b>业务层统一写 <code>?</code> 占位符，SQLite 原生接受、PG 需要 <code>$1/$2</code>。<code>pgSql()</code> 在执行前自动把 <code>?</code> 替换成 <code>$n</code>，service 的 SQL 不必写两遍。这是<a href="../comparison.html#be-dualdb">双库三解法</a>里的「C 类 · 一份 SQL + 自建值编解码」。</div>
+
+    <h2 class="sec" id="tx"><span class="n">6</span>事务与收藏一致性</h2>
+    <p>收藏计数必须和 favorites 行保持一致，所以 <code>addFavorite/removeFavorite</code> 必须在事务里执行。两库不同写法：</p>
+    <pre><code>// PostgreSQL：拿连接 → BEGIN → ... → COMMIT，并 SELECT ... FOR UPDATE 锁胶囊行
+// SQLite：sqlite.exec("BEGIN IMMEDIATE")  ——尽早拿写锁，适合短事务，避免并发读到过期计数</code></pre>
+    <p class="small muted">关键规则：只能收藏 <code>in_plaza=true</code> 的胶囊；不能收藏自己的（400 BAD_REQUEST）；重复收藏幂等（200 且计数不增）；取消幂等（未收藏也 204）。</p>
+
+    <h2 class="sec" id="auth"><span class="n">7</span>鉴权与 refresh 轮转</h2>
+    <p>access token 用 jose 签 JWT HS256；refresh token 是随机 256-bit base64url，数据库只存 SHA-256 哈希。<code>readClaims</code>（登录可选，无 token 返回 null、非法返回 401）用于广场/按码查询；<code>requireClaims</code>（必须登录）用于 <code>/me/*</code> 和创建。</p>
+    <div class="flow">
+      <div class="step"><div class="num">1</div><div class="bd">对 raw token 做 SHA-256，查 <code>refresh_tokens.token_hash</code></div></div>
+      <div class="step"><div class="num">2</div><div class="bd">不存在或过期 → 401</div></div>
+      <div class="step"><div class="num">3</div><div class="bd">已 revoked → 重放 → 撤销同 <code>family_id</code> 下所有未撤销 token → 401</div></div>
+      <div class="step"><div class="num">4</div><div class="bd">有效 → 撤销旧 token，签发新 access+refresh，保留同一 <code>family_id</code></div></div>
+    </div>
+
+    <h2 class="sec" id="noorm"><span class="n">8</span>为什么这里没有 ORM</h2>
+    <p>选择原生 SQL + 小型方言适配（而非 Drizzle/TypeORM），是为了展示 Bun/Elysia 下更轻的写法：SQL 与字段映射清晰可见、事务和锁语义显式（尤其适合解释 <code>favorite_count</code> 一致性）、业务只依赖 <code>query/one/tx</code> 三原语。</p>
+    <div class="callout pink"><b>代价：</b>SQL 字段映射要手写，如 <code>owner_id AS "ownerId"</code>、<code>favorite_count AS "favoriteCount"</code>。这类映射必须谨慎维护，否则 TypeScript 类型看起来正确、运行时字段可能是 <code>undefined</code>。</p></div>
+
+    <h2 class="sec" id="test"><span class="n">9</span>测试与契约</h2>
+    <p>本项目要求黑盒验证，不写「知道实现细节」的捷径测试。每次较大修改后从仓库根目录跑双驱动契约；只改类型/文档可先 <code>./build</code>（<code>tsc --noEmit</code>）。</p>
+    <pre><code>DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh elysia
+./verification/scripts/verify-contract.sh elysia</code></pre>
+
+    <h2 class="sec" id="change"><span class="n">10</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加公开 GET 接口</td><td>① <code>spec/api/openapi.yaml</code> 先定义；② <code>services/</code> 写函数；③ <code>main.ts</code> 注册 <code>.get</code>；用 <code>route(set, ...)</code></td></tr>
+      <tr><td>加需登录接口</td><td>路由先 <code>requireClaims(request.headers)</code>，204 用 <code>routeEmpty</code></td></tr>
+      <tr><td>加请求字段</td><td>① openapi；② <code>validation.ts</code> Zod schema；③ <code>services/</code>；④ 持久化则改 <code>spec/db</code>；⑤ <code>types.ts</code> 映射</td></tr>
+      <tr><td>改收藏逻辑</td><td>favorites 行与 <code>favorite_count</code> 必须同 <code>tx(...)</code>；保留 PG <code>FOR UPDATE</code> / SQLite <code>BEGIN IMMEDIATE</code></td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="nest.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">NestJS</div></a>
+      <a href="ktor.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Ktor</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Elysia 详解 · 整理自 backends/elysia/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

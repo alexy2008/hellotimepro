@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gin 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#tree">3 · 目录结构</a>
+    <a href="#core">4 · Gin 三个核心机制</a>
+    <a href="#gorm">5 · GORM 与一个隐蔽的坑</a>
+    <a href="#errors">6 · 错误：显式返回</a>
+    <a href="#dto">7 · DTO 泛型与指针</a>
+    <a href="#refresh">8 · refresh 轮转的事务语义</a>
+    <a href="#concur">9 · 并发原语</a>
+    <a href="#test">10 · 测试</a>
+    <a href="#change">11 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#gin" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/gin.svg" alt="Gin"></div>
+      <div>
+        <h1>Gin</h1>
+        <p class="one">极简、显式、无魔法：错误一律 <code>if err != nil</code>，所有控制流摆在明面上，编译成单一静态二进制、零运行时依赖。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29020</span><span class="badge violet">评审 91 / 100</span>
+          <span class="badge">Go 1.22</span><span class="badge">Gin 1.10</span><span class="badge">GORM</span><span class="badge">golang-jwt · bcrypt</span><span class="badge">静态二进制</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 Go 语法（包/结构体/接口/goroutine/<code>error</code> 返回值/<code>defer</code>）但还没系统接触 Gin/GORM/JWT 的读者。整理自 <code>backends/gin/TECHNICAL_GUIDE.md</code>（607 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Go + Gin · 高并发与极速路由</h4><p class="small muted">利用 Goroutine 与原生高并发优势，配合 Gin 轻量级 HTTP 路由与中间件链，实现极低延迟与优异吞吐。<b><code>gin.Engine</code> 就是 <code>http.Handler</code></b>，Gin 没有自己的 server。</p></div>
+      <div class="card"><h4 class="sub2">GORM · 简洁 ORM</h4><p class="small muted">通过结构体标签（Struct Tags）实现表关系映射与自动数据映射，大幅简化持久化代码。本项目不依赖 AutoMigrate，schema 以 <code>spec/db</code> 为准。</p></div>
+      <div class="card"><h4 class="sub2">双库自适应 + 二进制构建</h4><p class="small muted">SQLite 模式对路径与锁行为精细设计；Go 编译后形成单一二进制，运行时不依赖框架命令——冷启动极快、零运行时依赖。</p></div>
+      <div class="card"><h4 class="sub2">清晰四层 · 显式分层</h4><p class="small muted"><code>internal/</code> 划分 config / core / model+db / dto / service / handler / middleware，严格展示与业务分离。</p></div>
+    </div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>每个连接一个 goroutine → Gin 按 URL/方法匹配路由 → 中间件链 Logger → Recovery → CORS →（RequireAuth/OptionalAuth）→ handler（<code>ShouldBindJSON</code> 反序列化+校验、<code>CurrentUser(c)</code> 取用户）→ service → GORM → 驱动。出错统一走 <code>middleware.RespondErr(c, err)</code>，按 <code>APIError.StatusCode</code> 输出错误外壳。</p>
+    <div class="figure"><div class="diagram">
+      <svg viewBox="0 0 860 150" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif"><defs><marker id="ga" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+      <g font-size="11.5" text-anchor="middle">
+        <rect x="14" y="56" width="110" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="69" y="74" fill="#f7f7fb">net/http</text><text x="69" y="90" fill="#80808f" font-size="10.5">每连接一 goroutine</text>
+        <rect x="142" y="56" width="150" height="42" rx="9" fill="#0e0e18" stroke="#6b46ff"/><text x="217" y="74" fill="#c8b8ff">中间件链</text><text x="217" y="90" fill="#80808f" font-size="10.5">Logger→Recovery→Auth</text>
+        <rect x="310" y="56" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="370" y="74" fill="#f7f7fb">handler</text><text x="370" y="90" fill="#80808f" font-size="10.5">ShouldBindJSON</text>
+        <rect x="448" y="56" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="508" y="74" fill="#f7f7fb">service</text><text x="508" y="90" fill="#80808f" font-size="10.5">业务规则</text>
+        <rect x="586" y="56" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="646" y="74" fill="#f7f7fb">GORM</text><text x="646" y="90" fill="#80808f" font-size="10.5">database/sql</text>
+        <rect x="724" y="56" width="120" height="42" rx="9" fill="#14141f" stroke="#5ed49a"/><text x="784" y="80" fill="#d7d7e2">PG / SQLite</text>
+      </g>
+      <g stroke="#80808f" stroke-width="1.4" fill="none"><path d="M124,77 L140,77" marker-end="url(#ga)"/><path d="M292,77 L308,77" marker-end="url(#ga)"/><path d="M430,77 L446,77" marker-end="url(#ga)"/><path d="M568,77 L584,77" marker-end="url(#ga)"/><path d="M706,77 L722,77" marker-end="url(#ga)"/></g></svg>
+    </div></div>
+
+    <h2 class="sec" id="tree"><span class="n">3</span>目录结构</h2>
+    <div class="tree">backends/gin/
+├── cmd/server/main.go          <span class="c"># 装配 db / 路由 / 中间件，启动 HTTP server</span>
+└── internal/                   <span class="c"># internal 禁止被外部 module 导入</span>
+    ├── config/                 <span class="c"># 环境变量 → Settings 单例（init()）</span>
+    ├── core/                   <span class="c"># APIError + 鉴权原语（bcrypt / JWT）</span>
+    ├── db/database.go          <span class="c"># gorm.Open + 跨库连接字符串</span>
+    ├── model/models.go         <span class="c"># GORM 结构体（gorm tag）</span>
+    ├── dto/                    <span class="c"># 请求/响应载体（json + binding tag）</span>
+    ├── service/                <span class="c"># 业务层</span>
+    ├── handler/                <span class="c"># 路由处理函数</span>
+    └── middleware/auth.go      <span class="c"># Bearer 解析 + 统一错误响应</span></div>
+
+    <h2 class="sec" id="core"><span class="n">4</span>Gin 的三个核心机制</h2>
+    <div class="mech"><div class="h"><span class="tag">机制一</span>路由分组（Group）</div><div class="b">
+      <p class="small muted"><code>Group</code> 返回的还是能挂中间件、注册路由的对象，公共前缀与中间件一次配齐。三组鉴权策略不同：<code>/auth</code> 公开、<code>/capsules</code> 与 <code>/plaza</code> 用 <code>OptionalAuth</code>（登录可选，影响 <code>favoritedByMe</code>）、<code>/me</code> 用 <code>RequireAuth</code>（必须登录）。</p>
+    </div></div>
+    <div class="mech"><div class="h"><span class="tag">机制二</span>中间件链与 <code>*gin.Context</code></div><div class="b">
+      <p class="small muted">中间件就是 <code>func(*gin.Context)</code>。<code>*gin.Context</code> 是 Gin 的灵魂，把 request/response/URL 参数/JSON 反序列化/KV 上下文都包成一个对象。<code>c.Set/c.Get</code> 让中间件与 handler 共享数据；<code>c.Abort()/c.Next()</code> 控制责任链。</p>
+      <pre><code>func RequireAuth(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {        // 闭包捕获 db
+        token := parseBearer(c)
+        if token == "" { RespondErr(c, core.UnauthorizedErr(...)); c.Abort(); return }
+        c.Set(CtxUser, &user)            // 写进当前请求的 KV 上下文
+        c.Next()                         // 继续往下
+    }
+}</code></pre>
+    </div></div>
+    <div class="mech"><div class="h"><span class="tag">机制三</span>参数绑定 <code>ShouldBindJSON</code> + struct tag</div><div class="b">
+      <p class="small muted">做两件事：用 <code>encoding/json</code> 按 <code>json:</code> tag 反序列化；用 <code>validator/v10</code> 跑 <code>binding:</code> tag 校验。<b>一律用 <code>ShouldBindXxx</code> 而非 <code>BindJSON</code></b>——后者会自动写 400 响应，与统一错误包装冲突。</p>
+      <pre><code>type RegisterRequest struct {
+    Email    string `json:"email"    binding:"required,email,max=254"`
+    Password string `json:"password" binding:"required,min=8,max=128"`
+}</code></pre>
+    </div></div>
+
+    <h2 class="sec" id="gorm"><span class="n">5</span>GORM 与一个隐蔽的坑</h2>
+    <p>常见调用模式：<code>db.First</code> 单行、<code>db.Create</code> 插入、<code>UpdateColumn(... gorm.Expr("favorite_count + 1"))</code> 原子自增、<code>db.Transaction(func(tx){...})</code> 事务、<code>clause.Locking{Strength:"UPDATE"}</code> 行锁（仅 PG）、<code>clause.OnConflict{DoNothing:true}</code> 幂等收藏。<b>进了事务闭包必须用 <code>tx</code> 而非 <code>db</code></b>。</p>
+    <div class="callout pink"><b>SQLite URL 解析坑（教学价值高）：</b><code>sqlite:////abs/path.db</code>（4 个 <code>/</code>）会被解析成把 <code>/abs/path</code> 和 <code>//abs/path</code> 当成两个数据库做锁协调，结果 INSERT 落一个锁域、SELECT 落另一个——表现为「注册成功，但所有登录接口都说用户不存在」。解析 URL 时不能想当然依赖标准库，特别是涉及驱动底层行为时。</div>
+
+    <h2 class="sec" id="errors"><span class="n">6</span>错误：显式返回而非异常</h2>
+    <p>Go 没有异常，业务错误用「自定义 error 类型 + 显式返回」。统一 <code>APIError</code>（Code/Message/StatusCode/Details），业务层 <code>return nil, core.NotFoundErr(...)</code>，handler 拿到 err 后 <code>RespondErr(c, err)</code> 用 <code>errors.As(err, &apiErr)</code> 类型断言：是 <code>*APIError</code> 就用它的字段，不是就降级 500。</p>
+    <div class="callout"><b>Go 风格：错误是返回值不是异常，永远不要忽略 <code>err</code></b>——本项目里 <code>_ = c.ShouldBindJSON(&req)</code> 这种忽略是因为 logout 请求体允许为空，是经过思考的取舍。</div>
+
+    <h2 class="sec" id="dto"><span class="n">7</span>DTO：泛型 Envelope 与指针区分 null</h2>
+    <p>用 Go 1.18+ 泛型：<code>Envelope[T any]</code>、<code>Paginated[T any]</code>。<b>可选字段用 <code>*string</code>/<code>*time.Time</code></b>——<code>nil</code> 序列化成 <code>null</code>，零值会写出 <code>""</code> 或 <code>"0001-01-01T00:00:00Z"</code>，必须用指针区分「没传」和「显式空」。字段嵌入（embedded struct）既共享字段也共享 JSON 序列化，自动平铺。</p>
+
+    <h2 class="sec" id="refresh"><span class="n">8</span>refresh 轮转的事务语义</h2>
+    <p><code>Refresh</code> 是最复杂的一段。<b>事务里的提交语义</b>：闭包返回 <code>nil</code> 提交、返回 <code>err</code> 回滚。重放分支<b>故意返回 <code>nil</code></b>，把 family revoke 提交掉，再在外层把 <code>replayErr</code> 当返回错——这样 401 响应和「整族作废」同时生效。</p>
+    <pre><code>err := db.Transaction(func(tx *gorm.DB) error {
+    if config.App.DBDriver == "postgres" {
+        q = q.Clauses(clause.Locking{Strength: "UPDATE"})   // 仅 PG 行锁
+    }
+    if rt.RevokedAt != nil {            // 重放检测 → 整族作废
+        tx.Model(...).Where("family_id = ? AND revoked_at IS NULL", rt.FamilyID).Update(...)
+        replayErr = core.UnauthorizedErr(...); return nil   // 返回 nil 让事务提交
+    }
+    res := tx.Model(...).Where("id = ? AND revoked_at IS NULL", rt.ID).Update(...)
+    if res.RowsAffected != 1 { ... }    // 乐观并发：被抢先 revoke → 整族作废
+})</code></pre>
+    <div class="callout cyan"><b>乐观并发：</b><code>UPDATE … WHERE id = ? AND revoked_at IS NULL</code> 加 <code>RowsAffected != 1</code> 检查，比读-改-写更可靠，PG/SQLite 通用。这是<a href="../comparison.html#be-tx">事务四流派</a>里的「③ outcome 模式」。</div>
+
+    <h2 class="sec" id="concur"><span class="n">9</span>并发原语</h2>
+    <div class="grid g3">
+      <div class="card"><h4 class="sub2">sync.Map + sync.Mutex</h4><p class="small muted">登录失败限流：<code>sync.Map</code> 存 email→桶，桶内 <code>sync.Mutex</code> 保护时间戳切片，60s 滑动窗口。</p></div>
+      <div class="card"><h4 class="sub2">sync.Once</h4><p class="small muted">头像目录用 <code>sync.Once.Do(fn)</code> 保证全程只加载一次、并发安全，比 <code>init()</code> 灵活（可延迟到首次访问）。</p></div>
+      <div class="card"><h4 class="sub2">包级 HTTP Client</h4><p class="small muted">LLM 客户端用包级单例 <code>&http.Client{Timeout:30s}</code> 复用连接池。<b>生产中绝不要裸用 <code>http.DefaultClient</code></b>（无超时）。</p></div>
+    </div>
+
+    <h2 class="sec" id="test"><span class="n">10</span>测试</h2>
+    <p>契约一致性由仓库级黑盒验证 <code>verify-contract.sh gin</code> 覆盖。若加包内 Go 单测，推荐 <code>httptest.NewRecorder()</code> + <code>router.ServeHTTP()</code>——不启动 TCP socket，比 <code>httptest.NewServer</code> 更轻量。</p>
+
+    <h2 class="sec" id="change"><span class="n">11</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加新接口</td><td>① <code>internal/handler/</code> 加函数；② <code>main.go</code> 在对应 Group 注册</td></tr>
+      <tr><td>加请求/响应字段</td><td><code>internal/dto/*.go</code> 改 struct（注意 json/binding tag）</td></tr>
+      <tr><td>加业务规则</td><td><code>service/*.go</code> 加判断，<code>return nil, core.XxxErr(...)</code></td></tr>
+      <tr><td>加表/列</td><td>① 先改 <code>spec/db</code> 与维护脚本；② <code>model/models.go</code> 改 struct</td></tr>
+      <tr><td>加跨切关注</td><td>写 <code>gin.HandlerFunc</code> 中间件，<code>r.Use(...)</code> 挂上</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="spring-boot.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Spring Boot</div></a>
+      <a href="nest.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">NestJS</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Gin 详解 · 整理自 backends/gin/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

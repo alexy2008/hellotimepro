@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vue 3 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#flow">2 · 入口链路</a>
+    <a href="#reactive">3 · 响应式 vs 重渲染</a>
+    <a href="#sfc">4 · SFC 与模板指令</a>
+    <a href="#composable">5 · Composition API 与组合函数</a>
+    <a href="#router">6 · 路由与守卫</a>
+    <a href="#pinia">7 · 状态层 Pinia</a>
+    <a href="#api">8 · 数据层与 wireAuthApi</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#vue" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/vue.svg" alt="Vue 3"></div>
+      <div>
+        <h1>Vue 3</h1>
+        <p class="one">「响应式应该是自动的，结构应该是分区的」——Proxy 响应式 + SFC，渐进、平衡，是 React 与 Angular 之间的平衡点（评审最高分 93）。</p>
+        <div class="stack-meta">
+          <span class="badge green">前端最高分</span><span class="badge port">:7173</span><span class="badge violet">评审 93 / 100</span>
+          <span class="badge">Vue 3.5</span><span class="badge">TypeScript</span><span class="badge">Vite 6</span><span class="badge">vue-router 4</span><span class="badge">Pinia</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 HTML/CSS/JS 但没接触过 Vue/TS/Vite/SPA 的读者。整理自 <code>frontends/vue3-ts/TECHNICAL_GUIDE.md</code>（797 行）。读过 React 版的可直接从 §3 响应式 与 §7 Pinia 看起——这是两套生态最不同的地方。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Vue 3 + Vue Router</h4><p class="small muted">Composition API + 细粒度响应式，配合全局守卫与嵌套路由，切换页面无需刷新。</p></div>
+      <div class="card"><h4 class="sub2">Pinia · setup 风格状态</h4><p class="small muted">避开旧版 Vuex，响应式 ref 字段 + 直接突变的 action，符合 Vue 3 心智，也易于在组件外调用。</p></div>
+      <div class="card"><h4 class="sub2">Vite · 极速 HMR</h4><p class="small muted">原生 ESM 热更新，组件状态尽可能保留。</p></div>
+      <div class="card"><h4 class="sub2">设计令牌 + Tailwind v4</h4><p class="small muted">颜色/字号抽离为跨前端通用 CSS 变量，暗/亮主题切换高效。</p></div>
+    </div>
+
+    <h2 class="sec" id="flow"><span class="n">2</span>入口链路：<code>main.ts</code> → <code>App.vue</code></h2>
+    <pre><code>const app = createApp(App);
+app.use(createPinia());   // 装上状态管理
+app.use(router);          // 装上路由
+wireAuthApi();            // Pinia 就绪后，把 auth store 注入到 api client
+app.mount("#app");</code></pre>
+    <div class="callout"><b>顺序很重要：</b>Pinia 必须在 <code>wireAuthApi()</code> 之前装好，因为后者会调 <code>useAuthStore()</code>，而 store 只有在 Pinia 注册到 app 后才能用。这正是「Vue 不能在模块顶层调 <code>configureApi</code>」的根因（见 §8）。</div>
+
+    <h2 class="sec" id="reactive"><span class="n">3</span>响应式 vs 重渲染（最值得记）</h2>
+    <p><code>ref(initial)</code> 返回 <code>{ value }</code>，对 <code>.value</code> 的任何读写都被 Vue 追踪。模板里写 <code>{{ email }}</code> 编译器自动加 <code>.value</code>。<b><code>.value</code> 是 Vue 3 最显眼的写法</b>，初学者常忘加导致失去响应式。</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th></th><th>React</th><th>Vue</th></tr></thead><tbody>
+      <tr><td>状态</td><td><code>useState(0)</code> → <code>[value, setter]</code></td><td><code>ref(0)</code> → <code>{ value }</code></td></tr>
+      <tr><td>修改</td><td><code>setCount(c + 1)</code></td><td><code>count.value++</code></td></tr>
+      <tr><td>重渲染</td><td><b>整个组件函数重跑</b></td><td><b>只重跑依赖此变量的 effect/DOM</b></td></tr>
+      <tr><td>派生</td><td><code>useMemo(..., [deps])</code> 手动列依赖</td><td><code>computed(...)</code> 自动追踪</td></tr>
+    </tbody></table></div>
+    <div class="callout cyan"><b>Vue 是细粒度响应式，不是按组件重渲染。</b>每个响应式变量记录被哪些 effect 读过，变化时只通知这些 effect 重跑。这是<a href="../comparison.html#fe-react">响应式模型谱系</a>里「虚拟 DOM 阵营 + 自动 Proxy 追踪」的代表。</div>
+
+    <h2 class="sec" id="sfc"><span class="n">4</span>SFC 与模板指令</h2>
+    <p>单文件组件（SFC）一个 <code>.vue</code> 里有三块：<code>&lt;script setup lang="ts"&gt;</code>（逻辑，声明的变量自动暴露给模板）、<code>&lt;template&gt;</code>（HTML 模板）、<code>&lt;style scoped&gt;</code>（作用域 CSS）。</p>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">指令（v- 前缀）</h4><ul class="small mono" style="line-height:1.9"><li>v-if / v-else 条件渲染</li><li>v-for + :key 列表</li><li>v-model 双向绑定</li><li>:x 绑 attribute</li><li>@click 事件</li></ul></div>
+      <div class="card"><h4 class="sub2">v-model 是杀手锏</h4><p class="small muted"><code>v-model="email"</code> = <code>:value="email" @input="email = $event.target.value"</code>，「绑值 + 监听 input」一次写完，让表单代码极短。<code>@submit.prevent</code> 修饰符等价于先 <code>preventDefault()</code>。</p></div>
+    </div>
+
+    <h2 class="sec" id="composable"><span class="n">5</span>Composition API 与组合函数</h2>
+    <p>最大价值是<b>逻辑复用</b>：把相关状态 + 副作用打包成普通函数（composable），多个组件复用。<code>useCountdown(active)</code> 的 <code>onUnmounted(stop)</code> 保证组件销毁时清掉定时器——<b>必须在 setup 期间同步调用</b>。</p>
+    <pre><code>export function useCountdown(active: () =&gt; boolean) {
+  const now = ref(Date.now());
+  function start() { timer = setInterval(() =&gt; { now.value = Date.now(); }, 1000); }
+  watch(active, (on) =&gt; { on ? start() : stop(); }, { immediate: true });
+  onUnmounted(stop);
+  return { now };
+}</code></pre>
+    <p class="small muted">三个 composables：<code>useCountdown</code>（响应式 now）、<code>useDebouncedRef</code>（防抖）、<code>useClickOutside</code>（点外关菜单）。<b>对照 React 自定义 Hook：</b>Vue composable 不受「Hook 调用规则」束缚，可以在条件分支里调用，因为响应式追踪基于变量身份而非调用顺序。</p>
+
+    <h2 class="sec" id="router"><span class="n">6</span>路由与守卫</h2>
+    <p>嵌套路由 + Layout（父给 <code>component: MainLayout</code>，子填 <code>&lt;RouterView/&gt;</code>）。鉴权<b>完全交给 <code>router.beforeEach</code></b>，把策略写在路由 <code>meta.requiresAuth</code> 上：</p>
+    <pre><code>router.beforeEach((to) =&gt; {
+  if (!to.matched.some((r) =&gt; r.meta.requiresAuth)) return true;
+  const auth = useAuthStore();
+  if (auth.user || auth.refreshToken) return true;       // 持 refreshToken 即放行
+  return { path: "/login", query: { from: to.fullPath } };
+});</code></pre>
+    <p class="small muted">比 React 版的 <code>&lt;AuthGate&gt;</code> HOC 更集中、更声明式。只允许有 <code>refreshToken</code> 的用户进入是为了「页面刷新场景」——access token 内存丢了、refresh 还在 localStorage，下次 API 调用自动 refresh。</p>
+
+    <h2 class="sec" id="pinia"><span class="n">7</span>状态层 Pinia（setup store）</h2>
+    <p><code>defineStore(id, setupFn)</code>：里面的 <code>ref</code> 是 state、函数是 action、<code>computed</code> 是 getter，<b>返回的对象决定暴露哪些字段</b>。</p>
+    <div class="callout pink"><b>最容易踩的坑 —— <code>storeToRefs</code>：</b>直接 <code>const { user } = auth</code> 会<b>丢响应式</b>（解构出普通值，不再追踪）。必须 <code>const { user } = storeToRefs(auth)</code> 把每个状态字段还原成 ref。动作函数可以直接 <code>auth.setTokens(...)</code> 解构。</div>
+    <p class="small muted"><b>跨 store 联动：</b><code>FavoriteButton</code> 收藏成功后直接调 <code>plaza.patchFavorited(...)</code>。<b>序列号守卫：</b><code>let fetchSeq = 0</code> 是闭包变量（不是 ref，不需要触发 UI），保证只有最新请求能写状态。</p>
+
+    <h2 class="sec" id="api"><span class="n">8</span>数据层与 wireAuthApi</h2>
+    <p><code>api/client.ts</code> 与 React 版几乎逐字一致（刻意写成框架无关，方便各前端复用）：通用 <code>request&lt;T&gt;</code> + 自动 refresh（模块级 <code>refreshing</code> 单例去重 + <code>_retry</code> 防死循环）。</p>
+    <div class="callout cyan"><b>与 React 的微妙差异：</b>React 能在模块顶层调 <code>configureApi(...)</code>（Zustand <code>create()</code> 直接返回 hook、无需 app 实例）；Vue 的 Pinia store <b>必须在 <code>app.use(createPinia())</code> 之后</b>才能 <code>useXxxStore()</code>——所以包成 <code>wireAuthApi()</code> 在 <code>main.ts</code> 显式触发。这是两套生态的本质差异，也是本实现注释里特别强调的教学点。</div>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加新页面</td><td>① <code>src/pages/XxxPage.vue</code>；② <code>router/index.ts</code> 加一项</td></tr>
+      <tr><td>加登录后页面</td><td>同上，加 <code>meta: { requiresAuth: true }</code>，<code>beforeEach</code> 自动拦截</td></tr>
+      <tr><td>加 API 端点</td><td>① <code>types/index.ts</code> 加类型；② <code>api/client.ts</code> 加方法</td></tr>
+      <tr><td>加状态域</td><td><code>stores/xxx.ts</code> 用 <code>defineStore("xxx", () =&gt; {...})</code></td></tr>
+      <tr><td>加可复用逻辑</td><td><code>composables/useXxx.ts</code> 返回 ref/函数</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="react.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">React</div></a>
+      <a href="angular.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Angular</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Vue 3 详解 · 整理自 frontends/vue3-ts/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

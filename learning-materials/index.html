@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HelloTime Pro 多技术栈学习资料</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b12;
+      --panel: #111827;
+      --panel-2: #0f172a;
+      --line: rgba(148, 163, 184, 0.22);
+      --text: #e5edf8;
+      --muted: #9fb0c5;
+      --soft: #cbd5e1;
+      --brand: #22d3ee;
+      --accent: #f472b6;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --purple: #a78bfa;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(34, 211, 238, 0.11), transparent 27rem),
+        radial-gradient(circle at 80% 16%, rgba(244, 114, 182, 0.08), transparent 28rem),
+        linear-gradient(180deg, #08111e 0%, var(--bg) 38%, #070a10 100%);
+      color: var(--text);
+      font: 16px/1.72 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    code { color: #bae6fd; background: rgba(14, 165, 233, 0.13); padding: 0.08rem 0.32rem; border-radius: 5px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 24px 18px;
+      border-right: 1px solid var(--line);
+      background: rgba(8, 11, 18, 0.78);
+      backdrop-filter: blur(18px);
+      overflow: auto;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(34, 211, 238, 0.42);
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(244, 114, 182, 0.14));
+      color: var(--brand);
+      font-weight: 800;
+    }
+
+    .brand h1 { margin: 0; font-size: 17px; line-height: 1.25; }
+    .brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+
+    .nav a {
+      display: block;
+      padding: 8px 10px;
+      color: var(--muted);
+      border-radius: 7px;
+      font-size: 14px;
+    }
+    .nav a:hover { background: rgba(148, 163, 184, 0.1); color: var(--text); }
+
+    main { min-width: 0; }
+
+    .hero {
+      min-height: 82vh;
+      padding: 72px clamp(22px, 5vw, 72px) 38px;
+      display: grid;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 34px;
+      align-items: center;
+      max-width: 1220px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #a5f3fc;
+      background: rgba(34, 211, 238, 0.09);
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    h2, h3, h4 { letter-spacing: 0; line-height: 1.22; }
+    .hero h2 {
+      margin: 22px 0 18px;
+      font-size: clamp(42px, 7vw, 88px);
+      line-height: 0.98;
+      max-width: 900px;
+    }
+
+    .hero .lead {
+      color: var(--soft);
+      font-size: clamp(17px, 2vw, 21px);
+      max-width: 760px;
+    }
+
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 9px 14px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: rgba(15, 23, 42, 0.78);
+      font-weight: 700;
+    }
+    .button.primary {
+      color: #06121b;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--brand), #67e8f9);
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 28px;
+      max-width: 720px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: rgba(15, 23, 42, 0.58);
+    }
+    .stat strong { display: block; font-size: 24px; color: #e0f2fe; }
+    .stat span { color: var(--muted); font-size: 12px; }
+
+    .hero-visual {
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.62);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      overflow: hidden;
+    }
+
+    .mock-window {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0b1220;
+      overflow: hidden;
+    }
+    .mock-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 34px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+    .dot:nth-child(2) { background: var(--warn); }
+    .dot:nth-child(3) { background: var(--ok); }
+    .mock-body { padding: 16px; }
+    .mock-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .mock-tabs span {
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .mock-tabs span:first-child { color: #06121b; background: var(--brand); border-color: transparent; }
+    .capsule-row { display: grid; gap: 10px; }
+    .capsule {
+      display: grid;
+      grid-template-columns: 38px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 8px;
+      background: rgba(8, 13, 23, 0.85);
+    }
+    .avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand), var(--accent));
+    }
+    .line { height: 8px; border-radius: 99px; background: rgba(203, 213, 225, 0.16); }
+    .line.short { width: 62%; margin-top: 8px; }
+    .badge { font-size: 12px; color: var(--brand); border: 1px solid rgba(34, 211, 238, 0.3); padding: 4px 8px; border-radius: 999px; }
+
+    section {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 58px clamp(22px, 5vw, 72px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head { margin-bottom: 24px; }
+    .section-head h2 { margin: 0 0 10px; font-size: clamp(28px, 4vw, 42px); }
+    .section-head p { margin: 0; color: var(--muted); max-width: 860px; }
+
+    .grid { display: grid; gap: 16px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(15, 23, 42, 0.68);
+      padding: 18px;
+    }
+    .card h3 { margin: 0 0 8px; font-size: 20px; }
+    .card p { margin: 0; color: var(--muted); }
+    .card ul { margin: 12px 0 0; padding-left: 18px; color: var(--soft); }
+    .card li { margin: 4px 0; }
+
+    .diagram {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(2, 6, 23, 0.54);
+      padding: 12px;
+    }
+    svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; letter-spacing: 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(15, 23, 42, 0.58);
+    }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { color: #e0f2fe; background: rgba(14, 165, 233, 0.09); font-size: 13px; }
+    td { color: var(--soft); font-size: 14px; }
+    tr:last-child td { border-bottom: 0; }
+
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: var(--soft);
+      background: rgba(15, 23, 42, 0.62);
+      font-size: 12px;
+    }
+    .pill.ok { border-color: rgba(52, 211, 153, 0.35); color: #bbf7d0; }
+
+    .stack-card {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      min-height: 322px;
+    }
+    .stack-card .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+    .stack-card .name { font-size: 22px; font-weight: 800; }
+    .stack-card .kind { color: #06121b; background: var(--brand); padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+    .stack-card .meta { color: var(--muted); font-size: 13px; }
+    .stack-card .highlight { color: var(--soft); margin: 12px 0; }
+    .stack-card .detail { color: var(--muted); font-size: 14px; }
+
+    .source-list {
+      columns: 2;
+      column-gap: 28px;
+      color: var(--soft);
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .callout {
+      border-left: 3px solid var(--brand);
+      background: rgba(34, 211, 238, 0.08);
+      padding: 14px 16px;
+      border-radius: 0 8px 8px 0;
+      color: var(--soft);
+    }
+
+    footer {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 32px clamp(22px, 5vw, 72px) 58px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+      .hero-grid, .grid.two, .grid.three, .grid.four { grid-template-columns: 1fr; }
+      .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .source-list { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">HT</div>
+        <div>
+          <h1>HelloTime Pro 学习资料</h1>
+          <p>基于项目文档整理</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="#overview">总体介绍</a>
+        <a href="#architecture">总体设计</a>
+        <a href="#domain">业务与数据模型</a>
+        <a href="#auth">鉴权流程</a>
+        <a href="#verification">验证体系</a>
+        <a href="#compare">前后端与全栈对比</a>
+        <a href="#backends">十个后端详解</a>
+        <a href="#frontends">五个前端详解</a>
+        <a href="#fullstacks">五个全栈详解</a>
+        <a href="#reading">学习路线</a>
+        <a href="#sources">资料来源</a>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="hero">
+        <div class="hero-grid">
+          <div>
+            <span class="eyebrow">同一业务 · 同一契约 · 二十种实现</span>
+            <h2>HelloTime Pro 多技术栈学习手册</h2>
+            <p class="lead">
+              这是一个面向教学和横向对比的时间胶囊项目。它用同一套 API、数据库语义、设计令牌和黑盒验证，
+              把 10 个后端、5 个前端、5 个全栈实现放到同一张学习地图里。
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="#backends">查看实现详解</a>
+              <a class="button" href="#compare">阅读对比框架</a>
+              <a class="button" href="#sources">查看资料来源</a>
+            </div>
+            <div class="stat-row">
+              <div class="stat"><strong>10</strong><span>后端框架</span></div>
+              <div class="stat"><strong>5</strong><span>前端框架</span></div>
+              <div class="stat"><strong>5</strong><span>全栈方案</span></div>
+              <div class="stat"><strong>104+25</strong><span>契约与 UI 用例</span></div>
+            </div>
+          </div>
+
+          <div class="hero-visual" aria-label="胶囊广场界面示意">
+            <div class="mock-window">
+              <div class="mock-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+              <div class="mock-body">
+                <div class="mock-tabs"><span>最新</span><span>最热</span><span>已开启</span><span>未开启</span></div>
+                <div class="capsule-row">
+                  <div class="capsule"><span class="avatar"></span><span><i class="line" style="display:block;width:82%"></i><i class="line short" style="display:block"></i></span><span class="badge">8 收藏</span></div>
+                  <div class="capsule"><span class="avatar" style="background:linear-gradient(135deg,#a78bfa,#34d399)"></span><span><i class="line" style="display:block;width:70%"></i><i class="line short" style="display:block;width:52%"></i></span><span class="badge">未开启</span></div>
+                  <div class="capsule"><span class="avatar" style="background:linear-gradient(135deg,#fbbf24,#22d3ee)"></span><span><i class="line" style="display:block;width:76%"></i><i class="line short" style="display:block;width:44%"></i></span><span class="badge">公开</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section id="overview">
+        <div class="section-head">
+          <h2>总体介绍</h2>
+          <p>HelloTime Pro 的产品载体是“时间胶囊”：用户写下一段内容，设定未来开启时间，到期前只显示元信息，到期后才能阅读正文。</p>
+        </div>
+        <div class="grid three">
+          <article class="card">
+            <h3>项目定位</h3>
+            <p>它不是生产运营产品，而是多技术栈对比学习项目。所有实现必须对外行为一致，内部写法则尽量体现各技术栈的惯用模式。</p>
+          </article>
+          <article class="card">
+            <h3>核心学习价值</h3>
+            <p>同一套需求在不同语言、框架、渲染模型和数据访问抽象下会呈现完全不同的工程形态，差异可被逐层对照。</p>
+          </article>
+          <article class="card">
+            <h3>当前状态</h3>
+            <p>M0、M1、M2、M3 已完成。全部 20 个实现已落地，契约验证和 UI 冒烟验证覆盖最新主流程。</p>
+          </article>
+        </div>
+        <div class="pill-row">
+          <span class="pill ok">规范先行</span>
+          <span class="pill ok">参考实现 FastAPI + React</span>
+          <span class="pill ok">PostgreSQL + SQLite 双驱动</span>
+          <span class="pill ok">Tailwind v4 + Design Tokens</span>
+          <span class="pill ok">黑盒验证</span>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <div class="section-head">
+          <h2>总体设计</h2>
+          <p>项目的关键不是“写了很多实现”，而是让这些实现被同一套规范、样式和验证系统约束住。</p>
+        </div>
+        <div class="diagram">
+          <svg viewBox="0 0 1120 460" width="1120" height="460" role="img" aria-label="HelloTime Pro 架构图">
+            <defs>
+              <linearGradient id="g1" x1="0" x2="1"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient>
+              <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <rect x="20" y="20" width="1080" height="420" rx="12" fill="#0b1220" stroke="#334155"/>
+            <rect x="70" y="68" width="220" height="110" rx="8" fill="#0f172a" stroke="#22d3ee"/>
+            <text x="180" y="105" text-anchor="middle" fill="#e0f2fe" font-size="22" font-weight="700">spec/</text>
+            <text x="180" y="135" text-anchor="middle" fill="#9fb0c5" font-size="14">OpenAPI · DB Schema</text>
+            <text x="180" y="158" text-anchor="middle" fill="#9fb0c5" font-size="14">Design Tokens · Avatars</text>
+            <rect x="450" y="60" width="220" height="128" rx="8" fill="#0f172a" stroke="#a78bfa"/>
+            <text x="560" y="100" text-anchor="middle" fill="#ede9fe" font-size="22" font-weight="700">Implementations</text>
+            <text x="560" y="130" text-anchor="middle" fill="#c4b5fd" font-size="14">10 后端 · 5 前端 · 5 全栈</text>
+            <text x="560" y="154" text-anchor="middle" fill="#c4b5fd" font-size="14">各栈地道写法</text>
+            <rect x="830" y="68" width="220" height="110" rx="8" fill="#0f172a" stroke="#34d399"/>
+            <text x="940" y="105" text-anchor="middle" fill="#dcfce7" font-size="22" font-weight="700">verification/</text>
+            <text x="940" y="135" text-anchor="middle" fill="#bbf7d0" font-size="14">104 API 契约用例</text>
+            <text x="940" y="158" text-anchor="middle" fill="#bbf7d0" font-size="14">25 UI 冒烟用例</text>
+            <path d="M292 123 C340 123 390 123 448 123" stroke="url(#g1)" stroke-width="3" fill="none"/>
+            <path d="M672 123 C730 123 780 123 828 123" stroke="#34d399" stroke-width="3" fill="none"/>
+            <rect x="110" y="270" width="210" height="86" rx="8" fill="#111827" stroke="#475569"/>
+            <text x="215" y="304" text-anchor="middle" fill="#e5edf8" font-size="18" font-weight="700">:9080 代理</text>
+            <text x="215" y="330" text-anchor="middle" fill="#9fb0c5" font-size="14">前端切换任意后端</text>
+            <rect x="455" y="258" width="210" height="110" rx="8" fill="#111827" stroke="#475569"/>
+            <text x="560" y="293" text-anchor="middle" fill="#e5edf8" font-size="18" font-weight="700">scripts/hello</text>
+            <text x="560" y="319" text-anchor="middle" fill="#9fb0c5" font-size="14">start · stop · switch</text>
+            <text x="560" y="343" text-anchor="middle" fill="#9fb0c5" font-size="14">doctor · logs · Web UI</text>
+            <rect x="800" y="270" width="210" height="86" rx="8" fill="#111827" stroke="#475569"/>
+            <text x="905" y="304" text-anchor="middle" fill="#e5edf8" font-size="18" font-weight="700">scripts/db</text>
+            <text x="905" y="330" text-anchor="middle" fill="#9fb0c5" font-size="14">init · reset · seed</text>
+            <path d="M560 190 L560 256" stroke="#64748b" stroke-width="2" stroke-dasharray="6 6"/>
+            <path d="M665 314 C710 314 755 314 798 314" stroke="#64748b" stroke-width="2" fill="none"/>
+            <path d="M454 314 C405 314 365 314 322 314" stroke="#64748b" stroke-width="2" fill="none"/>
+          </svg>
+        </div>
+        <div class="grid two" style="margin-top:18px">
+          <article class="card">
+            <h3>五条设计原则</h3>
+            <ul>
+              <li><strong>规范即单一事实源：</strong>API、数据库、设计令牌都从 <code>spec/</code> 出发。</li>
+              <li><strong>栈内正交：</strong>每个实现采用本技术栈的地道模式。</li>
+              <li><strong>外部一致：</strong>路由、JSON、错误码、页面行为和样式一致。</li>
+              <li><strong>最小脚手架：</strong><code>run</code>、<code>build</code>、<code>test</code> 是统一入口。</li>
+              <li><strong>教学可读优先：</strong>清晰展示主流程，不追求过度优化。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>端口与运行形态</h3>
+            <p>后端在 <code>29000-29090</code>，SPA 前端在 <code>7173-7180</code>，全栈在 <code>7177-7182</code>，代理在 <code>9080</code>，开发管理 UI 在 <code>9090</code>。前端经代理切换后端，全栈实现自包含。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="domain">
+        <div class="section-head">
+          <h2>业务与数据模型</h2>
+          <p>业务很小，但覆盖了账号、JWT、公开列表、私密访问、收藏、分页、搜索、跨库时间和 UUID 等典型 Web 应用问题。</p>
+        </div>
+        <div class="grid two">
+          <article class="card">
+            <h3>用户旅程</h3>
+            <ul>
+              <li>匿名用户浏览胶囊广场，按最新/最热排序，按已开启/未开启过滤。</li>
+              <li>注册用户创建胶囊，选择是否加入广场，并获得 8 位分享码。</li>
+              <li>任何人可用 8 位码打开胶囊，到期前只看元信息，到期后读正文。</li>
+              <li>登录用户收藏公开胶囊，在“我的收藏”中回访。</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>关键不变式</h3>
+            <ul>
+              <li>胶囊 <code>content</code> 和 <code>openAt</code> 创建后不可修改。</li>
+              <li><code>favorite_count</code> 必须等于收藏表实际数量。</li>
+              <li>不能收藏自己的胶囊，不能收藏私密胶囊。</li>
+              <li>SQLite 时间戳作为文本比较，必须注意 ISO 格式一致性。</li>
+            </ul>
+          </article>
+        </div>
+        <div class="diagram" style="margin-top:18px">
+          <svg viewBox="0 0 1080 360" width="1080" height="360" role="img" aria-label="数据库 ER 图">
+            <rect x="40" y="42" width="210" height="250" rx="8" fill="#0f172a" stroke="#22d3ee"/>
+            <text x="145" y="76" text-anchor="middle" fill="#e0f2fe" font-size="22" font-weight="700">users</text>
+            <text x="72" y="116" fill="#cbd5e1" font-size="15">id · email · password_hash</text>
+            <text x="72" y="145" fill="#cbd5e1" font-size="15">nickname · avatar_id</text>
+            <text x="72" y="174" fill="#cbd5e1" font-size="15">created_at · updated_at</text>
+            <rect x="435" y="42" width="245" height="250" rx="8" fill="#0f172a" stroke="#a78bfa"/>
+            <text x="558" y="76" text-anchor="middle" fill="#ede9fe" font-size="22" font-weight="700">capsules</text>
+            <text x="468" y="116" fill="#cbd5e1" font-size="15">id · owner_id · code</text>
+            <text x="468" y="145" fill="#cbd5e1" font-size="15">title · content · open_at</text>
+            <text x="468" y="174" fill="#cbd5e1" font-size="15">in_plaza · favorite_count</text>
+            <text x="468" y="203" fill="#cbd5e1" font-size="15">created_at · updated_at</text>
+            <rect x="820" y="50" width="210" height="105" rx="8" fill="#0f172a" stroke="#34d399"/>
+            <text x="925" y="83" text-anchor="middle" fill="#dcfce7" font-size="22" font-weight="700">favorites</text>
+            <text x="852" y="120" fill="#cbd5e1" font-size="15">user_id · capsule_id</text>
+            <text x="852" y="143" fill="#cbd5e1" font-size="15">created_at</text>
+            <rect x="820" y="205" width="210" height="105" rx="8" fill="#0f172a" stroke="#fbbf24"/>
+            <text x="925" y="238" text-anchor="middle" fill="#fef3c7" font-size="22" font-weight="700">refresh_tokens</text>
+            <text x="852" y="275" fill="#cbd5e1" font-size="15">token_hash · family_id</text>
+            <text x="852" y="298" fill="#cbd5e1" font-size="15">expires_at · revoked_at</text>
+            <path d="M250 150 C315 150 360 150 435 150" stroke="#64748b" stroke-width="2" fill="none"/>
+            <text x="342" y="137" text-anchor="middle" fill="#9fb0c5" font-size="13">1 : N</text>
+            <path d="M680 118 C730 118 770 105 820 105" stroke="#64748b" stroke-width="2" fill="none"/>
+            <path d="M250 212 C435 320 650 320 820 258" stroke="#64748b" stroke-width="2" fill="none"/>
+            <path d="M250 112 C435 10 650 10 820 102" stroke="#64748b" stroke-width="2" fill="none"/>
+          </svg>
+        </div>
+      </section>
+
+      <section id="auth">
+        <div class="section-head">
+          <h2>鉴权流程</h2>
+          <p>所有实现遵守同一套 JWT access token + 不透明 refresh token 轮转模型。全栈实现额外处理 httpOnly cookie 与 Bearer 的桥接。</p>
+        </div>
+        <div class="grid three">
+          <article class="card">
+            <h3>Access Token</h3>
+            <p>JWT HS256，有效期 1 小时，payload 包含用户 id、昵称、头像、签发时间和过期时间。适合高频无状态校验。</p>
+          </article>
+          <article class="card">
+            <h3>Refresh Token</h3>
+            <p>256-bit 随机串，客户端持有明文，数据库只存 sha256 hash。有效期 7 天，可吊销，可做家族追踪。</p>
+          </article>
+          <article class="card">
+            <h3>轮转与重放</h3>
+            <p>每次 refresh 撤销旧 token 并签发新 token。若旧 token 被再次使用，整条 family 全部撤销，要求用户重新登录。</p>
+          </article>
+        </div>
+        <div class="diagram" style="margin-top:18px">
+          <svg viewBox="0 0 1060 300" width="1060" height="300" role="img" aria-label="Refresh token 轮转流程">
+            <rect x="40" y="108" width="160" height="70" rx="8" fill="#0f172a" stroke="#22d3ee"/>
+            <text x="120" y="138" text-anchor="middle" fill="#e0f2fe" font-size="18" font-weight="700">客户端</text>
+            <text x="120" y="162" text-anchor="middle" fill="#9fb0c5" font-size="13">持有 RT1</text>
+            <rect x="310" y="80" width="190" height="126" rx="8" fill="#111827" stroke="#a78bfa"/>
+            <text x="405" y="113" text-anchor="middle" fill="#ede9fe" font-size="18" font-weight="700">/auth/refresh</text>
+            <text x="405" y="142" text-anchor="middle" fill="#cbd5e1" font-size="13">hash 查行</text>
+            <text x="405" y="164" text-anchor="middle" fill="#cbd5e1" font-size="13">吊销 RT1</text>
+            <text x="405" y="186" text-anchor="middle" fill="#cbd5e1" font-size="13">签发 RT2</text>
+            <rect x="610" y="80" width="190" height="126" rx="8" fill="#111827" stroke="#34d399"/>
+            <text x="705" y="113" text-anchor="middle" fill="#dcfce7" font-size="18" font-weight="700">refresh_tokens</text>
+            <text x="705" y="142" text-anchor="middle" fill="#cbd5e1" font-size="13">token_hash</text>
+            <text x="705" y="164" text-anchor="middle" fill="#cbd5e1" font-size="13">family_id = F</text>
+            <text x="705" y="186" text-anchor="middle" fill="#cbd5e1" font-size="13">revoked_at</text>
+            <rect x="884" y="108" width="140" height="70" rx="8" fill="#0f172a" stroke="#fbbf24"/>
+            <text x="954" y="138" text-anchor="middle" fill="#fef3c7" font-size="18" font-weight="700">返回</text>
+            <text x="954" y="162" text-anchor="middle" fill="#9fb0c5" font-size="13">AT2 + RT2</text>
+            <path d="M202 143 L308 143" stroke="#22d3ee" stroke-width="3"/>
+            <path d="M502 143 L608 143" stroke="#a78bfa" stroke-width="3"/>
+            <path d="M802 143 L882 143" stroke="#34d399" stroke-width="3"/>
+            <text x="405" y="252" text-anchor="middle" fill="#fbbf24" font-size="15">如果 RT1 再次出现：撤销 family=F 的所有 refresh token</text>
+          </svg>
+        </div>
+      </section>
+
+      <section id="verification">
+        <div class="section-head">
+          <h2>验证体系</h2>
+          <p>本项目强调黑盒验证。契约验证不读实现代码，只从 HTTP 行为判断是否符合规范；UI 冒烟从真实浏览器验证主流程。</p>
+        </div>
+        <table>
+          <thead><tr><th>验证层</th><th>数量</th><th>验证对象</th><th>覆盖重点</th></tr></thead>
+          <tbody>
+            <tr><td>后端/全栈契约</td><td>104</td><td><code>/api/v1/*</code></td><td>auth、capsule、plaza、favorites、me、envelope、error codes、AI suggestion/recommendations</td></tr>
+            <tr><td>前端/全栈 UI 冒烟</td><td>25</td><td>浏览器页面</td><td>注册登录、创建/开启胶囊、广场搜索收藏、个人中心、AI 创建辅助、路由守卫</td></tr>
+            <tr><td>数据库生命周期</td><td>显式脚本</td><td><code>scripts/db</code></td><td>应用启动不建表、不 seed；统一由仓库级脚本 init/reset/seed</td></tr>
+          </tbody>
+        </table>
+        <div class="callout" style="margin-top:18px">
+          常用命令：<code>./verification/scripts/verify-contract.sh fastapi</code>、<code>DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh next</code>、<code>./verification/scripts/verify-ui-smoke.sh react-ts</code>。
+        </div>
+      </section>
+
+      <section id="compare">
+        <div class="section-head">
+          <h2>前后端与全栈对比</h2>
+          <p>对比时要抓住三条主线：后端的抽象厚度，前端的响应式模型，全栈的前后端边界。</p>
+        </div>
+        <div class="grid three">
+          <article class="card">
+            <h3>后端：抽象厚度</h3>
+            <p>从原生 SQL 到重型 ORM，控制力、样板量、跨库适配成本各不相同。Spring/JPA 最省 CRUD，但跨库要下沉到 Hibernate SPI；Axum/Drogon/Vapor 手写较多，但边界透明。</p>
+          </article>
+          <article class="card">
+            <h3>前端：状态到 DOM</h3>
+            <p>React 重跑组件并 diff，Vue/Angular 自动追踪，Svelte 编译期消除框架，Solid 细粒度直达节点。页面相同，差异都落在响应式心智上。</p>
+          </article>
+          <article class="card">
+            <h3>全栈：边界位置</h3>
+            <p>Next/Nuxt 让前后端边界模糊，浏览器下载并 hydrate 框架；Rails/Spring/Laravel 保持服务端模板主导，只用 Turbo/HTMX/Alpine 做局部增强。</p>
+          </article>
+        </div>
+        <table style="margin-top:18px">
+          <thead><tr><th>维度</th><th>左侧策略</th><th>右侧策略</th><th>学习观察点</th></tr></thead>
+          <tbody>
+            <tr><td>数据访问</td><td>原生 SQL / 手写编解码</td><td>ORM / 类型转换器</td><td>抽象越厚，日常越省，跨库边界越深。</td></tr>
+            <tr><td>前端渲染</td><td>编译期或细粒度</td><td>虚拟 DOM 与变更检测</td><td>运行时体积、心智模型和显式接线互相交换。</td></tr>
+            <tr><td>全栈页面</td><td>服务端模板 + 局部增强</td><td>同构 SSR + hydration</td><td>客户端 JS 体量与前后端接缝成本相互权衡。</td></tr>
+            <tr><td>鉴权</td><td>Bearer API</td><td>httpOnly cookie SSR</td><td>全栈实现需要 cookie 到 Bearer 的身份桥。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="backends">
+        <div class="section-head">
+          <h2>十个后端实现详解</h2>
+          <p>十个后端均实现同一套 <code>/api/v1/*</code> 契约，均支持 PostgreSQL 与 SQLite，差异主要来自语言、数据访问方式、事务表达和跨库适配。</p>
+        </div>
+        <div id="backendCards" class="grid two"></div>
+      </section>
+
+      <section id="frontends">
+        <div class="section-head">
+          <h2>五个前端实现详解</h2>
+          <p>五个 SPA 前端通过 <code>:9080</code> 代理访问当前选中的后端，路由、页面、交互和视觉一致，主要差异是响应式和状态管理。</p>
+        </div>
+        <div id="frontendCards" class="grid two"></div>
+      </section>
+
+      <section id="fullstacks">
+        <div class="section-head">
+          <h2>五个全栈实现详解</h2>
+          <p>全栈实现是一个进程两张脸：一张 JSON API 给契约测试和浏览器 fetch，一张 SSR HTML 页面给用户导航。</p>
+        </div>
+        <div id="fullstackCards" class="grid two"></div>
+      </section>
+
+      <section id="reading">
+        <div class="section-head">
+          <h2>建议学习路线</h2>
+          <p>按“规范 → 参考实现 → 同类对比 → 全栈边界”的顺序读，效率最高。</p>
+        </div>
+        <div class="grid four">
+          <article class="card">
+            <h3>1. 先读规范</h3>
+            <p>从需求、总体设计、数据库 schema、鉴权流程开始，理解所有实现共同遵守的边界。</p>
+          </article>
+          <article class="card">
+            <h3>2. 读参考栈</h3>
+            <p>FastAPI + React 是 M1 参考实现，适合作为业务流程、API 形状和 UI 状态的基线。</p>
+          </article>
+          <article class="card">
+            <h3>3. 横向对照</h3>
+            <p>后端按数据访问和事务读；前端按响应式模型读；全栈按 HTML 生成位置读。</p>
+          </article>
+          <article class="card">
+            <h3>4. 用验证收束</h3>
+            <p>每看完一个实现，跑契约或 UI 冒烟，确认“内部不同、外部一致”这一核心目标。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="sources">
+        <div class="section-head">
+          <h2>资料来源</h2>
+          <p>本学习资料按用户要求只依据项目文档与规范文件整理，没有阅读实现源码。</p>
+        </div>
+        <ul class="source-list">
+          <li><code>docs/01-requirements.md</code></li>
+          <li><code>docs/02-design.md</code></li>
+          <li><code>docs/03-roadmap.md</code></li>
+          <li><code>docs/04-verification-coverage.md</code></li>
+          <li><code>docs/db-schema.md</code></li>
+          <li><code>docs/auth.md</code></li>
+          <li><code>docs/backend-comparison.md</code></li>
+          <li><code>docs/frontend-comparison.md</code></li>
+          <li><code>docs/fullstack-comparison.md</code></li>
+          <li><code>docs/dev-notes.md</code></li>
+          <li><code>spec/tech-meta.json</code></li>
+          <li><code>backends/*/README.md</code> 与 <code>TECHNICAL_GUIDE.md</code></li>
+          <li><code>frontends/*/README.md</code> 与 <code>TECHNICAL_GUIDE.md</code></li>
+          <li><code>fullstacks/*/README.md</code> 与 <code>TECHNICAL_GUIDE.md</code></li>
+        </ul>
+      </section>
+
+      <footer>
+        生成目录：<code>learning-materials/</code>。本文件为静态 HTML，可直接用浏览器打开。
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const backends = [
+      ["FastAPI", "backend", "Python 3.12 · FastAPI · SQLAlchemy", "参考后端，分层最清晰，router/service/repository/model/schema 边界明确。", "Pydantic v2 做入参和响应模型，SQLAlchemy 2.0 负责 ORM；refresh 轮转、收藏计数、统一响应壳都是后续后端对齐的行为基准。", ["端口 29010", "参考实现", "PG/SQLite", "bcrypt + PyJWT"]],
+      ["Spring Boot", "backend", "Java 21 · Spring Web MVC · Spring Data JPA", "企业级全家桶代表，注解、DI、声明式事务和 JPA Repository 组成经典 MVC 分层。", "跨库 UUID/时间戳通过 Hibernate 自定义 JdbcType 和 ValueBinder 解决，展示“抽象层厚时，边界处要下沉到底层 SPI”的典型代价。", ["端口 29000", "@Transactional", "Hibernate JdbcType", "JVM 胖 JAR"]],
+      ["Gin", "backend", "Go 1.22 · Gin · GORM", "极简显式路线，错误处理、DTO 转换和事务边界都摆在明面上。", "GORM 提供链式 ORM，Go 单二进制部署清晰直接；收藏计数在事务里原子更新，SQLite 适配经验集中在路径解析和时间列类型。", ["端口 29020", "单二进制", "GORM", "显式 err"]],
+      ["Elysia", "backend", "Bun · Elysia · TypeScript", "最轻量的 TypeScript 后端之一，函数式扁平组织，原生 SQL 加轻量方言适配。", "依赖少、行数低，数据库层只保留 query/one/tx 原语；公开端点要把坏 token 当匿名处理，避免过期 token 破坏匿名浏览。", ["端口 29030", "Bun", "Zod", "原生 SQL"]],
+      ["NestJS", "backend", "Node.js · NestJS 11 · TypeORM", "Angular 风格的后端企业框架，Module/Controller/Service 纵切组织。", "装饰器、DI、Guard、Interceptor 和 Filter 构成完整框架样板；TypeORM ValueTransformer 处理 SQLite 与 PG 的列类型差异。", ["端口 29040", "DI", "Passport JWT", "TypeORM"]],
+      ["ASP.NET Core", "backend", "C# 12 · ASP.NET Core 8 · EF Core", ".NET 现代最小宿主模型，中间件管线、DI、Controller 和 EF Core 变更跟踪配合。", "禁用自动 400 以统一错误壳；SQLite 的 UUID/时间戳通过 ValueConverter 处理，JWT 密钥长度和 EF 插入排序是该栈特色注意点。", ["端口 29050", "EF Core", "Middleware", "ValueConverter"]],
+      ["Vapor", "backend", "Swift · Vapor 4 · SQLKit", "SwiftNIO 与 async/await 全链路后端，类型安全但更接近手写 SQL。", "跨库绑定和读取靠自建助手；SQLite 访问由 actor FIFO 串行化；手写 HS256 和显式 null 输出让契约行为高度可控。", ["端口 29060", "Swift async", "SQLKit", "actor 串行"]],
+      ["Axum", "backend", "Rust · Axum 0.8 · sqlx", "Rust 类型系统驱动的后端，handler 里用 ? 传播错误，ApiError 实现 IntoResponse。", "不用 sqlx 宏，改用运行时 query 和 Value/Cell 编解码层来支撑双库；SQLite 池上限 1，手写 JWT，显式 JSON null。", ["端口 29070", "Tokio", "Value/Cell", "IntoResponse"]],
+      ["Drogon", "backend", "C++20 · Drogon · 协程", "性能极限与底层透明度代表，头/实现分离、协程、文本协议和手写安全基础件集中出现。", "跨库编解码文本化，事务提交必须显式 awaitCommit；OpenSSL HMAC 手写 JWT，OpenBSD bcrypt 复用许可源码。", ["端口 29080", "C++20 协程", "awaitCommit", "OpenSSL"]],
+      ["Ktor", "backend", "Kotlin · Ktor · Exposed", "Kotlin 协程 + DSL 的 JVM 轻量路线，手动装配分层而非重型自动扫描。", "Exposed 提供类型安全 SQL DSL，CrossDbColumns 按方言分流 UUID/时间戳；outcome 模式保证 refresh 家族吊销先提交再返回错误。", ["端口 29090", "Kotlin DSL", "Exposed", "Coroutine"]]
+    ];
+
+    const frontends = [
+      ["React", "frontend", "React 19 · Zustand · react-router", "参考前端，函数组件、Hooks、单向数据流和外置 store 是现代 React 的主流心智。", "业务逻辑层 api/types/utils 可被其他 TS 前端复用；Zustand 管 auth/theme/plaza/capsule，自动 refresh 和 AuthGate 形成参考流程。", ["端口 7174", "Hooks", "Zustand", "VDOM"]],
+      ["Vue 3", "frontend", "Vue 3.5 · Pinia · vue-router", "Proxy 响应式和 SFC 分区结构让同一业务更贴近模板表达。", "Pinia 的组合式 store 与 React Zustand 逻辑同构，但依赖自动追踪减少手写依赖数组；适合学习 ref/reactive/computed 的边界。", ["端口 7173", "Composition API", "Pinia", "SFC"]],
+      ["Angular", "frontend", "Angular 19 · NgRx Signal Store", "企业级平台型前端，DI、路由、懒加载、Signals 和强约定结构突出。", "源码行数紧凑但运行时最重；ApiService 通过 DI 解循环依赖，路由级 loadComponent 展示大框架的治理能力。", ["端口 7175", "Signals", "DI", "懒加载"]],
+      ["Svelte 5", "frontend", "Svelte 5 · Runes · svelte-routing", "编译期框架，$state/$derived/$effect 让响应式像普通变量赋值。", ".svelte.ts store 单例要带 .ts 后缀导入，路由需要扁平 Route；这些坑体现编译期规则带来的隐式复杂度。", ["端口 7176", "Runes", "无 VDOM", ".svelte.ts"]],
+      ["SolidJS", "frontend", "SolidJS 1.9 · createSignal/createStore", "JSX 外形像 React，内核是细粒度响应式，组件函数只执行一次。", "api/types/utils 直接复用 React 的纯 TS 层，UI 用 signal/store 重写；props 不能解构、控制流用 Show/For/Index 是核心迁移点。", ["端口 7180", "细粒度", "无 VDOM", "Signal"]]
+    ];
+
+    const fullstacks = [
+      ["Next.js", "fullstack", "Next 15 · React 19 · Drizzle", "同构 JS 的代表，RSC 默认服务端执行，交互部分通过 use client 变成客户端孤岛。", "公开读页可直接在 Server Component 调服务层取数，零 HTTP；ht_session cookie 让服务端识别用户，server-only 是数据库代码的防火墙。", ["端口 7177", "RSC", "App Router", "Zustand"]],
+      ["Nuxt", "fullstack", "Nuxt 3 · Vue 3 · Nitro · Drizzle", "Vue 同构全栈方案，默认 SSR，并可用 routeRules 按路由切换渲染方式。", "useAsyncData 服务端预取，$fetch 同进程打 Nitro API；依赖 localStorage 的 create/me 路由退回 CSR，避免 hydration mismatch。", ["端口 7178", "Nitro", "useAsyncData", "Pinia"]],
+      ["Spring MVC", "fullstack", "Spring Boot · Thymeleaf · HTMX", "传统 JVM SSR 的现代形态，JSON API 与页面 Controller 共用同一套服务层。", "HTMX 用 hx-* 属性声明局部刷新，CookieTokenFilter 把 cookie 注入为 Bearer；跨库难点复用 Spring Boot 后端的 JdbcType 体系。", ["端口 7179", "Thymeleaf", "HTMX", "CookieTokenFilter"]],
+      ["Rails", "fullstack", "Rails 8 · ERB · Turbo/Stimulus", "HTML over the wire 的代表，服务端继续渲 HTML，Turbo Frame/Stream 承担局部更新协议。", "Rack 中间件完成 cookie 到 Bearer 桥；Active Record + CrossDb 处理双库，Stimulus 只负责 HTML 表达不了的小交互。", ["端口 7181", "Hotwire", "Active Record", "Rack bridge"]],
+      ["Laravel", "fullstack", "Laravel · Blade · Alpine.js", "PHP 现代全栈，Controller 准备数据，Blade 服务端整页渲染，Alpine 做轻量客户端增强。", "API 与 Web 页面共用 Service，Eloquent ORM 通过 CrossDb/Cast/trait 管理双库；客户端 JS 最少，边界最清晰。", ["端口 7182", "Blade", "Alpine", "Eloquent"]]
+    ];
+
+    function renderCards(targetId, rows) {
+      const root = document.getElementById(targetId);
+      root.innerHTML = rows.map(([name, kind, meta, highlight, detail, tags]) => `
+        <article class="card stack-card">
+          <div class="top">
+            <div>
+              <div class="name">${name}</div>
+              <div class="meta">${meta}</div>
+            </div>
+            <span class="kind">${kind}</span>
+          </div>
+          <p class="highlight">${highlight}</p>
+          <p class="detail">${detail}</p>
+          <div class="pill-row">${tags.map(t => `<span class="pill">${t}</span>`).join("")}</div>
+        </article>
+      `).join("");
+    }
+
+    renderCards("backendCards", backends);
+    renderCards("frontendCards", frontends);
+    renderCards("fullstackCards", fullstacks);
+  </script>
+</body>
+</html>

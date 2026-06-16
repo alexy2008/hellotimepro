@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ktor 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#tree">3 · 目录结构</a>
+    <a href="#core">4 · Ktor/Exposed 四机制</a>
+    <a href="#crossdb">5 · 跨库列类型（最值得读）</a>
+    <a href="#tx">6 · 挂起事务与一致性</a>
+    <a href="#auth">7 · 鉴权与安全</a>
+    <a href="#readcode">8 · 从注册请求读代码</a>
+    <a href="#test">9 · 测试</a>
+    <a href="#change">10 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#ktor" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/ktor.svg" alt="Ktor"></div>
+      <div>
+        <h1>Ktor</h1>
+        <p class="one">Kotlin 协程 + Exposed 类型安全 SQL DSL + 手动装配，轻量 JVM 的教科书写法——插件 <code>install</code> 显式组合，与 Spring 自动装配形成清晰对照。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29090</span><span class="badge violet">评审 92 / 100</span>
+          <span class="badge">Kotlin</span><span class="badge">Ktor 2.3 (Netty)</span><span class="badge">Exposed DSL</span><span class="badge">HikariCP · java-jwt</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">手册明确面向「已懂 Kotlin（data class/协程/扩展函数/nullable）但没接触过 Ktor/Exposed/HikariCP」的读者。整理自 <code>backends/ktor/TECHNICAL_GUIDE.md</code>（374 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Ktor · 插件式轻量框架</h4><p class="small muted">不像 Spring 那样大规模自动装配，功能通过 <code>install(ContentNegotiation)</code>/<code>install(StatusPages)</code>/<code>routing{...}</code> 显式组合，适合展示「轻量 JVM 服务」。</p></div>
+      <div class="card"><h4 class="sub2">Kotlin · 强类型 + 简洁</h4><p class="small muted">DTO 用 <code>@Serializable data class</code>，nullable 类型直接反映字段可选性，service 代码比 Java 更紧凑。</p></div>
+      <div class="card"><h4 class="sub2">Exposed · 类型安全 SQL DSL</h4><p class="small muted">仓库层用 Kotlin DSL 表达查询/排序/事务，列名拼错在编译期报错，不走 JPA 实体生命周期。</p></div>
+      <div class="card"><h4 class="sub2">手动依赖装配 · AppComponents</h4><p class="small muted">明确 new 出 repository/service，不引入 DI 容器——依赖关系一眼可读，适合教学。</p></div>
+    </div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>Netty → <code>Application.module()</code>（ContentNegotiation/CORS/StatusPages）→ <code>routing</code>（<code>call.receive&lt;T&gt;()</code> 反序列化、<code>AuthContext</code> 解析 Bearer）→ service → repository（Exposed DSL）。返回 <code>call.ok(...)</code> 包统一壳，异常抛 <code>ApiException</code> 由 <code>StatusPages</code> 转错误外壳。</p>
+    <div class="callout"><code>ContentNegotiation</code> 关键配置 <b><code>explicitNulls = true</code></b>——让 <code>message/errorCode/content</code> 等 null 字段<b>显式输出</b> <code>null</code>（契约用 strict equal 断言这些键存在）。</div>
+
+    <h2 class="sec" id="tree"><span class="n">3</span>目录结构</h2>
+    <div class="tree">src/main/kotlin/com/hellotimepro/ktor/
+├── Application.kt       <span class="c"># main、插件安装、路由注册</span>
+├── AppComponents.kt     <span class="c"># 手动依赖装配</span>
+├── config/AppConfig.kt  <span class="c"># 环境变量配置</span>
+├── db/                  <span class="c"># 连接、表定义、跨库列类型</span>
+├── repository/          <span class="c"># Exposed 查询封装</span>
+├── service/             <span class="c"># 业务逻辑、校验、LLM</span>
+├── web/                 <span class="c"># ApiException、AuthContext</span>
+└── dto/Dtos.kt          <span class="c"># @Serializable 请求/响应 DTO</span></div>
+
+    <h2 class="sec" id="core"><span class="n">4</span>Ktor / Exposed 的四个核心机制</h2>
+    <div class="mech"><div class="h"><span class="tag">机制一</span>插件 <code>install</code> 显式组合</div><div class="b"><p class="small muted">Ktor 没有「自动配置」——每个能力都靠 <code>install(...)</code> 显式装上，启动路径一眼可见。与 Spring「约定大于配置 + 自动装配」是两种哲学：Ktor 把组合权交给你，代价是要自己写、回报是没有隐藏行为。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制二</span>路由薄、<code>call.ok</code> 包壳、<code>intParam</code> 卡分页</div><div class="b"><p class="small muted">每个端点保持很薄：取参 → 调 service → 包壳。鉴权<b>不是中间件而是显式第一行</b> <code>required(...)</code>/<code>optional(...)</code>。分页用手写 <code>intParam()</code>：缺失用默认、传非整数则抛 <code>VALIDATION_ERROR</code>。</p>
+    <pre><code>post("/api/v1/capsules") {
+    val user = c.authContext.required(authHeader(call))   // 鉴权显式第一行
+    call.ok(c.capsuleService.create(user, call.receive&lt;CreateCapsuleRequest&gt;()), Created)
+}</code></pre></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制三</span>挂起事务 <code>dbQuery {}</code></div><div class="b"><p class="small muted">Exposed 事务在协程里用 <code>newSuspendedTransaction(Dispatchers.IO)</code>，封装成 <code>dbQuery {}</code>。<b>纪律：每个 service 公共方法只调用一次</b>，保证多步操作在同一事务里原子提交——block 正常返回即 COMMIT、抛异常即 ROLLBACK。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制四</span>Exposed DSL：类型安全 SQL</div><div class="b"><p class="small muted">列名是强类型对象（<code>Capsules.id</code>、<code>Capsules.favoriteCount</code>），拼错/类型不符在<b>编译期</b>报错。原子自增用 <code>it[favoriteCount] = favoriteCount + 1</code>，行锁用 <code>q.forUpdate()</code>（仅非 SQLite 方言）。</p></div></div>
+
+    <h2 class="sec" id="crossdb"><span class="n">5</span>跨库列类型（最值得读）</h2>
+    <p><code>CrossDbColumns.kt</code> 自定义两个 <code>ColumnType</code>，在同一套表定义上按方言分流读写格式：</p>
+    <pre><code>class CrossTimestampColumnType : ColumnType() {
+    override fun sqlType() = if (isSqliteDialect) "TEXT" else "TIMESTAMP WITH TIME ZONE"
+    override fun notNullValueToDB(value: Any): Any {
+        val odt = (value as OffsetDateTime).withOffsetSameInstant(ZoneOffset.UTC)
+        return if (isSqliteDialect) odt.format(WRITE) else odt   // SQLite 写 ISO TEXT，PG 直传
+    }
+    // WRITE：输出秒+可选小数秒，零偏移渲染成 +00:00（而非 ISO 默认的 Z），与 seed 对齐
+}</code></pre>
+    <div class="callout green">PG 用原生 <code>uuid</code>/<code>timestamptz</code>；SQLite 存 32 位 hex TEXT + ISO TEXT，写出格式与 seed 逐字符对齐（<code>T</code> 分隔、<code>+00:00</code>），保证「字符串比较即时间比较」。这是<a href="../comparison.html#be-dualdb">双库三解法</a>「A 类」，手册点名它对应 Spring <code>@JdbcType</code>、ASP.NET <code>ValueConverter</code>——<b>跨栈引用的范例</b>。</div>
+
+    <h2 class="sec" id="tx"><span class="n">6</span>挂起事务与一致性</h2>
+    <p><code>favorite_count</code> 必须和 favorites 表同事务更新：PG 路径用 <code>SELECT ... FOR UPDATE</code> 锁胶囊行，SQLite 依赖单写事务和<b>连接池大小 1</b>（<code>maximumPoolSize = 1</code>，避免「database is locked」——等价 Vapor 的 AsyncGate、Axum 的池上限 1）。</p>
+    <div class="callout cyan"><b>refresh 轮转用 outcome 模式（<code>RefreshOutcome</code> sealed interface）：</b>事务内不抛业务错，旧 token 被重放时先提交同 family 吊销、再返回 401——<code>dbQuery</code> 提交后外层 <code>when(outcome)</code> 才把 Reused/Invalid 转成 401。对应 Spring 的 <code>noRollbackFor</code> 思路（<a href="../comparison.html#be-tx">事务四流派 ③</a>）。</div>
+
+    <h2 class="sec" id="auth"><span class="n">7</span>鉴权与安全</h2>
+    <p><code>SecurityService</code> 用 java-jwt（auth0）+ favre bcrypt。解码区分两个 message：<code>TokenExpiredException</code> → <code>access_token_expired</code>，其余 <code>JWTVerificationException</code> → <code>invalid_token</code>（契约区分）。refresh token 用 <code>SecureRandom</code> 取 32 字节 → base64url，落库只存 SHA-256 hex。<code>AuthContext</code> 是 Web 边界，业务 service 不直接读 HTTP header（presentation 与 application 分离）。</p>
+
+    <h2 class="sec" id="readcode"><span class="n">8</span>从真实请求读代码：注册</h2>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">① 校验（Validation）<small>缺字段/格式错抛 ApiException → StatusPages 转 422</small></div><div class="arrow">↓</div>
+      <div class="node">② <span class="mono">dbQuery {}</span> 一次挂起事务</div><div class="arrow">↓</div>
+      <div class="node">③ 唯一性预检 existsByEmail / existsByNickname</div><div class="arrow">↓</div>
+      <div class="node">④ <span class="mono">security.hashPassword</span>（bcrypt）⑤ <span class="mono">users.insert</span>（Exposed）</div><div class="arrow">↓</div>
+      <div class="node">⑥ <span class="mono">issueTokenPair</span> 签发并落库 refresh token</div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#5ed49a">⑦ block 正常返回 → COMMIT；抛 ApiException → ROLLBACK → <span class="mono">call.ok(..., Created)</span></div>
+    </div></div><div class="cap">事务边界由 dbQuery {} 一行划定，比手写 BEGIN/COMMIT 干净</div></div>
+    <div class="callout pink"><b>一处取舍：</b>bcrypt 在 <code>dbQuery</code> 闭包内调用——它是 CPU 密集操作（cost 10 约几十毫秒），握着连接做哈希会拖长持锁时间。与 Axum/Vapor/Drogon「bcrypt 放事务外」略不同，教学项目可接受，生产可前移。</div>
+
+    <h2 class="sec" id="test"><span class="n">9</span>测试</h2>
+    <p>有轻量 <code>SmokeTest</code>，重点仍是仓库级黑盒契约（104 用例 × 双驱动）。黑盒契约不读实现细节，只从 HTTP 行为验证状态码/响应壳/错误码/鉴权/胶囊开放规则/收藏计数/AI 接口。</p>
+
+    <h2 class="sec" id="change"><span class="n">10</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>新增接口</td><td><code>dto/Dtos.kt</code> → <code>service/</code> → <code>repository/</code> → <code>Application.kt</code> 的 <code>registerRoutes</code></td></tr>
+      <tr><td>新增字段校验</td><td><code>service/Validation.kt</code></td></tr>
+      <tr><td>新增表/字段</td><td>先改 <code>spec/db</code> → <code>db/Tables.kt</code> + <code>domain/Models.kt</code> → row mapper → DTO</td></tr>
+      <tr><td>改跨库时间/UUID</td><td><code>db/CrossDbColumns.kt</code>（须双驱动复验）</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="elysia.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Elysia</div></a>
+      <a href="aspnet.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">ASP.NET Core</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Ktor 详解 · 整理自 backends/ktor/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

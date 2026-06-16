@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Specter">
+  <defs>
+    <radialGradient id="spec-bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#341a8f"/>
+      <stop offset="100%" stop-color="#06060c"/>
+    </radialGradient>
+    <linearGradient id="spec-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c8b8ff"/>
+      <stop offset="100%" stop-color="#6b46ff"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="62" fill="url(#spec-bg)"/>
+  <circle cx="64" cy="64" r="62" fill="none" stroke="#8467ff" stroke-width="1.5" opacity="0.5"/>
+  <!-- 幽灵轮廓 -->
+  <path d="M38 52
+           C 38 34 54 22 64 22
+           C 74 22 90 34 90 52
+           L 90 96
+           L 82 88 L 74 96 L 64 88 L 54 96 L 46 88 L 38 96 Z"
+        fill="url(#spec-grad)" opacity="0.85"/>
+  <circle cx="54" cy="54" r="4" fill="#06060c"/>
+  <circle cx="74" cy="54" r="4" fill="#06060c"/>
+  <circle cx="54" cy="54" r="1.5" fill="#40e4ff"/>
+  <circle cx="74" cy="54" r="1.5" fill="#40e4ff"/>
+</svg>

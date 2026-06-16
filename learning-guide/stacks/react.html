@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>React 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#flow">2 · 一次「打开页面」的流向</a>
+    <a href="#core">3 · React 四个核心概念</a>
+    <a href="#router">4 · 路由与守卫</a>
+    <a href="#api">5 · 数据层与自动 refresh</a>
+    <a href="#zustand">6 · 状态层 Zustand</a>
+    <a href="#countdown">7 · 倒计时与序列号守卫</a>
+    <a href="#style">8 · 样式与设计令牌</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#react" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/react.svg" alt="React"></div>
+      <div>
+        <h1>React</h1>
+        <p class="one">「UI 是状态的纯函数」——hooks + 单向数据流，生态最大、心智最主流，被选作参考实现，其余四栈对齐它的页面结构与逻辑层。</p>
+        <div class="stack-meta">
+          <span class="badge pink">参考实现</span><span class="badge port">:7174</span><span class="badge violet">评审 92 / 100</span>
+          <span class="badge">React 19</span><span class="badge">TypeScript</span><span class="badge">Vite 6</span><span class="badge">react-router 7</span><span class="badge">Zustand 5</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 HTML/CSS/JS 但还没系统接触过 React/TS/Vite/SPA 的读者。整理自 <code>frontends/react-ts/TECHNICAL_GUIDE.md</code>（718 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">React + React Router · 声明式 SPA</h4><p class="small muted">声明式 UI + 单向数据流，配合嵌套路由与守卫。切换页面无需刷新浏览器。</p></div>
+      <div class="card"><h4 class="sub2">TypeScript · 契约对齐</h4><p class="small muted">静态类型让前端数据结构与后端 OpenAPI 契约高度一致，编写阶段即拦截字段拼错、未处理 null。</p></div>
+      <div class="card"><h4 class="sub2">Vite · 极速 HMR</h4><p class="small muted">基于原生 ESM 的热更新，改动即时响应；生产输出高度优化的静态资源。</p></div>
+      <div class="card"><h4 class="sub2">Zustand · 轻量解耦状态</h4><p class="small muted">避开繁重 Redux，模块化单例 + 订阅既避免 Context 无谓重渲染，又极易在组件外部（API 客户端）同步读写状态。</p></div>
+    </div>
+
+    <h2 class="sec" id="flow"><span class="n">2</span>一次「打开广场页」的流向</h2>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">浏览器 GET / → 返回 <span class="mono">index.html</span>（仅一个 <span class="mono">&lt;div id="root"&gt;</span>）</div><div class="arrow">↓</div>
+      <div class="node"><span class="mono">main.tsx</span>：<span class="mono">createRoot(...).render(&lt;App/&gt;)</span></div><div class="arrow">↓</div>
+      <div class="node"><span class="mono">App.tsx</span>：<span class="mono">useEffect</span> 调 hydrate auth/theme → 渲染 <span class="mono">&lt;RouterProvider/&gt;</span></div><div class="arrow">↓</div>
+      <div class="node"><span class="mono">router.tsx</span> 按 URL 匹配 → <span class="mono">&lt;MainLayout&gt;&lt;PlazaPage/&gt;&lt;/MainLayout&gt;</span></div><div class="arrow">↓</div>
+      <div class="node"><span class="mono">PlazaPage</span> 的 <span class="mono">useEffect</span> 调 <span class="mono">usePlaza.fetch()</span> → <span class="mono">fetch("/api/v1/plaza/capsules")</span></div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#5ed49a">后端 JSON → Zustand store 更新 → React 重渲染卡片列表</div>
+    </div></div><div class="cap">只有状态变更会触发渲染，没有人手动操作 DOM——这是 React 和原生 JS 写法最大的差别</div></div>
+
+    <h2 class="sec" id="core"><span class="n">3</span>React 的四个核心概念</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">① 组件 = 返回 JSX 的函数</h4><p class="small muted">大写开头的函数返回 JSX。用 <code>&lt;AppFooter/&gt;</code> 而非 <code>AppFooter()</code>——这是给 React 看的标记，让它把函数纳入虚拟 DOM 树。</p></div>
+      <div class="card"><h4 class="sub2">② JSX = HTML-in-JS</h4><p class="small muted"><code>class→className</code>、<code>for→htmlFor</code>、<code>onClick={fn}</code>、<code>style={{}}</code>。条件/列表都是普通 JS（<code>三元 / &&  / map</code>）。列表项必须给稳定 <code>key</code>，不用 index。</p></div>
+      <div class="card"><h4 class="sub2">③ Props = 参数；State = 记忆</h4><p class="small muted">单向数据流：父用 props 传值，子用回调影响父。State 用 <code>useState</code>——因为组件每次渲染从头执行，<code>let</code> 会被重置，<code>useState</code> 让 React 在组件实例外保留值并在 <code>set</code> 时触发重渲染。</p></div>
+      <div class="card"><h4 class="sub2">④ Hooks：钩入框架能力</h4><p class="small muted">以 <code>use</code> 开头，<b>只能在组件顶层调用</b>（React 靠调用顺序辨认）。<code>useState/useEffect/useRef/useMemo</code> + 自定义 Hook（Zustand store）。</p></div>
+    </div>
+    <div class="callout pink"><b>函数式更新避免闭包陷阱：</b><code>setInterval(() =&gt; setTick(x =&gt; x + 1), 1000)</code> ✅ 拿到最新值；<code>setTick(tick + 1)</code> ❌ <code>tick</code> 永远是 effect 那次的快照。这是 React 里最常踩的坑之一。<b>核心心智：<code>UI = f(state)</code></b>，你永远不直接 <code>document.getElementById(...).innerText = ...</code>。</div>
+
+    <h2 class="sec" id="router"><span class="n">4</span>路由与守卫</h2>
+    <p><code>createBrowserRouter</code> data router + 布局嵌套路由（父只给 <code>element</code> 无 <code>path</code>，子页面渲染到 <code>&lt;Outlet/&gt;</code>）。守卫是<b>组件</b>：</p>
+    <pre><code>export function AuthGate({ children }) {
+  const { user, hydrated, refreshToken } = /* 从 store 读 */;
+  if (!hydrated) return null;                          // 等 localStorage 读完
+  if (user || refreshToken) return &lt;&gt;{children}&lt;/&gt;;     // 已登录或可静默续期
+  return &lt;Navigate to="/login" replace state={{ from: location.pathname }} /&gt;;
+}</code></pre>
+    <div class="callout">守卫的精妙：<b>只要 <code>refreshToken</code> 在就放行</b>——接下来的 API 调用会自动 refresh，用户看不到打断。这个「乐观放行 + 惰性续期」由共享逻辑层的自动 refresh 赋予。<a href="../comparison.html#fe-state">五栈守卫对比 →</a></div>
+
+    <h2 class="sec" id="api"><span class="n">5</span>数据层与自动 refresh</h2>
+    <p>通用 <code>request&lt;T&gt;(path, opts)</code>：自动拼 <code>Authorization</code>、序列化 body、解开统一外壳 <code>{success,data,message,errorCode}</code>（调用者只看到 <code>data</code>）、失败抛 <code>ApiError</code>、204 直接返回。</p>
+    <div class="figure"><div class="diagram">
+      <svg viewBox="0 0 820 130" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif"><defs><marker id="ra" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+      <g font-size="12" text-anchor="middle">
+        <rect x="14" y="46" width="180" height="40" rx="9" fill="#0e0e18" stroke="#262635"/><text x="104" y="70" fill="#f7f7fb">fetch → 401 UNAUTHORIZED</text>
+        <rect x="230" y="46" width="150" height="40" rx="9" fill="#0e0e18" stroke="#6b46ff"/><text x="305" y="70" fill="#c8b8ff">tryRefresh()</text>
+        <rect x="430" y="14" width="190" height="40" rx="9" fill="#0e0e18" stroke="#5ed49a"/><text x="525" y="38" fill="#d7d7e2">新 accessToken → 重放原请求</text>
+        <rect x="430" y="78" width="190" height="40" rx="9" fill="#2a0d22" stroke="#ff2d91"/><text x="525" y="102" fill="#ffd9ec">refresh 失败 → onAuthLost() 清状态</text>
+      </g>
+      <g stroke="#80808f" stroke-width="1.4" fill="none"><path d="M194,66 L228,66" marker-end="url(#ra)"/><path d="M380,58 L428,40" marker-end="url(#ra)"/><path d="M380,74 L428,92" marker-end="url(#ra)"/></g></svg>
+    </div><div class="cap">模块级单例 refreshing：一波 401 同时发生时只发一次 refresh，其余 await 同一个 Promise；_retry 防死循环</div></div>
+    <div class="callout cyan"><b>与 store 解耦：</b><code>api/client.ts</code> 不 <code>import { useAuth }</code>（否则与 <code>stores/auth.ts</code> 形成循环）。用<b>依赖注入</b> <code>configureApi({ getAccessToken, onAuthLost })</code>——store 模块加载时注册一次。这是<a href="../comparison.html#fe-state">前端共享逻辑层「破循环依赖」</a>的四栈通用招（Angular 靠 DI 不需要）。</div>
+
+    <h2 class="sec" id="zustand"><span class="n">6</span>状态层 Zustand</h2>
+    <p><code>create((set, get) =&gt; ({...}))</code>：<code>set</code> 浅合并触发订阅者重渲染，<code>get</code> 同步读。<code>useAuth</code> 本身是自定义 Hook，组件用<b>选择器</b>细订阅（<code>useAuth(s =&gt; s.user)</code>，只在 user 变化时重渲染——选越细性能越好）。也能在组件外 <code>useAuth.getState()</code> 同步读。</p>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>Store</th><th>关心什么</th><th>持久化</th></tr></thead><tbody>
+      <tr><td><code>useAuth</code></td><td>user / accessToken / refreshToken / hydrated</td><td>refreshToken + user → localStorage</td></tr>
+      <tr><td><code>useTheme</code></td><td>dark / light</td><td>localStorage</td></tr>
+      <tr><td><code>usePlaza</code></td><td>sort / filter / q / page + items / pagination</td><td>否</td></tr>
+      <tr><td><code>useCapsule</code></td><td>mine / favorites 两个分页列表</td><td>否</td></tr>
+    </tbody></table></div>
+    <div class="callout green"><b>跨 store 联动：</b><code>useCapsule.toggleFavorite</code> 收藏成功后直接调 <code>usePlaza.getState().patchFavorited(...)</code> 同步广场列表——从「我收藏的」取消后切回广场，那条不会还显示已收藏。Zustand store 是模块级单例，<code>.getState()</code> 同步读不通过 React 订阅，所以互相 import 不破坏渲染。</div>
+
+    <h2 class="sec" id="countdown"><span class="n">7</span>倒计时与序列号守卫</h2>
+    <p><b>倒计时（React 特有写法）：</b>状态变才重渲染，于是造一个无意义的 tick 逼组件重跑、计算放渲染期：</p>
+    <pre><code>const [, setTick] = useState(0);
+useEffect(() =&gt; {
+  if (opened) return;                                              // 已开启不开定时器
+  const t = window.setInterval(() =&gt; setTick(x =&gt; x + 1), 1000);   // 函数式更新
+  return () =&gt; window.clearInterval(t);                            // 清理
+}, [opened]);
+const cd = countdownTo(capsule.openAt);                            // 每次渲染重算</code></pre>
+    <div class="callout cyan"><b>并发请求序列号守卫：</b>快速切 sort/filter 连发多个请求，响应顺序不保证。模块级 <code>let fetchSeq = 0</code>，只有「最新发起」的请求才能写回结果（<code>if (myId !== fetchSeq) return</code>）。五栈用<a href="../comparison.html#fe-state">完全相同的思路</a>。</div>
+
+    <h2 class="sec" id="style"><span class="n">8</span>样式与设计令牌</h2>
+    <p><code>src/styles/index.css</code> <code>@import</code> spec 的 <code>palette/tokens/cyber.css</code>。<code>spec/styles/tokens.css</code> 是设计系统单一来源，五个前端共用，改一次全生效。主题切换靠 <code>data-theme="dark|light"</code>（<code>index.html</code> 内联脚本尽早设置，避免主题闪白）。组件用 <code>cy-*</code> 共享类，<b>禁止硬编码色值或用色阶变量 <code>--brand-500</code></b>。</p>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加新页面</td><td>① <code>src/pages/XxxPage.tsx</code>；② <code>router.tsx</code> 加 <code>{path, element}</code></td></tr>
+      <tr><td>加登录后页面</td><td>同上，<code>element</code> 包一层 <code>&lt;AuthGate&gt;</code></td></tr>
+      <tr><td>加 API 端点</td><td>① <code>types/index.ts</code> 加类型；② <code>api/client.ts</code> 在 <code>api</code> 对象加方法</td></tr>
+      <tr><td>加状态域</td><td><code>stores/xxx.ts</code> 用 <code>create</code> 定义新 store</td></tr>
+      <tr><td>改主题色/间距</td><td>改 <code>spec/styles/tokens.css</code>，所有前端同步生效</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="../implementations.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 返回</div><div class="ttl" style="font-weight:700">实现详解总览</div></a>
+      <a href="vue.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Vue 3</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · React 详解 · 整理自 frontends/react-ts/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

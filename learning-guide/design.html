@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计 · HelloTime Pro 学习资料</title>
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-brand" style="text-decoration:none"><img src="assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="index.html">总体介绍</a>
+      <a href="design.html" class="active">设计</a>
+      <a href="comparison.html">前后端对比</a>
+      <a href="implementations.html">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#principles">1 · 设计原则</a>
+    <a href="#datamodel">2 · 数据模型</a>
+    <a href="#tables">3 · 表与不变式</a>
+    <a href="#api">4 · API 契约</a>
+    <a href="#auth">5 · 鉴权设计</a>
+    <a href="#rotation">6 · 轮转与重放检测</a>
+    <a href="#dualdb">7 · 双库策略</a>
+    <a href="#tokens">8 · 设计令牌</a>
+    <a href="#avatars">9 · 内置头像</a>
+    <a href="#tooling">10 · 工具与验证</a>
+  </aside>
+
+  <main class="content">
+    <header style="padding-top:34px">
+      <span class="badge violet">设计</span>
+      <h1 style="font-size:38px;margin:14px 0 6px">设计：契约长什么样</h1>
+      <p class="lead" style="font-size:18px">架构、数据模型、API 契约、鉴权与双库策略——这是二十份实现共同对齐的「事实源」。整理自 <code>docs/02-design.md</code> / <code>auth.md</code> / <code>db-schema.md</code>。</p>
+    </header>
+
+    <h2 class="sec" id="principles"><span class="n">1</span>设计原则</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">① 规范即单一事实源</h4><p class="small muted">业务契约在 <code>spec/</code>（OpenAPI、Design Tokens、数据字典）。所有实现必须从 spec 生成或对齐，不允许各实现自己定义。</p></div>
+      <div class="card"><h4 class="sub2">② 栈内正交</h4><p class="small muted">每个实现使用该技术栈的<b>地道</b>写法（Signals 对 Angular、组合式对 Vue、Runes 对 Svelte），不强行统一代码结构。</p></div>
+      <div class="card"><h4 class="sub2">③ 外部一致</h4><p class="small muted">不管内部怎么写，对外行为（路由、JSON 形状、错误码、样式）必须一致，肉眼可比。</p></div>
+      <div class="card"><h4 class="sub2">④ 最小脚手架</h4><p class="small muted">每个实现的 <code>run</code> / <code>build</code> / <code>test</code> 三脚本就是用户入口，不搞复杂 CI DSL。</p></div>
+      <div class="card" style="grid-column:span 2"><h4 class="sub2">⑤ 教学可读优先于性能极致</h4><p class="small muted">不做不必要的缓存 / 优化层，代码要让读者能在 30 分钟内看完主流程。</p></div>
+    </div>
+
+    <h2 class="sec" id="datamodel"><span class="n">2</span>数据模型</h2>
+    <p>四张表，关系全部 <code>ON DELETE CASCADE</code>。核心是 <code>users → capsules → favorites</code> 的多对多，外加 <code>refresh_tokens</code> 支撑鉴权。注意 <code>favorite_count</code> 是<b>冗余计数器</b>——为了让广场「最热」排序不必每次 JOIN+COUNT。</p>
+
+    <div class="figure">
+      <div class="diagram">
+        <svg viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, monospace">
+          <defs>
+            <marker id="d-arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#6b46ff"/></marker>
+          </defs>
+          <!-- users -->
+          <rect x="40" y="150" width="200" height="170" rx="12" fill="#14141f" stroke="#6b46ff" stroke-width="1.5"/>
+          <rect x="40" y="150" width="200" height="32" rx="12" fill="#6b46ff"/>
+          <text x="140" y="171" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">users</text>
+          <g font-size="12" fill="#d7d7e2"><text x="56" y="204">id · PK</text><text x="56" y="226">email · UQ 小写</text><text x="56" y="248">password_hash</text><text x="56" y="270">nickname · UQ</text><text x="56" y="292">avatar_id</text><text x="56" y="314">created/updated_at</text></g>
+
+          <!-- capsules -->
+          <rect x="360" y="40" width="220" height="222" rx="12" fill="#14141f" stroke="#14d4f0" stroke-width="1.5"/>
+          <rect x="360" y="40" width="220" height="32" rx="12" fill="#00b8d4"/>
+          <text x="470" y="61" text-anchor="middle" fill="#04222a" font-size="14" font-weight="700">capsules</text>
+          <g font-size="12" fill="#d7d7e2"><text x="376" y="94">id · PK</text><text x="376" y="116">owner_id · FK</text><text x="376" y="138">code · UQ [A-Z0-9]{8}</text><text x="376" y="160">title / content</text><text x="376" y="182">open_at</text><text x="376" y="204">in_plaza</text></g>
+          <text x="376" y="226" font-size="12" fill="#ffc14a">favorite_count ⟳冗余</text>
+          <text x="376" y="248" font-size="12" fill="#d7d7e2">created/updated_at</text>
+
+          <!-- favorites -->
+          <rect x="360" y="300" width="220" height="106" rx="12" fill="#14141f" stroke="#ff2d91" stroke-width="1.5"/>
+          <rect x="360" y="300" width="220" height="32" rx="12" fill="#ff2d91"/>
+          <text x="470" y="321" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">favorites</text>
+          <g font-size="12" fill="#d7d7e2"><text x="376" y="354">user_id · PK,FK</text><text x="376" y="376">capsule_id · PK,FK</text><text x="376" y="398">created_at</text></g>
+
+          <!-- refresh_tokens -->
+          <rect x="680" y="120" width="200" height="170" rx="12" fill="#14141f" stroke="#5ed49a" stroke-width="1.5"/>
+          <rect x="680" y="120" width="200" height="32" rx="12" fill="#2bb87a"/>
+          <text x="780" y="141" text-anchor="middle" fill="#04221a" font-size="13" font-weight="700">refresh_tokens</text>
+          <g font-size="12" fill="#d7d7e2"><text x="696" y="174">id · PK</text><text x="696" y="196">user_id · FK</text><text x="696" y="218">token_hash · UQ</text><text x="696" y="240">family_id</text><text x="696" y="262">expires / revoked_at</text></g>
+
+          <!-- relations -->
+          <path d="M240,210 C300,190 320,140 358,120" fill="none" stroke="#6b46ff" stroke-width="1.6" marker-end="url(#d-arr)"/>
+          <text x="290" y="150" fill="#a58eff" font-size="11">1:N owner</text>
+          <path d="M240,250 C300,300 320,340 358,352" fill="none" stroke="#6b46ff" stroke-width="1.6" marker-end="url(#d-arr)"/>
+          <text x="248" y="312" fill="#a58eff" font-size="11">1:N</text>
+          <path d="M470,300 L470,266" fill="none" stroke="#ff2d91" stroke-width="1.6" marker-end="url(#d-arr)"/>
+          <text x="478" y="288" fill="#ff7eb9" font-size="11">capsule_id</text>
+          <path d="M240,195 C420,80 560,150 678,170" fill="none" stroke="#6b46ff" stroke-width="1.6" marker-end="url(#d-arr)" opacity=".55"/>
+          <text x="540" y="120" fill="#a58eff" font-size="11">1:N tokens</text>
+        </svg>
+      </div>
+      <div class="cap">四张表 · 全部 CASCADE 删除 · favorites 复合主键 (user_id, capsule_id) 天然去重</div>
+    </div>
+
+    <h2 class="sec" id="tables"><span class="n">3</span>表细则与关键不变式</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h4 class="sub2">关键字段约束</h4>
+        <ul class="small">
+          <li><code>email</code> VARCHAR(254)，小写存储、大小写不敏感唯一</li>
+          <li><code>nickname</code> VARCHAR(20)，2–20 字符、<b>大小写敏感</b>唯一</li>
+          <li><code>code</code> CHAR(8)，<code>^[A-Z0-9]{8}$</code>，唯一</li>
+          <li><code>title</code> 1–60、<code>content</code> 1–5000 字符</li>
+          <li><code>open_at</code> &gt; <code>created_at</code> + 60 秒</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 class="sub2">五个广场 / 列表索引</h4>
+        <ul class="small">
+          <li><code>(in_plaza, favorite_count↓, created_at↓)</code> — 最热</li>
+          <li><code>(in_plaza, created_at↓)</code> — 最新</li>
+          <li><code>(in_plaza, open_at)</code> — 已开/未开过滤</li>
+          <li><code>(owner_id, created_at↓)</code> — 我创建的</li>
+          <li>GIN <code>pg_trgm</code> 模糊搜索（SQLite 跳过，全表 LIKE）</li>
+        </ul>
+      </div>
+    </div>
+    <h4 class="sub2">四条不变式（Invariants）</h4>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>编号</th><th>不变式</th><th>怎么保证</th></tr></thead>
+        <tbody>
+          <tr><td><b>I1</b></td><td>不能收藏自己的胶囊</td><td>业务层显式校验（DB CHECK 需 subquery，SQLite 不支持）</td></tr>
+          <tr><td><b>I2</b></td><td><code>favorite_count == COUNT(favorites)</code></td><td>所有 favorites 写操作必须与计数更新在<b>同一事务</b>内完成</td></tr>
+          <tr><td><b>I3</b></td><td><code>code</code> 严格 8 位且唯一</td><td>应用层生成 + 唯一索引；撞码重试最多 5 次</td></tr>
+          <tr><td><b>I4</b></td><td><code>open_at &gt; created_at + 60s</code></td><td>创建时校验 + DB CHECK 约束</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout green"><b>不可变性：</b>胶囊的 <code>content</code> 与 <code>open_at</code> 创建后<b>永不可改</b>（无任何更新接口）。用户可随时删除自己的胶囊，但不能编辑内容或解锁时间——「一经封存」是核心业务语义。</div>
+
+    <h2 class="sec" id="api"><span class="n">4</span>API 契约</h2>
+    <p>所有响应共享统一外壳，错误码是固定枚举映射到 HTTP 状态：</p>
+    <pre><code>{ "success": true | false,
+  "data":    &lt;object | array | null&gt;,
+  "message": &lt;string | null&gt;,
+  "errorCode": &lt;string | null&gt; }</code></pre>
+    <div class="chips">
+      <span class="badge">VALIDATION_ERROR · 422</span>
+      <span class="badge">UNAUTHORIZED · 401</span>
+      <span class="badge">FORBIDDEN · 403</span>
+      <span class="badge">NOT_FOUND · 404</span>
+      <span class="badge">CONFLICT · 409</span>
+      <span class="badge">RATE_LIMITED · 429</span>
+      <span class="badge">BAD_REQUEST · 400</span>
+      <span class="badge">INTERNAL_ERROR · 500</span>
+    </div>
+    <div class="grid g3" style="margin-top:18px">
+      <div class="card">
+        <h4 class="sub2">公共端点</h4>
+        <ul class="small mono" style="line-height:1.9">
+          <li>GET /health</li>
+          <li>GET /avatars</li>
+          <li>GET /capsules/{code}</li>
+          <li>GET /plaza/capsules</li>
+          <li>GET /plaza/capsules/{id}</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 class="sub2">鉴权端点</h4>
+        <ul class="small mono" style="line-height:1.9">
+          <li>POST /auth/register</li>
+          <li>POST /auth/login</li>
+          <li>POST /auth/refresh</li>
+          <li>POST /auth/logout</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4 class="sub2">登录后端点</h4>
+        <ul class="small mono" style="line-height:1.9">
+          <li>GET / PATCH /me</li>
+          <li>POST /me/password</li>
+          <li>POST /capsules</li>
+          <li>GET / DELETE /me/capsules…</li>
+          <li>GET/POST/DELETE /me/favorites…</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout cyan"><b><code>/api/v1/health</code></b> 用有序数组表达技术栈（每项含 <code>role / name / version / iconUrl</code>），页脚与「关于」页据此<b>动态</b>展示当前运行的栈——这也是本资料里每个实现卡片技术图标的来源。</div>
+
+    <h2 class="sec" id="auth"><span class="n">5</span>鉴权设计：两种令牌</h2>
+    <p>JWT(HS256) + refresh token 轮转 + 家族追踪。设计目标：无状态校验、可吊销可登出、被盗用可检测、改密后旧会话失效。</p>
+    <div class="grid g2">
+      <div class="card" style="border-color:rgba(132,103,255,.4)">
+        <h4 class="sub2">access token</h4>
+        <ul class="small">
+          <li>JWT，HS256，密钥 <code>JWT_SECRET</code></li>
+          <li>有效期 <b>1 小时</b></li>
+          <li>payload: <code>sub / nickname / avatarId / iat / exp</code></li>
+          <li><b>无状态</b>：只验签查过期，不落库</li>
+          <li>随请求带 <code>Authorization: Bearer …</code></li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:rgba(94,212,154,.4)">
+        <h4 class="sub2">refresh token</h4>
+        <ul class="small">
+          <li>不透明随机串：256-bit base64url</li>
+          <li>有效期 <b>7 天</b></li>
+          <li><b>落库只存 sha256</b>，明文从不入库</li>
+          <li>每条带 <code>family_id</code>，轮转时延续</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout"><b>为什么 access 用 JWT、refresh 用不透明串？</b>access token 高频校验，无状态 JWT 避免每请求查库；refresh token 低频、必须可吊销，所以落库支持 rotate / 整族撤销。密码用 bcrypt（cost ≥ 10）存储，明文从不落库。</div>
+
+    <h2 class="sec" id="rotation"><span class="n">6</span>Refresh 轮转 + 重放检测（核心）</h2>
+    <p>每次 refresh 都是「<b>作废旧的、签发新的、家族不变</b>」，形成轮转链 <code>RT₁ → RT₂ → RT₃</code>。一旦某个已撤销的 token 被重放，说明可能被盗——立即把整个 family 作废。</p>
+
+    <div class="figure">
+      <div class="diagram">
+        <svg viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif">
+          <defs><marker id="r-arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+          <!-- normal rotation -->
+          <text x="40" y="40" fill="#5ed49a" font-size="14" font-weight="700">正常轮转</text>
+          <rect x="40" y="56" width="120" height="46" rx="9" fill="#14141f" stroke="#5ed49a"/><text x="100" y="84" text-anchor="middle" fill="#d7d7e2" font-size="13">持有 RT₁ (F)</text>
+          <path d="M160,79 L210,79" stroke="#80808f" stroke-width="1.6" marker-end="url(#r-arr)"/>
+          <rect x="212" y="50" width="200" height="58" rx="9" fill="#0e0e18" stroke="#262635"/><text x="312" y="74" text-anchor="middle" fill="#f7f7fb" font-size="12.5">/auth/refresh { RT₁ }</text><text x="312" y="94" text-anchor="middle" fill="#80808f" font-size="11">吊销 RT₁ · 签发 RT₂ · family=F</text>
+          <path d="M412,79 L462,79" stroke="#80808f" stroke-width="1.6" marker-end="url(#r-arr)"/>
+          <rect x="464" y="56" width="130" height="46" rx="9" fill="#14141f" stroke="#5ed49a"/><text x="529" y="84" text-anchor="middle" fill="#d7d7e2" font-size="13">持有 RT₂ (F)</text>
+
+          <line x1="40" y1="138" x2="860" y2="138" stroke="#262635" stroke-dasharray="4 4"/>
+
+          <!-- replay -->
+          <text x="40" y="174" fill="#ff4fa0" font-size="14" font-weight="700">重放检测 → 整族作废</text>
+          <rect x="40" y="190" width="150" height="44" rx="9" fill="#14141f" stroke="#3a3a4d"/><text x="115" y="212" text-anchor="middle" fill="#ff7eb9" font-size="12.5">攻击者偷到 RT₁</text><text x="115" y="228" text-anchor="middle" fill="#80808f" font-size="11">抢先用掉</text>
+          <path d="M190,212 L236,212" stroke="#80808f" stroke-width="1.6" marker-end="url(#r-arr)"/>
+          <rect x="238" y="186" width="210" height="52" rx="9" fill="#0e0e18" stroke="#262635"/><text x="343" y="208" text-anchor="middle" fill="#f7f7fb" font-size="12.5">合法用户再拿 RT₁ 来刷新</text><text x="343" y="226" text-anchor="middle" fill="#ff7eb9" font-size="11">命中 revoked_at 非空！</text>
+          <path d="M448,212 L494,212" stroke="#80808f" stroke-width="1.6" marker-end="url(#r-arr)"/>
+          <rect x="496" y="182" width="200" height="60" rx="9" fill="#2a0d22" stroke="#ff2d91"/><text x="596" y="206" text-anchor="middle" fill="#ffd9ec" font-size="12.5" font-weight="700">family=F 全部作废</text><text x="596" y="226" text-anchor="middle" fill="#ff7eb9" font-size="11">RT₂ 也失效 · 双方被踢</text>
+          <path d="M696,212 L742,212" stroke="#80808f" stroke-width="1.6" marker-end="url(#r-arr)"/>
+          <rect x="744" y="190" width="116" height="44" rx="9" fill="#14141f" stroke="#3a3a4d"/><text x="802" y="217" text-anchor="middle" fill="#d7d7e2" font-size="12">被迫重登</text>
+          <text x="40" y="282" fill="#80808f" font-size="12">「一个 refresh token 被用了两次」是被盗用的强信号。代价是合法用户也被登出一次，换来攻击者无法靠旧 token 维持长期访问。</text>
+        </svg>
+      </div>
+      <div class="cap">refresh_tokens 表保留 family_id + revoked_at 两列，正是为了这套轮转链与整族撤销</div>
+    </div>
+
+    <h4 class="sub2">并发坑（跨栈 review 反复出现）</h4>
+    <p>轮转的「查 → 校验 → 吊销旧 → 插新」四步必须串行一致，否则两个并发 refresh 可能各自签发新 token、使链分叉。各栈处理：</p>
+    <div class="tbl-wrap">
+      <table class="compact">
+        <thead><tr><th>策略</th><th>代表实现</th></tr></thead>
+        <tbody>
+          <tr><td><code>SELECT … FOR UPDATE</code> 行锁（Postgres）</td><td>FastAPI、Spring Boot、多数 ORM 栈</td></tr>
+          <tr><td><code>UPDATE … WHERE revoked_at IS NULL RETURNING</code> 原子吊销</td><td>推荐的无锁写法</td></tr>
+          <tr><td>连接池上限 1 / actor 串行化（SQLite）</td><td>Axum（池=1）、Vapor（actor）</td></tr>
+          <tr><td>教学简化「非事务 + TODO 注释」</td><td>部分实现（NestJS 等，代码顶部注明生产化做法）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout pink"><b>改密后：</b>吊销该用户<b>全部</b>未撤销 refresh token，强制其他设备重新登录。<b>登出：</b>幂等——无 token 或查无也返回 204；access token 不做服务端黑名单，靠 1 小时 TTL 把窗口压到可接受。</div>
+
+    <h2 class="sec" id="dualdb"><span class="n">7</span>双库策略：PostgreSQL ↔ SQLite</h2>
+    <p>每个后端 / 全栈<b>必须</b>同时支持两库，通过 <code>DB_DRIVER=postgres|sqlite</code> 切换。两者在 UUID、时间戳、布尔上语义不同，这是跨栈最集中的难题：</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>概念</th><th>PostgreSQL</th><th>SQLite</th></tr></thead>
+        <tbody>
+          <tr><td>UUID</td><td>原生 <code>UUID</code></td><td><code>TEXT</code>（32 位无横线 hex，实现需一致）</td></tr>
+          <tr><td>时间戳</td><td><code>TIMESTAMPTZ</code></td><td><code>TEXT</code>（ISO-8601 字符串）</td></tr>
+          <tr><td>UUID 生成</td><td><code>gen_random_uuid()</code></td><td>应用层生成传入</td></tr>
+          <tr><td>布尔</td><td>原生 <code>BOOLEAN</code></td><td><code>0 / 1</code></td></tr>
+          <tr><td>模糊搜索</td><td><code>pg_trgm</code> GIN 索引</td><td>无扩展，全表 <code>LIKE</code> 扫描</td></tr>
+          <tr><td>行锁</td><td><code>SELECT … FOR UPDATE</code></td><td>无，靠串行化写入 / 池=1 / actor</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><b>字符串比较的隐患：</b>SQLite 把时间戳存成 ISO TEXT，意味着 <code>open_at &lt;= now</code> 与 <code>ORDER BY created_at</code> 实际是<b>字符串比较</b>——只有当所有写入方都用同一种 ISO 格式（带 <code>T</code>、统一时区偏移）时才正确。这正是 Spring Boot 双驱动回归的根因：seed 写 <code>+00:00</code>，而 sqlite-jdbc 期望 <code>yyyy-MM-dd HH:mm:ss.SSS</code>，解析失败。<a href="comparison.html#be-dualdb">各栈三种解法 →</a></div>
+
+    <h2 class="sec" id="tokens"><span class="n">8</span>设计令牌与赛博主题</h2>
+    <p>样式体系分三层（均在 <code>spec/styles/</code>）：<code>palette.css</code>（原始色阶 50–900）→ <code>tokens.css</code>（语义令牌 + dark 覆盖）→ <code>cyber.css</code>（<code>cy-*</code> 共享组件类）。<b>组件层禁止硬编码色值</b>，一律用语义令牌或 <code>cy-*</code> 类，由 <code>verify-design-tokens.sh</code> 把关。</p>
+    <div class="grid g4">
+      <div class="card" style="text-align:center"><div style="height:48px;border-radius:10px;background:#6b46ff;box-shadow:0 0 22px rgba(107,70,255,.5)"></div><div class="sub2" style="margin-top:10px">Brand 赛博紫</div><div class="small muted mono">#6b46ff</div></div>
+      <div class="card" style="text-align:center"><div style="height:48px;border-radius:10px;background:#ff2d91;box-shadow:0 0 22px rgba(255,45,145,.5)"></div><div class="sub2" style="margin-top:10px">Accent 品红</div><div class="small muted mono">#ff2d91</div></div>
+      <div class="card" style="text-align:center"><div style="height:48px;border-radius:10px;background:#14d4f0;box-shadow:0 0 22px rgba(20,212,240,.5)"></div><div class="sub2" style="margin-top:10px">Signal 霓虹青</div><div class="small muted mono">#14d4f0</div></div>
+      <div class="card" style="text-align:center"><div style="height:48px;border-radius:10px;background:#5ed49a;box-shadow:0 0 22px rgba(94,212,154,.5)"></div><div class="sub2" style="margin-top:10px">Success 薄荷</div><div class="small muted mono">#5ed49a</div></div>
+    </div>
+    <p class="muted small">语义示例：<code>--color-capsule-sealed-*</code>（未开启胶囊用霓虹青呼吸光晕）、<code>--color-capsule-opened-*</code>（已开启用薄荷绿）、<code>--color-favorite-active</code>（收藏品红）。支持明亮 / 深色主题切换并持久化到 <code>localStorage</code>。这套 <code>cy-*</code> 类是「同一盒乐高积木」——<b>没有任何前端能用「样式更好写」取巧</b>，区别只在「怎么把状态接到积木上」。</p>
+
+    <h2 class="sec" id="avatars"><span class="n">9</span>内置头像（10 个赛博风 SVG）</h2>
+    <p>10 个 128×128 SVG 头像，深色径向底 + 几何发光主图。<code>spec/avatars/catalog.json</code> 为事实源，<code>GET /api/v1/avatars</code> 直接返回。每个头像有 id、中文名、主色（用于选择态边框 / 昵称色点）。</p>
+    <div class="avatars">
+      <div class="av"><img src="assets/avatars/neo.svg" alt="新生"><div class="nm">新生 neo</div><div class="tg">三角矩阵 · 赛博紫</div></div>
+      <div class="av"><img src="assets/avatars/specter.svg" alt="幽影"><div class="nm">幽影 specter</div><div class="tg">飘渺幽灵 · 淡紫</div></div>
+      <div class="av"><img src="assets/avatars/glyph.svg" alt="符文"><div class="nm">符文 glyph</div><div class="tg">同心符咒 · 霓虹青</div></div>
+      <div class="av"><img src="assets/avatars/pulse.svg" alt="心跳"><div class="nm">心跳 pulse</div><div class="tg">脉冲波形 · 品红</div></div>
+      <div class="av"><img src="assets/avatars/circuit.svg" alt="电路"><div class="nm">电路 circuit</div><div class="tg">芯片走线 · 荧绿</div></div>
+      <div class="av"><img src="assets/avatars/nova.svg" alt="新星"><div class="nm">新星 nova</div><div class="tg">星爆核心 · 琥珀</div></div>
+      <div class="av"><img src="assets/avatars/oracle.svg" alt="神谕"><div class="nm">神谕 oracle</div><div class="tg">洞察之眼 · 深紫</div></div>
+      <div class="av"><img src="assets/avatars/drift.svg" alt="漂流"><div class="nm">漂流 drift</div><div class="tg">三重波纹 · 冷灰</div></div>
+      <div class="av"><img src="assets/avatars/echo.svg" alt="回声"><div class="nm">回声 echo</div><div class="tg">同心信号 · 金琥珀</div></div>
+      <div class="av"><img src="assets/avatars/void.svg" alt="深渊"><div class="nm">深渊 void</div><div class="tg">黑洞奇点 · 深紫黑</div></div>
+    </div>
+
+    <h2 class="sec" id="tooling"><span class="n">10</span>开发工具与三层验证</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h4 class="sub2"><code>scripts/hello</code> · dev-manager v2</h4>
+        <p class="small muted">单文件 Python，零 npm 依赖。统一管理所有实现的启停 / 状态 / 日志，并合并端口代理切换。</p>
+        <pre style="margin-top:10px"><code>hello start &lt;name&gt;   # 启动实现
+hello switch &lt;backend&gt; # :9080 指向某后端
+hello status / logs / doctor
+./scripts/db init / reset --seed</code></pre>
+      </div>
+      <div class="card">
+        <h4 class="sub2">三层测试策略</h4>
+        <ul class="small">
+          <li><b>单元</b>：各实现内部逻辑（栈原生工具）</li>
+          <li><b>契约</b>：<code>verify-contract.sh</code> 黑盒验证 104 个 API 用例 × 双驱动</li>
+          <li><b>UI 冒烟</b>：<code>verify-ui-smoke.sh</code> Playwright 25 个用例跑主流程</li>
+          <li><b>令牌</b>：<code>verify-design-tokens.sh</code> 静态比对未声明 token</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout cyan"><b>验证哲学：</b>外部黑盒脚本验证，不信任实现自报，不加实现感知捷径。这保证了「内部实现细节不重要，只要契约被满足」——也正是 20 栈能放在一起比的前提。</div>
+
+    <div class="pagenav">
+      <a href="index.html"><div class="dir">← 上一页</div><div class="ttl">总体介绍</div></a>
+      <a href="comparison.html" class="next"><div class="dir">下一页 →</div><div class="ttl">前后端对比</div></a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="footer">HelloTime Pro · 设计 · 整理自 docs/02-design.md · auth.md · db-schema.md</footer>
+</body>
+</html>

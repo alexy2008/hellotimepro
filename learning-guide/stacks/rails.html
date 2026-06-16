@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rails 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与双入口</a>
+    <a href="#hotwire">2 · Hotwire 核心思想</a>
+    <a href="#turbo">3 · Turbo Frame/Stream 局部刷新</a>
+    <a href="#stimulus">4 · 12 个 Stimulus controller</a>
+    <a href="#bridge">5 · CookieTokenBridge 中间件</a>
+    <a href="#xhr">6 · 收藏为何用同步 XHR</a>
+    <a href="#db">7 · Active Record + CrossDb</a>
+    <a href="#compare">8 · 三家 MPA 对照</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#rails" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/rails.svg" alt="Rails"></div>
+      <div>
+        <h1>Rails</h1>
+        <p class="one">「HTML 本身就是 API，片段就是线缆协议」——Hotwire（Turbo Frame/Stream + Stimulus），客户端 JS 最省的局部刷新，最框架地道。</p>
+        <div class="stack-meta">
+          <span class="badge port">:7181</span><span class="badge violet">评审 92 / 100</span>
+          <span class="badge">Ruby · Rails 8.1</span><span class="badge">Hotwire</span><span class="badge">Active Record</span><span class="badge">importmap 免构建</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向想理解「Rails 8 + Hotwire 如何在保持 <code>/api/v1/*</code> 契约不变的前提下做服务端渲染 UI」的读者。整理自 <code>fullstacks/rails/TECHNICAL_GUIDE.md</code>（438 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>选型与双入口</h2>
+    <p>同一进程提供两套入口：<code>/api/v1/*</code>（契约测试 + 浏览器 fetch，Bearer 或 cookie→Bearer 桥，JSON envelope）和 SSR 页面 + <code>/ui/*</code>（浏览器导航/Turbo/Stimulus，httpOnly cookie，ERB HTML / Turbo Stream）。<code>config/routes.rb</code> 同时定义三者；API 控制器继承 <code>ActionController::API</code> 只返回 JSON，页面控制器继承 <code>ApplicationController</code> 用 ERB 渲染。</p>
+
+    <h2 class="sec" id="hotwire"><span class="n">2</span>Rails + Hotwire 的核心思想</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">路由集中 + Controller 命名约定</h4><p class="small muted">Next/Nuxt 用目录表达路由，Rails 用 <code>config/routes.rb</code> 显式声明，再按 controller/action 分发。查 URL 先看 routes 再看 controller。</p></div>
+      <div class="card"><h4 class="sub2">ERB 是服务端输出 HTML</h4><p class="small muted">页面控制器准备实例变量（<code>@items</code>/<code>@pagination</code>），ERB 直接渲染。业务规则不放视图里。</p></div>
+      <div class="card"><h4 class="sub2">Turbo = HTML 局部协议</h4><p class="small muted">局部更新也由服务端渲染成 HTML，浏览器直接换进 DOM，不在客户端用 JSON 重渲染。</p></div>
+      <div class="card"><h4 class="sub2">Stimulus 只管小交互</h4><p class="small muted"><b>不引入 SPA store</b>：需要持久化的状态在服务端，需要即时响应的交给 Stimulus。</p></div>
+    </div>
+
+    <h2 class="sec" id="turbo"><span class="n">3</span>Turbo Frame/Stream 局部刷新</h2>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">Stimulus 输入防抖 → <span class="mono">form.requestSubmit()</span></div><div class="arrow">↓</div>
+      <div class="node"><span class="mono">GET /ui/plaza/grid</span> → <span class="mono">PublicController#plaza_grid</span></div><div class="arrow">↓</div>
+      <div class="node"><span class="mono">render partial: "public/plaza_grid"</span></div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#5ed49a">Turbo Frame 替换 <span class="mono">#plaza-grid</span></div>
+    </div></div><div class="cap">广场搜索用 Turbo Frame 替换；撤回胶囊用 Turbo Stream（删除成功返回移除对应卡片的 stream）</div></div>
+    <p class="small muted">这是<a href="../comparison.html#fs-spectrum">边界谱系</a>右端「HTML-over-the-wire」的旗手——浏览器不解析 JSON 再渲染，而是直接吞服务端发来的 HTML 片段。</p>
+
+    <h2 class="sec" id="stimulus"><span class="n">4</span>12 个职责单一的 Stimulus controller</h2>
+    <p>最框架地道之处：每个浏览器行为一个 controller，<code>static values</code> API 用得标准，Turbo 负责导航、JS 只做增强。</p>
+    <div class="chips">
+      <span class="badge">theme</span><span class="badge">user_menu</span><span class="badge">plaza_search</span><span class="badge">favorite</span><span class="badge">create</span><span class="badge">code_input</span><span class="badge">countdown</span><span class="badge">avatar_picker</span><span class="badge">profile</span><span class="badge">clipboard</span>
+    </div>
+    <p class="small muted"><b>plaza_search 陷阱：</b>监听 input（不能只监听 keyup，因为 Playwright <code>fill()</code> 主要派发 input 事件）。</p>
+
+    <h2 class="sec" id="bridge"><span class="n">5</span>CookieTokenBridge：Rack 中间件桥</h2>
+    <pre><code>若 PATH_INFO 以 /api/v1/ 开头 且 HTTP_AUTHORIZATION 为空 且 Cookie 中有 ht_access
+则设置 HTTP_AUTHORIZATION = Bearer &lt;ht_access&gt;</code></pre>
+    <div class="callout cyan">浏览器同源 fetch <code>/api/v1/me</code> 不需要 JS 读取 token 也能复用 API 控制器；契约测试带真实 Bearer 时中间件不介入。<code>CookieAuth</code> concern 不会每次导航都 refresh，避免 refresh token 重用检测误伤正常会话。这是<a href="../comparison.html#fs-bridge">cookie→Bearer 桥</a>的 Rack 中间件写法（对应 <a href="spring-mvc.html">Spring 的 Servlet Filter</a>、<a href="laravel.html">Laravel 的 Service 双读</a>）。</div>
+
+    <h2 class="sec" id="xhr"><span class="n">6</span>收藏为何用同步 XHR</h2>
+    <div class="callout pink">UI 冒烟有「点收藏后立刻导航到 <code>/me/favorites</code>」的路径。异步 fetch 可能被导航中止，或还未提交就被下一页 SSR 查询抢先读到。<code>favorite_controller.js</code> 对已登录收藏按钮用<b>同步 <code>XMLHttpRequest</code></b> 调 <code>/ui/capsules/{id}/favorite-toggle</code>，等事务提交后再返回。匿名点击在客户端 confirm 后跳登录。这与 <a href="spring-mvc.html">Spring MVC</a> 同源（<a href="../comparison.html#fs-bridge">收藏同步 XHR</a>）。</div>
+
+    <h2 class="sec" id="db"><span class="n">7</span>Active Record + CrossDb</h2>
+    <p><code>app/lib/cross_db.rb</code> 处理 PG 与 SQLite 差异：SQLite id 存 32 位无横线 hex TEXT、时间戳存 ISO-8601 TEXT；PG 用原生 uuid + timestamptz；API 输出统一带横线 UUID 和 <code>...Z</code>。自定义类型 <code>CrossDb::SqliteUuidType</code> / <code>SqliteTimestampType</code> 对应 <a href="spring-mvc.html">Spring 的 Hibernate JdbcType</a>、Laravel 的 <code>CrossDb</code>。</p>
+    <div class="callout green"><b>数据层注释教学价值最高：</b><code>FavoriteService</code> 在事务里维护计数——锁胶囊行（PG <code>SELECT … FOR UPDATE</code>，SQLite 依赖单写事务）→ 禁止收藏自己/未公开 → 插入后递增/删除后递减。<b>非法 UUID 宽松解析为 nil</b>，由调用方转 404，避免数据库类型错误变 500。冒烟测试固定跨库存储格式不变式（小数秒去尾零、uuid↔hex 往返）——量少但每条都是真坑的回归保险。</div>
+
+    <h2 class="sec" id="compare"><span class="n">8</span>三家 MPA 对照</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>关注点</th><th>Spring MVC</th><th>Rails</th><th>Laravel</th></tr></thead><tbody>
+      <tr><td>模板</td><td>Thymeleaf</td><td>ERB</td><td>Blade</td></tr>
+      <tr><td>局部刷新</td><td>HTMX</td><td>Turbo Frame/Stream</td><td>整页 SSR + Alpine fetch</td></tr>
+      <tr><td>前端小状态</td><td>原生 JS</td><td>Stimulus</td><td>Alpine.js</td></tr>
+      <tr><td>鉴权桥</td><td>Servlet Filter</td><td>Rack 中间件</td><td>Service 双读</td></tr>
+      <tr><td>数据跨库</td><td>Hibernate JdbcType</td><td>AR Type + CrossDb</td><td>Eloquent Cast + CrossDb</td></tr>
+    </tbody></table></div>
+    <p class="small muted">三者共同点：同一进程提供 JSON API 和 SSR UI，页面与 API 共用业务服务，数据库生命周期交给仓库级脚本。</p>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>新增 API</td><td><code>config/routes.rb</code> 的 <code>api/v1</code> namespace + API controller + service</td></tr>
+      <tr><td>新增页面</td><td><code>config/routes.rb</code> 加页面 route，controller 准备实例变量，新建 ERB</td></tr>
+      <tr><td>新增局部刷新</td><td>能返回 HTML 片段的优先 Turbo Frame/Stream</td></tr>
+      <tr><td>改 schema</td><td>先改 <code>spec/db</code> + <code>scripts/db</code>，再同步模型/<code>CrossDb</code> 类型/服务层</td></tr>
+      <tr><td>改收藏</td><td>必须经过 <code>FavoriteService</code>，保持事务和 <code>favorite_count</code></td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="spring-mvc.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Spring MVC</div></a>
+      <a href="laravel.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Laravel</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Rails 详解 · 整理自 fullstacks/rails/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

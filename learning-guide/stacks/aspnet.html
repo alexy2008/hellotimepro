@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASP.NET Core 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#tree">3 · 目录结构</a>
+    <a href="#core">4 · 五个核心机制</a>
+    <a href="#crossdb">5 · 跨库 ValueConverter</a>
+    <a href="#tx">6 · Service 层与事务</a>
+    <a href="#auth">7 · 鉴权与两个 .NET 坑</a>
+    <a href="#readcode">8 · 从注册请求读代码</a>
+    <a href="#test">9 · 测试</a>
+    <a href="#change">10 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#aspnet" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/dotnet.svg" alt="ASP.NET Core"></div>
+      <div>
+        <h1>ASP.NET Core</h1>
+        <p class="one">EF Core + 中间件管线 + DI，.NET 现代最小宿主——诚实展示 .NET 特有坑并给出解法，扎实但不抢戏。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29050</span><span class="badge violet">评审 91 / 100</span>
+          <span class="badge">C# 12</span><span class="badge">ASP.NET Core 8</span><span class="badge">EF Core 8</span><span class="badge">Npgsql · Microsoft.Data.Sqlite</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 C#（record/LINQ/async/nullable）但没接触过 ASP.NET Core/EF Core/中间件/DI 的读者。整理自 <code>backends/aspnet/TECHNICAL_GUIDE.md</code>（352 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">ASP.NET Core · 中间件管线 + DI</h4><p class="small muted"><code>Program.cs</code> 显式组装服务、DbContext、中间件、静态资源和 Controllers，展示 .NET 现代最小宿主模型。</p></div>
+      <div class="card"><h4 class="sub2">Controllers · 清晰 HTTP 边界</h4><p class="small muted">每个控制器负责一组 API，继承 <code>ApiControllerBase</code> 获得统一响应包装、鉴权 header 读取、query 参数解析。</p></div>
+      <div class="card"><h4 class="sub2">EF Core · LINQ + 变更跟踪</h4><p class="small muted">Repository 用 EF Core 表达查询和事务，保留 C# 类型系统优势，同时不让 EF 创建/迁移 schema。</p></div>
+      <div class="card"><h4 class="sub2">跨库 ValueConverter + 手写校验</h4><p class="small muted">SQLite 的 UUID/时间戳格式由 <code>CrossDb</code> 接管；<b>禁用 <code>[ApiController]</code> 自动 400</b>，按契约统一返回 422。</p></div>
+    </div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>Kestrel → <code>ErrorHandlingMiddleware</code>（最外层）→ Controller action（继承 <code>ApiControllerBase</code>，<code>AuthContext.Required/Optional</code> 解析用户、<code>Validation</code> 手写校验）→ Service（scoped）→ Repository（EF Core / LINQ / FromSqlRaw）。返回用 <code>Wrapped(...)</code> 包统一壳。</p>
+    <div class="figure"><div class="diagram">
+      <svg viewBox="0 0 840 130" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif"><defs><marker id="aa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+      <g font-size="11.5" text-anchor="middle">
+        <rect x="14" y="46" width="100" height="40" rx="9" fill="#0e0e18" stroke="#262635"/><text x="64" y="70" fill="#f7f7fb">Kestrel</text>
+        <rect x="138" y="46" width="160" height="40" rx="9" fill="#2a0d22" stroke="#ff2d91"/><text x="218" y="64" fill="#ffd9ec">ErrorMiddleware</text><text x="218" y="80" fill="#80808f" font-size="10.5">最外层洋葱</text>
+        <rect x="322" y="46" width="150" height="40" rx="9" fill="#0e0e18" stroke="#6b46ff"/><text x="397" y="64" fill="#c8b8ff">Controller</text><text x="397" y="80" fill="#80808f" font-size="10.5">AuthContext+校验</text>
+        <rect x="496" y="46" width="130" height="40" rx="9" fill="#0e0e18" stroke="#262635"/><text x="561" y="70" fill="#f7f7fb">Service (scoped)</text>
+        <rect x="650" y="46" width="180" height="40" rx="9" fill="#0e0e18" stroke="#00b8d4"/><text x="740" y="64" fill="#80efff">Repository</text><text x="740" y="80" fill="#80808f" font-size="10.5">EF Core → PG/SQLite</text>
+      </g>
+      <g stroke="#80808f" stroke-width="1.4" fill="none"><path d="M114,66 L136,66" marker-end="url(#aa)"/><path d="M298,66 L320,66" marker-end="url(#aa)"/><path d="M472,66 L494,66" marker-end="url(#aa)"/><path d="M626,66 L648,66" marker-end="url(#aa)"/></g></svg>
+    </div></div>
+
+    <h2 class="sec" id="tree"><span class="n">3</span>目录结构</h2>
+    <div class="tree">backends/aspnet/
+├── Program.cs            <span class="c"># 组装根：DI、provider 选择、Kestrel、中间件</span>
+├── src/Config/           <span class="c"># 环境变量配置</span>
+├── src/Web/              <span class="c"># ApiException / 错误中间件 / AuthContext / 控制器基类</span>
+├── src/Controllers/      <span class="c"># Auth/Me/Capsules/Plaza/Ai/Health/Avatars</span>
+├── src/Services/         <span class="c"># 业务 + 手写校验 + LLM</span>
+├── src/Repositories/     <span class="c"># EF 仓库</span>
+├── src/Infrastructure/   <span class="c"># DbContext、跨库 CrossDb、DB_URL 解析</span>
+└── src/Domain/Entities.cs  <span class="c"># 领域模型（兼 EF 实体）</span></div>
+
+    <h2 class="sec" id="core"><span class="n">4</span>五个核心机制</h2>
+    <div class="mech"><div class="h"><span class="tag">机制一</span>DI 生命周期：singleton vs scoped</div><div class="b"><p class="small muted"><b><code>AddSingleton</code></b> 全进程一个实例（<code>SecurityService</code> 无状态、<code>AvatarService</code> 启动加载一次、<code>LoginRateLimiter</code> 进程内计数<b>必须单例</b>）；<b><code>AddScoped</code></b> 每请求一个实例（<code>AppDbContext</code> 与所有用它的仓库/服务都 scoped，一次请求共享同一 DbContext）。<b>把限流器错放 scoped、或把 DbContext 错放 singleton 都会出 bug</b>——.NET DI 最常见的坑。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制二</span>中间件管线：洋葱模型</div><div class="b"><p class="small muted"><code>app.UseXxx(...)</code> 按顺序构成洋葱，请求自外向内、响应自内向外。<code>ErrorHandlingMiddleware</code> 放<b>最外层</b>，能 try/catch 住内层抛的任何异常，转成契约错误外壳。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制三</span>控制器薄、基类兜底</div><div class="b"><p class="small muted">公共能力上提到 <code>ApiControllerBase</code>：<code>Wrapped&lt;T&gt;</code>（统一成功壳）、<code>AuthHeader</code>、<code>IntParam/Page/PageSize</code>（缺失用默认、存在但非整数 → 422）。<code>[FromBody] ... ?</code> 用可空 + <code>?? new(...)</code>，把空请求体交给手写校验裁决成 422 而非框架自动 400。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制四</span>EF Core 变更跟踪：改对象就是改库</div><div class="b"><p class="small muted">EF 跟踪从 DbContext 取出的实体，<code>SaveChangesAsync()</code> 时把改过的字段生成 UPDATE。收藏计数写成 <code>capsule.FavoriteCount += 1</code>（行锁保护下的读-改-写）。与 axum/gin 的「原子 SQL 表达式」是两种风格，都能保证并发正确——前者更 OO、后者省一次读。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制五</span>禁用自动 400</div><div class="b"><p class="small muted"><code>SuppressModelStateInvalidFilter = true</code> 关掉 <code>[ApiController]</code> 在 ModelState 无效时的自动 400，改用手写 <code>Validation.cs</code> 统一返回 422 + 自定义 <code>details</code>。</p></div></div>
+
+    <h2 class="sec" id="crossdb"><span class="n">5</span>跨库 ValueConverter（最值得读）</h2>
+    <p>问题背景：<b>EF Core SQLite 默认把 <code>DateTimeOffset</code> 存成空格分隔 + 7 位小数的 TEXT</b>，会破坏 <code>open_at &lt;= now</code> 和 <code>ORDER BY created_at</code> 的字符串比较——必须接管格式。</p>
+    <pre><code>public static string FormatTimestamp(DateTimeOffset value) {
+    var u = value.ToUniversalTime();
+    var s = u.ToString("yyyy-MM-ddTHH:mm:ss", InvariantCulture);
+    long frac = u.Ticks % TicksPerSecond;
+    if (frac != 0) s += "." + frac.ToString("D7").TrimEnd('0');  // 零小数不输出
+    return s + "+00:00";                                         // 与 seed 对齐：+00:00 而非 Z
+}
+GuidToHex = new(g => g.ToString("N"), s => ParseGuid(s));        // 仅 SQLite 挂</code></pre>
+    <div class="callout green"><code>ApplySqliteConverters()</code> 仅在 SQLite 下把转换器挂到每个 Guid/时间戳属性；PostgreSQL 不挂，交给 Npgsql 原生映射。这是对 Ktor <code>CrossDbColumns</code> / Spring <code>@JdbcType</code> 的 EF Core 等价实现（<a href="../comparison.html#be-dualdb">双库三解法「A 类」</a>）。</div>
+
+    <h2 class="sec" id="tx"><span class="n">6</span>Service 层与事务</h2>
+    <p><code>FavoriteService</code> 维护计数：<code>BeginTransactionAsync</code> → <code>FindByIdForUpdate</code>（PG 拼 <code>FOR UPDATE</code> 行锁）→ 幂等检查 → <code>capsule.FavoriteCount += 1</code>（EF 变更跟踪）→ <code>SaveChangesAsync</code> → <code>CommitAsync</code>。</p>
+    <div class="callout cyan"><b>refresh 轮转用 <code>Outcome { Success, Invalid, Reused }</code> 枚举：</b>事务内只设 outcome、<code>CommitAsync()</code>，出事务后 <code>switch</code> 转 401——等价 Ktor/Spring 的 <code>noRollbackFor</code> 语义（<a href="../comparison.html#be-tx">事务四流派 ③</a>）。另一个 .NET 坑：<b>EF 插入排序</b>——用 <code>HasForeignKey</code> 声明 FK 依赖，让 EF 一次 <code>SaveChanges</code> 同插 user + refresh_token 时先插 user。</div>
+
+    <h2 class="sec" id="auth"><span class="n">7</span>鉴权与两个 .NET 特有坑</h2>
+    <pre><code>// ① Microsoft.IdentityModel 强制 HS256 密钥 ≥256 位 → 用 SHA-256 把任意 secret 派生成 32 字节
+_key = new SymmetricSecurityKey(SHA256.HashData(Encoding.UTF8.GetBytes(config.JwtSecret)));
+_validation = new TokenValidationParameters {
+    IssuerSigningKey = _key,
+    ClockSkew = TimeSpan.Zero,   // ② 关掉默认 5 分钟过期宽限——契约「过期即失效」需要精确边界
+};</code></pre>
+    <p class="small muted">校验区分异常：<code>SecurityTokenExpiredException</code> → <code>access_token_expired</code>，其它 → <code>invalid_token</code>。这类「框架约束 vs 契约要求」的调和是高质量教学点。</p>
+
+    <h2 class="sec" id="readcode"><span class="n">8</span>从真实请求读代码：注册</h2>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">① 校验（Validation）<small>缺字段/格式错抛 ApiException → 中间件转 422</small></div><div class="arrow">↓</div>
+      <div class="node">② 唯一性预检 ExistsByEmail / ExistsByNickname</div><div class="arrow">↓</div>
+      <div class="node">③ <span class="mono">_security.HashPassword</span>（bcrypt）</div><div class="arrow">↓</div>
+      <div class="node">④ <span class="mono">_users.Add(user)</span> 标记新增（EF 变更跟踪，未落库）⑤ <span class="mono">IssueTokenPair</span> 标记 token 行</div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#5ed49a">⑥ <span class="mono">SaveChangesAsync()</span> 一次性 INSERT（EF 按 FK 排序：user 先、token 后）→ <span class="mono">Wrapped(..., 201)</span></div>
+    </div></div><div class="cap">register 靠 SaveChangesAsync 的隐式工作单元保证原子；Refresh/ChangePassword 才显式 BeginTransactionAsync</div></div>
+
+    <h2 class="sec" id="test"><span class="n">9</span>测试</h2>
+    <p>xUnit 集中验证纯逻辑不变式，尤其 SQLite UUID/时间戳格式（<code>tests/CrossDbTests.cs</code>）；黑盒契约从 HTTP 外部验证，不读 EF Core 或 service 内部。</p>
+
+    <h2 class="sec" id="change"><span class="n">10</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想改什么</th><th>动哪里</th></tr></thead><tbody>
+      <tr><td>新增接口</td><td><code>Dto/Dtos.cs</code> → <code>Services/</code> → <code>Controllers/</code> action（用 <code>Wrapped(...)</code>）</td></tr>
+      <tr><td>新增字段校验</td><td><code>Services/Validation.cs</code></td></tr>
+      <tr><td>新增表/字段</td><td>先改 <code>spec/db</code> → <code>Domain/Entities.cs</code> → <code>OnModelCreating</code> 列映射（SQLite 加 converter）</td></tr>
+      <tr><td>改跨库存储格式</td><td><code>Infrastructure/CrossDb.cs</code> + <code>ApplySqliteConverters()</code>（须双驱动复验）</td></tr>
+      <tr><td>加单例/作用域服务</td><td><code>Program.cs</code> 选对 <code>AddSingleton</code>/<code>AddScoped</code></td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="ktor.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Ktor</div></a>
+      <a href="vapor.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Vapor</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · ASP.NET Core 详解 · 整理自 backends/aspnet/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

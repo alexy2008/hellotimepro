@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laravel 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与双入口</a>
+    <a href="#core">2 · Laravel 核心思想</a>
+    <a href="#eloquent">3 · Eloquent ORM（招牌）</a>
+    <a href="#crossdb">4 · 跨库两个关键取舍</a>
+    <a href="#auth">5 · 鉴权与「为何不用 middleware」</a>
+    <a href="#favorite">6 · 收藏与搜索焦点守卫</a>
+    <a href="#alpine">7 · Blade + Alpine</a>
+    <a href="#compare">8 · 三家 MPA 对照</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#laravel" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/laravel.svg" alt="Laravel"></div>
+      <div>
+        <h1>Laravel</h1>
+        <p class="one">「服务端把数据备好、把 HTML 渲完，浏览器只点睛」——Blade SSR + Alpine.js 孤岛，前后端边界锐利，Eloquent ORM 为招牌。</p>
+        <div class="stack-meta">
+          <span class="badge port">:7182</span><span class="badge violet">评审 86 / 100</span>
+          <span class="badge">PHP 8.3 · Laravel 13</span><span class="badge">Blade</span><span class="badge">Eloquent ORM</span><span class="badge">Alpine.js</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向想理解「PHP 现代全栈如何用 Laravel 本地习惯完成服务端渲染应用」的读者。整理自 <code>fullstacks/laravel/TECHNICAL_GUIDE.md</code>（428 行）。手册 §1 是五家全栈中最实事求是的（无营销腔）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>选型与双入口</h2>
+    <p>同一进程两套接口：<code>/api/v1/*</code>（契约测试 + 浏览器 fetch，Bearer 或同源 cookie，JSON envelope）和 Web 页面（浏览器导航/表单，httpOnly cookie，Blade HTML）。<code>routes/web.php</code> 定义 SSR 页面，<code>routes/api.php</code> 定义 REST 契约。<b>API 与页面共享同一套 Service</b>，避免 JSON 行为和页面行为分叉。</p>
+
+    <h2 class="sec" id="core"><span class="n">2</span>Laravel 的核心思想</h2>
+    <div class="grid g3">
+      <div class="card"><h4 class="sub2">路由表显式集中</h4><p class="small muted">JSON API 和 Web 页面在同一个地方看清边界，不混在组件树里。</p></div>
+      <div class="card"><h4 class="sub2">Blade 是服务端模板</h4><p class="small muted">服务端拿到数组数据后直接输出 HTML。校验/权限/收藏计数/分页查询都在服务层。</p></div>
+      <div class="card"><h4 class="sub2">Alpine.js 轻量浏览器状态</h4><p class="small muted">没引入 Vue/React、没把页面变成 SPA。适合服务端渲染的留 Blade，即时状态交给 Alpine。</p></div>
+    </div>
+    <p class="small muted">创建胶囊体现「页面与 API 共用服务」：<code>POST /api/v1/capsules</code> 与 <code>POST /create</code> 都落到同一个 <code>CapsuleService::createCapsule()</code>。</p>
+
+    <h2 class="sec" id="eloquent"><span class="n">3</span>Eloquent ORM（招牌特性）</h2>
+    <p>数据访问全部走 Eloquent——Laravel 最具代表性的特性，本实现刻意用它体现框架价值：</p>
+    <ul class="clean small">
+      <li><b>模型：</b><code>app/Models/{User,Capsule,Favorite,RefreshToken}.php</code></li>
+      <li><b>关系：</b><code>Capsule belongsTo owner</code>、<code>hasMany favorites</code>；列表查询用 <code>with('owner')</code> 预加载避免 N+1</li>
+      <li><b>查询构建器：</b><code>Capsule::query()->where(...)->orderByDesc(...)->forPage(...)->get()</code>；搜索用 <code>whereHas('owner')</code>；计数用 <code>increment/decrement</code>；并发用 <code>lockForUpdate() + DB::transaction()</code></li>
+    </ul>
+
+    <h2 class="sec" id="crossdb"><span class="n">4</span>跨库两个关键取舍（全栈版比纯后端更刁钻）</h2>
+    <div class="callout pink"><b>取舍一 · id 与时间戳不做 Eloquent Cast：</b>在模型里保持<b>存储格式</b>。因为关系 join 和 <code>where</code> 用的是原始存储值——若把 id Cast 成带横线 UUID，SQLite（存 32-hex）的关系关联会失配。转换只在<b>输出边界</b>（<code>Mapper</code>）做、入参在<b>查询边界</b>用 <code>CrossDb</code> 归一。这是<a href="../comparison.html#fs-bridge">「id 为什么不能被 ORM 强类型化」</a>的真实案例。</div>
+    <div class="callout pink"><b>取舍二 · 布尔用自定义 Cast <code>CrossDbBoolean</code>：</b>不能用 Eloquent 原生 <code>boolean</code> Cast——<b>PDO pgsql 把 boolean 读回成 <code>'t'/'f'</code> 字符串，而原生 Cast 等价 <code>(bool)'f'</code> 竟为 <code>true</code></b>，会把「未公开」误判成「公开」。自定义 Cast 读时显式归一、写时按驱动产出 <code>0/1</code> 或 <code>'true'/'false'</code>。</div>
+    <div class="callout"><b>还有一处：</b>列表/详情查询都加 <code>has('owner')</code>，把 owner 已被级联删除的「孤儿胶囊」排除（复刻裸 SQL 的 INNER JOIN 语义，否则 <code>with('owner')</code> 会带 null owner 进 <code>Mapper</code> 触发 NPE）。主键不是自增整数：<code>HasCrossDbKey</code> trait 设字符串主键、<code>creating</code> 钩子按驱动生成存储格式 id。</div>
+
+    <h2 class="sec" id="auth"><span class="n">5</span>鉴权与「为何不用 auth middleware」</h2>
+    <p>API 契约要 Bearer，SSR 页面用 httpOnly cookie，<code>AuthService::currentUser()</code> 双读：契约测试带 Bearer，浏览器登录后写 <code>ht_access</code>/<code>ht_refresh</code> cookie，同源 fetch 自动带 cookie。</p>
+    <div class="callout cyan"><b>刻意不用 Laravel auth middleware / FormRequest</b>，而在控制器里手工 <code>$this->auth->requireUser($request)</code>。理由：① <b>跨栈同构</b>——五个全栈的 API 端点都用「控制器里显式鉴权」，读者可并排读；② <b>鉴权逻辑可见</b>——public vs protected 一眼从 <code>requireUser</code> vs <code>currentUser</code> 看出，不用查中间件列表；③ <b>教学规模</b>——只有一个 Controller、不到 30 端点。真实规模项目建议走 guard + middleware。</div>
+
+    <h2 class="sec" id="favorite"><span class="n">6</span>收藏与搜索焦点守卫竞态</h2>
+    <p><code>FavoriteService</code> 在 <code>DB::transaction()</code> 里用 Eloquent 维护：<code>lockForUpdate()</code> 锁行 + 检查 + <code>Favorite::create()</code> + <code>increment('favorite_count')</code>；取消用幂等 <code>delete()</code> + <code>where('favorite_count','>',0)->decrement()</code>（<code>>0</code> 守卫钳下限）。收藏按钮用 Alpine 异步 fetch（与 Spring/Rails 的同步 <code>/ui/*</code> 不同）。</p>
+    <div class="callout pink"><b>一处真实竞态：</b>收藏测试「点完立刻 <code>goto('/me/favorites')</code>」曾在 PG 偶发 <code>net::ERR_ABORTED</code>。根因不在收藏层，而在广场<b>搜索框</b>：<code>@input.debounce.300ms</code> 触发整页 <code>form.submit()</code>，这个迟到的导航与测试随后的 <code>goto</code> 相撞。修复是给提交加焦点守卫 <code>document.activeElement === $el && $el.form.submit()</code>——只在搜索框仍持有焦点时才提交。既消除竞态，也是更合理的实时搜索 UX。</div>
+
+    <h2 class="sec" id="alpine"><span class="n">7</span>Blade + Alpine + 原生 fetch</h2>
+    <p><code>layouts/app.blade.php</code> 公共布局；Blade components（<code>capsule-card</code>/<code>pagination</code>/<code>me-nav</code>）承担复用（对应 Next/Nuxt 的 components，只是渲染在服务端）。<code>public/js/app.js</code> 注册 Alpine data/store（theme/countdown/favButton/codeInput/createCapsule/profileEditor/avatarPicker…），<b>不保存 access token</b>（token 在 httpOnly cookie，fetch 自动带）。Alpine 被复制到本地 <code>public/js/alpine.min.js</code>，避免运行时依赖 CDN。</p>
+
+    <h2 class="sec" id="compare"><span class="n">8</span>三家 MPA 对照</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>关注点</th><th>Spring MVC</th><th>Rails</th><th>Laravel</th></tr></thead><tbody>
+      <tr><td>模板</td><td>Thymeleaf</td><td>ERB</td><td>Blade</td></tr>
+      <tr><td>局部刷新</td><td>HTMX</td><td>Turbo Frame/Stream</td><td>整页 SSR + Alpine fetch 为主</td></tr>
+      <tr><td>前端小状态</td><td>原生 JS</td><td>Stimulus</td><td>Alpine.js</td></tr>
+      <tr><td>鉴权桥</td><td>Servlet Filter</td><td>Rack 中间件</td><td><code>AuthService</code> 双读</td></tr>
+      <tr><td>数据跨库</td><td>Hibernate JdbcType</td><td>AR Type + CrossDb</td><td>Eloquent Cast + CrossDb</td></tr>
+    </tbody></table></div>
+    <p class="small muted">关键差异：Laravel 的页面是「服务器一次性准备数据并渲染 HTML」，不是客户端 store 驱动的 SPA。交互只在需要即时反馈时进入 Alpine。<a href="../comparison.html#fs-clientjs">客户端 JS 仅 190 行</a>，五家全栈最少。</p>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>新增 API</td><td><code>routes/api.php</code> + <code>HelloTimeApiController</code> + <code>app/Services/*</code></td></tr>
+      <tr><td>新增页面</td><td><code>routes/web.php</code> + <code>Web/*Controller</code> 准备数据 + Blade 模板</td></tr>
+      <tr><td>新增浏览器交互</td><td>优先 Alpine data；需契约行为时 fetch <code>/api/v1/*</code></td></tr>
+      <tr><td>加跨库存储差异字段</td><td>优先写自定义 Cast（参考 <code>CrossDbBoolean</code>），不在服务层散拼格式</td></tr>
+      <tr><td>改收藏</td><td>必须保留 <code>DB::transaction</code> 和 <code>favorite_count</code> 维护</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="rails.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Rails</div></a>
+      <a href="../implementations.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">完成 · 返回 →</div><div class="ttl" style="font-weight:700">实现详解总览（20 / 20）</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Laravel 详解 · 整理自 fullstacks/laravel/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuxt 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#dir">2 · 按角色分目录</a>
+    <a href="#nitro">3 · Nitro 后端引擎</a>
+    <a href="#autoimport">4 · 自动导入</a>
+    <a href="#hybrid">5 · 混合渲染与 useAsyncData</a>
+    <a href="#clienttrap">6 · .client.ts 中间件坑</a>
+    <a href="#hydration">7 · hydration 守卫</a>
+    <a href="#compare">8 · 与 Next.js 对照</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#nuxt" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/nuxt.svg" alt="Nuxt"></div>
+      <div>
+        <h1>Nuxt</h1>
+        <p class="one">「渲染方式应该能按路由逐个选」——通用渲染 + <code>routeRules</code> 一行决定 SSR 还是 CSR，Vue 生态的同构全栈方案。</p>
+        <div class="stack-meta">
+          <span class="badge port">:7178</span><span class="badge violet">评审 87 / 100</span>
+          <span class="badge">Nuxt 3 + Nitro</span><span class="badge">Vue 3</span><span class="badge">Drizzle ORM</span><span class="badge">Pinia · jose</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 HTML/CSS/JS 但没接触过 Nuxt/Nitro/文件系统路由/Vue 自动导入的读者。整理自 <code>fullstacks/nuxt/TECHNICAL_GUIDE.md</code>（750 行）。与 Next.js 的对照是这份文档的暗线。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Nuxt 3 + Nitro</h4><p class="small muted">文件系统路由；<code>pages/</code> = UI，<code>server/api/v1/</code> = REST API。</p></div>
+      <div class="card"><h4 class="sub2">混合渲染（核心卖点）</h4><p class="small muted"><code>routeRules</code> 把 <code>/create</code>、<code>/me/**</code> 标为 <code>ssr:false</code>（SPA 孤岛），其余走 SSR。</p></div>
+      <div class="card"><h4 class="sub2">Drizzle ORM · 双 schema</h4><p class="small muted">与 Next 全栈几乎同一份代码——刻意对照，「差异只是路径」。</p></div>
+      <div class="card"><h4 class="sub2">自动导入</h4><p class="small muted">代码里不用写 <code>import { ref } from 'vue'</code>、<code>import { useAuthStore }</code>——Nuxt 构建时自动扫描注入。</p></div>
+    </div>
+
+    <h2 class="sec" id="dir"><span class="n">2</span>按角色分目录（与 Next 完全不同）</h2>
+    <p>Next 是「按 URL 分目录」，Nuxt 是「按角色分目录」——<code>pages/</code>、<code>layouts/</code>、<code>components/</code>、<code>composables/</code>、<code>stores/</code>、<code>middleware/</code>、<code>plugins/</code>、<code>server/</code> 每个目录被 Nuxt 自动识别为对应角色。</p>
+    <div class="tree">fullstacks/nuxt/
+├── app.vue              <span class="c"># 应用根：只 5 行 &lt;NuxtLayout&gt;&lt;NuxtPage/&gt;&lt;/NuxtLayout&gt;</span>
+├── pages/               <span class="c"># 文件系统路由：pages/login.vue → /login</span>
+├── layouts/             <span class="c"># 通过 definePageMeta 选择</span>
+├── components/ composables/ stores/  <span class="c"># 全部自动导入</span>
+├── middleware/auth.client.ts  <span class="c"># 路由守卫（注册名 auth-client）</span>
+├── plugins/bootstrap.client.ts <span class="c"># 客户端启动钩子</span>
+└── server/              <span class="c"># ★ 这里就是「后端」（目录级隔离）</span>
+    ├── api/v1/*.&lt;method&gt;.ts  <span class="c"># 文件 = 端点，后缀决定 HTTP 方法</span>
+    ├── lib/ services/ db/   <span class="c"># 仅 Nitro 可达</span></div>
+    <p class="small muted"><code>app.vue</code> 取代了 Vue3 SPA 的 <code>index.html + main.ts + App.vue + router/index.ts</code> 四份文件。<b><code>server/</code> 目录天然隔离</b>——永远不会被打进客户端 bundle，等价 Next 的 <code>import "server-only"</code>，但是目录级、不需每个文件加导入。</p>
+
+    <h2 class="sec" id="nitro"><span class="n">3</span>Nitro：Nuxt 的后端引擎</h2>
+    <p>Nitro 给 Nuxt 提供 <code>server/api/**</code> 路由扫描（<b>文件名后缀 <code>.get.ts</code>/<code>.post.ts</code> 决定 HTTP 方法</b>）、中间件、启动钩子，以及一组基于 h3 的事件对象 API（<code>defineEventHandler</code>、<code>getRouterParam</code>、<code>readBody</code>、<code>setResponseStatus</code>…）。</p>
+    <pre><code>// server/api/v1/health.get.ts → GET /api/v1/health
+export default defineEventHandler((event) =>
+  withApi(event, () => ({ status: "ok", ... })));</code></pre>
+    <div class="callout"><b>与 Next 的请求/响应模型对照：</b>Next Route Handler 用 Web 标准 <code>Request/Response</code>；Nitro 用 h3 <code>event</code> 对象（<code>getXxx(event)</code> helper、<code>setResponseStatus(event, ...)</code>）。<b>一个文件一个方法</b>（<code>me.get.ts</code>、<code>me.patch.ts</code> 分两文件，Next 是单文件多导出）。生产构建打包成单一 <code>.output/server/index.mjs</code>，<code>nitro.preset</code> 可切 Node / Vercel / Cloudflare / Lambda / static。</div>
+
+    <h2 class="sec" id="autoimport"><span class="n">4</span>自动导入</h2>
+    <p>Nuxt 最有辨识度的「魔法」：Vue API（<code>ref/computed/watch</code>）、Pinia stores、components、composables、Nuxt helpers（<code>useRoute/navigateTo/definePageMeta</code>）、h3/Nitro 助手全部自动导入。实际项目里 <code>pages/index.vue</code> 脚本块只 import 了 <code>vue</code> 和 <code>pinia</code>，其余全是自动导入。</p>
+
+    <h2 class="sec" id="hybrid"><span class="n">5</span>混合渲染与 useAsyncData（最值得理解）</h2>
+    <p>本实现相对纯 SPA 的核心增量。<code>ssr: true</code> 让所有页面默认 SSR，再用 <code>routeRules</code> 把鉴权/强交互页退回客户端：</p>
+    <pre><code>routeRules: {
+  "/create": { ssr: false },   // 依赖 localStorage 登录态，SSR 无收益且会误重定向
+  "/me/**": { ssr: false },
+}</code></pre>
+    <div class="callout cyan"><b><code>useAsyncData</code> 服务端取数：</b>SSR 时回调在服务端跑，<code>$fetch('/api/v1/*')</code> 由 Nitro <b>同进程内直接调用处理器</b>（无真实 HTTP 往返），首屏 HTML 带数据；数据序列化进 payload，客户端 hydrate 复用、不重取。鉴权投影 <code>favoritedByMe</code>：SSR 无 token → 一律 false，登录用户在 <code>onMounted</code> 里带 token 补取纠正。这是<a href="../comparison.html#fs-spectrum">边界谱系</a>左端「同构」的 Vue 版。</div>
+
+    <h2 class="sec" id="clienttrap"><span class="n">6</span>招牌坑：.client.ts 对路由中间件不生效</h2>
+    <div class="callout pink"><b>路由中间件不认 <code>.client</code> / <code>.server</code> 后缀。</b><code>middleware/auth.client.ts</code> 看起来像「只在客户端跑的守卫」，但 Nuxt 只把它注册成名为 <code>auth-client</code> 的<b>普通命名中间件，服务端和客户端都会执行</b>。后果：若受保护页开了 SSR，守卫在服务端运行、读不到 localStorage 登录态 → 把已登录用户误判为未登录、重定向 /login。对策：用 <code>routeRules</code> 把这些页标 <code>ssr:false</code>，守卫自然只在客户端跑。<code>.client</code> 后缀对 <b>plugins/components 有效</b>，对中间件无效。</div>
+
+    <h2 class="sec" id="hydration"><span class="n">7</span>hydration 守卫</h2>
+    <p>服务端没有 <code>window</code>/<code>document</code>/<code>localStorage</code>，两类代码必须隔离否则 SSR 500：</p>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">&lt;ClientOnly&gt; 包裹</h4><p class="small muted">依赖 localStorage 的渲染（登录态决定的 Header 菜单、主题）。服务端一律按「未登录/默认主题」渲染，避免 hydration mismatch。</p></div>
+      <div class="card"><h4 class="sub2">import.meta.client 守卫</h4><p class="small muted">触碰 <code>window</code>/<code>document</code> 的副作用。<b>注意 <code>watch(..., {immediate:true})</code> 的回调会在 SSR 的 setup 阶段同步执行</b>——不能假设「watcher 只在客户端跑」。</p></div>
+    </div>
+    <p class="small muted"><b>另一坑：</b>SSR 取数不要用 <code>api/client.ts</code>（原生 fetch + <code>BASE=""</code>，相对 URL 在服务端无 origin 会抛 <code>Failed to parse URL</code>），统一用 Nuxt 的 <code>$fetch</code>（ofetch，服务端直达 Nitro）。</p>
+
+    <h2 class="sec" id="compare"><span class="n">8</span>与 Next.js 并排对照</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>维度</th><th>Next.js</th><th>Nuxt</th></tr></thead><tbody>
+      <tr><td>前端框架</td><td>React</td><td>Vue 3</td></tr>
+      <tr><td>服务端引擎</td><td>Next Server</td><td>Nitro</td></tr>
+      <tr><td>渲染</td><td>RSC + 客户端混合</td><td>SSR + <code>routeRules</code> 混合</td></tr>
+      <tr><td>服务端取数</td><td>RSC 内 <code>async import</code> 服务层</td><td><code>useAsyncData</code> + <code>$fetch</code></td></tr>
+      <tr><td>一 URL 多方法</td><td>单文件多导出</td><td>多文件 <code>.get.ts/.patch.ts</code></td></tr>
+      <tr><td>服务端隔离</td><td><code>import "server-only"</code> 文件级</td><td><code>server/</code> 目录级</td></tr>
+      <tr><td>自动导入</td><td>无</td><td>强大</td></tr>
+    </tbody></table></div>
+    <p class="small muted"><b>两边几乎所有服务端业务代码一一对应</b>——<code>server/services/auth.ts</code> ↔ <code>src/services/auth.ts</code>、<code>server/db/index.ts</code> ↔ <code>src/db/index.ts</code>。差异只在「壳」：路由约定、请求/响应 API、自动导入。<a href="../comparison.html#fs-clientjs">客户端 JS 行数</a>里 Nuxt 最高（2647 行），因为它是最彻底的同构。</p>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加页面</td><td>新建 <code>pages/&lt;路径&gt;.vue</code>，自动注册</td></tr>
+      <tr><td>加登录后页面</td><td><code>definePageMeta({ middleware: "auth-client" })</code> + <code>routeRules</code> 标 <code>ssr:false</code></td></tr>
+      <tr><td>加 REST 端点</td><td>新建 <code>server/api/v1/&lt;路径&gt;.&lt;method&gt;.ts</code></td></tr>
+      <tr><td>加 store/composable/component</td><td>放进对应目录，自动导入</td></tr>
+      <tr><td>改部署目标</td><td><code>nuxt.config.ts</code> 改 <code>nitro.preset</code></td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="next.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Next.js</div></a>
+      <a href="spring-mvc.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Spring MVC</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Nuxt 详解 · 整理自 fullstacks/nuxt/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

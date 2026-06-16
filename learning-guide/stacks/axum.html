@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axum 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与理由</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#core">3 · Rust/Axum 三机制</a>
+    <a href="#intoresponse">4 · ? + IntoResponse</a>
+    <a href="#valuecell">5 · Value/Cell 跨库层</a>
+    <a href="#tx">6 · 事务与一致性</a>
+    <a href="#auth">7 · 手写 JWT 与安全</a>
+    <a href="#readcode">8 · 从注册请求读代码</a>
+    <a href="#change">9 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#axum" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/axum.svg" alt="Axum"></div>
+      <div>
+        <h1>Axum</h1>
+        <p class="one">Rust 类型系统即正确性工具：<code>IntoResponse</code> 让「漏接错误」编译不过；自研 <code>Value</code>/<code>Cell</code> 双枚举跨库层，SQL 完全共享。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29070</span><span class="badge violet">评审 93 / 100</span>
+          <span class="badge">Rust</span><span class="badge">Axum 0.8 (Tokio)</span><span class="badge">sqlx（不用宏）</span><span class="badge">手写 HS256</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 Rust（所有权/<code>Result</code>+<code>?</code>/<code>enum</code>+<code>match</code>/trait/async）但没接触过 Axum/Tokio/sqlx 的读者。整理自 <code>backends/axum/TECHNICAL_GUIDE.md</code>（395 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与理由</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>维度</th><th>选择</th><th>理由</th></tr></thead><tbody>
+      <tr><td>Web 框架</td><td>Axum 0.8</td><td>Tokio 官方生态；extractor 模型干净；<code>IntoResponse</code> 让错误处理变成类型问题</td></tr>
+      <tr><td>数据访问</td><td>sqlx 0.8（<b>不用宏</b>）</td><td>契约要求同一套 SQL 跑双驱动，<code>query!</code> 宏的编译期检查绑定单一 DB，故用运行时 <code>sqlx::query</code> + 自研编解码层</td></tr>
+      <tr><td>JSON</td><td>serde_json::Value</td><td><code>Value::Null</code> 序列化为显式 <code>null</code>，契约 strict equal 天然满足</td></tr>
+      <tr><td>JWT</td><td>手写 HS256（hmac + sha2）</td><td>签发/校验各 ~20 行；引 jsonwebtoken crate 反而要适配它的 claim 模型</td></tr>
+    </tbody></table></div>
+    <div class="callout"><b>为什么不用 <code>sqlx::Any</code>？</b>Any 驱动的类型推断有限，PG 的 <code>uuid</code>/<code>timestamptz</code> 列用文本协议绑定需要在 SQL 里逐处 <code>::uuid</code> 强转，SQL 文本就不再是「一份」。自研 <code>Value</code>/<code>Cell</code> 编解码层把差异收敛到绑定/读取两个点，SQL 完全共享。</div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>Tokio 运行时 + Axum Router（<code>.fallback()</code> 兜 404）→ handler（<code>async fn</code>，extractor 提参 <code>State / HeaderMap / Result&lt;Json&lt;T&gt;, JsonRejection&gt; / Query</code>）→ services（<code>async fn → ApiResult&lt;Value&gt;</code>，<code>db.begin() → 业务 → conn.finish(result)</code>）→ repos → db.rs（一份 SQL，<code>?</code> 占位 PG 转 <code>$n</code>，Value 绑定 / Cell 读取）→ PG（池 8）或 SQLite（池上限 1，天然串行）。</p>
+
+    <h2 class="sec" id="core"><span class="n">3</span>Rust / Axum 的三个核心机制</h2>
+    <div class="mech"><div class="h"><span class="tag">机制一</span>handler = async fn + extractor 提参</div><div class="b">
+      <p class="small muted">参数是一组 extractor，Axum 按类型从请求里提取。三个关键约定：① 请求体 DTO 字段全 <code>Option</code>（缺字段不在解码层失败，由 validation 统一裁决 422）；② 查询参数用 <code>Query&lt;HashMap&gt;</code> 手动解析（<code>int_param</code> 区分缺失→默认、非整数→422）；③ axum 0.8 路径语法是 <code>{param}</code>。</p></div></div>
+    <div class="mech"><div class="h"><span class="tag">机制二</span><code>Arc&lt;AppState&gt;</code> 共享、Send + Sync 是硬约束</div><div class="b">
+      <p class="small muted"><code>AppState</code> 用 <code>Arc</code> 包起注入每个 handler，跨 await 点共享。Rust 要求跨 await 的状态满足 <code>Send + Sync</code>——这就是为什么 <code>LoginRateLimiter</code> 用 <code>Mutex&lt;HashMap&gt;</code>、<code>Db</code> 内部用连接池：编译器强制你把共享可变状态做成线程安全的，否则不编译。</p></div></div>
+
+    <h2 class="sec" id="intoresponse"><span class="n">4</span>机制三 · <code>?</code> + <code>IntoResponse</code>：错误处理变成类型问题</h2>
+    <p><code>ApiError</code> 实现了 <code>IntoResponse</code>，所以返回 <code>ApiResult&lt;Response&gt;</code> 的 handler 里，任何 <code>?</code> 都直接产出契约错误外壳：</p>
+    <pre><code>impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        envelope::error(self.status, self.code, &self.message, self.details.as_deref())
+    }
+}</code></pre>
+    <div class="callout pink"><b>「漏接异常」在 Rust 里编译不过</b>——<code>Result</code> 不处理就有警告/类型不符，service 里 <code>repo(...).await?</code> 一路把 <code>ApiError</code> 冒泡到 handler，由 Axum 调 <code>into_response()</code>。与 <a href="vapor.html">Vapor</a> 的「中间件 catch 转换」对照：那边是运行时兜底，这边是类型系统直接表达，<b>没有「忘了捕获」的可能</b>——这是十家里把「语言特性当正确性保障」展示得最彻底的。</div>
+
+    <h2 class="sec" id="valuecell"><span class="n">5</span>Value / Cell 跨库层（本实现的核心）</h2>
+    <p>业务 SQL 用 <code>?</code> 占位写一份，PG 执行前 <code>to_pg_placeholders</code> 顺序替换为 <code>$1..$n</code>。差异收敛在绑定与读取两个枚举：</p>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">绑定：<code>Value</code> 枚举</h4>
+        <div class="tbl-wrap" style="margin:6px 0 0"><table class="compact"><tbody>
+          <tr><td><code>Uuid(u)</code></td><td>PG 原生 / SQLite 32-hex TEXT</td></tr>
+          <tr><td><code>Ts(t)</code></td><td>PG timestamptz / SQLite ISO TEXT</td></tr>
+          <tr><td><code>Bool(b)</code></td><td>PG boolean / SQLite 0/1</td></tr>
+        </tbody></table></div>
+      </div>
+      <div class="card"><h4 class="sub2">读取：<code>Cell</code> 枚举 + DbRow 访问器</h4>
+        <p class="small muted">访问器是 <b>cell-driven</b> 而非 driver-driven：<code>row.uuid("id")</code> / <code>row.ts("open_at")</code> / <code>row.bool("in_plaza")</code>，仓储代码不需要知道自己跑在哪个库上。</p>
+      </div>
+    </div>
+    <div class="callout cyan"><b>两边解码的不对称值得理解：</b>PG 侧列类型信息完整，解码时就把 UUID/TIMESTAMPTZ/BOOL 分别还原成 <code>Cell::Uuid/Ts/Bool</code>；SQLite 侧只有 INTEGER/REAL/TEXT 三种存储类，统统落进 <code>Cell::Str</code> 或 <code>Cell::I64</code>，再由访问器按目标类型反解。<b>同一行在两个库里 Cell 形态不同</b>，但访问器把差异收口在读取这一点。按「值的实际存储类」而非「列声明类型」分发——因为 <code>COUNT(*)</code>、<code>(x IS NOT NULL)</code> 这类表达式列在 SQLite 里没有可靠的声明类型。这是<a href="../comparison.html#be-dualdb">双库三解法</a>的「C 类」。</div>
+
+    <h2 class="sec" id="tx"><span class="n">6</span>事务与一致性</h2>
+    <p>事务<b>不走</b> sqlx 的 <code>Transaction</code> 类型（它会让连接类型在 enum 两臂分叉），而是显式 <code>BEGIN</code>/<code>BEGIN IMMEDIATE</code> + <code>conn.finish(result)</code>：</p>
+    <pre><code>let mut conn = state.db.begin().await?;
+let result = async { /* 多步操作，可 ? 提前退出 */ }.await;
+conn.finish(result).await    // Ok → COMMIT，Err → ROLLBACK</code></pre>
+    <p class="small muted"><b>纪律：</b>一个 service 公共方法只 acquire 一次连接，绝不同时持有两个（SQLite 池上限 1 会自锁）。收藏计数 UPSERT 判真插入才 +1；refresh 轮转用 <code>RefreshOutcome::{Success,Invalid,Reused}</code>，COMMIT 之后再把 Invalid/Reused 转 401（<a href="../comparison.html#be-tx">流派 ③</a>）。</p>
+
+    <h2 class="sec" id="auth"><span class="n">7</span>手写 JWT 与安全</h2>
+    <pre><code>let signing_input = format!("{header}.{body}");
+let mut mac = HmacSha256::new_from_slice(config.jwt_secret.as_bytes()).unwrap();
+mac.update(signing_input.as_bytes());
+let signature = URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());</code></pre>
+    <p class="small muted">校验顺序：形态 → 签名（<code>mac.verify_slice</code>，<b>常数时间</b>）→ payload → <code>exp</code>。过期返回 <code>access_token_expired</code>。bcrypt 用 <code>bcrypt</code> crate（cost 10），<code>$2b$</code> 与 seed 互验。<b>Rust 特有：</b>regex crate 不支持 lookahead，密码的 <code>(?=.*[A-Za-z])(?=.*\d)</code> 改为显式扫描；长度按字符（<code>chars().count()</code>）不按字节。</p>
+
+    <h2 class="sec" id="readcode"><span class="n">8</span>从真实请求读代码：注册</h2>
+    <div class="figure"><div class="diagram"><div class="pipe">
+      <div class="node">① 校验 → 返回 <span class="mono">Err(ApiError)</span> 经 <span class="mono">?</span> 上抛成 422</div><div class="arrow">↓</div>
+      <div class="node">② <span class="mono">security::hash_password</span>（bcrypt，<b>事务外</b>）</div><div class="arrow">↓</div>
+      <div class="node">③ <span class="mono">state.db.begin()</span> 开事务</div><div class="arrow">↓</div>
+      <div class="node">④ async 块：唯一性预检 → <span class="mono">users::insert</span> → <span class="mono">issue_token_pair</span>（可 <span class="mono">?</span> 提前退出）</div><div class="arrow">↓</div>
+      <div class="node" style="border-color:#5ed49a">⑤ <span class="mono">conn.finish(result)</span>：Ok → COMMIT，Err → ROLLBACK → <span class="mono">envelope::ok_with(CREATED, ...)</span></div>
+    </div></div><div class="cap">错误路径不用手写回滚，类型系统替你保证「要么提交要么回滚」</div></div>
+
+    <h2 class="sec" id="change"><span class="n">9</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想改什么</th><th>动哪里</th></tr></thead><tbody>
+      <tr><td>新增端点</td><td><code>web/routes.rs</code> 注册 + handler；业务进 <code>services/</code></td></tr>
+      <tr><td>新增字段校验</td><td><code>services/validation.rs</code></td></tr>
+      <tr><td>新增表/查询</td><td><code>infra/repos.rs</code> 加函数；跨库类型走 <code>Value</code>/<code>Cell</code>，别绕过</td></tr>
+      <tr><td>调事务边界</td><td>service 层 <code>begin/finish</code>；仓储不开事务的约定不要破</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="vapor.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Vapor</div></a>
+      <a href="drogon.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Drogon</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Axum 详解 · 整理自 backends/axum/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

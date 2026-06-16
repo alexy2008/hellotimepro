@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>前后端对比 · HelloTime Pro 学习资料</title>
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-brand" style="text-decoration:none"><img src="assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="index.html">总体介绍</a>
+      <a href="design.html">设计</a>
+      <a href="comparison.html" class="active">前后端对比</a>
+      <a href="implementations.html">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#intro">对比怎么读</a>
+    <a href="#be" style="font-weight:700;color:var(--signal-200)">后端 · 十家</a>
+    <a href="#be-stack">　技术栈速览</a>
+    <a href="#be-loc">　代码量</a>
+    <a href="#be-orm">　数据访问谱系</a>
+    <a href="#be-dualdb">　双库三解法</a>
+    <a href="#be-tx">　事务四流派</a>
+    <a href="#be-pick">　该读哪一个</a>
+    <a href="#fe" style="font-weight:700;color:var(--accent-300)">前端 · 五家</a>
+    <a href="#fe-stack">　技术栈速览</a>
+    <a href="#fe-react">　响应式模型</a>
+    <a href="#fe-state">　状态管理</a>
+    <a href="#fe-inverse">　源码 vs 产物</a>
+    <a href="#fe-pit">　招牌坑</a>
+    <a href="#fs" style="font-weight:700;color:var(--success-300)">全栈 · 五家</a>
+    <a href="#fs-spectrum">　边界谱系</a>
+    <a href="#fs-clientjs">　客户端 JS</a>
+    <a href="#fs-bridge">　双入口 + 桥</a>
+    <a href="#conclusion">一体三面的结论</a>
+  </aside>
+
+  <main class="content">
+    <header style="padding-top:34px">
+      <span class="badge cyan">核心 · 横向对比</span>
+      <h1 style="font-size:38px;margin:14px 0 6px">同一道题，三大阵营的解法</h1>
+      <p class="lead" style="font-size:18px">十个后端、五个前端、五套全栈的横向对比。整理自 <code>docs/backend-comparison.md</code> / <code>frontend-comparison.md</code> / <code>fullstack-comparison.md</code>。</p>
+    </header>
+
+    <h2 class="sec" id="intro" style="border:none;margin-top:30px">对比怎么读</h2>
+    <p>每个阵营都问一个最根本的问题，其余差异都从那个问题派生：</p>
+    <div class="grid g3">
+      <div class="card"><div class="badge cyan">后端</div><p class="small" style="margin-top:8px"><b>同一道题，十种母语怎么解？</b>差异落在语言表达力 × 数据访问抽象层厚度。</p></div>
+      <div class="card"><div class="badge pink">前端</div><p class="small" style="margin-top:8px"><b>状态变了，DOM 怎么跟着变？</b>差异落在响应式模型——组件跑几次、依赖怎么追踪。</p></div>
+      <div class="card"><div class="badge green">全栈</div><p class="small" style="margin-top:8px"><b>前后端边界画在哪？</b>HTML 在哪一侧生成、浏览器拿到多少 JavaScript。</p></div>
+    </div>
+
+    <!-- ============ 后端 ============ -->
+    <h2 class="sec" id="be"><span class="n" style="background:linear-gradient(135deg,#00b8d4,#14d4f0)">B</span>后端 · 十家</h2>
+    <p>它们实现同一个产品、共享同一份 <code>spec/</code>：同一份 18 端点 API 契约、同一组 104 黑盒契约用例、同一个双库约束。全部 10 个后端均通过 <code>verify-contract</code>（PG + SQLite）<b>104/104</b>。十者之间所有差异都是纯粹的语言 / 框架 / 抽象选择差异。</p>
+
+    <h3 class="sub" id="be-stack">技术栈速览</h3>
+    <div class="tbl-wrap">
+      <table class="compact">
+        <thead><tr><th>后端</th><th>端口</th><th>语言</th><th>Web 框架</th><th>数据访问</th><th>JWT</th><th>运行形态</th></tr></thead>
+        <tbody>
+          <tr><td><b>FastAPI</b> <span class="badge cyan">参考</span></td><td class="mono">29010</td><td>Python 3.12</td><td>FastAPI 0.115</td><td>SQLAlchemy 2.0 ORM</td><td>PyJWT</td><td>uvicorn ASGI</td></tr>
+          <tr><td><b>Spring Boot</b></td><td class="mono">29000</td><td>Java 21</td><td>Spring Boot 3 MVC</td><td>Spring Data JPA</td><td>java-jwt</td><td>胖 JAR（JVM）</td></tr>
+          <tr><td><b>Gin</b></td><td class="mono">29020</td><td>Go 1.22</td><td>Gin 1.10</td><td>GORM</td><td>golang-jwt</td><td>静态二进制</td></tr>
+          <tr><td><b>NestJS</b></td><td class="mono">29040</td><td>TypeScript (Node)</td><td>NestJS 11</td><td>TypeORM</td><td>@nestjs/jwt</td><td>node dist</td></tr>
+          <tr><td><b>Elysia</b></td><td class="mono">29030</td><td>TypeScript (Bun)</td><td>Elysia 1.4</td><td><b>原生 SQL</b></td><td>jose</td><td>bun 直跑 TS</td></tr>
+          <tr><td><b>Ktor</b></td><td class="mono">29090</td><td>Kotlin</td><td>Ktor 2.3 (Netty)</td><td>Exposed DSL</td><td>java-jwt</td><td>胖 JAR（JVM）</td></tr>
+          <tr><td><b>ASP.NET</b></td><td class="mono">29050</td><td>C# 12</td><td>ASP.NET Core 8</td><td>EF Core 8</td><td>Microsoft.IdentityModel</td><td>dotnet DLL</td></tr>
+          <tr><td><b>Vapor</b></td><td class="mono">29060</td><td>Swift</td><td>Vapor 4 (SwiftNIO)</td><td>SQLKit 手写 SQL</td><td><b>手写 HS256</b></td><td>release 二进制</td></tr>
+          <tr><td><b>Axum</b></td><td class="mono">29070</td><td>Rust</td><td>Axum 0.8 (Tokio)</td><td>sqlx（不用宏）</td><td><b>手写 HS256</b></td><td>release 二进制</td></tr>
+          <tr><td><b>Drogon</b></td><td class="mono">29080</td><td>C++20</td><td>Drogon 1.9</td><td>裸 SQL</td><td><b>手写 HS256</b></td><td>静态二进制</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout cyan"><b>JWT：库 vs 手写。</b>七家用库；Vapor / Axum / Drogon <b>手写 HS256</b>（<code>base64url(header).base64url(payload).HMAC-SHA256</code>，各约 20–30 行）。手写三家共同点：校验顺序「形态 → 签名（<b>常数时间比较</b>）→ payload → exp」，过期返 <code>access_token_expired</code>、其余 <code>invalid_token</code>。</div>
+
+    <h3 class="sub" id="be-loc">代码量：表达力 × 抽象选择 × 手写程度</h3>
+    <p>功能都一样，行数差异来自「语言表达力 × 抽象选择 × 手写程度」。<b>Drogon / Axum 最多不是做得多，而是手写得多</b>（UUID/JWT/base64url/跨库编解码全摊在明面上）；<b>Elysia 最少</b>（原生 SQL 比 ORM 紧凑 + Bun 内置一切 + 函数式扁平）。</p>
+    <div class="barchart">
+      <div class="row"><span class="name">Drogon · C++20</span><div class="track"><div class="fill c-pink" style="width:100%">　</div></div><span class="v">4 327</span></div>
+      <div class="row"><span class="name">Axum · Rust</span><div class="track"><div class="fill c-pink" style="width:87%">　</div></div><span class="v">3 760</span></div>
+      <div class="row"><span class="name">Gin · Go</span><div class="track"><div class="fill c-amber" style="width:72%">　</div></div><span class="v">3 130</span></div>
+      <div class="row"><span class="name">Spring · Java</span><div class="track"><div class="fill c-amber" style="width:66%">　</div></div><span class="v">2 851</span></div>
+      <div class="row"><span class="name">ASP.NET · C#</span><div class="track"><div class="fill c-amber" style="width:64%">　</div></div><span class="v">2 789</span></div>
+      <div class="row"><span class="name">Vapor · Swift</span><div class="track"><div class="fill c-violet" style="width:62%">　</div></div><span class="v">2 680</span></div>
+      <div class="row"><span class="name">FastAPI · Python</span><div class="track"><div class="fill c-cyan" style="width:59%">　</div></div><span class="v">2 549</span></div>
+      <div class="row"><span class="name">Ktor · Kotlin</span><div class="track"><div class="fill c-violet" style="width:56%">　</div></div><span class="v">2 440</span></div>
+      <div class="row"><span class="name">NestJS · TS</span><div class="track"><div class="fill c-violet" style="width:56%">　</div></div><span class="v">2 431</span></div>
+      <div class="row"><span class="name">Elysia · TS/Bun</span><div class="track"><div class="fill c-green" style="width:40%">　</div></div><span class="v">1 719</span></div>
+    </div>
+    <p class="muted small">物理行（含注释空行），仅计自写实现源码，排依赖与产物。Axum/Drogon 含内联单测。</p>
+
+    <h3 class="sub" id="be-orm">数据访问：从原生 SQL 到重型 ORM 的谱系</h3>
+    <p>这是后端最核心的分野。越靠原生 SQL 端，跨库越直白、行数越高、类型安全靠自觉；越靠 ORM 端，CRUD 越省、跨库适配越要钻进框架底层 SPI。</p>
+    <div class="spectrum">
+      <div class="seg" style="background:linear-gradient(135deg,#7e0844,#54052d)"><div class="t">原生 / 裸 SQL</div><div class="d">Elysia · Vapor · Axum · Drogon</div></div>
+      <div class="seg" style="background:linear-gradient(135deg,#5a34ee,#341a8f)"><div class="t">query builder</div><div class="d">Gin (GORM) · Ktor (Exposed)</div></div>
+      <div class="seg" style="background:linear-gradient(135deg,#0090a8,#006d80)"><div class="t">重型 ORM</div><div class="d">FastAPI · NestJS · ASP.NET · Spring</div></div>
+    </div>
+    <p class="small muted">SQL 是字符串、列名手动别名成驼峰，跨库靠自建值编解码层收敛 ←→ 表映射成强类型对象、列名拼错编译期报错 ←→ CRUD 省代码、对象模型自然，Spring Data 甚至「方法名即查询」。</p>
+
+    <h3 class="sub" id="be-dualdb">同一道难题：PG / SQLite 双库适配的三类解法</h3>
+    <div class="grid g3">
+      <div class="card">
+        <div class="badge amber">A 类 · 5 家</div>
+        <h4 class="sub2" style="margin-top:8px">在类型层挂适配器</h4>
+        <p class="small muted">ORM 不知道怎么把 uuid/时间戳存进 SQLite TEXT，于是在类型/列定义层插转换器：</p>
+        <ul class="small">
+          <li>FastAPI — SQLAlchemy <code>Uuid</code> + <code>UTCDateTime</code></li>
+          <li>NestJS — <code>ValueTransformer</code></li>
+          <li>ASP.NET — EF Core <code>ValueConverter</code></li>
+          <li>Ktor — Exposed 自定义 <code>ColumnType</code></li>
+          <li>Spring — <code>@JdbcType</code> + 自实现 <code>ValueBinder</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="badge violet">B 类 · 2 家</div>
+        <h4 class="sub2" style="margin-top:8px">驱动分流 + 行锁分支</h4>
+        <p class="small muted">同时挂两个驱动，时间/UUID 走默认序列化，行锁仅 PG：</p>
+        <ul class="small">
+          <li>Gin — GORM 双驱动；<code>clause.Locking</code> 仅 PG</li>
+          <li>Ktor — Exposed 列按方言分流；<code>forUpdate()</code> 仅非 SQLite</li>
+        </ul>
+        <p class="small muted">（Ktor 同属 A 与 B：列类型是 A 做法，查询是 B 风格 DSL。）</p>
+      </div>
+      <div class="card">
+        <div class="badge pink">C 类 · 4 家</div>
+        <h4 class="sub2" style="margin-top:8px">一份 SQL + 自建值编解码</h4>
+        <p class="small muted">业务 SQL 只写一份（<code>?</code> 占位，PG 转 <code>$n</code>），差异收敛在「绑定」「读取」两点：</p>
+        <ul class="small">
+          <li>Vapor — <code>uuidValue/dateValue</code> 助手</li>
+          <li>Axum — <code>Value</code> / <code>Cell</code> 双枚举</li>
+          <li>Drogon — 全 <code>std::string</code> 文本协议</li>
+          <li>Elysia — <code>pgSql()</code> 把 <code>?</code>→<code>$n</code></li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout"><b>抽象层最厚 → 跨库要钻得最深。</b>Spring 的 JPA 平时最省心，但要拗它跨库时必须一路下沉到 Hibernate 的 <code>JdbcType</code> / <code>ValueBinder</code>（连 null 都要按方言给正确的 <code>setNull</code> 类型）——<b>抽象帮你挡住的复杂度，在边界处原样还回来。</b></div>
+    <div class="callout cyan"><b>时间戳两策略：</b>真正逐字符对齐 seed（<code>+00:00</code> 而非 <code>Z</code>、可变小数）的只有 <b>6 家</b>（Spring + 新 5 家），各有专门 WRITE formatter；其余 4 家（FastAPI/Gin/NestJS/Elysia）交给 ORM/驱动默认。手写编解码的 6 家被迫直面格式、把「字符串比较即时间比较」钉死；交给 ORM 的 4 家省了事，却把格式一致性让渡给了框架默认。</div>
+
+    <h3 class="sub" id="be-tx">事务一致性：refresh 轮转的四个流派</h3>
+    <p>旧 token 被重放时必须「<b>先提交家族吊销、再返回 401</b>」（事务内抛错会把吊销一起回滚）。同一要求，四种结构：</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>流派</th><th>后端</th><th>机制</th></tr></thead>
+        <tbody>
+          <tr><td><b>① 声明式</b></td><td>Spring</td><td><code>@Transactional(noRollbackFor = ApiException)</code>，直接 throw 靠注解保证吊销不被回滚</td></tr>
+          <tr><td><b>② 提交后再抛</b></td><td>FastAPI</td><td>先 <code>commit()</code> 提交吊销，再 <code>raise</code>（Python 异常不回滚已提交事务）</td></tr>
+          <tr><td><b>③ outcome 模式</b></td><td>Gin · Ktor · ASP.NET · Vapor · Axum · Drogon</td><td>事务内不抛业务错、返回 <code>Outcome</code> 枚举，<b>提交后</b>在事务外转 401（模拟 Spring 的 noRollbackFor）</td></tr>
+          <tr><td><b>④ 无事务</b></td><td>NestJS</td><td>findOne → 改 → save，<b>既无事务也无行锁</b>（注释自陈教学简化）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted"><code>favorite_count</code> 计数也分两风格：原子 SQL <code>favorite_count + 1</code>（Gin/Ktor/Vapor/Axum/Drogon/Spring）vs EF 变更跟踪读-改-写（ASP.NET，靠 <code>FOR UPDATE</code> 行锁）。PG 路径普遍用 <code>SELECT … FOR UPDATE</code> 锁胶囊行，SQLite 靠单写事务。</p>
+
+    <h3 class="sub" id="be-pick">该读哪一个？</h3>
+    <div class="tbl-wrap">
+      <table class="compact">
+        <thead><tr><th>你想学 / 看</th><th>首选</th></tr></thead>
+        <tbody>
+          <tr><td>标准、好懂、文档最全的参考</td><td><b>FastAPI</b>（参考实现，879 行手册 + 986 行单测）</td></tr>
+          <tr><td>企业级 Java、声明式事务、最厚抽象</td><td><b>Spring Boot</b>（<code>@Transactional</code> / <code>@JdbcType</code>）</td></tr>
+          <tr><td>「没有任何隐藏控制流」的显式风格</td><td><b>Gin</b>（错误显式返回、链式 GORM）</td></tr>
+          <tr><td>装饰器 + DI + 模块化纵切</td><td><b>NestJS</b></td></tr>
+          <tr><td>最少依赖、最贴金属、原生 SQL</td><td><b>Elysia</b>（1719 行，Bun 内置一切）</td></tr>
+          <tr><td>Kotlin 协程 + 类型安全 SQL DSL</td><td><b>Ktor</b>（Exposed + 挂起事务）</td></tr>
+          <tr><td>.NET 现代最小宿主 + EF Core</td><td><b>ASP.NET</b></td></tr>
+          <tr><td>Swift 并发：actor 串行化、async/await 全链路</td><td><b>Vapor</b>（<code>AsyncGate</code> 是范例）</td></tr>
+          <tr><td>「用类型系统保证正确性」</td><td><b>Axum</b>（<code>IntoResponse</code> + Value/Cell 双枚举）</td></tr>
+          <tr><td>C++ 协程的真实坑与最贴底层的实现</td><td><b>Drogon</b>（异步析构提交、catch 不能 co_await）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ============ 前端 ============ -->
+    <h2 class="sec" id="fe"><span class="n" style="background:linear-gradient(135deg,#ff2d91,#ff4fa0)">F</span>前端 · 五家</h2>
+    <p>五个前端实现同一产品、共享同一套设计令牌与 <code>cy-*</code> 类、同一组 25 个 Playwright UI 冒烟用例，全部 <b>25/25</b>。一个隐藏强约束：视觉是共享的乐高积木，<b>没人能用「样式更好写」取巧</b>，对比聚焦在框架最核心的能力——<b>状态 → DOM 的映射方式</b>。</p>
+
+    <h3 class="sub" id="fe-stack">技术栈速览</h3>
+    <div class="tbl-wrap">
+      <table class="compact">
+        <thead><tr><th>维度</th><th>React</th><th>Vue 3</th><th>Angular</th><th>Svelte 5</th><th>SolidJS</th></tr></thead>
+        <tbody>
+          <tr><td>渲染模型</td><td>虚拟 DOM</td><td>虚拟 DOM</td><td>虚拟 DOM</td><td><b>编译期，无 VDOM</b></td><td><b>细粒度，无 VDOM</b></td></tr>
+          <tr><td>视图语法</td><td>JSX</td><td>SFC template</td><td>内联模板</td><td>.svelte 模板</td><td>JSX</td></tr>
+          <tr><td>响应式原语</td><td><code>useState</code></td><td><code>ref</code>/<code>reactive</code></td><td>Signals</td><td>Runes <code>$state</code></td><td><code>createSignal</code></td></tr>
+          <tr><td>组件函数执行</td><td>每次渲染重跑</td><td>setup 跑一次</td><td>实例化一次</td><td>编译展开跑一次</td><td><b>只跑一次</b></td></tr>
+          <tr><td>状态管理</td><td>Zustand</td><td>Pinia</td><td>NgRx Signal</td><td>.svelte.ts 单例</td><td>模块级 Signal</td></tr>
+          <tr><td>运行时依赖</td><td>4</td><td>3</td><td>10</td><td><b>2</b></td><td><b>2</b></td></tr>
+          <tr><td>dist JS（未压缩）</td><td>~341 KB</td><td>~169 KB</td><td>~1787 KB</td><td>~117 KB</td><td><b>~91 KB</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub" id="fe-react">响应式模型：最根本的分野</h3>
+    <p>这是五框架最深层的差异，也是其余一切（为什么 props 不能解构、为什么读值要加 <code>.value</code> 或 <code>()</code>）的根因。三大阵营：</p>
+    <div class="spectrum">
+      <div class="seg" style="background:linear-gradient(135deg,#5a34ee,#341a8f)"><div class="t">虚拟 DOM</div><div class="d">React · Vue · Angular<br>重渲染 → 算差异 → 打补丁</div></div>
+      <div class="seg" style="background:linear-gradient(135deg,#b20d60,#7e0844)"><div class="t">编译期</div><div class="d">Svelte<br>构建时算好，运行时直接改 DOM</div></div>
+      <div class="seg" style="background:linear-gradient(135deg,#0090a8,#006d80)"><div class="t">细粒度</div><div class="d">Solid<br>组件只跑一次，点对点命中节点</div></div>
+    </div>
+    <div class="callout pink"><b>同一个倒计时，三种写法。</b>React 状态变才重渲染，要造无意义的 tick 逼组件重跑；Svelte/Solid 直接把倒计时放进响应式状态、定时改它；Vue/Angular 改一个被 <code>computed</code> 依赖的源。根因全在「组件函数执行几次」。</div>
+    <p class="small muted"><b>依赖追踪谱系：</b>React 手写依赖数组、Vue 写 getter、Angular 用生命周期钩子 —— 三者「显式声明依赖」；Svelte 的 <code>$effect</code> 和 Solid 的 <code>createEffect</code> 自动追踪函数体里读到的响应式值。</p>
+
+    <h3 class="sub" id="fe-state">状态管理：同一个 store 的五种写法</h3>
+    <p>主题 store 的 <code>read()</code> / <code>apply()</code> 在五份里逐字相同，差异只在「响应式状态怎么声明、动作怎么挂、组件怎么读」。复杂 store 加总后「仪式感」差异被放大：</p>
+    <div class="barchart">
+      <div class="row"><span class="name">React · Zustand</span><div class="track"><div class="fill c-violet" style="width:100%">　</div></div><span class="v">427</span></div>
+      <div class="row"><span class="name">Solid · createStore</span><div class="track"><div class="fill c-cyan" style="width:90%">　</div></div><span class="v">384</span></div>
+      <div class="row"><span class="name">Angular · NgRx</span><div class="track"><div class="fill c-pink" style="width:82%">　</div></div><span class="v">349</span></div>
+      <div class="row"><span class="name">Vue · Pinia</span><div class="track"><div class="fill c-green" style="width:64%">　</div></div><span class="v">275</span></div>
+      <div class="row"><span class="name">Svelte · Runes</span><div class="track"><div class="fill c-amber" style="width:58%">　</div></div><span class="v">247</span></div>
+    </div>
+    <p class="small muted">stores 总行数。Svelte 的 Runes class 字段仪式最少（<code>$state</code> 即响应式）；React 的 <code>create + set/get + selector</code> 样板最多。</p>
+    <div class="callout cyan"><b>共享逻辑层是契约驱动解耦的实证。</b><code>api/types/utils</code> 三个框架无关目录，在 React / Vue / Solid 间是 <b>529 行、近乎逐字相同</b>的纯 TS（Solid 直接复用 react-ts 的 client.ts）。<b>Angular 是唯一例外（472 行）</b>——它把 <code>fetch</code> 封装成可注入的 <code>ApiService</code>（DI 天生解循环依赖，不需要其他四栈的 <code>configureApi</code> 注入回调）。例外本身也印证规律。</div>
+
+    <h3 class="sub" id="fe-inverse">源码行数 vs 产物体积：几乎完全相反</h3>
+    <p>全文最值得带走的一张图。写得少的（Angular 2794 行）跑起来最重（1787 KB），写得多的（Solid 3536 行）跑起来最轻（91 KB）——因为编译期/细粒度框架把「省运行时」转嫁成「源码多接线」，全家桶框架反之。</p>
+    <div class="figure">
+      <div class="diagram">
+        <svg viewBox="0 0 880 230" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+          <text x="20" y="34" fill="#80efff" font-size="13" font-weight="700">总实现行（少 → 多）</text>
+          <text x="20" y="196" fill="#ff7eb9" font-size="13" font-weight="700">dist 体积（小 → 大）</text>
+          <!-- top row source lines -->
+          <g font-size="12.5">
+            <rect x="120" y="46" width="120" height="34" rx="8" fill="#181824" stroke="#3a3a4d"/><text x="180" y="68" text-anchor="middle" fill="#d7d7e2">Angular 2794</text>
+            <rect x="280" y="46" width="120" height="34" rx="8" fill="#181824" stroke="#3a3a4d"/><text x="340" y="68" text-anchor="middle" fill="#d7d7e2">Vue 3241</text>
+            <rect x="440" y="46" width="120" height="34" rx="8" fill="#181824" stroke="#3a3a4d"/><text x="500" y="68" text-anchor="middle" fill="#d7d7e2">Svelte 3328</text>
+            <rect x="600" y="46" width="120" height="34" rx="8" fill="#181824" stroke="#3a3a4d"/><text x="660" y="68" text-anchor="middle" fill="#d7d7e2">React 3384</text>
+            <rect x="760" y="46" width="110" height="34" rx="8" fill="#181824" stroke="#3a3a4d"/><text x="815" y="68" text-anchor="middle" fill="#d7d7e2">Solid 3536</text>
+          </g>
+          <!-- bottom row dist -->
+          <g font-size="12.5">
+            <rect x="120" y="150" width="110" height="34" rx="8" fill="#2a0d22" stroke="#ff2d91"/><text x="175" y="172" text-anchor="middle" fill="#ffd9ec">Solid 91KB</text>
+            <rect x="270" y="150" width="120" height="34" rx="8" fill="#1a1226" stroke="#5a34ee"/><text x="330" y="172" text-anchor="middle" fill="#d7d7e2">Svelte 117KB</text>
+            <rect x="430" y="150" width="120" height="34" rx="8" fill="#1a1226" stroke="#5a34ee"/><text x="490" y="172" text-anchor="middle" fill="#d7d7e2">Vue 169KB</text>
+            <rect x="590" y="150" width="120" height="34" rx="8" fill="#1a1226" stroke="#5a34ee"/><text x="650" y="172" text-anchor="middle" fill="#d7d7e2">React 341KB</text>
+            <rect x="750" y="150" width="120" height="34" rx="8" fill="#2a0d22" stroke="#ff2d91"/><text x="810" y="172" text-anchor="middle" fill="#ffd9ec">Angular 1787KB</text>
+          </g>
+          <!-- crossing lines -->
+          <g stroke-width="1.4" opacity=".6">
+            <line x1="180" y1="82" x2="810" y2="148" stroke="#ff4fa0"/>
+            <line x1="815" y1="82" x2="175" y2="148" stroke="#40e4ff"/>
+          </g>
+        </svg>
+      </div>
+      <div class="cap">两条排序几乎完全相反 —— 抽象的成本不会消失，只会换地方出现</div>
+    </div>
+
+    <h3 class="sub" id="fe-pit">各框架的「招牌坑」</h3>
+    <div class="tbl-wrap">
+      <table class="compact">
+        <thead><tr><th>框架</th><th>招牌坑</th><th>规避</th></tr></thead>
+        <tbody>
+          <tr><td><b>React</b></td><td>StrictMode 开发期 effect 双触发；<code>setInterval</code> 闭包拿过期 state 快照</td><td>幂等化 / ref 去重；<code>setX(prev =&gt; …)</code> 函数式更新</td></tr>
+          <tr><td><b>Vue</b></td><td>解构 <code>reactive</code>/<code>props</code> 丢响应性；忘了 <code>.value</code></td><td>用 <code>toRefs</code> / <code>storeToRefs</code>；始终 <code>.value</code></td></tr>
+          <tr><td><b>Angular</b></td><td>模板里 signal 要当函数调 <code>x()</code>；方法 vs <code>computed()</code></td><td>派生值用 <code>computed()</code>，别在模板里调方法</td></tr>
+          <tr><td><b>Svelte</b></td><td><code>.svelte.ts</code> 单例导入<b>必须带 .ts 后缀</b>，否则两个实例；<code>&lt;Route&gt;</code> 不可嵌套</td><td>显式 .ts 后缀；路由平铺；按需开 runes</td></tr>
+          <tr><td><b>SolidJS</b></td><td><code>createEffect</code> 自动追踪导致重复请求；props 不可解构；style 用 kebab-case</td><td><code>untrack()</code> 圈住；<code>props.x</code> 访问；显式单位</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted">共同主题仍是响应式模型：<b>每个框架「在哪里、以什么粒度追踪依赖」，决定了它会在哪里咬你一口。</b></p>
+
+    <hr class="divider">
+
+    <!-- ============ 全栈 ============ -->
+    <h2 class="sec" id="fs"><span class="n" style="background:linear-gradient(135deg,#2bb87a,#5ed49a)">S</span>全栈 · 五家</h2>
+    <p>全栈比前端 / 后端多扛一层约束：<b>一个进程要同时长出两张脸</b>——给契约测试和浏览器 fetch 的 JSON API，给浏览器导航的 SSR HTML 页面。全部 5 套通过契约 <b>104/104</b> + UI 冒烟 <b>25/25</b>。</p>
+
+    <h3 class="sub" id="fs-spectrum">边界谱系：从同构 JS 到服务端模板</h3>
+    <p>全栈最根本的分野：<b>同一个进程同时当前后端，HTML 在哪生成、浏览器拿到多少 JS？</b>所有差异都挂在这条轴上。</p>
+    <div class="figure">
+      <div class="diagram">
+        <svg viewBox="0 0 880 220" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+          <defs>
+            <linearGradient id="axis" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5a34ee"/><stop offset="1" stop-color="#2bb87a"/></linearGradient>
+          </defs>
+          <rect x="40" y="98" width="800" height="10" rx="5" fill="url(#axis)"/>
+          <text x="48" y="84" fill="#a58eff" font-size="13" font-weight="700">边界模糊 · 同构 JS</text>
+          <text x="832" y="84" text-anchor="end" fill="#5ed49a" font-size="13" font-weight="700">边界锐利 · 服务端模板 + 增强</text>
+          <!-- nodes -->
+          <g font-size="12.5" text-anchor="middle">
+            <circle cx="110" cy="103" r="7" fill="#8467ff"/><text x="110" y="140" fill="#f7f7fb" font-weight="700">Next.js</text><text x="110" y="158" fill="#80808f">RSC + 孤岛</text>
+            <circle cx="250" cy="103" r="7" fill="#8467ff"/><text x="250" y="140" fill="#f7f7fb" font-weight="700">Nuxt</text><text x="250" y="158" fill="#80808f">混合渲染</text>
+            <circle cx="500" cy="103" r="7" fill="#14d4f0"/><text x="500" y="140" fill="#f7f7fb" font-weight="700">Spring MVC</text><text x="500" y="158" fill="#80808f">HTMX 片段</text>
+            <circle cx="650" cy="103" r="7" fill="#5ed49a"/><text x="650" y="140" fill="#f7f7fb" font-weight="700">Rails</text><text x="650" y="158" fill="#80808f">Turbo 片段</text>
+            <circle cx="800" cy="103" r="7" fill="#5ed49a"/><text x="800" y="140" fill="#f7f7fb" font-weight="700">Laravel</text><text x="800" y="158" fill="#80808f">Alpine 孤岛</text>
+          </g>
+          <text x="180" y="196" text-anchor="middle" fill="#80808f" font-size="11.5">JS 同时跑在两端，客户端接管整棵树</text>
+          <text x="660" y="196" text-anchor="middle" fill="#80808f" font-size="11.5">服务端渲 HTML，浏览器只做局部增强</text>
+        </svg>
+      </div>
+      <div class="cap">五栈对「前后端边界画在哪」的不同主张</div>
+    </div>
+
+    <h3 class="sub" id="fs-clientjs">客户端 JS 行数：谱系的数字投影</h3>
+    <p>锁定「客户端 JS 行」这一栏，两大阵营立刻现形。<b>同构阵营</b>上千行（还只是冰山一角，浏览器真正下载的是你的组件 + 整个框架运行时 + 水合）；<b>服务端模板阵营</b>只有 190–495 行（浏览器拿到渲好的 HTML，JS 只是一撮增强）。</p>
+    <div class="barchart">
+      <div class="row"><span class="name">Nuxt</span><div class="track"><div class="fill c-violet" style="width:100%">　</div></div><span class="v">2647</span></div>
+      <div class="row"><span class="name">Next.js</span><div class="track"><div class="fill c-violet" style="width:57%">　</div></div><span class="v">1517</span></div>
+      <div class="row"><span class="name">Rails</span><div class="track"><div class="fill c-green" style="width:19%">　</div></div><span class="v">495</span></div>
+      <div class="row"><span class="name">Spring MVC</span><div class="track"><div class="fill c-cyan" style="width:15%">　</div></div><span class="v">406</span></div>
+      <div class="row"><span class="name">Laravel</span><div class="track"><div class="fill c-green" style="width:7%">　</div></div><span class="v">190</span></div>
+    </div>
+    <p class="small muted">这条排序就是边界谱系的数字投影：越靠「服务端模板」端，运到浏览器的 JS 越少。而且这账还没算运行时——Laravel 浏览器侧只多一个 Alpine（~15KB），Next/Nuxt 要整个框架运行时。</p>
+
+    <h3 class="sub" id="fs-bridge">双入口架构 + cookie→Bearer 桥</h3>
+    <div class="grid g2">
+      <div class="card">
+        <h4 class="sub2">双入口：一个进程，两套接口</h4>
+        <p class="small muted">五栈无一例外共享同一骨架：同进程暴露 JSON API（给契约 + fetch）和 SSR 页面（给导航），<b>两张脸共用同一套业务 Service</b>。无论是 <code>POST /api/v1/capsules</code> 还是创建页提交表单，最终都落到同一个 <code>createCapsule()</code>。</p>
+        <p class="small muted">这是全栈相对「SPA + 独立后端」的最大结构红利——业务逻辑只有一份。</p>
+      </div>
+      <div class="card">
+        <h4 class="sub2">cookie → Bearer 桥</h4>
+        <p class="small muted">同一用户，契约测试眼里是 <code>Bearer token</code>，浏览器导航眼里是 httpOnly cookie。五栈用同一模式在入口处把 cookie「翻译」成 Bearer：</p>
+        <ul class="small">
+          <li>Spring — <code>CookieTokenFilter</code>（Servlet Filter）</li>
+          <li>Rails — <code>CookieTokenBridge</code>（Rack 中间件）</li>
+          <li>Laravel — <code>AuthService</code> 双读</li>
+          <li>Next — <code>ht_session</code> cookie + <code>getServerViewer()</code></li>
+          <li>Nuxt — server middleware</li>
+        </ul>
+      </div>
+    </div>
+    <h4 class="sub2">跨库与招牌坑</h4>
+    <div class="tbl-wrap">
+      <table class="compact">
+        <thead><tr><th>全栈</th><th>跨库适配</th><th>招牌坑</th></tr></thead>
+        <tbody>
+          <tr><td>Next / Nuxt</td><td>Drizzle 双 schema + 动态驱动</td><td>RSC 服务端无 localStorage；SSR 期 <code>window</code> 未定义致 500</td></tr>
+          <tr><td>Laravel</td><td>自定义 Cast + <code>HasCrossDbKey</code></td><td>id 用标准 UUID cast 会让关系 JOIN 用错值；PDO 布尔 <code>'t'/'f'</code></td></tr>
+          <tr><td>Rails</td><td>AR 自定义 Type + <code>CrossDb</code></td><td>Turbo「服务端跳转 vs 在途 fetch」时序竞态 → 收藏用同步 XHR</td></tr>
+          <tr><td>Spring MVC</td><td>Hibernate <code>JdbcType</code> + <code>ValueBinder</code></td><td>JPA 抽象最厚，跨库要下沉到底层 SPI</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout green"><b>一个反直觉但正确的取舍：收藏为什么用同步 XHR。</b>「点收藏 → 立刻导航到 /me/favorites」，若用异步请求，导航会 <code>abort</code> 掉未完成的收藏请求，事务来不及提交，跳过去看不到刚收藏的那条。同步 XHR 阻塞到事务提交后才返回，保证后续导航能看到刚写入的数据。</div>
+
+    <!-- ============ 结论 ============ -->
+    <h2 class="sec" id="conclusion">一体三面的结论</h2>
+    <p>三篇对比是同一个道理的一体三面，最终都指向那条最值钱的主线：</p>
+    <div class="card" style="text-align:center;padding:34px;background:linear-gradient(135deg,rgba(107,70,255,.12),rgba(20,212,240,.06),rgba(255,45,145,.08))">
+      <div style="font-size:24px;font-weight:800;background:var(--grad-hero);-webkit-background-clip:text;background-clip:text;color:transparent">抽象的成本只会换地方出现</div>
+      <p class="muted" style="max-width:640px;margin:14px auto 0">后端：ORM 省掉平时的 SQL，换来跨库时下沉到底层 SPI。<br>前端：编译期/细粒度框架省运行时，换来源码多接线（Angular 源码最少、产物最重；Solid 反之）。<br>全栈：同构省掉前后端分离的接缝，换来客户端运行时的体量与水合复杂度。<br><b>没有免费的午餐，只有不同的账单。</b></p>
+    </div>
+
+    <div class="pagenav">
+      <a href="design.html"><div class="dir">← 上一页</div><div class="ttl">设计</div></a>
+      <a href="implementations.html" class="next"><div class="dir">下一页 →</div><div class="ttl">二十个实现详解</div></a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="footer">HelloTime Pro · 前后端对比 · 整理自 docs/backend-comparison.md · frontend-comparison.md · fullstack-comparison.md</footer>
+</body>
+</html>

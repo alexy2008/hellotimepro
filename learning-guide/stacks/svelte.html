@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Svelte 5 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#runes">2 · Runes 核心概念</a>
+    <a href="#snippet">3 · Snippet 取代 slot</a>
+    <a href="#routing">4 · 扁平路由（招牌坑）</a>
+    <a href="#store">5 · .svelte.ts class 单例</a>
+    <a href="#pitfall">6 · .ts 后缀陷阱（必读）</a>
+    <a href="#lib">7 · Runes 工具库</a>
+    <a href="#api">8 · 数据层与 wireAuthApi</a>
+    <a href="#compare">9 · 三框架对照表</a>
+    <a href="#change">10 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#svelte" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/svelte.svg" alt="Svelte 5"></div>
+      <div>
+        <h1>Svelte 5</h1>
+        <p class="one">「框架应该在编译期消失」——Runes 让响应式像写普通变量，无虚拟 DOM、运行时几乎为零，产物最薄之一（仅 2 个运行时依赖）。</p>
+        <div class="stack-meta">
+          <span class="badge port">:7176</span><span class="badge violet">评审 91 / 100</span>
+          <span class="badge">Svelte 5 (Runes)</span><span class="badge">TypeScript</span><span class="badge">Vite 6</span><span class="badge">svelte-routing 2</span><span class="badge">.svelte.ts 单例</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 HTML/CSS/JS 但没接触过 Svelte 5/TS/Vite/SPA 的读者。整理自 <code>frontends/svelte/TECHNICAL_GUIDE.md</code>（843 行，含三框架对照表）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">Svelte 5 + svelte-routing</h4><p class="small muted">Runes 通过编译期静态分析实现无虚拟 DOM 的极致运行效率与精确重绘。</p></div>
+      <div class="card"><h4 class="sub2">Runes Class Singletons</h4><p class="small muted">摒弃状态管理库，直接用 <code>$state</code> 在标准类中声明响应式状态，以模块化 class 单例暴露全局状态。</p></div>
+      <div class="card"><h4 class="sub2">Vite · 极薄产物</h4><p class="small muted">完美对接 Svelte 编译流程，生产环境输出极其轻量的静态资源（仅 svelte + routing 两个运行时依赖）。</p></div>
+      <div class="card"><h4 class="sub2">设计令牌 + Tailwind v4</h4><p class="small muted">跨前端通用 CSS 变量，暗/亮主题切换高效。</p></div>
+    </div>
+
+    <h2 class="sec" id="runes"><span class="n">2</span>Runes 核心概念</h2>
+    <p>Runes 是一套以 <code>$</code> 开头的特殊语法，用于声明响应式状态、副作用和推导值——Svelte 5 与旧版最大的区别，也是与 React Hooks、Vue Composition API 最直接的对标。</p>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2"><code>$state</code> 响应式状态</h4><p class="small muted">直接 <code>count++</code> 就触发更新（编译期把赋值变成通知）——无需 React 的 <code>setCount</code>、无需 Vue 的 <code>.value</code>。对象/数组递归代理，可直接 <code>items.push(x)</code>。</p></div>
+      <div class="card"><h4 class="sub2"><code>$derived</code> 推导值</h4><p class="small muted">等效 Vue <code>computed</code>、React <code>useMemo</code>，自动追踪不需依赖数组。复杂用 <code>$derived.by(() =&gt; {...})</code>。</p></div>
+      <div class="card"><h4 class="sub2"><code>$effect</code> 副作用</h4><p class="small muted">自动追踪函数体里读到的 <code>$state</code>，返回函数即清理。<code>untrack()</code> 圈住不想追踪的读取。</p></div>
+      <div class="card"><h4 class="sub2"><code>$props</code> 接受父值</h4><p class="small muted"><code>let { capsule, size = "sm" }: Props = $props()</code>，统一解构 + 默认值。<b>在 <code>.svelte.ts</code> 里不能用</b>，用普通函数参数。</p></div>
+    </div>
+
+    <h2 class="sec" id="snippet"><span class="n">3</span>Snippet：Svelte 5 取代 slot 的新原语</h2>
+    <pre><code>&lt;!-- 父：定义 snippet 内容 --&gt;
+&lt;CapsuleGrid {items}&gt;
+  {#snippet empty()}&lt;p&gt;暂无数据&lt;/p&gt;{/snippet}
+  {#snippet card(c)}&lt;button onclick={() =&gt; withdraw(c.id)}&gt;撤回&lt;/button&gt;{/snippet}
+&lt;/CapsuleGrid&gt;
+
+&lt;!-- 子：渲染 snippet --&gt;
+{@render empty?.()}
+{#each items as c}{@render card?.(c)}{/each}</code></pre>
+    <p class="small muted">Snippet 等效 React 的 render prop / slot。本项目用 <code>empty</code> 和 <code>card</code> 两个 snippet 自定义 CapsuleGrid 的空态和每张卡片右侧操作区。<code>children</code> 也是内置 snippet prop（<code>{@render children()}</code> 等效 React children）。</p>
+
+    <h2 class="sec" id="routing"><span class="n">4</span>扁平路由（招牌坑）</h2>
+    <div class="callout pink"><b>svelte-routing 2.13 + Svelte 5 要求路由<b>扁平化</b>，不能嵌套 <code>&lt;Route&gt;</code>。</b>嵌套会触发 <code>effect_update_depth_exceeded</code>（子 Route 注册 → 触发父 Route 重渲染 → 子 Route 再注册 → 无限循环）。解决方案：每个 Route 直接内联自己的布局组件，而非靠 Router 的嵌套机制注入 Outlet。</div>
+    <pre><code>&lt;Router&gt;
+  &lt;Route path="/"&gt;&lt;MainLayout&gt;&lt;PlazaPage /&gt;&lt;/MainLayout&gt;&lt;/Route&gt;
+  &lt;Route path="/me/created"&gt;&lt;MeLayout&gt;&lt;AuthGate&gt;&lt;MeCreatedPage /&gt;&lt;/AuthGate&gt;&lt;/MeLayout&gt;&lt;/Route&gt;
+  &lt;Route&gt;&lt;MainLayout&gt;&lt;NotFoundPage /&gt;&lt;/MainLayout&gt;&lt;/Route&gt;  &lt;!-- 兜底 --&gt;
+&lt;/Router&gt;</code></pre>
+    <p class="small muted">跳转：<code>&lt;a href="/login" use:link&gt;</code>（action 阻止默认、走前端路由）或编程式 <code>navigate("/login")</code>。路径参数用 <code>let:params</code> 注入。</p>
+
+    <h2 class="sec" id="store"><span class="n">5</span>.svelte.ts class 单例</h2>
+    <p>与 Zustand/Pinia 不同，Svelte 5 允许把 <code>$state</code> 写在<b>普通 class 字段</b>上，仪式感最少：</p>
+    <pre><code>class AuthStore {
+  user = $state&lt;User | null&gt;(null);
+  refreshToken = $state&lt;string | null&gt;(null);
+  hydrated = $state(false);
+  hydrate() { const p = load(); if (p) { this.user = p.user; ... } this.hydrated = true; }
+}
+export const authStore = new AuthStore();   // 模块级单例</code></pre>
+    <p class="small muted"><code>export const authStore = new AuthStore()</code> 是模块级单例，所有组件 <code>import</code> 拿到同一实例，等效 Zustand 全局单例。<b>跨 store 联动</b> <code>plazaStore.patchFavorited(...)</code>、<b>序列号守卫</b> 用私有字段 <code>#fetchSeq</code>（因为 store 是 class 实例）。</p>
+
+    <h2 class="sec" id="pitfall"><span class="n">6</span>关键陷阱：<code>.svelte.ts</code> 必须带 <code>.ts</code> 后缀导入（必读）</h2>
+    <pre><code>import { authStore } from "@/stores/auth.svelte.ts";   // ✅ 正确
+import { authStore } from "@/stores/auth.svelte";      // ❌ 破坏单例</code></pre>
+    <div class="callout pink"><b>原因：</b><code>@sveltejs/vite-plugin-svelte</code> 处理 <code>auth.svelte</code> 时，会同时把它当「Svelte 组件」和「TS 模块」两条加载路径解析，产生<b>两个不同的模块实例</b>。<code>authStore</code> 在 A 实例里 hydrate，但 AppHeader 读的是 B 实例（没有 user）——<b>store 单例彻底破裂</b>。带 <code>.ts</code> 后缀后 Vite 只走 TS 模块路径，始终一个实例。<code>tsconfig.app.json</code> 的 <code>allowImportingTsExtensions: true</code> 就是为支持这个写法。这是<a href="../comparison.html#fe-pit">前端招牌坑</a>里 Svelte 的代表坑。</div>
+
+    <h2 class="sec" id="lib"><span class="n">7</span>Runes 工具库（lib/）</h2>
+    <div class="grid g3">
+      <div class="card"><h4 class="sub2">createCountdown</h4><p class="small muted"><code>$state</code> now + <code>$effect</code> setInterval，<code>active</code> 是<b>函数</b>（effect 需每次读最新状态决定是否追踪）。已开启不创建 interval。暴露 getter 而非直接暴露 state。</p></div>
+      <div class="card"><h4 class="sub2">createDebounced</h4><p class="small muted"><code>$effect</code> 追踪 source + <code>setTimeout</code>，PlazaToolbar 搜索框 300ms 防抖用。</p></div>
+      <div class="card"><h4 class="sub2">clickOutside（action）</h4><p class="small muted">Svelte action 是「DOM 生命周期的副作用函数」：挂载时调用、卸载时调 <code>destroy()</code>。比 <code>$effect</code> 手动 addEventListener 更封装。</p></div>
+    </div>
+
+    <h2 class="sec" id="api"><span class="n">8</span>数据层与 wireAuthApi</h2>
+    <p><code>api/client.ts</code> 与 React/Vue 版几乎逐字一致：通用 <code>request&lt;T&gt;</code> + 自动 refresh（<code>refreshing</code> 单例去重 + <code>_retry</code> 防死循环）。<b>不 import store</b>（否则 <code>auth.svelte.ts → client.ts → auth.svelte.ts</code> 循环），用 <code>configureApi</code> 依赖注入，<code>wireAuthApi()</code> 在 <code>main.ts</code> 的 <code>mount()</code> 前调用一次。</p>
+
+    <h2 class="sec" id="compare"><span class="n">9</span>三框架对照表</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>概念</th><th>Svelte 5</th><th>React</th><th>Vue 3</th></tr></thead><tbody>
+      <tr><td>响应式状态</td><td><code>let x = $state(v)</code></td><td><code>const [x, setX] = useState(v)</code></td><td><code>const x = ref(v)</code></td></tr>
+      <tr><td>更新</td><td><code>x = newVal</code></td><td><code>setX(newVal)</code></td><td><code>x.value = newVal</code></td></tr>
+      <tr><td>推导</td><td><code>$derived(expr)</code></td><td><code>useMemo(...)</code></td><td><code>computed(...)</code></td></tr>
+      <tr><td>副作用</td><td><code>$effect(...)</code></td><td><code>useEffect(...)</code></td><td><code>watchEffect(...)</code></td></tr>
+      <tr><td>依赖追踪</td><td>自动（编译期）</td><td>手动 <code>[deps]</code></td><td>自动（Proxy）</td></tr>
+      <tr><td>跨组件状态</td><td>.svelte.ts class 单例</td><td>Zustand</td><td>Pinia</td></tr>
+    </tbody></table></div>
+
+    <h2 class="sec" id="change"><span class="n">10</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加新页面</td><td>① <code>pages/XxxPage.svelte</code>；② <code>App.svelte</code> 加 <code>&lt;Route&gt;</code></td></tr>
+      <tr><td>加登录后页面</td><td>同上，Route 内容套 <code>&lt;AuthGate&gt;</code></td></tr>
+      <tr><td>加状态域</td><td><code>stores/xxx.svelte.ts</code> 写 class，<code>export const xxxStore = new XxxStore()</code></td></tr>
+      <tr><td>需要防抖输入</td><td><code>createDebounced(() =&gt; rawVal, 300)</code> → 读 <code>.value</code></td></tr>
+      <tr><td>需要每秒倒计时</td><td><code>createCountdown(() =&gt; !opened)</code> → 读 <code>.now</code></td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="angular.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Angular</div></a>
+      <a href="solid.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">SolidJS</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · Svelte 5 详解 · 整理自 frontends/svelte/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

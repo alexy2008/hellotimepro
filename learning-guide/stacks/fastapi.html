@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FastAPI 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a>
+      <a href="../design.html">设计</a>
+      <a href="../comparison.html">前后端对比</a>
+      <a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#map">2 · 整体地图</a>
+    <a href="#flow">3 · 请求流向</a>
+    <a href="#tree">4 · 目录结构</a>
+    <a href="#layers">5 · 分层详解</a>
+    <a href="#depends">6 · 依赖注入</a>
+    <a href="#envelope">7 · 统一响应壳与错误</a>
+    <a href="#auth">8 · 鉴权与 refresh 轮转</a>
+    <a href="#favorite">9 · 收藏计数原子更新</a>
+    <a href="#dualdb">10 · 双库切换</a>
+    <a href="#readcode">11 · 从真实请求读代码</a>
+    <a href="#test">12 · 测试</a>
+    <a href="#reading">13 · 推荐阅读顺序</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#fastapi" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/fastapi.svg" alt="FastAPI"></div>
+      <div>
+        <h1>FastAPI</h1>
+        <p class="one">参考实现：Python async 框架 + Pydantic 边界校验 + SQLAlchemy 双驱动，分层最「标准教科书」，是其余九家的模板与基准。</p>
+        <div class="stack-meta">
+          <span class="badge cyan">参考实现</span>
+          <span class="badge port">:29010</span>
+          <span class="badge violet">评审 94 / 100</span>
+          <span class="badge">Python 3.12</span>
+          <span class="badge">FastAPI 0.115</span>
+          <span class="badge">SQLAlchemy 2.0</span>
+          <span class="badge">Pydantic v2</span>
+          <span class="badge">PyJWT · bcrypt</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout cyan" style="margin-top:24px">本页面向已熟悉 Python 基本语法、但还不熟悉 Web 框架 / FastAPI / SQLAlchemy 的读者。读完你应能回答：一个 HTTP 请求进入后端后代码按什么顺序执行；各组件分别负责什么；想新增接口 / 字段 / 规则时改哪些文件。整理自 <code>backends/fastapi/TECHNICAL_GUIDE.md</code>（879 行，全项目最厚）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">FastAPI · 类型化 Web 框架</h4><p class="small muted">本实现采用<b>同步</b>路由函数与同步 SQLAlchemy Session，突出依赖注入、Pydantic 边界校验、自动 OpenAPI 文档，而非演示 async 数据访问。搭配 Uvicorn 运行，天然集成 Swagger UI（<code>/docs</code>）。</p></div>
+      <div class="card"><h4 class="sub2">Pydantic · 严格输入校验</h4><p class="small muted">接口边界上的输入输出完全用 Pydantic Schema 声明与校验。在请求到达业务逻辑前即完成字段校验与类型转换，提供安全可靠的类型安全边界。</p></div>
+      <div class="card"><h4 class="sub2">SQLAlchemy · 双数据库引擎</h4><p class="small muted">配置跨驱动连接池与方言支持，后端无需改任何核心代码，即可通过环境变量在 PostgreSQL 与 SQLite 间无缝切换。</p></div>
+      <div class="card"><h4 class="sub2">四层架构 · 分层解耦</h4><p class="small muted">严格遵循<b>呈现层 → 应用层 → 领域层 → 基础设施层</b>。路由（Routers）/ 校验（Schemas）/ 业务（Services）/ 模型（Models）各司其职。</p></div>
+    </div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>先建立整体地图</h2>
+    <p>FastAPI 后端的职责是提供 <code>/api/v1/*</code> HTTP API、校验请求数据、处理鉴权（JWT access token + refresh token 轮转）、读写四张表、保证返回格式符合 <code>spec/api/openapi.yaml</code>。</p>
+    <p>一个关键认知：<b>业务代码不直接返回错误 JSON</b>。业务层只 <code>raise APIError</code>，真正把异常变成 HTTP 响应的是 <code>main.py</code> 里的 exception handler——业务层只表达「发生了什么业务错误」，入口层统一决定「怎么变成 API 响应」。</p>
+
+    <h2 class="sec" id="flow"><span class="n">3</span>一个请求的流向</h2>
+    <div class="figure">
+      <div class="diagram">
+        <svg viewBox="0 0 860 200" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+          <defs><marker id="fa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+          <g font-size="12.5" text-anchor="middle">
+            <rect x="20" y="80" width="110" height="44" rx="9" fill="#14141f" stroke="#6b46ff"/><text x="75" y="100" fill="#d7d7e2">前端 / 浏览器</text><text x="75" y="116" fill="#80808f" font-size="11">HTTP</text>
+            <rect x="160" y="80" width="110" height="44" rx="9" fill="#0e0e18" stroke="#262635"/><text x="215" y="100" fill="#f7f7fb">main.py</text><text x="215" y="116" fill="#80808f" font-size="11">include_router</text>
+            <rect x="300" y="80" width="120" height="44" rx="9" fill="#0e0e18" stroke="#262635"/><text x="360" y="100" fill="#f7f7fb">api/v1/*.py</text><text x="360" y="116" fill="#80808f" font-size="11">URL + 方法</text>
+            <rect x="450" y="48" width="120" height="40" rx="9" fill="#0e0e18" stroke="#00b8d4"/><text x="510" y="72" fill="#80efff">schemas/*</text>
+            <rect x="450" y="118" width="120" height="40" rx="9" fill="#0e0e18" stroke="#a58eff"/><text x="510" y="142" fill="#c8b8ff">deps · db/user</text>
+            <rect x="600" y="80" width="110" height="44" rx="9" fill="#0e0e18" stroke="#262635"/><text x="655" y="100" fill="#f7f7fb">services/*</text><text x="655" y="116" fill="#80808f" font-size="11">业务规则</text>
+            <rect x="740" y="80" width="105" height="44" rx="9" fill="#14141f" stroke="#5ed49a"/><text x="792" y="100" fill="#d7d7e2">models →</text><text x="792" y="116" fill="#80808f" font-size="11">PG / SQLite</text>
+          </g>
+          <g stroke="#80808f" stroke-width="1.5" fill="none">
+            <path d="M130,102 L156,102" marker-end="url(#fa)"/>
+            <path d="M270,102 L296,102" marker-end="url(#fa)"/>
+            <path d="M420,95 L446,72" marker-end="url(#fa)"/>
+            <path d="M420,110 L446,135" marker-end="url(#fa)"/>
+            <path d="M570,102 L596,102" marker-end="url(#fa)"/>
+            <path d="M710,102 L736,102" marker-end="url(#fa)"/>
+          </g>
+        </svg>
+      </div>
+      <div class="cap">路由层把 HTTP 世界翻译成 Python 函数调用：Schema 先校验、Depends 注入 db/user、再调 service</div>
+    </div>
+
+    <h2 class="sec" id="tree"><span class="n">4</span>目录结构</h2>
+    <div class="tree">backends/fastapi/
+├── app/
+│   ├── main.py              <span class="c"># FastAPI 应用入口（CORS / 路由 / 异常处理）</span>
+│   ├── deps.py              <span class="c"># Depends 依赖：数据库、当前用户</span>
+│   ├── api/v1/              <span class="c"># 路由层：定义 URL 和 HTTP 方法</span>
+│   ├── schemas/             <span class="c"># Pydantic DTO：请求/响应数据结构</span>
+│   ├── services/            <span class="c"># 业务层：注册、胶囊、收藏、广场…</span>
+│   ├── models/              <span class="c"># SQLAlchemy ORM 模型：数据库表的 Python 表达</span>
+│   ├── db/                  <span class="c"># engine、session、跨驱动类型</span>
+│   └── core/                <span class="c"># 配置、错误、安全工具</span>
+├── alembic/                 <span class="c"># Alembic 迁移参考（run 不自动执行）</span>
+├── tests/                   <span class="c"># pytest 测试（986 行）</span>
+└── run / build / test       <span class="c"># 三件套脚本</span></div>
+    <div class="callout"><code>run</code> 脚本会：① <code>uv sync</code> 装依赖；② SQLite 默认用 <code>data/sqlite/hellotime.db</code>；③ 把普通 PG URL 标准化为 <code>postgresql+psycopg://</code>；④ <code>uvicorn app.main:app</code> 启动。<b>注意：run 不建表、不执行 Alembic、不 seed</b>，数据库生命周期一律交给根目录 <code>scripts/db</code>。</div>
+
+    <h2 class="sec" id="layers"><span class="n">5</span>分层详解</h2>
+
+    <div class="mech">
+      <div class="h"><span class="tag">路由层</span> app/api/v1 —— 把 HTTP 翻译成函数调用</div>
+      <div class="b">
+        <p class="small muted">聚合入口 <code>api/v1/__init__.py</code> 用 <code>APIRouter(prefix="/api/v1")</code> 把各模块接进来。路由函数只做三件事：接收参数 → 调 service → 包成 <code>Envelope</code>。以注册为例：</p>
+        <pre><code>@router.post("/register", response_model=Envelope[AuthTokens], status_code=201)
+def register(req: RegisterRequest, db: Session = Depends(get_db)) -> Envelope[AuthTokens]:
+    tokens = auth_service.register(db, email=req.email, password=req.password,
+                                   nickname=req.nickname, avatar_id=req.avatarId)
+    return Envelope(success=True, data=tokens)</code></pre>
+        <p class="small muted"><code>req: RegisterRequest</code> 自动把 body 解析成 Pydantic 模型并校验；<code>Depends(get_db)</code> 注入 session；<code>response_model</code> 声明响应模型供文档与序列化。</p>
+      </div>
+    </div>
+
+    <div class="mech">
+      <div class="h"><span class="tag">Schema 层</span> app/schemas —— 接口边界的数据结构</div>
+      <div class="b">
+        <p class="small muted">「输入输出的类型说明 + 校验规则」。字段缺失 / 类型错 / 不满足规则时，路由函数<b>根本不会执行</b>，FastAPI 抛 <code>RequestValidationError</code> 再被 main.py 转成统一错误。复杂校验用 <code>@field_validator</code>：</p>
+        <pre><code>class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    nickname: str = Field(min_length=2, max_length=20)
+    avatarId: str = Field(min_length=2, max_length=20)
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, v): ...  # 至少 8 位且含字母和数字</code></pre>
+      </div>
+    </div>
+
+    <div class="mech">
+      <div class="h"><span class="tag">ORM 模型</span> app/models —— 数据库表的 Python 表达</div>
+      <div class="b">
+        <p class="small muted">把表映射成 Python 类。<b>关键分工：models 描述「数据库长什么样」，schemas 描述「API 输入输出长什么样」，二者不混淆</b>——API 可隐藏字段（未开启胶囊不返回 content），但数据库仍保存完整正文。</p>
+        <div class="tbl-wrap"><table class="compact"><thead><tr><th>模型</th><th>表</th><th>作用</th></tr></thead><tbody>
+          <tr><td><code>User</code></td><td>users</td><td>用户账号、昵称、头像</td></tr>
+          <tr><td><code>Capsule</code></td><td>capsules</td><td>标题、正文、开启时间、公开状态</td></tr>
+          <tr><td><code>Favorite</code></td><td>favorites</td><td>用户收藏胶囊的关联表</td></tr>
+          <tr><td><code>RefreshToken</code></td><td>refresh_tokens</td><td>token 哈希、家族 ID、吊销状态</td></tr>
+        </tbody></table></div>
+      </div>
+    </div>
+
+    <h2 class="sec" id="depends"><span class="n">6</span>依赖注入：<code>app/deps.py</code></h2>
+    <p>FastAPI 的 <code>Depends()</code> 是初学者最陌生的部分：「在执行路由函数前，先帮我准备好某个对象」。本项目三类依赖：<code>get_db()</code> 准备 session；<code>current_user_optional()</code> 有 token 就解析、没有也放行（公开端点）；<code>current_user_required()</code> 必须登录否则 401。</p>
+    <div class="path-line">
+      <span class="p">Authorization: Bearer …</span><span class="sep">→</span>
+      <span class="p">_parse_bearer</span><span class="sep">→</span>
+      <span class="p">decode_access_token</span><span class="sep">→</span>
+      <span class="p">payload["sub"] → UUID</span><span class="sep">→</span>
+      <span class="p">select(User).where(id==…)</span>
+    </div>
+
+    <h2 class="sec" id="envelope"><span class="n">7</span>统一响应壳与集中式错误</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h4 class="sub2">Envelope 响应壳</h4>
+        <pre><code>class Envelope(BaseModel, Generic[T]):
+    success: bool = True
+    data: T | None = None
+    message: str | None = None
+    errorCode: str | None = None</code></pre>
+        <p class="small muted">204 No Content 例外——不包 Envelope，main.py 用 middleware 保证 204 没有 body。</p>
+      </div>
+      <div class="card">
+        <h4 class="sub2">错误码 → HTTP 状态</h4>
+        <p class="small muted">业务统一 <code>raise errors.not_found("…")</code>，不在 service 里构造 <code>HTTPException</code>。映射集中在 <code>ERROR_TO_STATUS</code>：</p>
+        <div class="chips">
+          <span class="badge">VALIDATION_ERROR · 422</span><span class="badge">UNAUTHORIZED · 401</span><span class="badge">FORBIDDEN · 403</span><span class="badge">NOT_FOUND · 404</span><span class="badge">CONFLICT · 409</span><span class="badge">RATE_LIMITED · 429</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="sec" id="auth"><span class="n">8</span>鉴权与 refresh token 轮转</h2>
+    <p><code>auth_service.py</code> 负责注册 / 登录 / 刷新 / 登出 / 改密。密码用 bcrypt 哈希，明文不入库。refresh token 的设计是重点：</p>
+    <div class="flow">
+      <div class="step"><div class="num">1</div><div class="bd">access token 是 <b>JWT</b>，客户端直接携带；refresh token 是<b>随机字符串</b></div></div>
+      <div class="step"><div class="num">2</div><div class="bd">数据库只存 refresh token 的 <b>SHA-256 哈希</b>，不存原文（库泄露也无法直接当令牌用）</div></div>
+      <div class="step"><div class="num">3</div><div class="bd">每次刷新生成新 refresh token，把旧的标为 <code>revoked</code></div></div>
+      <div class="step"><div class="num">4</div><div class="bd">若已 <code>revoked</code> 的旧 token 被再次使用 → 认为重放攻击 → <b>整条 token family 全部吊销</b></div></div>
+    </div>
+    <p class="small muted"><code>core/security.py</code> 提供底层函数：<code>hash_password / verify_password / create_access_token / decode_access_token / generate_refresh_token / hash_refresh_token</code>。JWT payload 含 <code>sub / nickname / avatarId / iat / exp</code>。</p>
+
+    <h2 class="sec" id="favorite"><span class="n">9</span>收藏计数的原子更新</h2>
+    <p>收藏的难点不是插一条 <code>favorites</code>，而是保证 <code>capsules.favorite_count</code> 始终正确。关键是<b>不</b>先读出数字、在 Python 里 +1、再写回，而是让数据库执行原子表达式：</p>
+    <pre><code>db.execute(
+    update(Capsule)
+    .where(Capsule.id == capsule.id)
+    .values(favorite_count=Capsule.favorite_count + 1)
+)
+# PostgreSQL 下还会 SELECT ... FOR UPDATE 给胶囊行加锁
+if lock and settings.db_driver == "postgres":
+    stmt = stmt.with_for_update()</code></pre>
+    <p class="small muted">添加收藏流程：查胶囊（不存在/不公开→404）→ 不许收藏自己的 → 已收藏则幂等返回 → 插 Favorite → 原子 +1 → 提交。插入 favorites 与更新计数必须在<b>同一事务</b>。</p>
+
+    <h2 class="sec" id="dualdb"><span class="n">10</span>双库切换</h2>
+    <p><code>app/db/engine.py</code> 按 <code>DB_DRIVER</code> 创建 engine。SQLite 有额外设置以适配多线程与并发：</p>
+    <div class="grid g4">
+      <div class="card small"><b>check_same_thread=False</b><div class="muted">允许多线程使用</div></div>
+      <div class="card small"><b>foreign_keys=ON</b><div class="muted">启用外键约束</div></div>
+      <div class="card small"><b>journal_mode=WAL</b><div class="muted">提升并发写入</div></div>
+      <div class="card small"><b>synchronous=NORMAL</b><div class="muted">安全与性能折中</div></div>
+    </div>
+    <p class="small muted">跨库 UUID / 时间戳由 SQLAlchemy 类型层处理：<code>Uuid</code>（SQLite 存 CHAR(32) hex）+ <code>UTCDateTime</code> TypeDecorator（读时补 UTC tz）。这是<a href="../comparison.html#be-dualdb">后端双库三解法</a>里的「A 类 · 类型层挂适配器」。</p>
+
+    <h2 class="sec" id="readcode"><span class="n">11</span>从一个真实请求读代码：注册</h2>
+    <div class="figure">
+      <div class="diagram">
+        <div class="pipe">
+          <div class="node"><span class="mono">POST /api/v1/auth/register</span> <small>{ email, password, nickname, avatarId }</small></div>
+          <div class="arrow">↓</div>
+          <div class="node">main.py → <span class="mono">include_router(api_router)</span></div>
+          <div class="arrow">↓</div>
+          <div class="node">api/v1/auth.py → <span class="mono">register(req, db)</span></div>
+          <div class="arrow">↓</div>
+          <div class="node">schemas/user.py → <span class="mono">RegisterRequest</span> 自动校验</div>
+          <div class="arrow">↓</div>
+          <div class="node">deps.py → <span class="mono">get_db()</span> 注入 Session</div>
+          <div class="arrow">↓</div>
+          <div class="node">services/auth_service.py → <span class="mono">register()</span> <small>检查 avatarId / 邮箱小写 / 查重 → hash_password → 插入 → 发令牌 → commit</small></div>
+          <div class="arrow">↓</div>
+          <div class="node">core/security.py → <span class="mono">hash_password / create_access_token / generate_refresh_token</span></div>
+          <div class="arrow">↓</div>
+          <div class="node" style="border-color:#5ed49a">返回 <span class="mono">Envelope[AuthTokens]</span> <small>邮箱已存在则 raise conflict(field="email") → main.py 转 409</small></div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="sec" id="test"><span class="n">12</span>测试</h2>
+    <p>测试默认 SQLite，不依赖外部 PG。<code>conftest.py</code> 设置 <code>DB_DRIVER=sqlite</code>、对临时库执行 Alembic migration、每个测试前清表、提供 <code>client</code>（TestClient）与 <code>db</code> fixture。</p>
+    <ul class="clean small">
+      <li><code>test_smoke.py</code> 黑盒主流程：register → login → create capsule → plaza → favorite</li>
+      <li><code>test_auth_service.py</code> service 单测：验证 refresh 轮转、重放吊销、改密吊销</li>
+    </ul>
+
+    <h2 class="sec" id="reading"><span class="n">13</span>推荐阅读顺序</h2>
+    <div class="two-col small">
+      <ol>
+        <li><code>README.md</code> — 先知道怎么跑</li>
+        <li><code>app/main.py</code> — 应用怎么组装</li>
+        <li><code>app/api/v1/auth.py</code> — 最简单的路由模块</li>
+        <li><code>app/schemas/user.py</code> — 请求体如何校验</li>
+        <li><code>app/deps.py</code> — Depends 与当前用户</li>
+        <li><code>app/services/auth_service.py</code> — 完整注册/登录业务</li>
+        <li><code>app/models/{user,refresh_token}.py</code> — 对照数据库表</li>
+        <li><code>tests/test_smoke.py</code> — 从测试看 API 行为</li>
+        <li><code>services/{capsule,plaza,favorite}_service.py</code> — 核心业务</li>
+        <li><code>alembic/versions/0001_initial.py</code> — schema 如何落地</li>
+      </ol>
+    </div>
+    <div class="callout green"><b>小练习：</b>给 <code>/api/v1/health</code> 增加一个只读字段（如当前数据库驱动名）——会同时接触 schema、service/路由、测试和返回 JSON。</div>
+
+    <div class="stack-pager">
+      <a href="../implementations.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 返回</div><div class="ttl" style="font-weight:700">实现详解总览</div></a>
+      <a href="spring-boot.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个后端 →</div><div class="ttl" style="font-weight:700">Spring Boot</div></a>
+    </div>
+
+  </main>
+</div>
+
+<footer class="footer">HelloTime Pro · FastAPI 详解 · 整理自 backends/fastapi/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>

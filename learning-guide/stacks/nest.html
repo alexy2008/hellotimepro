@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NestJS 详解 · HelloTime Pro</title>
+<link rel="icon" href="../assets/logo.svg">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="nav-brand" style="text-decoration:none"><img src="../assets/logo.svg" alt="logo"><span style="color:var(--text)">HelloTime&nbsp;<b>Pro</b></span></a>
+    <span class="nav-links">
+      <a href="../index.html">总体介绍</a><a href="../design.html">设计</a><a href="../comparison.html">前后端对比</a><a href="../implementations.html" class="active">实现详解</a>
+    </span>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>本页目录</h4>
+    <a href="#pick">1 · 选型与设计特色</a>
+    <a href="#map">2 · 整体地图与请求流向</a>
+    <a href="#tree">3 · 目录结构（纵切）</a>
+    <a href="#core">4 · NestJS 四个核心思想</a>
+    <a href="#lifecycle">5 · 五件套生命周期</a>
+    <a href="#typeorm">6 · TypeORM 与跨库列类型</a>
+    <a href="#error">7 · 异常与响应包装</a>
+    <a href="#auth">8 · Passport JWT 三层</a>
+    <a href="#service">9 · 服务层与 refresh</a>
+    <a href="#compare">10 · 与其他栈对照</a>
+    <a href="#change">11 · 常见改动指南</a>
+  </aside>
+
+  <main class="content">
+    <a href="../implementations.html#nest" class="back-link">← 返回实现详解</a>
+    <div class="stack-hero">
+      <div class="ic"><img src="../assets/icons/nestjs.svg" alt="NestJS"></div>
+      <div>
+        <h1>NestJS</h1>
+        <p class="one">Angular 式 TS 企业框架：装饰器 + DI + 模块化「纵切」，把 Express 的随意性与 Spring 的约定性结合，结构最规整。</p>
+        <div class="stack-meta">
+          <span class="badge port">:29040</span><span class="badge violet">评审 89 / 100</span>
+          <span class="badge">TypeScript (Node)</span><span class="badge">NestJS 11</span><span class="badge">TypeORM</span><span class="badge">Passport JWT</span><span class="badge">class-validator</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout cyan" style="margin-top:24px">面向已熟悉 TypeScript（类/装饰器/泛型/async）但还没系统接触 NestJS/TypeORM/Passport 的读者。整理自 <code>backends/nest/TECHNICAL_GUIDE.md</code>（777 行）。</div>
+
+    <h2 class="sec" id="pick"><span class="n">1</span>技术选型与设计特色</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">NestJS + TypeScript · 企业级模块化</h4><p class="small muted">借助强类型 + 元数据设计 + 强大 DI 容器与高度内聚的模块系统，为 Node 提供企业级、高度可控的架构标准。</p></div>
+      <div class="card"><h4 class="sub2">TypeORM + 跨库自适应</h4><p class="small muted"><code>timestampColumn</code> 等辅助在 PG 与 SQLite 间自动适配类型；schema 由 <code>scripts/db</code> 维护，迁移类保留为表达样例。</p></div>
+      <div class="card"><h4 class="sub2">class-validator + ValidationPipe</h4><p class="small muted">DTO 属性装饰器声明边界，全局 <code>ValidationPipe</code> 拦截非法请求并自动过滤多余字段（<code>whitelist:true</code>）。</p></div>
+      <div class="card"><h4 class="sub2">管道/守卫/拦截器/过滤器生态</h4><p class="small muted">Passport JWT Strategy + Guard 鉴权、Interceptor 统一成功包装、全局 Filter 捕获异常映射成契约错误。</p></div>
+    </div>
+
+    <h2 class="sec" id="map"><span class="n">2</span>整体地图与请求流向</h2>
+    <p>请求经中间件 → 守卫（Passport 解析 Bearer → <code>request.user</code>）→ 管道（class-validator 验证 DTO）→ 控制器方法 → 服务层 → TypeORM。返回方向 service 返回 plain 对象，<b>EnvelopeInterceptor</b> 包成 <code>{success,data}</code>；出错任何地方 <code>throw ApiException</code>，<b>ApiExceptionFilter</b> 捕获输出统一错误。</p>
+    <div class="figure"><div class="diagram">
+      <svg viewBox="0 0 860 150" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif"><defs><marker id="na" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+      <g font-size="11.5" text-anchor="middle">
+        <rect x="14" y="56" width="120" height="42" rx="9" fill="#0e0e18" stroke="#6b46ff"/><text x="74" y="74" fill="#c8b8ff">Guard</text><text x="74" y="90" fill="#80808f" font-size="10.5">Passport → user</text>
+        <rect x="152" y="56" width="120" height="42" rx="9" fill="#0e0e18" stroke="#00b8d4"/><text x="212" y="74" fill="#80efff">Pipe</text><text x="212" y="90" fill="#80808f" font-size="10.5">ValidationPipe</text>
+        <rect x="290" y="56" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="350" y="74" fill="#f7f7fb">Controller</text><text x="350" y="90" fill="#80808f" font-size="10.5">@Body/@Param</text>
+        <rect x="428" y="56" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="488" y="74" fill="#f7f7fb">Service</text>
+        <rect x="566" y="56" width="120" height="42" rx="9" fill="#0e0e18" stroke="#262635"/><text x="626" y="74" fill="#f7f7fb">TypeORM</text>
+        <rect x="704" y="56" width="140" height="42" rx="9" fill="#0e0e18" stroke="#a58eff"/><text x="774" y="74" fill="#c8b8ff">Interceptor</text><text x="774" y="90" fill="#80808f" font-size="10.5">包成 Envelope</text>
+      </g>
+      <g stroke="#80808f" stroke-width="1.4" fill="none"><path d="M134,77 L150,77" marker-end="url(#na)"/><path d="M272,77 L288,77" marker-end="url(#na)"/><path d="M410,77 L426,77" marker-end="url(#na)"/><path d="M548,77 L564,77" marker-end="url(#na)"/><path d="M686,77 L702,77" marker-end="url(#na)"/></g></svg>
+    </div></div>
+
+    <h2 class="sec" id="tree"><span class="n">3</span>目录结构：按功能模块「纵切」</h2>
+    <p>与其余九家「横切」（先按技术层切）不同，NestJS 是<b>纵切</b>——先按业务模块切，每个模块自带 controller + service + dto 全套。</p>
+    <div class="tree">backends/nest/src/
+├── main.ts            <span class="c"># 注册全局管道/过滤器/拦截器</span>
+├── app.module.ts      <span class="c"># 根模块：组合所有功能模块</span>
+├── common/            <span class="c"># ApiException / 装饰器 / Filter / Guard / Interceptor</span>
+├── database/          <span class="c"># 动态连接 + column-helpers 跨库列类型</span>
+├── entities/          <span class="c"># TypeORM 实体</span>
+├── auth/ capsules/ plaza/ favorites/ me/ health/  <span class="c"># 每个含 controller+service+dto</span>
+└── capsule-suggestion/   <span class="c"># AI 生成胶囊内容</span></div>
+    <div class="callout">与 Spring 的 <code>@ComponentScan</code> 不同，NestJS <b>不自动扫描</b>文件——必须在 <code>@Module</code> 里显式声明所有 provider 和 controller。这是它比 Spring 更显式的地方。</div>
+
+    <h2 class="sec" id="core"><span class="n">4</span>NestJS 的四个核心思想</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">① 模块（Module）</h4><p class="small muted"><code>@Module</code> 的 <code>imports</code>（引入其他模块的 exports）/ <code>providers</code>（注册的类，默认单例）/ <code>controllers</code> / <code>exports</code>（对外暴露）。根模块把所有功能模块列在 <code>imports</code>。</p></div>
+      <div class="card"><h4 class="sub2">② 依赖注入（DI）</h4><p class="small muted">基于 <code>reflect-metadata</code>，<code>@Injectable()</code> 标记可注入，构造器注入最推荐。<code>@InjectRepository(User)</code> 是 TypeORM 特殊令牌。</p></div>
+      <div class="card"><h4 class="sub2">③ 装饰器驱动</h4><p class="small muted"><code>@Controller/@Get/@Post/@Body/@Param/@Query/@UseGuards/@HttpCode</code> 都是「标签」，真正干活的是 NestJS 启动时扫描标签构建路由表与注入规则。</p></div>
+      <div class="card"><h4 class="sub2">④ 管道/守卫/拦截器/过滤器</h4><p class="small muted">四种「增强器」是核心扩展点：守卫决定能否通过、管道验证转换参数、拦截器环绕 Handler、过滤器捕获异常。</p></div>
+    </div>
+
+    <h2 class="sec" id="lifecycle"><span class="n">5</span>五件套生命周期</h2>
+    <div class="figure"><div class="diagram">
+      <svg viewBox="0 0 860 130" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif"><defs><marker id="la" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#80808f"/></marker></defs>
+      <g font-size="12" text-anchor="middle">
+        <rect x="20" y="46" width="110" height="40" rx="9" fill="#0e0e18" stroke="#6b46ff"/><text x="75" y="71" fill="#c8b8ff">守卫 Guard</text>
+        <rect x="160" y="46" width="110" height="40" rx="9" fill="#0e0e18" stroke="#00b8d4"/><text x="215" y="71" fill="#80efff">管道 Pipe</text>
+        <rect x="300" y="46" width="120" height="40" rx="9" fill="#0e0e18" stroke="#262635"/><text x="360" y="71" fill="#f7f7fb">Handler</text>
+        <rect x="450" y="46" width="130" height="40" rx="9" fill="#0e0e18" stroke="#a58eff"/><text x="515" y="71" fill="#c8b8ff">拦截器 Interceptor</text>
+        <rect x="610" y="46" width="110" height="40" rx="9" fill="#14141f" stroke="#5ed49a"/><text x="665" y="71" fill="#d7d7e2">响应</text>
+        <rect x="740" y="46" width="100" height="40" rx="9" fill="#2a0d22" stroke="#ff2d91"/><text x="790" y="71" fill="#ffd9ec">Filter 兜底</text>
+      </g>
+      <g stroke="#80808f" stroke-width="1.4" fill="none"><path d="M130,66 L158,66" marker-end="url(#la)"/><path d="M270,66 L298,66" marker-end="url(#la)"/><path d="M420,66 L448,66" marker-end="url(#la)"/><path d="M580,66 L608,66" marker-end="url(#la)"/><path d="M720,66 L738,66" marker-end="url(#la)" stroke-dasharray="3 3"/></g>
+      <text x="430" y="112" text-anchor="middle" fill="#80808f" font-size="11">出错时任意环节 → 过滤器捕获 → 统一错误 JSON</text></svg>
+    </div></div>
+
+    <h2 class="sec" id="typeorm"><span class="n">6</span>TypeORM 与跨库列类型</h2>
+    <p><code>TypeOrmModule.forRootAsync</code> 注入 ConfigService 后构造连接选项，关键 <code>migrationsRun:false</code>（启动不改 schema）、<code>synchronize:false</code>（绝不在生产开，会删表删列）。</p>
+    <div class="callout green"><b><code>column-helpers.ts</code> 跨库列类型：</b>PG 有原生 <code>timestamptz</code>、SQLite 只有 TEXT。<code>timestampColumn()</code> 在 SQLite 返回 <code>{type:'text', transformer: dateTransformer}</code>、PG 返回 <code>{type:'timestamptz'}</code>。<code>ValueTransformer</code> 在读写时自动执行转换，业务代码始终拿到 <code>Date</code>，感知不到方言差异。这是<a href="../comparison.html#be-dualdb">双库三解法</a>里的「A 类」。</div>
+    <p class="small muted">原子计数用 <code>.set({ favoriteCount: () =&gt; 'favorite_count + 1' })</code>——箭头函数返回的字符串是 TypeORM「原始 SQL 片段」，实现原子自增而非读-改-写。列表用 <code>innerJoinAndSelect</code> 一次查询拿胶囊 + owner，再批量预加载收藏集合，避免 N+1。</p>
+
+    <h2 class="sec" id="error"><span class="n">7</span>异常与响应包装</h2>
+    <div class="grid g2">
+      <div class="card"><h4 class="sub2">ApiException + Filter</h4><p class="small muted">继承内置 <code>HttpException</code>，工厂函数 <code>notFound/conflict/…</code>。<code>@Catch()</code>（无参=捕获所有）的 Filter 处理。<b>class-validator 默认抛 400，spec 要求 422</b>——Filter 识别这种 400 body 并转成 422。</p></div>
+      <div class="card"><h4 class="sub2">EnvelopeInterceptor</h4><p class="small muted">controller 只返回 plain 对象，拦截器用 RxJS <code>next.handle().pipe(map(...))</code> 套统一外壳；204 No Content 不包装。</p></div>
+    </div>
+
+    <h2 class="sec" id="auth"><span class="n">8</span>Passport JWT 三层</h2>
+    <div class="flow">
+      <div class="step"><div class="num">1</div><div class="bd"><b>Strategy</b>：<code>PassportStrategy(Strategy)</code> Mixin，<code>jwtFromRequest</code> 从 Bearer 提取，<code>validate(payload)</code> 返回值挂到 <code>request.user</code></div></div>
+      <div class="step"><div class="num">2</div><div class="bd"><b>Guard</b>：<code>JwtAuthGuard</code>（无效 token 抛 401）vs <code>OptionalJwtGuard</code>（验证失败静默放行，user 为 null）</div></div>
+      <div class="step"><div class="num">3</div><div class="bd"><b>参数装饰器</b>：<code>@CurrentUser()</code> 从 <code>request.user</code> 取出当前用户，避免重复写 <code>req.user</code></div></div>
+    </div>
+
+    <h2 class="sec" id="service"><span class="n">9</span>服务层与 refresh</h2>
+    <p><code>register</code> 用「预检 + 唯一索引 catch 兜底」处理并发竞态。<code>refresh</code> 检测 <code>revokedAt</code> 非空即重放 → 整族 revoke 后抛 401；正常路径旧 token 标 revoked、复用 <code>familyId</code> 续发。</p>
+    <div class="callout pink"><b>诚实的教学简化：</b>NestJS service <b>默认没有事务</b>，这里「revoke 旧 + 新增新」是两步独立操作，存在并发窗口（注释自陈「生产应加事务/行锁」）。这是<a href="../comparison.html#be-tx">事务四流派</a>里唯一的「④ 无事务」——契约全过，但「十家事务同构」对它不成立。生产应当用 <code>dataSource.transaction(...)</code> 包住。</div>
+
+    <h2 class="sec" id="compare"><span class="n">10</span>与其他栈对照</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>概念</th><th>Spring Boot</th><th>Gin</th><th>NestJS</th></tr></thead><tbody>
+      <tr><td>路由注册</td><td><code>@GetMapping</code></td><td><code>r.GET(...)</code></td><td><code>@Get('path')</code></td></tr>
+      <tr><td>DI 容器</td><td>IoC（扫描）</td><td>手动构造/传参</td><td>DI（模块显式声明）</td></tr>
+      <tr><td>请求验证</td><td>Bean Validation</td><td>binding tag</td><td>class-validator + Pipe</td></tr>
+      <tr><td>全局异常</td><td><code>@RestControllerAdvice</code></td><td><code>RespondErr</code></td><td><code>@Catch()</code> Filter</td></tr>
+      <tr><td>响应包装</td><td>手动 <code>Envelope.ok</code></td><td><code>dto.OK</code></td><td>Interceptor 自动</td></tr>
+    </tbody></table></div>
+
+    <h2 class="sec" id="change"><span class="n">11</span>常见改动指南</h2>
+    <div class="tbl-wrap"><table class="compact"><thead><tr><th>想做什么</th><th>改哪里</th></tr></thead><tbody>
+      <tr><td>加新接口</td><td>① <code>*.controller.ts</code> 加方法；② 新模块在 <code>app.module.ts</code> 的 <code>imports</code> 声明</td></tr>
+      <tr><td>加请求/响应字段</td><td><code>dto/*.dto.ts</code> 改 class（加 class-validator 装饰器）</td></tr>
+      <tr><td>加业务规则</td><td><code>*.service.ts</code> 加判断，<code>throw</code> 工厂函数</td></tr>
+      <tr><td>加表/列</td><td>① 先改 <code>spec/db</code>；② <code>entities/</code> 加/改实体</td></tr>
+      <tr><td>加跨切关注</td><td><code>@Injectable()</code> 实现 <code>NestInterceptor</code>/<code>CanActivate</code>，全局或局部注册</td></tr>
+    </tbody></table></div>
+
+    <div class="stack-pager">
+      <a href="gin.html" class="pagenav" style="flex:0 1 auto;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">← 上一个</div><div class="ttl" style="font-weight:700">Gin</div></a>
+      <a href="elysia.html" class="pagenav" style="flex:0 1 auto;text-align:right;border:1px solid var(--border);border-radius:14px;padding:14px 18px"><div class="dir" style="font-size:12px;color:var(--text-3)">下一个 →</div><div class="ttl" style="font-weight:700">Elysia</div></a>
+    </div>
+  </main>
+</div>
+<footer class="footer">HelloTime Pro · NestJS 详解 · 整理自 backends/nest/TECHNICAL_GUIDE.md</footer>
+</body>
+</html>
