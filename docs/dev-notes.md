@@ -23,6 +23,36 @@ HelloTime Pro 以**教学 / 演示**为目的，以下类别问题不作为修�
 
 ---
 
+## 1.1 创建页日期时间选择器同步基准（2026-06-21）
+
+React 参考前端已完成新版创建页 `openAt` 交互，后续同步到 Vue / Svelte / Angular / Next / Nuxt 时以此为基准。
+
+### 行为基准
+
+- 创建页 `开启时间` 不再直接使用原生 `input[type=datetime-local]` 作为主控件；主控件是自定义 `DateTimePicker`。
+- 触发框保持标准单行：`完整本地时间 + 距开启时间`，距离提示跟在时间后面并用小字显示。
+- 弹层根据视口空间自动向下或向上展开；空间不足时限制最大高度并在弹层内部滚动。
+- 弹层顶部只显示 `距开启 ...`，不重复显示完整日期时间。
+- 年 / 月 / 日 / 时 / 分使用分段数字输入，不嵌套原生日期时间选择器。
+- 分段输入支持键盘 `ArrowUp` / `ArrowDown` 微调；年/月/日/时/分均按 1 步进，日期自动夹住合法范围。
+- 月历用于选择日期；小时 / 分钟仍用 select 精确选择。
+- 标准时钟表盘仅展示当前时分（1-12 刻度、小时指针、分钟指针），不提供点击修改功能。
+- 快速预设紧跟在开启时间选择框后，压缩为单行；宽度不足时横向滚动，按钮文案保持不变以兼容 smoke 测试。
+- 可见性开关放到底部操作行左侧，仅显示 `发布到胶囊广场`，不显示说明文字；右侧保留 `取消` / `上锁封存`。
+- API 契约不变：组件仍输出 `YYYY-MM-DDTHH:mm` 本地值，提交时继续用现有 `localInputToIso()` 转为 UTC ISO。
+
+### 同步顺序
+
+1. `frontends/vue3-ts`：新增 Vue 版 `DateTimePicker`，替换创建页原生时间输入，同步预设与底部可见性布局。
+2. `frontends/svelte`：新增 Svelte 版 `DateTimePicker`，注意 `.svelte.ts` 单例导入约束不受影响。
+3. `frontends/angular`：新增 standalone/组件化日期时间选择器，同步 Angular 全局 `layout.css`。
+4. `fullstacks/next`：复用 React 逻辑实现 Next 组件，同步创建页布局。
+5. `fullstacks/nuxt`：基于 Vue 版同步 Nuxt 组件和创建页布局。
+
+每完成一个栈，单独提交一次代码，提交信息使用中文，并至少运行对应前端 build；可行时再运行对应 `./verification/scripts/verify-ui-smoke.sh <target>`。
+
+---
+
 ## 2. 本地 PostgreSQL
 
 **本机已装原生 EDB PostgreSQL 16，不要尝试启 Docker。**

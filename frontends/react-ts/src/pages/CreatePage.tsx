@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import { ApiError, type CapsuleRecommendation } from "@/types";
 import { Alert } from "@/components/Alert";
+import { DateTimePicker } from "@/components/DateTimePicker";
 import { RecommendationStrip } from "@/components/RecommendationStrip";
 import { isoToLocalInput, localInputToIso } from "@/utils/format";
 
@@ -217,38 +218,10 @@ export function CreatePage() {
               开启时间{" "}
               <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>· 最早 60 秒后</span>
             </label>
-            <input
-              className="cy-input"
-              id="open_at"
-              type="datetime-local"
-              required
-              value={openLocal}
-              onChange={(e) => setOpenLocal(e.target.value)}
-            />
+            <DateTimePicker id="open_at" value={openLocal} onChange={setOpenLocal} />
             <span className="cy-field__hint">时区以你当前所在时区为准，提交时会转换为 UTC。</span>
-          </div>
-
-          <div className="cy-field">
-            <label>可见性</label>
-            <label className="cy-toggle">
-              <input
-                type="checkbox"
-                checked={inPlaza}
-                onChange={(e) => setInPlaza(e.target.checked)}
-              />
-              <span className="cy-toggle__track" />
-              <span className="cy-toggle__body">
-                <span className="cy-toggle__label">发布到胶囊广场</span>
-                <span className="cy-toggle__hint">
-                  开启后，胶囊标题和倒计时将对所有人可见；关闭后仅持有胶囊码的人可访问。
-                </span>
-              </span>
-            </label>
-          </div>
-
-          <div className="cy-field">
-            <label>快速预设</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+            <div className="cy-create-presets">
+              <span className="cy-create-presets__label">快速预设</span>
               <button type="button" className="cy-btn cy-btn--ghost cy-btn--sm" onClick={() => setOpenLocal(presetTime("1m"))}>
                 1 分钟后（测试）
               </button>
@@ -273,17 +246,28 @@ export function CreatePage() {
 
           {err && <Alert variant="danger">{err}</Alert>}
 
-          <div style={{ display: "flex", gap: "var(--space-3)", justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              className="cy-btn cy-btn--ghost"
-              onClick={() => navigate(-1)}
-            >
-              取消
-            </button>
-            <button className="cy-btn cy-btn--primary cy-btn--lg" type="submit" disabled={busy}>
-              {busy ? "封存中…" : "🔒 上锁封存"}
-            </button>
+          <div className="cy-create-actions">
+            <label className="cy-toggle cy-toggle--inline">
+              <input
+                type="checkbox"
+                checked={inPlaza}
+                onChange={(e) => setInPlaza(e.target.checked)}
+              />
+              <span className="cy-toggle__track" />
+              <span className="cy-toggle__label">发布到胶囊广场</span>
+            </label>
+            <div className="cy-create-actions__buttons">
+              <button
+                type="button"
+                className="cy-btn cy-btn--ghost"
+                onClick={() => navigate(-1)}
+              >
+                取消
+              </button>
+              <button className="cy-btn cy-btn--primary cy-btn--lg" type="submit" disabled={busy}>
+                {busy ? "封存中…" : "🔒 上锁封存"}
+              </button>
+            </div>
           </div>
         </form>
       </div>
