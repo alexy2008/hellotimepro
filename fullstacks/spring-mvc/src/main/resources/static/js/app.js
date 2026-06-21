@@ -208,6 +208,192 @@
     if (openBtn) openBtn.addEventListener("click", maybeGo);
   })();
 
+  // ---------- 创建页日期时间选择器 ----------
+  function localInputToDate(value) {
+    var parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) return parsed;
+    var fallback = new Date();
+    fallback.setSeconds(0, 0);
+    return fallback;
+  }
+  function toLocalValue(date) {
+    return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate()) +
+      "T" + pad2(date.getHours()) + ":" + pad2(date.getMinutes());
+  }
+  function formatPickerDisplay(date) {
+    return date.getFullYear() + "年" + (date.getMonth() + 1) + "月" + date.getDate() + "日 " +
+      pad2(date.getHours()) + ":" + pad2(date.getMinutes());
+  }
+  function formatPickerDistance(date) {
+    var diffMinutes = Math.ceil((date.getTime() - Date.now()) / 60000);
+    if (diffMinutes <= 0) return "已到开启时刻";
+    if (diffMinutes < 60) return "距开启 " + diffMinutes + " 分钟";
+    var hours = Math.floor(diffMinutes / 60);
+    var minutes = diffMinutes % 60;
+    if (hours < 24) return "距开启 " + hours + " 小时" + (minutes ? " " + minutes + " 分钟" : "");
+    var days = Math.floor(hours / 24);
+    var restHours = hours % 24;
+    if (days < 365) return "距开启 " + days + " 天" + (restHours ? " " + restHours + " 小时" : "");
+    var years = Math.floor(days / 365);
+    var restDays = days % 365;
+    return "距开启 " + years + " 年" + (restDays ? " " + restDays + " 天" : "");
+  }
+  function daysInMonth(year, month) {
+    return new Date(year, month + 1, 0).getDate();
+  }
+  function firstWeekdayFromMonday(year, month) {
+    return (new Date(year, month, 1).getDay() + 6) % 7;
+  }
+  function pickerPresetDate(spec) {
+    var next = new Date();
+    next.setSeconds(0, 0);
+    switch (spec) {
+      case "1m": next.setMinutes(next.getMinutes() + 2); return next;
+      case "1h": next.setHours(next.getHours() + 1); return next;
+      case "tomorrow9": next.setDate(next.getDate() + 1); next.setHours(9, 0, 0, 0); return next;
+      case "1y": next.setFullYear(next.getFullYear() + 1); return next;
+      case "y2030": return new Date(2030, 0, 1, 0, 0, 0, 0);
+      default: return next;
+    }
+  }
+  function initDateTimePicker(root, input) {
+    if (!root || !input || root.dataset.ready) return null;
+    root.dataset.ready = "1";
+    var open = false;
+    var placement = "below";
+    var maxHeight = 460;
+    var draft = localInputToDate(input.value);
+    var viewMonth = new Date(draft.getFullYear(), draft.getMonth(), 1);
+
+    function manualParts() {
+      return {
+        year: String(draft.getFullYear()),
+        month: pad2(draft.getMonth() + 1),
+        day: pad2(draft.getDate()),
+        hour: pad2(draft.getHours()),
+        minute: pad2(draft.getMinutes())
+      };
+    }
+    function syncFromInput() {
+      draft = localInputToDate(input.value);
+      viewMonth = new Date(draft.getFullYear(), draft.getMonth(), 1);
+      render();
+    }
+    function commitDraft(next) {
+      draft = next;
+      viewMonth = new Date(next.getFullYear(), next.getMonth(), 1);
+      render();
+    }
+    function updatePlacement() {
+      var popover = root.querySelector(".cy-dtp__popover");
+      if (!popover) return;
+      var gap = 8;
+      var rect = root.getBoundingClientRect();
+      var spaceBelow = window.innerHeight - rect.bottom - gap;
+      var spaceAbove = rect.top - gap;
+      var popoverHeight = popover.offsetHeight;
+      placement = spaceBelow < popoverHeight && spaceAbove > spaceBelow ? "above" : "below";
+      maxHeight = Math.max(160, Math.min(460, Math.floor(placement === "above" ? spaceAbove : spaceBelow)));
+      popover.classList.toggle("cy-dtp__popover--above", placement === "above");
+      popover.classList.toggle("cy-dtp__popover--below", placement === "below");
+      popover.style.setProperty("--cy-dtp-max-height", maxHeight + "px");
+    }
+    function render() {
+      var year = viewMonth.getFullYear();
+      var month = viewMonth.getMonth();
+      var parts = manualParts();
+      var html = '<button id="' + input.id + '_trigger" type="button" class="cy-dtp__trigger" aria-haspopup="dialog" aria-expanded="' + open + '">'
+        + '<span class="cy-dtp__trigger-icon" aria-hidden="true">⏱</span><span class="cy-dtp__trigger-main"><span class="cy-dtp__trigger-value">'
+        + formatPickerDisplay(localInputToDate(input.value)) + '<span class="cy-dtp__trigger-hint">' + formatPickerDistance(localInputToDate(input.value)) + '</span>'
+        + '</span></span><span class="cy-dtp__trigger-chevron" aria-hidden="true">⌄</span></button>';
+      if (open) {
+        html += '<div class="cy-dtp__popover cy-dtp__popover--' + placement + '" style="--cy-dtp-max-height:' + maxHeight + 'px" role="dialog" aria-labelledby="' + input.id + '_title">'
+          + '<div class="cy-dtp__topbar"><div class="cy-dtp__summary"><span id="' + input.id + '_title" class="cy-dtp__eyebrow">选择开启时刻</span><strong>' + formatPickerDistance(draft) + '</strong></div>'
+          + '<div class="cy-dtp__manual" aria-label="手动输入开启时间">'
+          + '<input aria-label="年份" inputmode="numeric" data-part="year" value="' + parts.year + '"><span>年</span>'
+          + '<input aria-label="月份" inputmode="numeric" data-part="month" value="' + parts.month + '"><span>月</span>'
+          + '<input aria-label="日期" inputmode="numeric" data-part="day" value="' + parts.day + '"><span>日</span>'
+          + '<input aria-label="小时" inputmode="numeric" data-part="hour" value="' + parts.hour + '"><span>:</span>'
+          + '<input aria-label="分钟" inputmode="numeric" data-part="minute" value="' + parts.minute + '"></div>'
+          + '<div class="cy-dtp__actions"><button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" data-dtp-cancel>取消</button><button type="button" class="cy-btn cy-btn--primary cy-btn--sm" data-dtp-confirm>确认</button></div></div>'
+          + '<div class="cy-dtp__panel"><div class="cy-dtp__calendar"><div class="cy-dtp__monthbar"><button type="button" aria-label="上个月" data-month="-1">‹</button><strong>' + year + '年' + (month + 1) + '月</strong><button type="button" aria-label="下个月" data-month="1">›</button></div>'
+          + '<div class="cy-dtp__weekdays"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div><div class="cy-dtp__days">';
+        for (var b = 0; b < firstWeekdayFromMonday(year, month); b++) html += '<span aria-hidden="true"></span>';
+        for (var d = 1; d <= daysInMonth(year, month); d++) {
+          var isSelected = draft.getFullYear() === year && draft.getMonth() === month && draft.getDate() === d;
+          var today = new Date();
+          var isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
+          html += '<button type="button" data-day="' + d + '" class="' + (isSelected ? "is-selected " : "") + (isToday ? "is-today" : "") + '" aria-pressed="' + isSelected + '">' + d + '</button>';
+        }
+        html += '</div></div><div class="cy-dtp__time"><label>小时<select class="cy-select" data-time="hour">';
+        for (var h = 0; h < 24; h++) html += '<option value="' + h + '"' + (draft.getHours() === h ? " selected" : "") + '>' + pad2(h) + '</option>';
+        html += '</select></label><label>分钟<select class="cy-select" data-time="minute">';
+        for (var mi = 0; mi < 60; mi += 5) html += '<option value="' + mi + '"' + (draft.getMinutes() === mi ? " selected" : "") + '>' + pad2(mi) + '</option>';
+        var hourAngle = (draft.getHours() % 12) * 30 + draft.getMinutes() * 0.5;
+        var minuteAngle = draft.getMinutes() * 6;
+        html += '</select></label><div class="cy-dtp__clock" aria-label="标准时钟表盘" style="--cy-dtp-clock-hour-angle:' + hourAngle + 'deg;--cy-dtp-clock-minute-angle:' + minuteAngle + 'deg">'
+          + '<span class="cy-dtp__clock-hand cy-dtp__clock-hand--hour" aria-hidden="true"></span><span class="cy-dtp__clock-hand cy-dtp__clock-hand--minute" aria-hidden="true"></span><span class="cy-dtp__clock-center" aria-hidden="true"></span>';
+        for (var ch = 1; ch <= 12; ch++) {
+          html += '<span class="' + (draft.getHours() % 12 === ch % 12 ? "is-active" : "") + '" aria-label="' + ch + ' 点" style="transform:rotate(' + (ch * 30) + 'deg) translateY(-38px) rotate(' + (-ch * 30) + 'deg)">' + ch + '</span>';
+        }
+        html += '</div></div></div><div class="cy-dtp__presets" aria-label="快速预设"><button type="button" data-dtp-preset="1m">1分钟后</button><button type="button" data-dtp-preset="1h">1小时后</button><button type="button" data-dtp-preset="tomorrow9">明天9:00</button><button type="button" data-dtp-preset="1y">1年后</button><button type="button" data-dtp-preset="y2030">2030.01.01</button></div></div>';
+      }
+      root.innerHTML = html;
+      if (open) window.setTimeout(updatePlacement);
+    }
+    function normalizeManual() {
+      var values = {};
+      root.querySelectorAll("[data-part]").forEach(function (el) {
+        values[el.getAttribute("data-part")] = String(el.value || "").replace(/\D/g, "");
+      });
+      var y = Math.min(9999, Math.max(1, Number(values.year) || draft.getFullYear()));
+      var m = Math.min(12, Math.max(1, Number(values.month) || draft.getMonth() + 1));
+      var d = Math.min(daysInMonth(y, m - 1), Math.max(1, Number(values.day) || draft.getDate()));
+      var h = Math.min(23, Math.max(0, Number(values.hour) || 0));
+      var min = Math.min(59, Math.max(0, Number(values.minute) || 0));
+      commitDraft(new Date(y, m - 1, d, h, min, 0, 0));
+    }
+    root.addEventListener("click", function (event) {
+      var target = event.target;
+      if (target.closest(".cy-dtp__trigger")) { open = !open; if (open) syncFromInput(); else render(); return; }
+      if (target.closest("[data-dtp-cancel]")) { open = false; syncFromInput(); return; }
+      if (target.closest("[data-dtp-confirm]")) { input.value = toLocalValue(draft); open = false; render(); return; }
+      var monthBtn = target.closest("[data-month]");
+      if (monthBtn) { viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + Number(monthBtn.getAttribute("data-month")), 1); render(); return; }
+      var dayBtn = target.closest("[data-day]");
+      if (dayBtn) { draft.setFullYear(viewMonth.getFullYear(), viewMonth.getMonth(), Number(dayBtn.getAttribute("data-day"))); commitDraft(new Date(draft)); return; }
+      var presetBtn = target.closest("[data-dtp-preset]");
+      if (presetBtn) { commitDraft(pickerPresetDate(presetBtn.getAttribute("data-dtp-preset"))); }
+    });
+    root.addEventListener("change", function (event) {
+      var target = event.target;
+      if (target.matches("[data-time='hour']")) { draft.setHours(Number(target.value)); commitDraft(new Date(draft)); }
+      if (target.matches("[data-time='minute']")) { draft.setMinutes(Number(target.value)); commitDraft(new Date(draft)); }
+      if (target.matches("[data-part]")) normalizeManual();
+    });
+    root.addEventListener("keydown", function (event) {
+      var part = event.target && event.target.getAttribute && event.target.getAttribute("data-part");
+      if (!part || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+      event.preventDefault();
+      var delta = event.key === "ArrowUp" ? 1 : -1;
+      var next = new Date(draft);
+      if (part === "year") next.setFullYear(Math.min(9999, Math.max(1, next.getFullYear() + delta)));
+      else if (part === "month") next.setMonth(next.getMonth() + delta);
+      else if (part === "day") next.setDate(next.getDate() + delta);
+      else if (part === "hour") next.setHours(next.getHours() + delta);
+      else next.setMinutes(next.getMinutes() + delta);
+      commitDraft(next);
+    });
+    document.addEventListener("pointerdown", function (event) {
+      if (open && !root.contains(event.target)) { open = false; render(); }
+    });
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", updatePlacement, true);
+    input.addEventListener("input", syncFromInput);
+    render();
+    return { sync: syncFromInput };
+  }
+
   // ---------- 创建页 ----------
   (function () {
     var form = document.getElementById("create-form");
@@ -216,6 +402,7 @@
     var contentInput = document.getElementById("content");
     var openInput = document.getElementById("open_at");
     var openHidden = document.getElementById("openAt");
+    var openPickerRoot = document.getElementById("open_at_picker");
     var aiBtn = document.getElementById("ai-generate");
     var recoArea = document.getElementById("reco-area");
 
@@ -231,10 +418,14 @@
       return isoToLocalInput(now);
     }
     if (openInput && !openInput.value) openInput.value = presetTime("1h");
+    var openPicker = initDateTimePicker(openPickerRoot, openInput);
 
     document.addEventListener("click", function (e) {
       var pb = e.target.closest("[data-preset]");
-      if (pb && openInput) openInput.value = presetTime(pb.getAttribute("data-preset"));
+      if (pb && openInput) {
+        openInput.value = presetTime(pb.getAttribute("data-preset"));
+        if (openPicker) openPicker.sync();
+      }
     });
 
     form.addEventListener("submit", function () {
@@ -307,7 +498,10 @@
           var s = env && env.data;
           if (!s) return;
           if (contentInput) contentInput.value = s.content || "";
-          if (openInput && s.openAt) openInput.value = isoToLocalInput(new Date(s.openAt));
+          if (openInput && s.openAt) {
+            openInput.value = isoToLocalInput(new Date(s.openAt));
+            if (openPicker) openPicker.sync();
+          }
           if (s.title && autoTitle && titleInput && !titleInput.value.trim()) titleInput.value = s.title;
           aiGenerated = true;
           renderRecos();
