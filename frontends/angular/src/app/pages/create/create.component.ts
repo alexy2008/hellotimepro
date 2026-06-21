@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { ApiService } from '@/api/api.service';
 import { ApiError, type CapsuleRecommendation } from '@/types';
 import { AlertComponent } from '@/components/alert/alert.component';
+import { DateTimePickerComponent } from '@/components/date-time-picker/date-time-picker.component';
 import { isoToLocalInput, localInputToIso } from '@/utils/format';
 
 // 三组主题色，按下标轮换；文字默认色、仅用主色勾圆角边框（全取自设计 token）
@@ -24,7 +25,7 @@ function presetTime(spec: '1m' | '1h' | 'tomorrow9' | '1y' | 'y2030'): string {
 @Component({
   selector: 'app-create',
   standalone: true,
-  imports: [FormsModule, AlertComponent],
+  imports: [FormsModule, AlertComponent, DateTimePickerComponent],
   template: `
     <main class="cy-container cy-container--narrow"
       style="margin-top:var(--space-10);margin-bottom:var(--space-16)">
@@ -87,23 +88,10 @@ function presetTime(spec: '1m' | '1h' | 'tomorrow9' | '1y' | 'y2030'): string {
           </div>
           <div class="cy-field">
             <label for="open_at">开启时间 <span style="color:var(--color-text-muted);font-weight:400">· 最早 60 秒后</span></label>
-            <input class="cy-input" id="open_at" type="datetime-local" required [(ngModel)]="openLocal" name="openLocal" />
+            <app-date-time-picker id="open_at" [(value)]="openLocal" />
             <span class="cy-field__hint">时区以你当前所在时区为准，提交时会转换为 UTC。</span>
-          </div>
-          <div class="cy-field">
-            <label>可见性</label>
-            <label class="cy-toggle">
-              <input type="checkbox" [(ngModel)]="inPlaza" name="inPlaza" />
-              <span class="cy-toggle__track"></span>
-              <span class="cy-toggle__body">
-                <span class="cy-toggle__label">发布到胶囊广场</span>
-                <span class="cy-toggle__hint">开启后，胶囊标题和倒计时将对所有人可见；关闭后仅持有胶囊码的人可访问。</span>
-              </span>
-            </label>
-          </div>
-          <div class="cy-field">
-            <label>快速预设</label>
-            <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+            <div class="cy-create-presets">
+              <span class="cy-create-presets__label">快速预设</span>
               @for (p of presets; track p.spec) {
                 <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" (click)="setPreset(p.spec)">{{ p.label }}</button>
               }
@@ -111,11 +99,18 @@ function presetTime(spec: '1m' | '1h' | 'tomorrow9' | '1y' | 'y2030'): string {
           </div>
           <app-alert variant="info">上锁后不可编辑、不可提前开启；可以在"我创建的"列表里随时撤回（删除）。</app-alert>
           @if (err()) { <app-alert variant="danger">{{ err() }}</app-alert> }
-          <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
-            <button type="button" class="cy-btn cy-btn--ghost" (click)="router.navigate(['/'])">取消</button>
-            <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit" [disabled]="busy()">
-              {{ busy() ? '封存中…' : '🔒 上锁封存' }}
-            </button>
+          <div class="cy-create-actions">
+            <label class="cy-toggle cy-toggle--inline">
+              <input type="checkbox" [(ngModel)]="inPlaza" name="inPlaza" />
+              <span class="cy-toggle__track"></span>
+              <span class="cy-toggle__label">发布到胶囊广场</span>
+            </label>
+            <div class="cy-create-actions__buttons">
+              <button type="button" class="cy-btn cy-btn--ghost" (click)="router.navigate(['/'])">取消</button>
+              <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit" [disabled]="busy()">
+                {{ busy() ? '封存中…' : '🔒 上锁封存' }}
+              </button>
+            </div>
           </div>
         </form>
       </div>
