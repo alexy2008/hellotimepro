@@ -25,7 +25,7 @@ HelloTime Pro 以**教学 / 演示**为目的，以下类别问题不作为修�
 
 ## 1.1 创建页日期时间选择器同步基准（2026-06-21）
 
-React 参考前端已完成新版创建页 `openAt` 交互，后续同步到 Vue / Svelte / Angular / Next / Nuxt 时以此为基准。
+React 参考前端已完成新版创建页 `openAt` 交互，后续同步到 Vue / Svelte / Angular / Solid / Next / Nuxt / Spring MVC / Rails / Laravel 时以此为基准。
 
 ### 行为基准
 
@@ -46,8 +46,12 @@ React 参考前端已完成新版创建页 `openAt` 交互，后续同步到 Vue
 1. `frontends/vue3-ts`：新增 Vue 版 `DateTimePicker`，替换创建页原生时间输入，同步预设与底部可见性布局。
 2. `frontends/svelte`：新增 Svelte 版 `DateTimePicker`，注意 `.svelte.ts` 单例导入约束不受影响。
 3. `frontends/angular`：新增 standalone/组件化日期时间选择器，同步 Angular 全局 `layout.css`。
-4. `fullstacks/next`：复用 React 逻辑实现 Next 组件，同步创建页布局。
-5. `fullstacks/nuxt`：基于 Vue 版同步 Nuxt 组件和创建页布局。
+4. `frontends/solid`：新增 SolidJS 版 `DateTimePicker`，使用 signals / effects 实现同等交互。
+5. `fullstacks/next`：复用 React 逻辑实现 Next 组件，同步创建页布局。
+6. `fullstacks/nuxt`：基于 Vue 版同步 Nuxt 组件和创建页布局。
+7. `fullstacks/spring-mvc`：基于 Thymeleaf + HTMX/原生 JS 增强同步创建页，不改变服务端表单字段和提交契约。
+8. `fullstacks/rails`：基于 ERB + Stimulus 同步创建页，隐藏 ISO 字段仍由控制器维护。
+9. `fullstacks/laravel`：基于 Blade + Alpine 同步创建页，保持 CSRF、旧值回填和服务端表单字段不变。
 
 每完成一个栈，单独提交一次代码，提交信息使用中文，并至少运行对应前端 build；可行时再运行对应 `./verification/scripts/verify-ui-smoke.sh <target>`。
 
