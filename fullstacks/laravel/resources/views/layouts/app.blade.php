@@ -8,9 +8,11 @@
   @php
     // 资源带 mtime 版本号，避免浏览器缓存旧的 CSS/JS（改动后能即时生效）。
     $cssV = @filemtime(public_path('css/app.css')) ?: time();
+    $dtpCssV = @filemtime(public_path('css/dtp.css')) ?: time();
     $jsV = @filemtime(public_path('js/app.js')) ?: time();
   @endphp
   <link rel="stylesheet" href="/css/app.css?v={{ $cssV }}">
+  <link rel="stylesheet" href="/css/dtp.css?v={{ $dtpCssV }}">
   <style>[x-cloak]{display:none!important}</style>
   {{-- app.js 注册 Alpine.data/store，必须在 Alpine 核心之前执行（两者皆 defer，按文档顺序运行），
        否则 Alpine 启动并派发 alpine:init 时组件尚未登记。 --}}

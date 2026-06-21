@@ -42,25 +42,16 @@
       </div>
       <div class="cy-field">
         <label for="open_at">开启时间 <span style="color:var(--color-text-muted);font-weight:400">· 最早 60 秒后</span></label>
-        <input x-ref="openAt" class="cy-input" id="open_at" type="datetime-local" required @change="syncOpen()">
+        <div x-ref="picker" class="cy-dtp"
+             x-html="pickerHtml"
+             @click="handlePickerClick($event)"
+             @change="handlePickerChange($event)"
+             @keydown="handlePickerKeydown($event)"></div>
+        <input x-ref="openAt" class="cy-input cy-dtp__source" id="open_at" type="datetime-local" required @change="syncPickerFromInput(); syncOpen()">
         <input x-ref="openAtHidden" type="hidden" id="openAt" name="openAt" value="{{ old('openAt') }}">
         <span class="cy-field__hint">时区以你当前所在时区为准，提交时会转换为 UTC。</span>
-      </div>
-      <div class="cy-field">
-        <label>可见性</label>
-        <label class="cy-toggle">
-          <input type="hidden" name="inPlaza" value="false">
-          <input type="checkbox" name="inPlaza" value="true" {{ old('inPlaza', 'true') !== 'false' ? 'checked' : '' }}>
-          <span class="cy-toggle__track"></span>
-          <span class="cy-toggle__body">
-            <span class="cy-toggle__label">发布到胶囊广场</span>
-            <span class="cy-toggle__hint">开启后，胶囊标题和倒计时将对所有人可见。</span>
-          </span>
-        </label>
-      </div>
-      <div class="cy-field">
-        <label>快速预设</label>
-        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+        <div class="cy-create-presets">
+          <span class="cy-create-presets__label">快速预设</span>
           <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" @click="preset('1m')">1 分钟后（测试）</button>
           <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" @click="preset('1h')">1 小时后</button>
           <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" @click="preset('tomorrow9')">明天早上 9:00</button>
@@ -72,9 +63,17 @@
       @if(session('error'))
         <div class="cy-alert cy-alert--danger"><span>⚠</span><span>{{ session('error') }}</span></div>
       @endif
-      <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
-        <a class="cy-btn cy-btn--ghost" href="/me/created">取消</a>
-        <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit">🔒 上锁封存</button>
+      <div class="cy-create-actions">
+        <label class="cy-toggle cy-toggle--inline">
+          <input type="hidden" name="inPlaza" value="false">
+          <input type="checkbox" name="inPlaza" value="true" {{ old('inPlaza', 'true') !== 'false' ? 'checked' : '' }}>
+          <span class="cy-toggle__track"></span>
+          <span class="cy-toggle__label">发布到胶囊广场</span>
+        </label>
+        <div class="cy-create-actions__buttons">
+          <a class="cy-btn cy-btn--ghost" href="/me/created">取消</a>
+          <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit">🔒 上锁封存</button>
+        </div>
       </div>
     </form>
   </div>
