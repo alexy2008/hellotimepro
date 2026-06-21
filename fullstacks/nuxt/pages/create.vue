@@ -204,33 +204,10 @@ async function submit() {
             开启时间
             <span style="color: var(--color-text-muted); font-weight: 400">· 最早 60 秒后</span>
           </label>
-          <input
-            id="open_at"
-            v-model="openLocal"
-            class="cy-input"
-            type="datetime-local"
-            required
-          />
+          <DateTimePicker id="open_at" v-model="openLocal" />
           <span class="cy-field__hint">时区以你当前所在时区为准，提交时会转换为 UTC。</span>
-        </div>
-
-        <div class="cy-field">
-          <label>可见性</label>
-          <label class="cy-toggle">
-            <input v-model="inPlaza" type="checkbox" />
-            <span class="cy-toggle__track" />
-            <span class="cy-toggle__body">
-              <span class="cy-toggle__label">发布到胶囊广场</span>
-              <span class="cy-toggle__hint">
-                开启后，胶囊标题和倒计时将对所有人可见；关闭后仅持有胶囊码的人可访问。
-              </span>
-            </span>
-          </label>
-        </div>
-
-        <div class="cy-field">
-          <label>快速预设</label>
-          <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+          <div class="cy-create-presets">
+            <span class="cy-create-presets__label">快速预设</span>
             <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" @click="openLocal = presetTime('1m')">
               1 分钟后（测试）
             </button>
@@ -255,13 +232,20 @@ async function submit() {
 
         <Alert v-if="err" variant="danger">{{ err }}</Alert>
 
-        <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
-          <button type="button" class="cy-btn cy-btn--ghost" @click="router.back()">
-            取消
-          </button>
-          <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit" :disabled="busy">
-            {{ busy ? "封存中…" : "🔒 上锁封存" }}
-          </button>
+        <div class="cy-create-actions">
+          <label class="cy-toggle cy-toggle--inline">
+            <input v-model="inPlaza" type="checkbox" />
+            <span class="cy-toggle__track" />
+            <span class="cy-toggle__label">发布到胶囊广场</span>
+          </label>
+          <div class="cy-create-actions__buttons">
+            <button type="button" class="cy-btn cy-btn--ghost" @click="router.back()">
+              取消
+            </button>
+            <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit" :disabled="busy">
+              {{ busy ? "封存中…" : "🔒 上锁封存" }}
+            </button>
+          </div>
         </div>
       </form>
     </div>
