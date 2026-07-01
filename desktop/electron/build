@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# 校验 Electron 桌面壳：安装依赖 + 语法检查。
+#
+# 注：生产打包（electron-builder 出 .app/.exe/.dmg）不在 dev MVP 范围内，
+# 见 README「生产打包」一节。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "需要 Node 20+ 与 npm，请先安装。" >&2
+  exit 1
+fi
+
+[[ -d node_modules ]] || npm install --silent
+npm run lint
+echo "✓ Electron 壳语法检查通过"

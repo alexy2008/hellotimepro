@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# 启动 HelloTime Pro · Qt Quick/QML + PySide6 原生桌面端。
+#
+# 纯原生：无 webview、无内嵌前端、无 dev server 端口 —— Python(urllib) 直连后端。
+# 与 electron/tauri 拉 Vite dev server 根本不同；与 swiftui/flutter 同属纯原生。
+#
+# 后端 API 默认 :9080（hello switch 切换的反代），也可直连某后端：
+#   BACKEND_PROXY=http://127.0.0.1:29010 ./run
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "需要 uv，请先安装：https://docs.astral.sh/uv/" >&2
+  exit 1
+fi
+
+uv sync --quiet
+
+# 设计令牌 codegen（保证 app/theme/palette.py 与 spec/tokens/tokens.json 同源）。
+if command -v node >/dev/null 2>&1; then
+  node ../../scripts/gen-tokens-qt
+fi
+
+export API_BASE="${BACKEND_PROXY:-http://127.0.0.1:9080}"
+echo "启动 Qt/PySide6 窗口（后端 API → ${API_BASE}）"
+# 前台运行：进程本身即 GUI app，hello 据此判活；关窗即退出。
+exec uv run python app/main.py "$@"

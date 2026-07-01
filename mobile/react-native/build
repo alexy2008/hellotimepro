@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# 构建 / 校验：令牌 codegen + 类型检查 + Metro 打包冒烟。
+# 不产出可分发 .ipa/.apk（那需 EAS / Xcode 原生构建，超出 dev MVP）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "需要 Node 20+ 与 npm，请先安装。" >&2
+  exit 1
+fi
+
+[[ -d node_modules ]] || { echo "首次运行：npm install"; npm install; }
+
+echo "→ 令牌 codegen"
+node ../../scripts/gen-tokens-rn
+
+echo "→ 类型检查（tsc --noEmit）"
+npx tsc --noEmit
+
+echo "→ Metro 打包冒烟（expo export · iOS）"
+rm -rf dist
+npx expo export --platform ios >/dev/null
+rm -rf dist
+
+echo "✓ build ok"

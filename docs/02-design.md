@@ -577,6 +577,7 @@ LIMIT $pageSize OFFSET ($page - 1) * $pageSize;
 ./scripts/hello status
 ./scripts/hello start <name>       # name 例 fastapi / react / next-ts
 ./scripts/hello stop <name>
+./scripts/hello stop-external <name>
 ./scripts/hello restart-all
 ./scripts/hello switch <backend>   # 切换 :9080 → backend 端口
 ./scripts/hello doctor             # 检查环境依赖（JDK / Python / Go / ...）
@@ -586,17 +587,20 @@ LIMIT $pageSize OFFSET ($page - 1) * $pageSize;
 ### 14.2 Web UI 页面
 
 - 所有实现的启停 / 状态 / 日志
-- `:9080` 当前指向显示与切换
+- 区分 hello 管理进程、外部监听进程、端口未就绪进程、健康检查结果
+- `:9080` 当前指向、代理监听状态、目标后端可达性显示与切换
 - DB_DRIVER 当前值显示与切换（切换时提示需要重启已启动的服务）
+- 数据库连接配置；密码只保存在本机 state 文件，Web snapshot 只暴露“是否已配置”
 - 一键打开前端 URL
 - 健康检查聚合
 
 ### 14.3 技术选型
 
 - Python 3.11+，单文件实现（沿用老项目路线）
-- `aiohttp` 做 Web UI 后端；前端用纯 HTMX + Alpine.js，不引入 npm 依赖
-- 进程管理：用 `asyncio.create_subprocess_exec`，状态写入 `./data/.hello-state.json`
-- 端口代理：macOS 用 `pfctl` 或轻量 Python `asyncio` TCP 代理；Linux 同方案
+- Web UI 后端使用 Python 标准库 `http.server`；前端使用原生 `fetch` + DOM，不引入 npm 依赖
+- 进程管理：用 `subprocess.Popen(start_new_session=True)`，状态写入 `./data/.hello-state.json`
+- 端口代理：轻量 Python TCP 代理；CLI/Web snapshot 同时检查代理监听与目标端口可达性
+- dev-manager 自检：`./verification/scripts/verify-hello-manager.sh`
 
 > 选择不依赖 `nginx` 等外部工具是为了**零依赖本地跑起来**。若读者愿意可以替换。
 

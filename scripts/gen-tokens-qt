@@ -1,0 +1,180 @@
+#!/usr/bin/env node
+// ============================================================
+// gen-tokens-qt · 设计令牌跨端 codegen（Qt Quick/QML + PySide6 目标）
+//
+// 读 spec/tokens/tokens.json（事实源）→ 生成 desktop/qt-pyside/app/theme/palette.py。
+// QML 经 Theme store 暴露的 colors(dict) 消费：color: Theme.colors.surface0。
+//
+// 转换规则（CSS 值 → QML 可用）：
+//   - #rrggbb / #rgb        → "#rrggbb"
+//   - rgb()/rgba()          → "#AARRGGBB"（QML color 接受 8 位十六进制，alpha 在前）
+//   - 阴影/辉光 "0 0 Npx rgba()" → 取其 rgba → "#AARRGGBB"
+//   - rem → px int（1rem=16）；px → 去单位 int
+//   - 渐变 linear-gradient(...) → 停靠色列表（QML 端用 Shapes.LinearGradient 组装）
+//
+// 两套主题（dark/light）键一致 → DARK / LIGHT 两个 dict。
+// 产物头部标注「自动生成，勿手改」；重生成后 git diff 应为空。
+// 用法：node scripts/gen-tokens-qt
+// ============================================================
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const REPO_ROOT = path.resolve(__dirname, "..");
+const SRC = path.join(REPO_ROOT, "spec", "tokens", "tokens.json");
+const OUT = path.join(REPO_ROOT, "desktop", "qt-pyside", "app", "theme", "palette.py");
+const REM_PX = 16;
+
+function toPx(value) {
+  const v = String(value).trim();
+  if (v === "0") return 0;
+  if (v.endsWith("rem")) return Math.round(parseFloat(v) * REM_PX);
+  if (v.endsWith("px")) return Math.round(parseFloat(v));
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+function camel(dotted) {
+  return dotted.split(".").map((s, i) => (i === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1))).join("");
+}
+
+function hex2(n) {
+  return Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+}
+
+/** CSS 颜色 → QML 颜色字符串。 */
+function toQmlColor(v) {
+  const s = String(v).trim();
+  if (s.startsWith("#")) {
+    let h = s.slice(1);
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    return `#${h.toLowerCase()}`;
+  }
+  const m = s.match(/rgba?\(([^)]+)\)/i);
+  if (m) {
+    const p = m[1].split(",").map((x) => x.trim());
+    const [r, g, b] = p.map(Number);
+    const a = p[3] !== undefined ? parseFloat(p[3]) : 1;
+    return `#${hex2(a * 255)}${hex2(r)}${hex2(g)}${hex2(b)}`;
+  }
+  throw new Error(`无法解析颜色: ${v}`);
+}
+
+function isShadow(v) {
+  return /^-?[\d.]+\s+-?[\d.]+\s+[\d.]+px/.test(String(v).trim());
+}
+function isGradient(v) {
+  return String(v).trim().startsWith("linear-gradient(");
+}
+
+/** 渐变 → 停靠色 hex 列表（忽略角度/百分比，QML 端定方向）。 */
+function gradientStops(v) {
+  const inner = String(v).match(/linear-gradient\((.*)\)\s*$/is)[1];
+  const parts = [];
+  let depth = 0, cur = "";
+  for (const ch of inner) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) { parts.push(cur.trim()); cur = ""; } else cur += ch;
+  }
+  if (cur.trim()) parts.push(cur.trim());
+  const stops = parts.filter((p) => !/deg$/.test(p)).map((p) => toQmlColor(p.replace(/\s+-?[\d.]+%\s*$/, "").trim()));
+  return stops;
+}
+
+function* flatten(obj, prefix = "") {
+  for (const [k, val] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (val && typeof val === "object" && !Array.isArray(val)) yield* flatten(val, key);
+    else yield [key, val];
+  }
+}
+
+function pyDict(entries, indent = "    ") {
+  return entries.map(([k, v]) => `${indent}${JSON.stringify(k)}: ${JSON.stringify(v)},`).join("\n");
+}
+
+function fontList(css) {
+  return css.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
+}
+
+function buildTheme(mode, raw) {
+  const out = [];
+  for (const [dotted, v] of flatten(raw.semantic[mode])) {
+    if (isGradient(v)) continue; // 渐变单列
+    const name = camel(dotted);
+    out.push([name, isShadow(v) ? toQmlColor(String(v).match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}/)[0]) : toQmlColor(v)]);
+  }
+  return out;
+}
+
+function main() {
+  const raw = JSON.parse(fs.readFileSync(SRC, "utf8"));
+
+  const dark = buildTheme("dark", raw);
+  const light = buildTheme("light", raw);
+
+  // 复合流光渐变（取自 spec/styles/tokens.css，深浅一致）
+  const gradients = {
+    primaryFlow: ["#6b46ff", "#14d4f0", "#6b46ff"],
+    successFlow: ["#1aa866", "#5ed49a", "#1aa866"],
+    cyberFlow: ["#14d4f0", "#ff2d91", "#1aa866"],
+    mintFlow: ["#1aa866", "#6b46ff", "#1aa866"],
+    brandHero: gradientStops(raw.semantic.dark.gradient.brandHero),
+    brandSubtle: gradientStops(raw.semantic.dark.gradient.brandSubtle),
+  };
+
+  const sizes = [];
+  for (const [k, v] of Object.entries(raw.space)) sizes.push([`s${k}`, toPx(v)]);
+  for (const [k, v] of Object.entries(raw.radius)) sizes.push([`radius${k.charAt(0).toUpperCase() + k.slice(1)}`, toPx(v)]);
+  for (const [k, v] of Object.entries(raw.typography.fontSize)) sizes.push([`fs${k.charAt(0).toUpperCase() + k.slice(1)}`, toPx(v)]);
+  for (const [k, v] of Object.entries(raw.layout)) sizes.push([k, toPx(v)]);
+
+  const fonts = [
+    ["sans", fontList(raw.typography.fontFamily.sans)],
+    ["mono", fontList(raw.typography.fontFamily.mono)],
+    ["display", fontList(raw.typography.fontFamily.display)],
+  ];
+
+  const py = `# ============================================================
+# 自动生成 · 请勿手改 (AUTO-GENERATED — DO NOT EDIT)
+#
+# 由 scripts/gen-tokens-qt 从 spec/tokens/tokens.json 生成。
+# 重新生成：node scripts/gen-tokens-qt
+# 源（事实源）：spec/styles/tokens.css -> spec/tokens/tokens.json
+#
+# 颜色为 QML 可用字符串（#rrggbb / #AARRGGBB）；尺寸为 px int；渐变为停靠色列表。
+# 经 app/stores/theme.py 的 ThemeStore.colors 暴露给 QML：Theme.colors.surface0。
+# ============================================================
+
+DARK = {
+${pyDict(dark)}
+}
+
+LIGHT = {
+${pyDict(light)}
+}
+
+GRADIENTS = {
+${Object.entries(gradients).map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)},`).join("\n")}
+}
+
+SIZES = {
+${pyDict(sizes)}
+}
+
+FONTS = {
+${fonts.map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)},`).join("\n")}
+}
+
+FONT_WEIGHTS = {
+${Object.entries(raw.typography.fontWeight).map(([k, v]) => `    ${JSON.stringify(k)}: ${v},`).join("\n")}
+}
+`;
+
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, py, "utf8");
+  console.log(`✅ palette.py 已生成：${path.relative(REPO_ROOT, OUT)}（源：${path.relative(REPO_ROOT, SRC)}）`);
+}
+
+main();

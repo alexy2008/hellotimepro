@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Each implementation has its own `./run`, `./build`, and `./test` scripts. Use the top-level dev manager for orchestration:
 
+> **例外**：`desktop/flutter` 的构建脚本名为 `build.sh`（不是 `build`）。Flutter 工具链硬性把产物写入项目内的 `build/` **目录**，与同名脚本文件在文件系统层面冲突，无法并存，故让出 `build` 名。其余实现一律 `./build`。
+
 ```bash
 ./scripts/hello start <name>        # e.g. fastapi, react-ts, nextjs
 ./scripts/hello stop <name>
@@ -56,6 +58,10 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 - Latest rails UI smoke run on 2026-06-06 passed: 25/25 (PostgreSQL & SQLite).
 - Latest laravel full-stack contract run on 2026-06-10 passed: PostgreSQL & SQLite 104/104 (after the Eloquent ORM refactor).
 - Latest laravel UI smoke run on 2026-06-11 passed: SQLite 25/25.
+- Desktop clients (M5): 5 个实现,两类范式。**Web 壳**:`electron`(7190,自带 Chromium + Node)与 `tauri`(7191,系统 WebView + Rust)各内嵌 React/Svelte 前端,`./run` 拉 Vite dev server(探端口判活)。**纯原生**(`port: None` → `hello status` 显示 `native`,以进程存活判活,直连 `:9080`):`swiftui`(SwiftPM,@Observable,macOS 系统原生)、`flutter`(Dart + Skia/Impeller 自绘,Riverpod + go_router,令牌 codegen→`tokens.dart`)、`qt-pyside`(QML 视图 + Python 逻辑,QObject store 经 context property 暴露,令牌 codegen→`palette.py`)。原生窗口在 Playwright 之外——以编译 + 后端日志连通(app 请求出现在后端日志)佐证。各端 `./run`/`./build`(flutter 例外为 `build.sh`)。详见 `desktop/*/README.md` 与 `desktop/*/TECHNICAL_GUIDE.md`。
+- Mobile clients (M5): 3 个已落地。`ios`(SwiftUI 原生,`port: None` → `native`)与 `desktop/swiftui` 共享逻辑层(Models/APIClient/AppStore/DateUtil 拷贝改写),视图层按移动 IA 重建——底部 Tab Bar(广场/开启/创建/我的)+ NavigationStack。XcodeGen 工程(`project.yml`→`.xcodeproj`),SVGView 渲染头像(UIImage 不认 SVG),Info.plist 开 ATS 本地 HTTP 例外。`./run` 走 xcodegen+xcodebuild+simctl 启模拟器(前台附着判活),`./build` 仅编译。验证:`hello start ios` 后端日志出现 plaza/avatars 200。详见 `mobile/ios/{README,TECHNICAL_GUIDE}.md`。
+- Mobile clients (M5): `flutter-mobile`(`port: None` → `native`) 演示**一码多端**——与 `desktop/flutter` 是**同一份工程**(物理 `lib/` 唯一在 `desktop/flutter`;`mobile/flutter` 只提供移动运行入口 `run`/`build` + 文档,`./run` = `flutter run -d iOS 模拟器`,cd 到同源工程执行)。`hello` 里 `flutter`(desktop,`-d macos`)与 `flutter-mobile`(mobile,`-d ios`)是同一工程的两个运行目标,`lib/` 不复制。**go_router 路由树未因移动端重构**,移动 IA 全部由外壳层 `MediaQuery` 宽窄分支实现(`kWideBreakpoint=740`,窄屏走新增 `MobileShell`:精简顶部 bar + 底部 `NavigationBar`;宽屏保持顶部 nav+Footer),桌面零回归。iOS 加 ATS 本地明文例外;`flutter_svg` 遇 `<filter>` 打印良性警告。iOS ✅ 已验证(`hello start flutter-mobile` 后端日志出现 plaza/avatars/health 200);Android 脚手架已就位但本机无 Android SDK,`flutter build apk` 待 SDK。详见 `mobile/flutter/{README,TECHNICAL_GUIDE}.md`。
+- Mobile clients (M5): `react-native`(7192, Expo + Metro) is the first mobile impl — "Web React vs Native React" vs `frontends/react-ts` (same zustand stores / api client / types ported near-verbatim; only the view layer rebuilt with native components + a bottom Tab Bar). Design tokens are codegen'd from `spec/tokens/tokens.json` → `src/theme/tokens.ts` via `scripts/gen-tokens-rn` (first real run of the M5.1 token pipeline). RN connects directly to `:9080` (`EXPO_PUBLIC_API_BASE` overrides; no proxy). Verified 2026-06-23: `./build` green (codegen + `tsc --noEmit` + `expo export --platform ios`), `hello start react-native` → Metro ready on :7192 → clean stop. Core-journey E2E is Maestro (`mobile/react-native/.maestro/core-journey.yaml`, testIDs in place); device run pending the iOS simulator runtime (`xcodebuild -downloadPlatform iOS`, ~7GB) + Maestro CLI. See `mobile/react-native/README.md`.
 
 ## Architecture
 

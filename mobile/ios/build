@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# 构建校验 HelloTime Pro · iOS：xcodegen 生成工程 + xcodebuild 编译（iphonesimulator SDK）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+export PATH="/opt/homebrew/bin:$PATH"
+if ! command -v xcodegen >/dev/null 2>&1; then
+  echo "需要 XcodeGen：brew install xcodegen" >&2
+  exit 1
+fi
+
+echo "==> xcodegen generate"
+xcodegen generate --quiet
+
+echo "==> xcodebuild（iphonesimulator，仅编译）"
+xcodebuild build \
+  -project HelloTimePro.xcodeproj \
+  -scheme HelloTimePro \
+  -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' \
+  -configuration Debug \
+  CODE_SIGNING_ALLOWED=NO \
+  | tail -4
+
+echo "✅ iOS 构建校验通过"

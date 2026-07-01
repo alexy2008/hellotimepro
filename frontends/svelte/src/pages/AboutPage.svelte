@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from "@/api/client";
   import Alert from "@/components/Alert.svelte";
+  import { desktopShell } from "@/utils/desktop";
   import type { HealthData, StackItem } from "@/types";
 
   const FRONTEND_STACK: StackItem[] = [
@@ -8,6 +9,20 @@
     { role: "language",  name: "TypeScript",   version: "5", iconUrl: "/static/icons/typescript.svg" },
     { role: "styling",   name: "Tailwind CSS", version: "4", iconUrl: "/static/icons/tailwindcss.svg" },
   ];
+
+  // 仅在被 desktop/tauri 内嵌时展示（见 utils/desktop）。
+  const shell = desktopShell();
+  const DESKTOP_STACK: StackItem[] = [
+    { role: "shell",    name: "Tauri", version: "2", iconUrl: "/desktop-icons/tauri.svg" },
+    { role: "language", name: "Rust",  version: "",  iconUrl: "/desktop-icons/rust.svg" },
+  ];
+
+  const DESKTOP_SUMMARY =
+    "本页运行在 Tauri 桌面壳内：壳层借用系统 WebView 渲染，用 Rust 编写，" +
+    "通过 #[tauri::command] + invoke 与渲染层通信，并提供原生菜单 / 保存对话框等系统能力。" +
+    "因复用系统 WebView，包体积通常仅数 MB（Electron 自带 Chromium 约 100MB+）。" +
+    "桌面壳本身不持有 API，仍复用同一套 /api/v1 契约，内嵌的正是这套 Svelte 前端——" +
+    "即桌面端技术栈 = Tauri 壳（系统 WebView + Rust）+ Svelte 渲染层。";
 
   const FRONTEND_SUMMARY =
     "基于 Svelte 5 + TypeScript + Vite 核心骨架，选用 svelte-routing 控制路由，" +
@@ -66,6 +81,33 @@
     支持胶囊广场浏览、AI 辅助创作、收藏与账户管理。同时也是一个多技术栈对比学习项目，
     同一份产品需求由多套前后端框架各自实现，共享同一份 API 契约、数据库 schema 与设计 token。
   </p>
+
+  {#if shell === "tauri"}
+    <section style:margin-bottom="var(--space-10)">
+      <h2 style:font-family="var(--font-display)" style:font-size="var(--font-size-2xl)" style:margin="0 0 var(--space-5)">
+        桌面端技术栈
+      </h2>
+      <div class="cy-card" style:padding="var(--space-6)">
+        <div style:display="flex" style:gap="var(--space-6)" style:flex-wrap="wrap" style:margin-bottom="var(--space-4)">
+          {#each DESKTOP_STACK as it (it.name)}
+            <div style:display="flex" style:flex-direction="column" style:align-items="center" style:gap="var(--space-1)">
+              {#if it.iconUrl}
+                <img src={it.iconUrl} alt={it.name} style:width="48px" style:height="48px" />
+              {:else}
+                <div style:width="48px" style:height="48px" style:background="var(--color-surface-2)" style:border-radius="var(--radius-md)"></div>
+              {/if}
+              <span style:font-size="var(--font-size-xs)" style:color="var(--color-text-muted)" style:font-family="var(--font-mono)">
+                {it.name}{it.version ? ` ${it.version}` : ''}
+              </span>
+            </div>
+          {/each}
+        </div>
+        <p style:margin="0" style:color="var(--color-text-secondary)" style:line-height="var(--line-height-relaxed)">
+          {DESKTOP_SUMMARY}
+        </p>
+      </div>
+    </section>
+  {/if}
 
   <section style:margin-bottom="var(--space-10)">
     <h2 style:font-family="var(--font-display)" style:font-size="var(--font-size-2xl)" style:margin="0 0 var(--space-5)">
@@ -132,6 +174,7 @@
     style:gap="var(--space-6)"
     style:flex-wrap="wrap"
   >
+    {#if shell === "tauri"}<span>桌面壳：<code>Tauri</code></span>{/if}
     <span>前端：<code>Svelte 5 + TypeScript</code></span>
     <span>后端：<code>{backendFramework}</code></span>
     <span>License: MIT</span>

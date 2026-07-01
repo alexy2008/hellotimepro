@@ -1,0 +1,14 @@
+{
+  "name": "hellotime-desktop-electron",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HelloTime Pro · Electron 桌面壳（自带 Chromium，内嵌 React 前端）",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "lint": "node --check main.cjs && node --check preload.cjs"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

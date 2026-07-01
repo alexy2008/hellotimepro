@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# 启动 HelloTime Pro · Flutter 移动端（iOS 模拟器）。
+#
+# 「一码多端」：本端与 desktop/flutter 是**同一份工程**（代码在 ../../desktop/flutter，
+# 本目录只提供移动运行入口 + 文档）。桌面 = `flutter run -d macos`，移动 = `flutter run -d <iPhone>`，
+# 共享同一 lib/ —— 仅靠 MediaQuery 宽窄分支切两套 IA（顶部 nav vs 底部 Tab Bar）。
+#
+# 纯原生：无 dev server 端口，Dart http 直连后端（默认 :9080，BACKEND_PROXY 可覆盖）。
+#   IOS_SIM="iPhone 16" ./run     # 指定模拟器机型
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT="$HERE/../../desktop/flutter"       # 同源工程（不复制）
+cd "$PROJECT"
+
+export PATH="$HOME/development/flutter/bin:$PATH"
+if ! command -v flutter >/dev/null 2>&1; then
+  echo "需要 Flutter SDK（~/development/flutter/bin 不在 PATH）。" >&2
+  exit 1
+fi
+
+BACKEND_PROXY="${BACKEND_PROXY:-http://127.0.0.1:9080}"
+DEVICE="${IOS_SIM:-iPhone 17 Pro Max}"
+
+# 设计令牌 codegen（与桌面共享 lib/theme/tokens.dart）。
+if command -v node >/dev/null 2>&1; then
+  node ../../scripts/gen-tokens-flutter
+fi
+
+xcrun simctl boot "$DEVICE" 2>/dev/null || true
+open -a Simulator
+
+echo "启动 Flutter iOS 模拟器（${DEVICE}，后端 API → ${BACKEND_PROXY}）"
+# flutter run 前台附着：进程即 GUI 会话，hello 据此判活；q/关窗退出。
+exec flutter run -d "$DEVICE" --dart-define=API_BASE="$BACKEND_PROXY"

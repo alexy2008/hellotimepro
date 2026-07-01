@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# 启动 HelloTime Pro · iOS 原生（模拟器）。
+#
+# 纯原生：无 Metro/无 dev server 端口 —— URLSession 直连后端。
+# 流程：令牌 codegen → xcodegen 生成工程 → xcodebuild 编译到模拟器 → 安装 → 前台启动。
+# 进程前台附着（--console-pty），hello 据进程存活判活；后端默认 :9080（BACKEND_PROXY 可覆盖）。
+#   IOS_SIM="iPhone 17" ./run     # 指定模拟器机型
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+export PATH="/opt/homebrew/bin:$PATH"
+
+if ! command -v xcodegen >/dev/null 2>&1; then
+  echo "需要 XcodeGen：brew install xcodegen" >&2
+  exit 1
+fi
+
+API_BASE="${BACKEND_PROXY:-http://127.0.0.1:9080}"
+DEVICE="${IOS_SIM:-iPhone 17 Pro Max}"
+
+[[ -f ../../scripts/gen-tokens-swift ]] && command -v node >/dev/null 2>&1 && node ../../scripts/gen-tokens-swift || true
+xcodegen generate --quiet
+
+echo "编译到模拟器（${DEVICE}，后端 → ${API_BASE}）…"
+xcodebuild build \
+  -project HelloTimePro.xcodeproj -scheme HelloTimePro \
+  -sdk iphonesimulator -destination "platform=iOS Simulator,name=${DEVICE}" \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO HT_API_BASE="${API_BASE}" | tail -2
+
+APP_DIR="$(xcodebuild -project HelloTimePro.xcodeproj -scheme HelloTimePro -sdk iphonesimulator \
+  -configuration Debug -showBuildSettings 2>/dev/null | awk -F' = ' '/ TARGET_BUILD_DIR /{print $2; exit}')"
+APP="${APP_DIR}/HelloTimePro.app"
+
+xcrun simctl boot "${DEVICE}" 2>/dev/null || true
+open -a Simulator
+xcrun simctl install booted "${APP}"
+echo "启动 app（前台附着，关窗/Ctrl-C 退出）…"
+exec xcrun simctl launch --console-pty --terminate-running-process booted pro.hellotime.ios

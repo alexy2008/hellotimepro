@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# 启动 HelloTime Pro · Flutter 原生桌面端（macOS）。
+#
+# 纯原生：无 webview、无内嵌前端、无 dev server 端口 —— Dart http 直连后端。
+# 与 electron/tauri 拉 Vite dev server 的做法根本不同；与 swiftui 同属纯原生。
+#
+# 后端 API 默认 :9080（hello switch 切换的反代），也可直连某后端：
+#   BACKEND_PROXY=http://127.0.0.1:29010 ./run
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+# Flutter 工具链（git clone 安装在 ~/development/flutter）。
+export PATH="$HOME/development/flutter/bin:$PATH"
+if ! command -v flutter >/dev/null 2>&1; then
+  echo "需要 Flutter SDK（~/development/flutter/bin 不在 PATH）。" >&2
+  exit 1
+fi
+
+BACKEND_PROXY="${BACKEND_PROXY:-http://127.0.0.1:9080}"
+
+# 设计令牌 codegen（保证 lib/theme/tokens.dart 与 spec/tokens/tokens.json 同源）。
+if command -v node >/dev/null 2>&1; then
+  node ../../scripts/gen-tokens-flutter
+fi
+
+echo "启动 Flutter 桌面窗口（后端 API → ${BACKEND_PROXY}）"
+# flutter run -d macos 前台运行：进程本身即 GUI app，hello 据此判活；关窗即退出。
+exec flutter run -d macos --dart-define=API_BASE="$BACKEND_PROXY"

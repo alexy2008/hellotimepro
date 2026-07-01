@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# 校验 Tauri 桌面壳：Rust 类型检查（cargo check）。
+#
+# 注：出 .app/.dmg/.exe 用 `npx tauri build`；需内嵌前端先 vite build。
+# 本脚本只做编译校验，不出安装包。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "需要 Rust 工具链（cargo），请先安装：https://rustup.rs" >&2
+  exit 1
+fi
+
+[[ -d node_modules ]] || npm install --silent
+echo "cargo check（首次会拉取并编译依赖，耗时数分钟）…"
+cargo check --manifest-path src-tauri/Cargo.toml
+echo "✓ Tauri 壳 Rust 编译校验通过"

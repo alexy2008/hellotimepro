@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "icons-128",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "5601", "."],
+      "port": 5601
+    },
+    {
       "name": "learning-guide",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-p", "5599", "learning-guide"],
@@ -30,6 +36,18 @@
       "runtimeExecutable": "./scripts/hello",
       "runtimeArgs": ["web", "--no-open", "--port", "9090"],
       "port": 9090
+    },
+    {
+      "name": "electron-renderer",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "VITE_DESKTOP_SHELL=electron BACKEND_PROXY=http://localhost:9080 npm --prefix frontends/react-ts run dev -- --port 7190 --strictPort"],
+      "port": 7190
+    },
+    {
+      "name": "tauri-renderer",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "VITE_DESKTOP_SHELL=tauri BACKEND_PROXY=http://localhost:9080 npm --prefix frontends/svelte run dev -- --port 7191 --strictPort"],
+      "port": 7191
     }
   ]
 }

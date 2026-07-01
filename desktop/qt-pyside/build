@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# 构建校验 HelloTime Pro · Qt/PySide6 桌面端：令牌 codegen + 依赖同步 + 字节编译 + qmllint。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "需要 uv，请先安装：https://docs.astral.sh/uv/" >&2
+  exit 1
+fi
+
+echo "==> 令牌 codegen"
+node ../../scripts/gen-tokens-qt
+
+echo "==> uv sync"
+uv sync --quiet
+
+echo "==> Python 字节编译（语法检查）"
+uv run python -m compileall -q app
+
+echo "==> 导入校验（模块可加载）"
+uv run python -c "import sys; sys.path.insert(0,'app'); import main, api_client, bridge, worker; from stores import theme, auth, plaza, capsule; print('imports OK')"
+
+echo "==> qmllint（context property 的 Unqualified access 警告为预期，仅看真错误）"
+# 捕获全部输出后单独判 Error：qmllint 对警告也返回非零，故 || true 兜底，再按 Error: 决定成败。
+QMLLINT_OUT="$(uv run pyside6-qmllint app/qml/*.qml app/qml/components/*.qml app/qml/pages/*.qml 2>&1 || true)"
+if echo "$QMLLINT_OUT" | grep -E "Error:"; then
+  echo "✗ qmllint 发现 Error 级问题，构建校验失败" >&2
+  exit 1
+fi
+echo "  无 Error 级问题"
+
+echo "✅ Qt/PySide6 桌面端构建校验通过"

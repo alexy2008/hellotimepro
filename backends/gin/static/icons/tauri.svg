@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Tauri">
+  <rect width="24" height="24" rx="3" fill="#16161f"/>
+  <g fill="none" stroke-width="1.7" stroke-linecap="round">
+    <path d="M6 12a6 6 0 0 1 12 0" stroke="#ffc131"/>
+    <path d="M18 12a6 6 0 0 1-12 0" stroke="#24c8db"/>
+  </g>
+  <circle cx="9" cy="12" r="1.5" fill="#ffc131"/>
+  <circle cx="15" cy="12" r="1.5" fill="#24c8db"/>
+</svg>

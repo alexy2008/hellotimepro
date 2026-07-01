@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { Alert } from "@/components/Alert";
+import { desktopShell } from "@/utils/desktop";
 import type { HealthData, StackItem } from "@/types";
 
 const FRONTEND_STACK: StackItem[] = [
@@ -8,6 +9,19 @@ const FRONTEND_STACK: StackItem[] = [
   { role: "language",  name: "TypeScript",   version: "5",  iconUrl: "/static/icons/typescript.svg" },
   { role: "styling",   name: "Tailwind CSS", version: "4",  iconUrl: "/static/icons/tailwindcss.svg" },
 ];
+
+// 仅在被 desktop/electron 内嵌时展示（见 utils/desktop）。
+const DESKTOP_STACK: StackItem[] = [
+  { role: "shell",   name: "Electron", version: "33", iconUrl: "/desktop-icons/electron.svg" },
+  { role: "runtime", name: "Node.js",  version: "",   iconUrl: "/desktop-icons/nodejs.svg" },
+];
+
+const DESKTOP_SUMMARY =
+  "本页运行在 Electron 桌面壳内：壳层自带一份 Chromium 渲染引擎，用 Node.js 编写主进程，" +
+  "通过 IPC + preload contextBridge 与渲染层通信，并提供原生菜单 / 保存对话框等系统能力。" +
+  "桌面壳本身不持有 API，仍复用同一套 /api/v1 契约，内嵌的正是这套 React 前端——" +
+  "即桌面端技术栈 = Electron 壳（自带 Chromium + Node.js）+ React 渲染层。" +
+  "与之对照的 Tauri 桌面端则用系统 WebView + Rust 壳内嵌 Svelte 前端。";
 
 const FRONTEND_SUMMARY =
   "基于 React + TypeScript + Vite 核心骨架，选用 React Router 控制路由与守卫机制，" +
@@ -61,6 +75,7 @@ export function AboutPage() {
     : [];
 
   const backendFramework = health?.stack.items.find((it) => it.role === "framework")?.name ?? "—";
+  const shell = desktopShell();
 
   return (
     <main
@@ -81,6 +96,21 @@ export function AboutPage() {
         支持胶囊广场浏览、AI 辅助创作、收藏与账户管理。同时也是一个多技术栈对比学习项目，
         同一份产品需求由多套前后端框架各自实现，共享同一份 API 契约、数据库 schema 与设计 token。
       </p>
+
+      {/* 桌面端技术栈（仅在 Electron 壳内显示） */}
+      {shell === "electron" && (
+        <section style={{ marginBottom: "var(--space-10)" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--font-size-2xl)", margin: "0 0 var(--space-5)" }}>
+            桌面端技术栈
+          </h2>
+          <div className="cy-card" style={{ padding: "var(--space-6)" }}>
+            <IconRow items={DESKTOP_STACK} />
+            <p style={{ margin: 0, color: "var(--color-text-secondary)", lineHeight: "var(--line-height-relaxed)" }}>
+              {DESKTOP_SUMMARY}
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* 前端技术栈 */}
       <section style={{ marginBottom: "var(--space-10)" }}>
@@ -117,6 +147,7 @@ export function AboutPage() {
 
       {/* 底部元信息 */}
       <div style={{ padding: "var(--space-4) 0", borderTop: "1px solid var(--color-border-subtle)", color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", display: "flex", gap: "var(--space-6)", flexWrap: "wrap" }}>
+        {shell === "electron" && <span>桌面壳：<code>Electron</code></span>}
         <span>前端：<code>React + TypeScript</code></span>
         <span>后端：<code>{backendFramework}</code></span>
         <span>License: MIT</span>

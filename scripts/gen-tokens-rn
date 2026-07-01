@@ -1,0 +1,121 @@
+#!/usr/bin/env node
+// ============================================================
+// gen-tokens-rn · 设计令牌跨端 codegen（React Native / JS 目标）
+//
+// 读 spec/tokens/tokens.json（由 spec/styles/tokens.css 派生的事实源），
+// 扁平化生成强类型的 mobile/react-native/src/theme/tokens.ts。
+//
+// 这是 roadmap M5.1「设计令牌跨端 codegen」管线在最便宜的 JS 目标上的落地：
+// RN 吃不了 CSS 变量，但 tokens.json 本就是 JS 友好的形状，直接转译即可。
+//
+// 转换规则（CSS 值 → RN 可消费值）：
+//   - rem  → px 数字（1rem = 16px）
+//   - px   → 去单位数字
+//   - 颜色 hex / rgba(...) 字符串原样保留（RN 支持）
+//   - 渐变 linear-gradient(...) 原样保留为字符串，由 theme/index.ts 解析成色组
+//   - lineHeight 保留为倍率（RN 用时再 × fontSize）
+//
+// 产物头部标注「自动生成，勿手改」；重新生成后 git diff 应为空（同源保证）。
+// 用法：node scripts/gen-tokens-rn  （或 npm --prefix mobile/react-native run gen:tokens）
+// ============================================================
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const REPO_ROOT = path.resolve(__dirname, "..");
+const SRC = path.join(REPO_ROOT, "spec", "tokens", "tokens.json");
+const OUT = path.join(
+  REPO_ROOT,
+  "mobile",
+  "react-native",
+  "src",
+  "theme",
+  "tokens.ts",
+);
+
+const REM_PX = 16;
+
+/** "1rem" → 16 ; "8px" → 8 ; "0" → 0 ; 数字原样。 */
+function toPx(value) {
+  if (typeof value === "number") return value;
+  const v = String(value).trim();
+  if (v === "0") return 0;
+  if (v.endsWith("rem")) return Math.round(parseFloat(v) * REM_PX * 1000) / 1000;
+  if (v.endsWith("px")) return parseFloat(v);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+}
+
+function mapValues(obj, fn) {
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fn(v)]));
+}
+
+function jsKey(k) {
+  // 数字键（如 "2xl"、"500"、"0"）需带引号
+  return /^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k);
+}
+
+/** 递归把对象序列化为 TS 字面量（2 空格缩进）。 */
+function serialize(value, indent = 0) {
+  const pad = "  ".repeat(indent);
+  const padIn = "  ".repeat(indent + 1);
+  if (value === null) return "null";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "boolean") return String(value);
+  const entries = Object.entries(value);
+  if (entries.length === 0) return "{}";
+  const body = entries
+    .map(([k, v]) => `${padIn}${jsKey(k)}: ${serialize(v, indent + 1)},`)
+    .join("\n");
+  return `{\n${body}\n${pad}}`;
+}
+
+function main() {
+  const raw = JSON.parse(fs.readFileSync(SRC, "utf8"));
+
+  const out = {
+    semantic: raw.semantic, // 颜色 / 渐变字符串原样
+    typography: {
+      fontFamily: raw.typography.fontFamily,
+      fontSize: mapValues(raw.typography.fontSize, toPx),
+      lineHeight: raw.typography.lineHeight, // 倍率
+      fontWeight: mapValues(raw.typography.fontWeight, (v) => String(v)),
+    },
+    space: mapValues(raw.space, toPx),
+    radius: mapValues(raw.radius, toPx),
+    shadow: raw.shadow, // 原始字符串，glow 由 theme helper 解析
+    layout: mapValues(raw.layout, toPx),
+    motion: {
+      duration: mapValues(raw.motion.duration, (v) => parseInt(v, 10)),
+      easing: raw.motion.easing,
+    },
+    zIndex: raw.zIndex,
+    breakpoint: mapValues(raw.breakpoint, toPx),
+  };
+
+  const header = `// ============================================================
+// 自动生成 · 请勿手改 (AUTO-GENERATED — DO NOT EDIT)
+//
+// 由 scripts/gen-tokens-rn 从 spec/tokens/tokens.json 生成。
+// 重新生成：node scripts/gen-tokens-rn
+// 源（事实源）：spec/styles/tokens.css → spec/tokens/tokens.json
+//
+// rem 已折算为 px 数字（1rem=16px）；颜色/渐变保留原字符串。
+// 消费入口见 src/theme/index.ts。
+// ============================================================
+`;
+
+  const body = `export const tokens = ${serialize(out)} as const;\n\nexport type Tokens = typeof tokens;\nexport type ThemeMode = keyof Tokens["semantic"]; // "dark" | "light"\n`;
+
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, header + "\n" + body, "utf8");
+  console.log(
+    `✅ tokens.ts 已生成：${path.relative(REPO_ROOT, OUT)}（源：${path.relative(
+      REPO_ROOT,
+      SRC,
+    )}）`,
+  );
+}
+
+main();

@@ -1,0 +1,71 @@
+# Maestro 核心旅程：注册 → 建胶囊 → 看详情 → 收藏 → 我的列表。
+# 对应 roadmap「原生-E2E：核心旅程子集（登录→建胶囊→开启→收藏）」。
+#
+# 运行前提：
+#   1. 后端 + 反代在 :9080（./scripts/hello switch <backend>），并 ./scripts/db init
+#   2. Metro 在 :7192（./scripts/hello start react-native 或 cd mobile/react-native && ./run）
+#   3. iOS 模拟器已启动，且本工程在其中可加载：
+#        - Expo Go 路径（默认）：appId=host.exp.Exponent，下方 openLink 载入工程
+#        - dev-client / standalone：MAESTRO_APP_ID=pro.hellotime.rn maestro test ...
+#          （此时可删 openLink 行；需先 expo run:ios 出原生构建）
+# 运行：
+#   maestro test mobile/react-native/.maestro/core-journey.yaml
+appId: ${MAESTRO_APP_ID}
+env:
+  MAESTRO_APP_ID: host.exp.Exponent
+---
+- evalScript: ${output.email = 'rn' + Date.now() + '@e2e.test'}
+- launchApp
+# Expo Go 载入工程（dev-client/standalone 可删此行）
+- openLink: exp://127.0.0.1:7192
+- assertVisible: "胶囊广场"
+
+# 进入创建（未登录）→ 被门禁导到登录
+- tapOn: "创建"
+- assertVisible: "欢迎回来"
+
+# 去注册
+- tapOn: "立即注册"
+- assertVisible: "注册新身份"
+- tapOn:
+    id: "reg-email"
+- inputText: ${output.email}
+- tapOn:
+    id: "reg-nickname"
+- inputText: "RN旅程"
+- tapOn:
+    id: "reg-password"
+- inputText: "hello1234"
+- hideKeyboard
+- tapOn:
+    id: "reg-submit"
+
+# 落到创建页
+- assertVisible: "写给未来的信"
+- tapOn:
+    id: "create-title"
+- inputText: "E2E 时光胶囊"
+- tapOn:
+    id: "create-content"
+- inputText: "来自 Maestro 的核心旅程测试"
+- hideKeyboard
+- tapOn: "1 分钟后（测试）"
+- tapOn:
+    id: "create-submit"
+
+# 详情页：标题 + 未开启徽标
+- assertVisible: "E2E 时光胶囊"
+- assertVisible: "未开启"
+
+# 收藏（详情页 md 收藏按钮）
+- tapOn:
+    text: "收藏.*"
+
+# 我的：昵称 + 我创建的列表含该胶囊
+- tapOn: "我的"
+- assertVisible: "RN旅程"
+- assertVisible: "E2E 时光胶囊"
+
+# 回广场（公开胶囊可见）
+- tapOn: "广场"
+- assertVisible: "胶囊广场"

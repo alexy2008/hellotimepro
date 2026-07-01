@@ -1,0 +1,269 @@
+#!/usr/bin/env node
+// ============================================================
+// gen-tokens-flutter · 设计令牌跨端 codegen（Flutter / Dart 目标）
+//
+// 读 spec/tokens/tokens.json（由 spec/styles/tokens.css 派生的事实源），
+// 生成强类型的 desktop/flutter/lib/theme/tokens.dart。
+//
+// 这是 roadmap M5.1「设计令牌跨端 codegen」管线的 Dart 目标落地
+// （继 gen-tokens-rn 之后）。Dart 吃不了 CSS 变量，但能消费 const Color /
+// LinearGradient / double，故在生成期把 CSS 值翻译成 Dart 字面量。
+//
+// 转换规则（CSS 值 → Dart）：
+//   - #rrggbb / #rgb        → Color(0xFFRRGGBB)
+//   - rgb()/rgba()          → Color.fromRGBO(r, g, b, a)
+//   - linear-gradient(...)  → LinearGradient(begin/end + colors[+stops])
+//   - 阴影/辉光 "0 0 Npx rgba()" → 同名 Color 字段 + <名>Blur(double)
+//   - rem                   → px double（1rem = 16px）；px → 去单位 double
+//   - fontWeight 数字        → FontWeight.wNNN
+//   - fontFamily CSS 栈      → List<String>（去引号，作 fontFamilyFallback）
+//
+// 两套主题（dark/light）键完全一致 → 同一字段清单生成 class + 两个 const 实例。
+// 产物头部标注「自动生成，勿手改」；重新生成后 git diff 应为空（同源保证）。
+// 用法：node scripts/gen-tokens-flutter
+// ============================================================
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const REPO_ROOT = path.resolve(__dirname, "..");
+const SRC = path.join(REPO_ROOT, "spec", "tokens", "tokens.json");
+const OUT = path.join(REPO_ROOT, "desktop", "flutter", "lib", "theme", "tokens.dart");
+const REM_PX = 16;
+
+// ---------- 数值 ----------
+function toPx(value) {
+  const v = String(value).trim();
+  if (v === "0") return 0;
+  if (v.endsWith("rem")) return Math.round(parseFloat(v) * REM_PX * 1000) / 1000;
+  if (v.endsWith("px")) return parseFloat(v);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+function dartNum(n) {
+  return Number.isInteger(n) ? `${n}` : `${n}`;
+}
+
+// ---------- 命名 ----------
+/** "capsule.sealed.glow" → "capsuleSealedGlow"；"surface.0" → "surface0"。 */
+function camel(dotted) {
+  const segs = dotted.split(".");
+  return segs
+    .map((s, i) => (i === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1)))
+    .join("");
+}
+
+// ---------- 颜色 ----------
+function hexToArgb(hex) {
+  let h = hex.replace("#", "").trim();
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  return `0xFF${h.toUpperCase()}`;
+}
+function colorToDart(v) {
+  const s = String(v).trim();
+  if (s.startsWith("#")) return `Color(${hexToArgb(s)})`;
+  const m = s.match(/rgba?\(([^)]+)\)/i);
+  if (m) {
+    const parts = m[1].split(",").map((x) => x.trim());
+    const [r, g, b] = parts;
+    const a = parts[3] !== undefined ? parts[3] : "1";
+    return `Color.fromRGBO(${r}, ${g}, ${b}, ${a})`;
+  }
+  throw new Error(`无法解析颜色: ${v}`);
+}
+
+// ---------- 渐变 ----------
+/** CSS 角度（0=向上, 90=向右, 135=右下, 180=向下）→ begin/end Alignment。 */
+function angleAlign(deg) {
+  const map = {
+    0: ["Alignment.bottomCenter", "Alignment.topCenter"],
+    90: ["Alignment.centerLeft", "Alignment.centerRight"],
+    135: ["Alignment.topLeft", "Alignment.bottomRight"],
+    180: ["Alignment.topCenter", "Alignment.bottomCenter"],
+    225: ["Alignment.topRight", "Alignment.bottomLeft"],
+  };
+  return map[deg] || ["Alignment.topLeft", "Alignment.bottomRight"];
+}
+function gradientToDart(v) {
+  const inner = String(v).match(/linear-gradient\((.*)\)\s*$/is)[1];
+  // 切分顶层逗号（rgba() 内的逗号不算）
+  const parts = [];
+  let depth = 0, cur = "";
+  for (const ch of inner) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) { parts.push(cur.trim()); cur = ""; }
+    else cur += ch;
+  }
+  if (cur.trim()) parts.push(cur.trim());
+
+  let begin = "Alignment.topLeft", end = "Alignment.bottomRight";
+  let stopList = parts;
+  if (/deg$/.test(parts[0])) {
+    const deg = parseInt(parts[0], 10);
+    [begin, end] = angleAlign(deg);
+    stopList = parts.slice(1);
+  }
+  const colors = [];
+  const stops = [];
+  let hasStops = true;
+  for (const stop of stopList) {
+    const pm = stop.match(/\s(-?[\d.]+)%\s*$/);
+    let colStr = stop;
+    if (pm) { stops.push(Math.round((parseFloat(pm[1]) / 100) * 1000) / 1000); colStr = stop.slice(0, pm.index).trim(); }
+    else hasStops = false;
+    colors.push(colorToDart(colStr));
+  }
+  const colorsLit = `colors: [${colors.join(", ")}]`;
+  const stopsLit = hasStops && stops.length === colors.length ? `, stops: [${stops.map(dartNum).join(", ")}]` : "";
+  return `LinearGradient(begin: ${begin}, end: ${end}, ${colorsLit}${stopsLit})`;
+}
+
+// ---------- 阴影/辉光 ----------
+function isShadow(v) {
+  return /^-?[\d.]+\s+-?[\d.]+\s+[\d.]+px/.test(String(v).trim());
+}
+function shadowToDart(v) {
+  const s = String(v).trim();
+  const blur = parseFloat(s.match(/[\d.]+px/)[0]);
+  const color = colorToDart(s.match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}/)[0]);
+  return { color, blur };
+}
+
+// ---------- 叶子分类 ----------
+function classify(v) {
+  const s = String(v).trim();
+  if (s.startsWith("linear-gradient(")) return "gradient";
+  if (isShadow(s)) return "shadow";
+  return "color";
+}
+
+// ---------- 扁平化 ----------
+function* flatten(obj, prefix = "") {
+  for (const [k, val] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (val && typeof val === "object" && !Array.isArray(val)) yield* flatten(val, key);
+    else yield [key, val];
+  }
+}
+
+// ---------- 字体栈 ----------
+function fontList(css) {
+  return css.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
+}
+function dartStrList(arr) {
+  return `[${arr.map((s) => JSON.stringify(s)).join(", ")}]`;
+}
+
+function main() {
+  const raw = JSON.parse(fs.readFileSync(SRC, "utf8"));
+  const darkLeaves = [...flatten(raw.semantic.dark)];
+
+  // 依据 dark 推导字段清单（light 键一致）
+  const fields = []; // {name, kind}
+  for (const [dotted, v] of darkLeaves) {
+    const name = camel(dotted);
+    const kind = classify(v);
+    if (kind === "shadow") {
+      fields.push({ name, kind: "shadowColor" });
+      fields.push({ name: `${name}Blur`, kind: "shadowBlur" });
+    } else {
+      fields.push({ name, kind });
+    }
+  }
+
+  const dartTypeOf = (kind) =>
+    kind === "gradient" ? "LinearGradient" : kind === "shadowBlur" ? "double" : "Color";
+
+  // class 字段声明
+  const fieldDecls = fields.map((f) => `  final ${dartTypeOf(f.kind)} ${f.name};`).join("\n");
+  const ctorParams = fields.map((f) => `    required this.${f.name},`).join("\n");
+
+  // 单主题 → 构造实参
+  function instance(mode) {
+    const leaves = [...flatten(raw.semantic[mode])];
+    const byName = new Map();
+    for (const [dotted, v] of leaves) {
+      const name = camel(dotted);
+      const kind = classify(v);
+      if (kind === "gradient") byName.set(name, gradientToDart(v));
+      else if (kind === "shadow") {
+        const { color, blur } = shadowToDart(v);
+        byName.set(name, color);
+        byName.set(`${name}Blur`, dartNum(blur));
+      } else byName.set(name, colorToDart(v));
+    }
+    const args = fields.map((f) => `    ${f.name}: ${byName.get(f.name)},`).join("\n");
+    return `const SemanticColors ${mode}Colors = SemanticColors(\n${args}\n);`;
+  }
+
+  // 尺寸（主题无关）
+  const space = Object.entries(raw.space).map(([k, v]) => `  static const double s${k} = ${dartNum(toPx(v))};`).join("\n");
+  const radius = Object.entries(raw.radius)
+    .map(([k, v]) => `  static const double radius${k.charAt(0).toUpperCase() + k.slice(1)} = ${dartNum(toPx(v))};`)
+    .join("\n");
+  const fsKey = (k) => "fs" + k.charAt(0).toUpperCase() + k.slice(1);
+  const fontSize = Object.entries(raw.typography.fontSize).map(([k, v]) => `  static const double ${fsKey(k)} = ${dartNum(toPx(v))};`).join("\n");
+  const layout = Object.entries(raw.layout).map(([k, v]) => `  static const double ${k} = ${dartNum(toPx(v))};`).join("\n");
+
+  const weights = Object.entries(raw.typography.fontWeight)
+    .map(([k, v]) => `  static const FontWeight ${k} = FontWeight.w${v};`)
+    .join("\n");
+  const families = ["sans", "mono", "display"]
+    .map((k) => `  static const List<String> ${k} = ${dartStrList(fontList(raw.typography.fontFamily[k]))};`)
+    .join("\n");
+
+  const out = `// ============================================================
+// 自动生成 · 请勿手改 (AUTO-GENERATED — DO NOT EDIT)
+//
+// 由 scripts/gen-tokens-flutter 从 spec/tokens/tokens.json 生成。
+// 重新生成：node scripts/gen-tokens-flutter
+// 源（事实源）：spec/styles/tokens.css → spec/tokens/tokens.json
+//
+// rem 已折算为 px double（1rem=16px）；颜色→Color、渐变→LinearGradient、
+// 辉光→Color + <名>Blur。消费入口见 lib/theme/app_theme.dart。
+// ============================================================
+
+import 'package:flutter/material.dart';
+
+/// 间距 / 圆角 / 字号 / 布局（主题无关 px 常量）。
+class AppSize {
+  AppSize._();
+${space}
+
+${radius}
+
+${fontSize}
+
+${layout}
+}
+
+/// 字体族（fallback 列表）与字重。
+class AppFont {
+  AppFont._();
+${families}
+
+${weights}
+}
+
+/// 语义色板（每主题一套；字段由 codegen 生成）。
+@immutable
+class SemanticColors {
+${fieldDecls}
+
+  const SemanticColors({
+${ctorParams}
+  });
+}
+
+${instance("dark")}
+
+${instance("light")}
+`;
+
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, out, "utf8");
+  console.log(`✅ tokens.dart 已生成：${path.relative(REPO_ROOT, OUT)}（源：${path.relative(REPO_ROOT, SRC)}）`);
+}
+
+main();

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from "@/api/client";
+  import { desktopStack } from "@/utils/desktop";
   import type { HealthData } from "@/types";
 
   const FRONTEND_ITEMS = [
@@ -7,6 +8,9 @@
     { role: "frontend-language", name: "TypeScript", iconUrl: "/static/icons/typescript.svg" },
     { role: "frontend-styling", name: "Tailwind CSS", iconUrl: "/static/icons/tailwindcss.svg" },
   ];
+
+  // 被 desktop/tauri 内嵌时追加桌面壳技术栈；独立浏览器运行时为空。
+  const DESKTOP_ITEMS = desktopStack();
 
   let health = $state<HealthData | null>(null);
   let connected = $state<boolean | null>(null);
@@ -42,6 +46,12 @@
       <span class={dotClass} title={dotTitle}></span>
     </div>
     <div class="cy-stack">
+      {#each DESKTOP_ITEMS as it (it.role)}
+        <span class="cy-stack__item" title={it.role}>
+          <img src={it.iconUrl} alt="" />
+          {it.name}
+        </span>
+      {/each}
       {#each FRONTEND_ITEMS as it (it.role)}
         <span class="cy-stack__item" title={it.role}>
           <img src={it.iconUrl} alt="" />

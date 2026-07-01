@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import type { HealthData } from "@/types";
+import { desktopStack } from "@/utils/desktop";
 
 const FRONTEND_ITEMS = [
   { role: "frontend-framework", name: "React", iconUrl: "/static/icons/react.svg" },
   { role: "frontend-language", name: "TypeScript", iconUrl: "/static/icons/typescript.svg" },
   { role: "frontend-styling", name: "Tailwind CSS", iconUrl: "/static/icons/tailwindcss.svg" },
 ];
+
+// 被 desktop/electron 内嵌时追加桌面壳技术栈；独立浏览器运行时为空。
+const DESKTOP_ITEMS = desktopStack();
 
 export function AppFooter() {
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -51,6 +55,12 @@ export function AppFooter() {
           />
         </div>
         <div className="cy-stack">
+          {DESKTOP_ITEMS.map((it) => (
+            <span key={it.role} className="cy-stack__item" title={it.role}>
+              <img src={it.iconUrl} alt="" />
+              {it.name}
+            </span>
+          ))}
           {FRONTEND_ITEMS.map((it) => (
             <span key={it.role} className="cy-stack__item" title={it.role}>
               <img src={it.iconUrl} alt="" />

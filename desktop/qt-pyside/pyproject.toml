@@ -1,0 +1,11 @@
+[project]
+name = "hellotime-pro-qt-pyside"
+version = "0.1.0"
+description = "HelloTime Pro · Qt Quick/QML + PySide6 桌面端（M5 桌面客户端，纯 API 消费者）"
+requires-python = ">=3.12"
+dependencies = [
+    "PySide6>=6.7",
+]
+
+[tool.uv]
+package = false

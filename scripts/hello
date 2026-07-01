@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 # ============================================================
-# HelloTime Pro · dev-manager v2（M0 骨架版）
+# HelloTime Pro · dev-manager v2
 #
 # 单文件、零 pip 依赖（仅使用 Python 3.11+ 标准库）。
-# M0 范围内实现 CLI 子命令：
+# CLI 子命令：
 #   hello doctor                  检查环境依赖
 #   hello status                  当前启动状态
-#   hello start <name>            启动一个实现
-#   hello stop <name>             停止一个实现
+#   hello start <name...>         启动一个或多个实现
+#   hello stop <name...>          停止一个或多个 hello 管理的实现
+#   hello stop-external <name...> 按端口停止外部启动的实现
 #   hello restart-all             重启所有已启动的实现
 #   hello switch <backend>        切换 :9080 代理目标
 #   hello logs <name> [-n 200]    查看尾部日志
 #   hello list                    显示所有已登记的实现
-#
-# Web UI（:9090）、真正的 TCP 代理与 HTMX 前端留到 M1 补齐。
 #
 # 实现原则：
 # - 没有实现时优雅退出，明确告知 "stack 已登记但目录不存在"
@@ -28,6 +27,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -74,8 +74,44 @@ FULLSTACKS = {
     "laravel":  {"dir": "fullstacks/laravel",     "port": 7182,  "runtime": "php"},
 }
 
+# 桌面 / 移动客户端：纯 API 消费者，复用后端契约（不持有 /api/v1）。
+# Web 背书型（electron/tauri）dev 模式拉起内嵌前端的 Vite dev server，
+# 探端口即就绪；端口取 7190–7199 段，避开前端 SPA 端口。
+# 纯原生型（swiftui / flutter）无 webview、无 dev server 端口 → port=None：
+# op_start 跳过端口探测，改以进程存活判就绪；Dart http / URLSession 直连 :9080。
+DESKTOP = {
+    "electron": {"dir": "desktop/electron",       "port": 7190,  "runtime": "node"},
+    "tauri":    {"dir": "desktop/tauri",          "port": 7191,  "runtime": "rust"},
+    "swiftui":  {"dir": "desktop/swiftui",        "port": None,  "runtime": "swift"},
+    "flutter":  {"dir": "desktop/flutter",        "port": None,  "runtime": "flutter"},
+    "qt-pyside": {"dir": "desktop/qt-pyside",     "port": None,  "runtime": "python"},
+}
+
+# 移动客户端：纯 API 消费者，复用后端契约。
+# react-native（Expo）dev 模式下 `./run` 拉起 Metro dev server（端口 7192），
+# 探端口即就绪（同 electron/tauri 模型）；在模拟器上打开 App 是独立动作（./run ios）。
+# RN 无 Vite 代理，fetch 直连 :9080（EXPO_PUBLIC_API_BASE 可覆盖）。
+# ios（SwiftUI 原生）无 Metro/dev server → port=None：`./run` 编译+装+前台启动模拟器 app，
+# 以 run 进程存活判就绪（同 swiftui 桌面端）；URLSession 直连 :9080。
+MOBILE = {
+    "react-native":   {"dir": "mobile/react-native", "port": 7192, "runtime": "node"},
+    "ios":            {"dir": "mobile/ios",          "port": None, "runtime": "xcode"},
+    # flutter-mobile 与 desktop/flutter 是同一份工程（一码多端）：mobile/flutter 仅提供移动
+    # 运行入口（./run = flutter run -d iOS 模拟器），代码在 ../../desktop/flutter，靠 MediaQuery
+    # 宽窄分支切两套 IA。port=None → 前台进程判活（同 ios/桌面 flutter），Dart http 直连 :9080。
+    "flutter-mobile": {"dir": "mobile/flutter",      "port": None, "runtime": "flutter"},
+}
+
 PROXY_PORT = 9080
 WEBUI_PORT = 9090
+
+ALIASES = {
+    "spring-boot": "spring",
+    "react-ts": "react",
+    "vue3-ts": "vue",
+    "svelte-ts": "svelte",
+    "solid-ts": "solid",
+}
 
 # --------------------------------------------------------------
 # 终端颜色（无依赖，支持 NO_COLOR）
@@ -94,6 +130,16 @@ def dim(s):    return c("2",  s)
 def bold(s):   return c("1",  s)
 def cyan(s):   return c("36", s)
 
+def _fmt_kb(kb: int | None) -> str:
+    if kb is None:
+        return "-"
+    if kb < 1024:
+        return f"{kb}K"
+    mb = kb / 1024
+    if mb < 1024:
+        return f"{mb:.1f}M"
+    return f"{mb / 1024:.2f}G"
+
 # --------------------------------------------------------------
 # 实现登记
 # --------------------------------------------------------------
@@ -106,9 +152,17 @@ def all_stacks() -> dict:
         merged[k] = {**v, "kind": "frontend"}
     for k, v in FULLSTACKS.items():
         merged[k] = {**v, "kind": "fullstack"}
+    for k, v in DESKTOP.items():
+        merged[k] = {**v, "kind": "desktop"}
+    for k, v in MOBILE.items():
+        merged[k] = {**v, "kind": "mobile"}
     return merged
 
+def canonical_name(name: str) -> str:
+    return ALIASES.get(name, name)
+
 def resolve_stack(name: str) -> Optional[dict]:
+    name = canonical_name(name)
     stacks = all_stacks()
     if name in stacks:
         return {"name": name, **stacks[name]}
@@ -211,19 +265,139 @@ def _build_db_url(driver: str, cfg: DbConfig, target: str | None = None) -> str:
         return f"sqlite:///{path}"
     return f"postgresql://{cfg.pg_user}:{cfg.pg_pass}@{cfg.pg_host}:{cfg.pg_port}/{cfg.pg_db}"
 
+def _pid_stat(pid: int) -> str:
+    try:
+        out = subprocess.run(
+            ["ps", "-o", "stat=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=1,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
 def is_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
-        return True
     except (OSError, ProcessLookupError):
         return False
+    stat = _pid_stat(pid)
+    if stat and "Z" in stat[:3]:
+        return False
+    return True
+
+def _tcp_probe(port: int | None, host: str = "127.0.0.1", timeout: float = 0.25) -> bool:
+    if port is None:
+        return False
+    try:
+        with socket.create_connection((host, int(port)), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+def wait_for_port(port: int | None, *, timeout: float = 15.0, host: str = "127.0.0.1") -> bool:
+    deadline = time.time() + max(0.0, timeout)
+    while time.time() <= deadline:
+        if _tcp_probe(port, host=host, timeout=0.2):
+            return True
+        time.sleep(0.2)
+    return _tcp_probe(port, host=host, timeout=0.2)
+
+def _process_table() -> dict[int, dict]:
+    """Return pid -> {pgid, cpu_percent, rss_kb, stat} from a single ps scan."""
+    try:
+        out = subprocess.run(
+            ["ps", "-axo", "pid=,pgid=,%cpu=,rss=,stat="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except Exception:
+        return {}
+    rows = {}
+    for line in out.stdout.splitlines():
+        parts = line.split(None, 4)
+        if len(parts) < 5:
+            continue
+        try:
+            pid = int(parts[0])
+            rows[pid] = {
+                "pgid": int(parts[1]),
+                "cpu_percent": float(parts[2]),
+                "rss_kb": int(parts[3]),
+                "stat": parts[4],
+            }
+        except ValueError:
+            continue
+    return rows
+
+def _listener_pids(port: int | None) -> list[int]:
+    if port is None:
+        return []
+    try:
+        out = subprocess.run(
+            ["lsof", "-ti", f"TCP:{port}", "-sTCP:LISTEN"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        return [int(p) for p in out.stdout.split() if p.strip().isdigit()]
+    except Exception:
+        return []
+
+def _resource_usage_for_pid(pid: int | None, proc_table: dict[int, dict]) -> dict:
+    if pid is None or pid not in proc_table:
+        return {"cpu_percent": None, "memory_rss_kb": None, "process_count": 0}
+    root = proc_table[pid]
+    pgid = root["pgid"]
+    members = [
+        row for row in proc_table.values()
+        if row["pgid"] == pgid and "Z" not in row["stat"][:3]
+    ]
+    return {
+        "cpu_percent": round(sum(row["cpu_percent"] for row in members), 1),
+        "memory_rss_kb": sum(row["rss_kb"] for row in members),
+        "process_count": len(members),
+    }
+
+def _resource_usage_for_port(port: int | None, proc_table: dict[int, dict]) -> dict:
+    pids = _listener_pids(port)
+    if not pids:
+        return {"cpu_percent": None, "memory_rss_kb": None, "process_count": 0}
+    seen_pgids = set()
+    cpu = 0.0
+    rss = 0
+    count = 0
+    for pid in pids:
+        if pid not in proc_table:
+            continue
+        pgid = proc_table[pid]["pgid"]
+        if pgid in seen_pgids:
+            continue
+        seen_pgids.add(pgid)
+        usage = _resource_usage_for_pid(pid, proc_table)
+        if usage["cpu_percent"] is not None:
+            cpu += usage["cpu_percent"]
+            rss += usage["memory_rss_kb"] or 0
+            count += usage["process_count"]
+    return {
+        "cpu_percent": round(cpu, 1) if count else None,
+        "memory_rss_kb": rss if count else None,
+        "process_count": count,
+    }
 
 def sweep_dead(state: State) -> None:
     """清理已死亡进程。"""
     dead = [name for name, p in state.processes.items() if not is_alive(p.pid)]
     for name in dead:
         del state.processes[name]
-    if dead:
+    proxy_dead = state.proxy_pid is not None and not is_alive(state.proxy_pid)
+    if proxy_dead:
+        state.proxy_pid = None
+    if dead or proxy_dead:
         state.save()
 
 # --------------------------------------------------------------
@@ -235,10 +409,12 @@ def cmd_list(args) -> int:
     header = f"  {'name':<12} {'kind':<10} {'port':<6} {'runtime':<8} {'dir'}"
     print(dim(header))
     print(dim("  " + "-" * (len(header) - 2)))
-    for name, info in sorted(stacks.items(), key=lambda x: (x[1]["kind"], x[1]["port"])):
+    for name, info in sorted(stacks.items(),
+                             key=lambda x: (x[1]["kind"], x[1]["port"] if x[1]["port"] is not None else 99999)):
         exists = (ROOT / info["dir"]).exists()
         mark = green("●") if exists else dim("○")
-        print(f"  {mark} {name:<10} {info['kind']:<10} {info['port']:<6} {info['runtime']:<8} {info['dir']}")
+        port_s = str(info["port"]) if info["port"] is not None else "-"
+        print(f"  {mark} {name:<10} {info['kind']:<10} {port_s:<6} {info['runtime']:<8} {info['dir']}")
     print()
     print(dim("  ● = 目录存在    ○ = 暂未实现"))
     return 0
@@ -270,8 +446,6 @@ def probe(cmd: str, *, version_flag: str = "--version") -> tuple[bool, str]:
 
 def cmd_doctor(args) -> int:
     checks = [
-        ("Docker",      "docker"),
-        ("Docker Compose", "docker"),  # 用 docker compose 子命令，同一个 bin
         ("Python 3",    "python3"),
         ("Node.js",     "node"),
         ("Bun",         "bun"),
@@ -284,6 +458,8 @@ def cmd_doctor(args) -> int:
         ("Ruby",        "ruby"),
         ("PHP",         "php"),
         ("CMake",       "cmake"),
+        ("Flutter",     "flutter"),
+        ("XcodeGen",    "xcodegen"),
         ("psql",        "psql"),
     ]
     print(bold("\n环境依赖检查\n"))
@@ -296,21 +472,28 @@ def cmd_doctor(args) -> int:
         else:
             print(f"  {yellow('○')} {label:<16} {dim('未安装（仅在要跑对应栈时需要）')}")
 
-    # Postgres 容器可达性
+    # 当前数据库配置可达性。PostgreSQL 由本机配置管理，不默认探测 Docker。
     print()
-    pg_ok = False
-    try:
-        out = subprocess.run(
-            ["docker", "inspect", "-f", "{{.State.Running}}", "hellotime-pro-pg"],
-            capture_output=True, text=True, timeout=3,
-        )
-        if out.returncode == 0 and out.stdout.strip() == "true":
-            pg_ok = True
-            print(f"  {green('✓')} {'Postgres 容器':<16} {dim('运行中（hellotime-pro-pg）')}")
-        else:
-            print(f"  {yellow('○')} {'Postgres 容器':<16} {dim('未运行 · 试试: docker compose up -d postgres')}")
-    except Exception:
-        print(f"  {yellow('○')} {'Postgres 容器':<16} {dim('Docker 未就绪')}")
+    state = State.load()
+    db_ok = False
+    if state.db_driver == "sqlite":
+        sqlite_path = Path(_sqlite_path_for(None, state.db_config.sqlite_path))
+        try:
+            sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+            db_ok = sqlite_path.parent.exists() and os.access(sqlite_path.parent, os.W_OK)
+        except Exception:
+            db_ok = False
+        mark = green("✓") if db_ok else red("✗")
+        detail = str(sqlite_path.relative_to(ROOT)) if sqlite_path.is_relative_to(ROOT) else str(sqlite_path)
+        print(f"  {mark} {'SQLite 路径':<16} {dim(detail)}")
+    else:
+        cfg = state.db_config
+        db_ok = _tcp_probe(cfg.pg_port, host=cfg.pg_host, timeout=1.0)
+        mark = green("✓") if db_ok else red("✗")
+        detail = f"{cfg.pg_host}:{cfg.pg_port}/{cfg.pg_db} user={cfg.pg_user}"
+        print(f"  {mark} {'PostgreSQL 连接':<16} {dim(detail)}")
+        if not db_ok:
+            print(dim("    请在 Web UI 或 data/.hello-state.json 中确认本机 PostgreSQL 连接配置。"))
 
     # 目录检查
     print()
@@ -322,32 +505,49 @@ def cmd_doctor(args) -> int:
             print(f"  {red('✗')} {'目录 ' + sub:<16} {dim('缺失')}")
 
     print()
-    print(dim(f"  通过: {ok_count}/{len(checks)} 基础工具 + Postgres={'✓' if pg_ok else '○'}"))
+    print(dim(f"  通过: {ok_count}/{len(checks)} 基础工具 + DB={'✓' if db_ok else '✗'}"))
     print()
-    return 0 if ok_count >= 2 else 1
+    return 0 if ok_count >= 2 and db_ok else 1
 
 # --------------------------------------------------------------
 # 子命令：status
 # --------------------------------------------------------------
 def cmd_status(args) -> int:
-    state = State.load()
-    sweep_dead(state)
+    snap = op_snapshot()
 
     print(bold("\n当前状态\n"))
-    if not state.processes:
+    active = [s for s in snap["stacks"] if s["running"] or s["port_open"]]
+    if not active:
         print(dim("  （没有正在运行的实现）"))
     else:
-        print(dim(f"  {'name':<12} {'pid':<8} {'port':<6} {'uptime'}"))
-        print(dim("  " + "-" * 50))
-        now = time.time()
-        for name, p in state.processes.items():
-            dur = int(now - p.started_at)
-            uptime = f"{dur // 3600}h{(dur % 3600) // 60}m{dur % 60}s"
-            print(f"  {green('●')} {name:<10} {p.pid:<8} {p.port:<6} {uptime}")
+        print(dim(f"  {'name':<12} {'state':<10} {'pid':<8} {'port':<6} {'cpu':<7} {'mem':<8} {'uptime'}"))
+        print(dim("  " + "-" * 80))
+        for s in active:
+            dur = s["uptime_s"]
+            uptime = f"{dur // 3600}h{(dur % 3600) // 60}m{dur % 60}s" if s["running"] else "-"
+            label = {
+                "ready": green("ready"),
+                "starting": yellow("starting"),
+                "external": yellow("external"),
+            }.get(s["status"], dim(s["status"]))
+            pid = s["pid"] if s["pid"] is not None else "-"
+            if s["port"] is None:
+                port = "native"
+            else:
+                port = f":{s['port']}" if s["port_open"] else f":{s['port']}?"
+            cpu = f"{s['cpu_percent']:.1f}%" if s.get("cpu_percent") is not None else "-"
+            mem = _fmt_kb(s.get("memory_rss_kb"))
+            print(f"  {s['name']:<12} {label:<10} {str(pid):<8} {port:<6} {cpu:<7} {mem:<8} {uptime}")
 
     print()
-    print(f"  :{PROXY_PORT} 代理指向：{cyan(state.proxy_target or '（未设置）')}")
-    print(f"  DB_DRIVER   = {cyan(state.db_driver)}")
+    proxy = snap["proxy"]
+    if proxy["target"]:
+        proxy_state = green("可用") if proxy["ok"] else yellow("不可用")
+        target = f"{proxy['target']}(:{proxy['target_port']})"
+        print(f"  :{PROXY_PORT} 代理指向：{cyan(target)}  {proxy_state}")
+    else:
+        print(f"  :{PROXY_PORT} 代理指向：{cyan('（未设置）')}")
+    print(f"  DB_DRIVER   = {cyan(snap['db_driver'])}")
     print(f"  Web UI      = http://127.0.0.1:{WEBUI_PORT}  {dim('(hello web 启动)')}")
     print()
     return 0
@@ -357,17 +557,24 @@ def cmd_status(args) -> int:
 # --------------------------------------------------------------
 def op_start(name: str) -> dict:
     """启动一个实现，返回 {ok, code, msg, pid?, port?}。"""
+    requested = name
+    name = canonical_name(name)
     stacks = all_stacks()
     if name not in stacks:
-        return {"ok": False, "code": 2, "msg": f"未知实现: {name}"}
+        return {"ok": False, "code": 2, "msg": f"未知实现: {requested}"}
     info = stacks[name]
     state = State.load()
     sweep_dead(state)
 
     if name in state.processes:
         p = state.processes[name]
-        return {"ok": True, "code": 0, "msg": f"已经在运行 pid={p.pid}",
-                "pid": p.pid, "port": p.port, "already": True}
+        # 纯原生桌面端 port=None：以进程存活判就绪，不能用端口探测（否则恒为未就绪）
+        ready = is_alive(p.pid) if p.port is None else _tcp_probe(p.port)
+        msg = f"已经在运行 pid={p.pid}"
+        if not ready:
+            msg += "（端口未就绪）" if p.port is not None else "（进程已退出）"
+        return {"ok": True, "code": 0, "msg": msg,
+                "pid": p.pid, "port": p.port, "already": True, "ready": ready}
 
     stack_dir = ROOT / info["dir"]
     if not stack_dir.exists():
@@ -408,16 +615,50 @@ def op_start(name: str) -> dict:
     except Exception as e:
         return {"ok": False, "code": 5, "msg": f"启动失败: {e}"}
 
-    state.processes[name] = ProcessRecord(
+    rec = ProcessRecord(
         name=name, pid=proc.pid, port=info["port"],
         started_at=time.time(), log=str(log_path),
     )
+    state.processes[name] = rec
     state.save()
+    if info["port"] is None:
+        # 纯原生目标（如 swiftui）：无 dev server 端口，跳过端口探测，
+        # 以进程存活判就绪（run 脚本先 swift build 再前台 exec，全程进程在）。
+        time.sleep(1.0)
+        ready = is_alive(proc.pid)
+        if not ready:
+            state = State.load()
+            sweep_dead(state)
+            return {"ok": False, "code": 8,
+                    "msg": f"{name} 启动进程已退出；请查看日志",
+                    "pid": proc.pid, "port": None, "ready": False}
+        return {"ok": True, "code": 0,
+                "msg": f"已启动 {name} pid={proc.pid}（原生窗口，首次需编译稍候）",
+                "pid": proc.pid, "port": None, "ready": True}
+
+    try:
+        wait_seconds = float(os.environ.get("HELLO_START_WAIT_SECONDS", "15"))
+    except ValueError:
+        wait_seconds = 15.0
+    ready = wait_for_port(info["port"], timeout=wait_seconds)
+    if not ready and not is_alive(proc.pid):
+        state = State.load()
+        sweep_dead(state)
+        return {"ok": False, "code": 8,
+                "msg": f"{name} 启动进程已退出，端口 :{info['port']} 未监听；请查看日志",
+                "pid": proc.pid, "port": info["port"], "ready": False}
+    msg = f"已启动 {name} pid={proc.pid} port={info['port']}"
+    if not ready:
+        msg += "（进程仍在启动，端口暂未就绪）"
     return {"ok": True, "code": 0,
-            "msg": f"已启动 {name} pid={proc.pid} port={info['port']}",
-            "pid": proc.pid, "port": info["port"]}
+            "msg": msg,
+            "pid": proc.pid, "port": info["port"], "ready": ready}
 
 def op_stop(name: str) -> dict:
+    requested = name
+    name = canonical_name(name)
+    if name not in all_stacks():
+        return {"ok": False, "code": 2, "msg": f"未知实现: {requested}"}
     state = State.load()
     sweep_dead(state)
     if name not in state.processes:
@@ -441,6 +682,7 @@ def op_stop(name: str) -> dict:
 
 def op_stop_external(name: str) -> dict:
     """Kill the process listening on the stack's port (externally-started service)."""
+    name = canonical_name(name)
     stacks = all_stacks()
     if name not in stacks:
         return {"ok": False, "code": 2, "msg": f"未知实现: {name}"}
@@ -544,8 +786,8 @@ def _kill_port(port: int) -> None:
     except Exception:
         pass
 
-def _start_proxy(target_port: int) -> int:
-    """Start a Python TCP proxy on PROXY_PORT → target_port. Returns PID."""
+def _start_proxy(target_port: int) -> dict:
+    """Start a Python TCP proxy on PROXY_PORT → target_port."""
     script = _PROXY_SCRIPT.format(proxy_port=PROXY_PORT)
     proc = subprocess.Popen(
         [sys.executable, "-c", script, str(target_port)],
@@ -554,23 +796,37 @@ def _start_proxy(target_port: int) -> int:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    time.sleep(0.15)  # give the socket a moment to bind
-    return proc.pid
+    if wait_for_port(PROXY_PORT, timeout=2.0):
+        return {"ok": True, "pid": proc.pid}
+    if not is_alive(proc.pid):
+        return {"ok": False, "pid": proc.pid, "msg": f"代理进程已退出，未能监听 :{PROXY_PORT}"}
+    return {"ok": False, "pid": proc.pid, "msg": f"代理未能监听 :{PROXY_PORT}"}
 
 def op_switch(backend: str) -> dict:
+    requested = backend
+    backend = canonical_name(backend)
     if backend not in BACKENDS:
-        return {"ok": False, "code": 2, "msg": f"未知后端: {backend}"}
+        return {"ok": False, "code": 2, "msg": f"未知后端: {requested}"}
     target_port = BACKENDS[backend]["port"]
     state = State.load()
     # Kill existing proxy (tracked PID first, then sweep the port for orphans)
     _kill_proxy_pid(state.proxy_pid)
     _kill_port(PROXY_PORT)
-    pid = _start_proxy(target_port)
+    proxy = _start_proxy(target_port)
+    if not proxy["ok"]:
+        _kill_proxy_pid(proxy.get("pid"))
+        state.proxy_pid = None
+        state.save()
+        return {"ok": False, "code": 7, "msg": proxy.get("msg", "代理启动失败")}
+    pid = proxy["pid"]
     state.proxy_target = backend
     state.proxy_pid = pid
     state.save()
+    target_ready = _tcp_probe(target_port)
+    suffix = "" if target_ready else "；目标后端当前未监听"
     return {"ok": True, "code": 0,
-            "msg": f":{PROXY_PORT} → {backend} (:{target_port})，代理 pid={pid}"}
+            "msg": f":{PROXY_PORT} → {backend} (:{target_port})，代理 pid={pid}{suffix}",
+            "pid": pid, "target_port": target_port, "target_ready": target_ready}
 
 def op_set_db_driver(driver: str) -> dict:
     if driver not in ("postgres", "sqlite"):
@@ -583,9 +839,16 @@ def op_set_db_driver(driver: str) -> dict:
 def op_set_db_config(cfg: dict) -> dict:
     state = State.load()
     c = state.db_config
-    for k in ("pg_host", "pg_db", "pg_user", "pg_pass", "sqlite_path"):
+    for k in ("pg_host", "pg_db", "pg_user", "sqlite_path"):
         if k in cfg and cfg[k] is not None:
             setattr(c, k, str(cfg[k]).strip())
+    if _truthy(cfg.get("clear_pg_pass", False)):
+        c.pg_pass = ""
+    elif "pg_pass" in cfg and cfg["pg_pass"] is not None:
+        # 空值表示 UI 里“留空保持不变”，避免每次 snapshot 泄露或清空密码。
+        pwd = str(cfg["pg_pass"])
+        if pwd:
+            c.pg_pass = pwd
     if "pg_port" in cfg:
         try:
             c.pg_port = int(cfg["pg_port"])
@@ -622,6 +885,7 @@ def op_set_llm_config(cfg: dict) -> dict:
     return {"ok": True, "code": 0, "msg": "大模型配置已保存（重启服务后生效）"}
 
 def op_logs(name: str, n: int = 200) -> str:
+    name = canonical_name(name)
     log_path = LOG_DIR / f"{name}.log"
     if not log_path.exists():
         return ""
@@ -636,6 +900,7 @@ def op_logs(name: str, n: int = 200) -> str:
     return "\n".join(lines)
 
 def op_clear_log(name: str) -> dict:
+    name = canonical_name(name)
     log_path = LOG_DIR / f"{name}.log"
     try:
         log_path.write_text("", encoding="utf-8")
@@ -647,33 +912,51 @@ def op_clear_log(name: str) -> dict:
 # 子命令：start / stop / restart-all
 # --------------------------------------------------------------
 def cmd_start(args) -> int:
-    res = op_start(args.name)
-    if not res["ok"]:
-        print(red(res["msg"]))
-        if res["code"] == 2:
-            print(dim("可用实现见 `hello list`"))
-        elif res["code"] == 3:
-            print(dim("该栈还未在 M1+ 实现，无法启动。"))
-        elif res["code"] == 4:
-            print(dim("按约定每个实现需提供可执行的 ./run 脚本。"))
-        return res["code"]
-    if res.get("already"):
-        print(yellow(res["msg"]))
-    else:
-        print(green(f"✓ {res['msg']}"))
-        print(dim(f"  日志: tail -f data/logs/{args.name}.log"))
-    return 0
+    code = 0
+    for requested in args.names:
+        name = canonical_name(requested)
+        res = op_start(requested)
+        if not res["ok"]:
+            print(red(res["msg"]))
+            if res["code"] == 2:
+                print(dim("可用实现见 `hello list`"))
+            elif res["code"] == 3:
+                print(dim("该栈还未实现，无法启动。"))
+            elif res["code"] == 4:
+                print(dim("按约定每个实现需提供可执行的 ./run 脚本。"))
+            code = res["code"] or 1
+            continue
+        if res.get("already") or not res.get("ready", True):
+            print(yellow(res["msg"]))
+        else:
+            print(green(f"✓ {res['msg']}"))
+        print(dim(f"  日志: tail -f data/logs/{name}.log"))
+    return code
 
 def cmd_stop(args) -> int:
-    res = op_stop(args.name)
-    if not res["ok"]:
-        print(red(res["msg"]))
-        return res["code"]
-    if "已停止" in res["msg"]:
-        print(green(f"✓ {res['msg']}"))
-    else:
-        print(dim(res["msg"]))
-    return 0
+    code = 0
+    for name in args.names:
+        res = op_stop(name)
+        if not res["ok"]:
+            print(red(res["msg"]))
+            code = res["code"] or 1
+            continue
+        if "已停止" in res["msg"]:
+            print(green(f"✓ {res['msg']}"))
+        else:
+            print(dim(res["msg"]))
+    return code
+
+def cmd_stop_external(args) -> int:
+    code = 0
+    for name in args.names:
+        res = op_stop_external(name)
+        if not res["ok"]:
+            print(red(res["msg"]))
+            code = res["code"] or 1
+        else:
+            print(green(f"✓ {res['msg']}"))
+    return code
 
 def cmd_restart_all(args) -> int:
     state = State.load()
@@ -683,9 +966,9 @@ def cmd_restart_all(args) -> int:
         print(dim("（没有正在运行的实现）"))
         return 0
     for name in names:
-        cmd_stop(argparse.Namespace(name=name))
+        cmd_stop(argparse.Namespace(names=[name]))
     for name in names:
-        cmd_start(argparse.Namespace(name=name))
+        cmd_start(argparse.Namespace(names=[name]))
     return 0
 
 # --------------------------------------------------------------
@@ -704,11 +987,12 @@ def cmd_switch(args) -> int:
 # 子命令：logs
 # --------------------------------------------------------------
 def cmd_logs(args) -> int:
-    log_path = LOG_DIR / f"{args.name}.log"
+    name = canonical_name(args.name)
+    log_path = LOG_DIR / f"{name}.log"
     if not log_path.exists():
         print(dim(f"没有日志文件: {log_path.relative_to(ROOT)}"))
         return 0
-    text = op_logs(args.name, args.n)
+    text = op_logs(name, args.n)
     if text:
         print(text)
     return 0
@@ -720,6 +1004,7 @@ def op_health(name: str, timeout: float = 3.0) -> dict:
     """调用实现的 /api/v1/health 端点，返回技术栈信息。"""
     from urllib.request import urlopen
     from urllib.error import URLError, HTTPError
+    name = canonical_name(name)
     stacks = all_stacks()
     if name not in stacks:
         return {"ok": False, "error": "未知实现"}
@@ -740,20 +1025,13 @@ def op_health(name: str, timeout: float = 3.0) -> dict:
 
 def op_snapshot() -> dict:
     """构造 web 前端轮询用的快照。并发 TCP 探活，识别外部启动的服务。"""
-    import socket as _sock
     from concurrent.futures import ThreadPoolExecutor
-
-    def _tcp_probe(port: int) -> bool:
-        try:
-            with _sock.create_connection(("127.0.0.1", port), timeout=0.25):
-                return True
-        except Exception:
-            return False
 
     state = State.load()
     sweep_dead(state)
     stacks = all_stacks()
     now = time.time()
+    proc_table = _process_table()
 
     stack_list = list(stacks.items())
     with ThreadPoolExecutor(max_workers=len(stack_list)) as ex:
@@ -766,6 +1044,23 @@ def op_snapshot() -> dict:
     for name, info in stack_list:
         rec = state.processes.get(name)
         stack_dir = ROOT / info["dir"]
+        running = rec is not None
+        port_open = port_open_map.get(name, False)
+        native = info["port"] is None  # 纯原生：无端口可探，进程在即就绪
+        if running and (port_open or native):
+            status = "ready"
+        elif running:
+            status = "starting"
+        elif port_open:
+            status = "external"
+        else:
+            status = "stopped"
+        usage = (
+            _resource_usage_for_pid(rec.pid, proc_table)
+            if rec
+            else _resource_usage_for_port(info["port"], proc_table) if port_open else
+            {"cpu_percent": None, "memory_rss_kb": None, "process_count": 0}
+        )
         items.append({
             "name": name,
             "kind": info["kind"],
@@ -773,19 +1068,49 @@ def op_snapshot() -> dict:
             "runtime": info["runtime"],
             "dir": info["dir"],
             "implemented": stack_dir.exists() and (stack_dir / "run").exists(),
-            "running": rec is not None,
-            "port_open": port_open_map.get(name, False),
+            "running": running,
+            "ready": running and (port_open or native),
+            "external": (not running) and port_open,
+            "status": status,
+            "port_open": port_open,
             "pid": rec.pid if rec else None,
             "started_at": rec.started_at if rec else None,
             "uptime_s": int(now - rec.started_at) if rec else 0,
+            "cpu_percent": usage["cpu_percent"],
+            "memory_rss_kb": usage["memory_rss_kb"],
+            "process_count": usage["process_count"],
         })
     llm = state.llm_config
+    db = state.db_config
+    proxy_target = state.proxy_target
+    proxy_target_info = stacks.get(proxy_target) if proxy_target else None
+    proxy_target_port = proxy_target_info["port"] if proxy_target_info else None
+    proxy_port_open = _tcp_probe(PROXY_PORT)
+    proxy_target_open = _tcp_probe(proxy_target_port)
+    proxy_pid_alive = state.proxy_pid is not None and is_alive(state.proxy_pid)
     return {
         "stacks": items,
-        "proxy_target": state.proxy_target,
+        "proxy_target": proxy_target,
         "proxy_port": PROXY_PORT,
+        "proxy": {
+            "target": proxy_target,
+            "target_port": proxy_target_port,
+            "target_port_open": proxy_target_open,
+            "port": PROXY_PORT,
+            "port_open": proxy_port_open,
+            "pid": state.proxy_pid,
+            "pid_alive": proxy_pid_alive,
+            "ok": proxy_port_open and proxy_target_open,
+        },
         "db_driver": state.db_driver,
-        "db_config": asdict(state.db_config),
+        "db_config": {
+            "pg_host": db.pg_host,
+            "pg_port": db.pg_port,
+            "pg_db": db.pg_db,
+            "pg_user": db.pg_user,
+            "pg_pass_configured": bool(db.pg_pass),
+            "sqlite_path": db.sqlite_path,
+        },
         "llm_config": {
             "enabled": llm.enabled,
             "provider": llm.provider,
@@ -860,6 +1185,20 @@ def cmd_web(args) -> int:
             except (BrokenPipeError, ConnectionResetError, OSError):
                 pass
 
+        def _send_static(self, file_path: Path, content_type: str):
+            try:
+                body = file_path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+            except Exception:
+                self._send_json({"ok": False, "msg": "not found"}, 404)
+
         def _read_body(self):
             n = int(self.headers.get("Content-Length", "0") or "0")
             if n <= 0:
@@ -874,6 +1213,9 @@ def cmd_web(args) -> int:
             path = u.path.rstrip("/") or "/"
             if path in ("/", "/index.html"):
                 self._send_html(_load_web_html())
+                return
+            if path in ("/spec/styles/tokens.css", "/spec/styles/palette.css"):
+                self._send_static(ROOT / path.lstrip("/"), "text/css; charset=utf-8")
                 return
             if path == "/api/snapshot":
                 self._send_json({"ok": True, "data": op_snapshot()})
@@ -988,11 +1330,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor",      help="检查环境依赖").set_defaults(func=cmd_doctor)
     sub.add_parser("status",      help="显示进程状态").set_defaults(func=cmd_status)
 
-    start = sub.add_parser("start", help="启动实现"); start.add_argument("name")
+    start = sub.add_parser("start", help="启动一个或多个实现"); start.add_argument("names", nargs="+")
     start.set_defaults(func=cmd_start)
 
-    stop = sub.add_parser("stop",   help="停止实现"); stop.add_argument("name")
+    stop = sub.add_parser("stop",   help="停止一个或多个 hello 管理的实现"); stop.add_argument("names", nargs="+")
     stop.set_defaults(func=cmd_stop)
+
+    stop_ext = sub.add_parser("stop-external", help="按端口停止外部启动的实现")
+    stop_ext.add_argument("names", nargs="+")
+    stop_ext.set_defaults(func=cmd_stop_external)
 
     sub.add_parser("restart-all", help="重启所有").set_defaults(func=cmd_restart_all)
 

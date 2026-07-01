@@ -5,16 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>HelloTime Pro · dev-manager</title>
 <style>
+@import "/spec/styles/tokens.css";
 :root{
   color-scheme:dark;
-  --bg0:#0e0e1c;--bg1:#161630;--bg2:#1e1e38;--bg3:#262644;
-  --border0:#25254a;--border1:#353570;
-  --text:#f5f5fa;--text2:#c8c8e0;--muted:#7a7aa0;
-  --brand:#6b46ff;--brand-h:#8a6dff;--brand-rgb:107,70,255;
-  --sig:#14d4f0;--sig-h:#5fe6f5;--sig-rgb:20,212,240;
-  --acc:#ff2d91;--acc-h:#ff5faa;--acc-rgb:255,45,145;
-  --ok:#1aa866;--ok-h:#5ed49a;
-  --warn:#ffae3d;--err:#ff5470;
+  --bg0:var(--color-surface-0,#06060c);--bg1:var(--color-surface-1,#0d0d15);--bg2:var(--color-surface-2,#181824);--bg3:var(--color-surface-3,#262635);
+  --border0:var(--color-border-subtle,#262635);--border1:var(--color-border-default,#3a3a4d);
+  --text:var(--color-text-primary,#f7f7fb);--text2:var(--color-text-secondary,#d7d7e2);--muted:var(--color-text-muted,#80808f);
+  --brand:var(--color-brand-primary,#6b46ff);--brand-h:var(--color-brand-hover,#8467ff);--brand-rgb:107,70,255;
+  --sig:var(--color-signal-primary,#14d4f0);--sig-h:var(--color-signal-hover,#40e4ff);--sig-rgb:20,212,240;
+  --acc:var(--color-accent-primary,#ff2d91);--acc-h:var(--color-accent-hover,#ff4fa0);--acc-rgb:255,45,145;
+  --ok:var(--color-success-solid,#1aa866);--ok-h:var(--color-success-fg,#5ed49a);
+  --warn:var(--color-warning-fg,#ffc14a);--err:var(--color-danger-fg,#d47a7a);
   --sans:"Inter","PingFang SC",-apple-system,"Segoe UI",system-ui,sans-serif;
   --mono:"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
   --disp:"Orbitron",var(--sans);
@@ -26,7 +27,7 @@ body{margin:0;color:var(--text);font-family:var(--sans);min-height:100vh;
     radial-gradient(900px 540px at 100% 0,rgba(20,212,240,.22),transparent 60%),
     radial-gradient(700px 400px at 60% 105%,rgba(255,45,145,.18),transparent 60%),
     var(--bg0);}
-.shell{max-width:1380px;margin:0 auto;padding:18px clamp(12px,2.5vw,28px) 64px}
+.shell{max-width:1500px;margin:0 auto;padding:18px clamp(12px,2.5vw,28px) 64px}
 
 /* header */
 header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px}
@@ -43,6 +44,9 @@ h1{margin:0;font-family:var(--disp);font-size:clamp(17px,2vw,24px);letter-spacin
   -webkit-background-clip:text;background-clip:text;color:transparent;}
 .sub{color:var(--muted);font-size:13px}
 .ctl{display:flex;gap:7px;flex-wrap:wrap}
+.search{min-width:170px;background:rgba(255,255,255,.04);border:1px solid var(--border0);
+  border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px;outline:none}
+.search:focus{border-color:var(--sig);box-shadow:0 0 0 2px rgba(var(--sig-rgb),.16)}
 
 /* panel */
 /* config modal */
@@ -72,7 +76,7 @@ input.dbi:focus{border-color:var(--sig);box-shadow:0 0 0 2px rgba(var(--sig-rgb)
 .hint{color:var(--muted);font-size:12.5px;margin:7px 0 0}
 
 /* badge */
-.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:12px;
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:12px;white-space:nowrap;
   background:var(--bg2);border:1px solid var(--border0);color:var(--text2);}
 .b-sig{color:var(--sig-h);border-color:rgba(var(--sig-rgb),.4);background:rgba(var(--sig-rgb),.08)}
 .b-ok{color:var(--ok-h);border-color:rgba(94,212,154,.4);background:rgba(26,168,102,.10)}
@@ -105,6 +109,8 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 .section[data-kind=backend]{--sr:var(--brand-rgb);--sc:var(--brand)}
 .section[data-kind=frontend]{--sr:var(--sig-rgb);--sc:var(--sig)}
 .section[data-kind=fullstack]{--sr:var(--acc-rgb);--sc:var(--acc)}
+.section[data-kind=desktop]{--sr:26,168,102;--sc:var(--ok)}
+.section[data-kind=mobile]{--sr:255,193,74;--sc:var(--warn)}
 .sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
 .sh h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--text2);
   text-transform:uppercase;display:flex;align-items:center;gap:7px}
@@ -113,11 +119,9 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   box-shadow:0 0 7px rgba(var(--sr),.55);}
 .scount{color:var(--muted);font-size:12px}
 
-/* grid: 5 col */
-.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
-@media(max-width:1250px){.grid{grid-template-columns:repeat(4,1fr)}}
-@media(max-width:960px){.grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
+/* grid: keep cards wide enough for status metrics; add columns only when space allows */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:9px}
+@media(max-width:640px){.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}}
 
 /* card */
 .card{
@@ -127,17 +131,17 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   border:1px solid rgba(255,255,255,.07);
   border-radius:11px;
   padding:11px 12px 10px;display:flex;flex-direction:column;gap:7px;
-  transition:border-color 160ms,box-shadow 220ms,transform 220ms;
+  transition:border-color 160ms,box-shadow 220ms;
   position:relative;overflow:hidden;
 }
 .card:not(.unimpl):hover{
   border-color:rgba(var(--sr),.45);
   box-shadow:0 0 0 1px rgba(var(--sr),.15),0 10px 26px rgba(0,0,0,.42);
-  transform:translateY(-2px);
 }
 .card.managed{border-color:rgba(94,212,154,.28);box-shadow:0 0 0 1px rgba(94,212,154,.12),0 8px 20px rgba(0,0,0,.3)}
 .card.managed:hover{border-color:rgba(var(--sr),.5);box-shadow:0 0 0 1px rgba(var(--sr),.2),0 12px 28px rgba(0,0,0,.42)}
 .card.external{border-color:rgba(255,174,61,.28);box-shadow:0 0 0 1px rgba(255,174,61,.10)}
+.card.starting{border-color:rgba(255,174,61,.34);box-shadow:0 0 0 1px rgba(255,174,61,.12)}
 .card.unimpl{opacity:.45}
 /* top color bar */
 .card-bar{
@@ -152,6 +156,11 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 .card.external .card-bar{
   background:linear-gradient(90deg,rgba(255,174,61,.05) 0%,rgba(255,174,61,1) 30%,#ffd060 60%,rgba(255,174,61,.05) 100%);
   box-shadow:0 0 8px rgba(255,174,61,.5);
+  opacity:1;
+}
+.card.starting .card-bar{
+  background:linear-gradient(90deg,rgba(255,174,61,.05) 0%,rgba(255,174,61,1) 45%,rgba(255,174,61,.05) 100%);
+  box-shadow:0 0 8px rgba(255,174,61,.45);
   opacity:1;
 }
 .card:not(.unimpl):hover .card-bar{
@@ -176,6 +185,9 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 .cport{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:1px}
 .cport a{color:var(--sig-h)}
 .cport a:hover{color:var(--sig)}
+.cmeta{margin-left:auto;text-align:right;font-family:var(--mono);font-size:11px;line-height:1.35;color:var(--muted);
+  flex-shrink:0;min-width:48px}
+.cmeta div{white-space:nowrap}
 
 /* status + actions row */
 .cs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:22px}
@@ -184,7 +196,6 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 .dot.ext{background:var(--warn);animation:pulse 2.2s ease-in-out infinite}
 .dot.ud{background:transparent;border:1px dashed var(--muted)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.uptime{font-family:var(--mono);font-size:12px;color:var(--muted)}
 
 /* actions */
 .ca{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto}
@@ -254,6 +265,7 @@ a:hover{color:var(--sig);text-decoration:underline}
       <div class="hdr-chip"><span class="lbl">转发</span><span class="val dim" id="hdrProxy">未设置</span></div>
       <div class="hdr-chip"><span class="lbl">数据库</span><span class="val db" id="hdrDb">—</span></div>
     </div>
+    <input class="search" id="filterInput" placeholder="筛选实现 / 端口 / runtime"/>
     <button class="ghost" id="btnConfig">配置</button>
     <button class="ghost" id="btnRestart">重启所有</button>
     <button class="bdanger" id="btnStopAll">停止所有</button>
@@ -311,6 +323,7 @@ a:hover{color:var(--sig);text-decoration:underline}
         </div>
         <div class="dbrow">
           <button class="pri" id="btnDbConfig">保存连接</button>
+          <button class="ghost" id="btnDbPassClear">清除密码</button>
           <span class="badge b-dim" id="dbConfigState"></span>
         </div>
       </div>
@@ -377,7 +390,7 @@ a:hover{color:var(--sig);text-decoration:underline}
 <script>
 const $  = (s,r=document) => r.querySelector(s);
 const $$ = (s,r=document) => Array.from(r.querySelectorAll(s));
-const KL = {backend:"后端",frontend:"前端",fullstack:"全栈"};
+const KL = {backend:"后端",frontend:"前端",fullstack:"全栈",desktop:"桌面",mobile:"移动"};
 const ROLE_LABELS = {
   language: "语言",
   framework: "框架",
@@ -410,6 +423,14 @@ const ICONS = {
   "spring-mvc": [`<g fill="none"><path d="M18.5 6C15.5 2.8 10.5 2.3 7 4.5 4.2 6.3 2.8 9.8 3.5 13.2c.5 2.7 2.2 5 4.5 6.3 2 1.2 4.5 1.5 6.8.8 2.3-.7 4.2-2.5 5.2-4.8.8-2 .8-4.2-.2-6.2-.7-1.4-1.8-2.5-2-4z" stroke="#6db33f" stroke-width="1.4" stroke-linecap="round"/><path d="M12 10c0-1.5.4-2.8 1.2-3.8" stroke="#6db33f" stroke-width="1.3" stroke-linecap="round" opacity=".65"/><circle cx="12" cy="13" r="2.2" fill="#6db33f" opacity=".55"/></g>`, "#6db33f"],
   rails: [`<path d="M12 3 20.5 8.5v7L12 21 3.5 15.5v-7z" fill="rgba(204,0,0,.12)" stroke="#cc0000" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 6.5 17.5 10v4L12 17.5 6.5 14v-4z" fill="rgba(204,0,0,.15)" stroke="#cc0000" stroke-width=".8" stroke-linejoin="round"/><circle cx="12" cy="12" r="2" fill="#cc0000"/>`, "#cc0000"],
   laravel: [`<path d="M22 8.5l-5-4.5-5 3.5v5l5 3 5-3V8.5zM12 7.5 7 4 2 7v5l5 3 5-3V7.5z" fill="none" stroke="#ff2d20" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 12.5v5l5 3M12 12.5l-5 3" stroke="#ff2d20" stroke-width="1.2" fill="none"/>`, "#ff2d20"],
+  electron: [`<rect width="24" height="24" rx="3" fill="#2b2e3b"/><g fill="none" stroke="#9feaf9" stroke-width="1.1"><ellipse cx="12" cy="12" rx="9" ry="3.8"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(120 12 12)"/></g><circle cx="12" cy="12" r="1.6" fill="#9feaf9"/>`, "#9feaf9"],
+  tauri: [`<rect width="24" height="24" rx="3" fill="#16161f"/><g fill="none" stroke-width="1.7" stroke-linecap="round"><path d="M6 12a6 6 0 0 1 12 0" stroke="#ffc131"/><path d="M18 12a6 6 0 0 1-12 0" stroke="#24c8db"/></g><circle cx="9" cy="12" r="1.5" fill="#ffc131"/><circle cx="15" cy="12" r="1.5" fill="#24c8db"/>`, "#24c8db"],
+  swiftui: [`<defs><linearGradient id="swiftui-icon-bg" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#40e4ff"/><stop offset=".48" stop-color="#8467ff"/><stop offset="1" stop-color="#ff4fa0"/></linearGradient></defs><rect width="24" height="24" rx="3" fill="#101827"/><path d="M12 3.5 20.5 8.2 12 13 3.5 8.2 12 3.5Z" fill="url(#swiftui-icon-bg)" opacity=".95"/><path d="M5 11.1 12 15.1l7-4" fill="none" stroke="#40e4ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/><path d="M6.7 15.1 12 18.1l5.3-3" fill="none" stroke="#ff8bc6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/><circle cx="12" cy="8.4" r="1.6" fill="#fff" opacity=".9"/>`, "#40e4ff"],
+  "react-native": [`<rect x="4.5" y="1.5" width="15" height="21" rx="2.5" fill="rgba(97,218,251,.08)" stroke="#61dafb" stroke-width="1.3"/><rect x="10" y="19.5" width="4" height="1" rx=".5" fill="#61dafb" opacity=".5"/><g stroke="#61dafb" stroke-width="1.1" fill="none"><ellipse cx="12" cy="11" rx="5.5" ry="2.2"/><ellipse cx="12" cy="11" rx="5.5" ry="2.2" transform="rotate(60 12 11)"/><ellipse cx="12" cy="11" rx="5.5" ry="2.2" transform="rotate(120 12 11)"/></g><circle cx="12" cy="11" r="1.3" fill="#61dafb"/>`, "#61dafb"],
+  flutter: [`<rect width="24" height="24" rx="3" fill="#0d1b2a"/><path d="M15.4 3.5 6.5 12l2.7 2.7L20.8 3.5z" fill="#47c5fb"/><path d="M15.4 11.5 10.3 16.6l2.7 2.7 2.8-2.7 4.9-5z" fill="#47c5fb"/><path d="m13 19.3 2.4 2.4h5.4l-5.1-5.1z" fill="#00569e"/><path d="m10.3 16.6 2.7-2.7 2.8 2.7-2.8 2.7z" fill="#00b5f8"/>`, "#47c5fb"],
+  "qt-pyside": [`<rect width="24" height="24" rx="3" fill="#11261a"/><g fill="none" stroke="#41cd52" stroke-width="1.6"><circle cx="12" cy="12" r="7.5"/></g><path d="M15.5 15.5 19 19" stroke="#41cd52" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="2.4" fill="#41cd52"/>`, "#41cd52"],
+  ios: [`<rect x="6.5" y="1.5" width="11" height="21" rx="2.6" fill="#0b0b14" stroke="#8467ff" stroke-width="1.2"/><rect x="10" y="19.6" width="4" height="1" rx=".5" fill="#8467ff" opacity=".6"/><path d="M13.6 6.2c.5-.6 1.3-1 2-.95-.1.8-.4 1.5-.9 2-.5.6-1.3 1-2 .95.0-.75.4-1.5.9-2z" fill="#f7f7fb"/><path d="M15.6 8.1c-1 0-1.6.6-2.2.6-.6 0-1.2-.55-2-.55-1 0-2 .85-2 2.4 0 1.7 1.2 3.7 2 3.7.5 0 .8-.4 1.6-.4.8 0 1 .4 1.6.4.8 0 1.7-1.6 1.9-2.5-1.2-.5-1.3-2.5.0-3.1-.3-.45-.8-.95-1.9-.95z" fill="#f7f7fb"/>`, "#8467ff"],
+  "flutter-mobile": [`<rect x="6.5" y="1.5" width="11" height="21" rx="2.6" fill="#0d1b2a" stroke="#47c5fb" stroke-width="1.2"/><rect x="10" y="19.6" width="4" height="1" rx=".5" fill="#47c5fb" opacity=".6"/><path d="M13.7 5.4 9 10.1l1.5 1.5 6.2-6.2z" fill="#47c5fb"/><path d="M13.7 9.7 11 12.4l1.5 1.5 1.5-1.5 2.7-2.7z" fill="#00b5f8"/><path d="m12.2 13.9 1.3 1.3h2.7l-2.7-2.7z" fill="#00569e"/>`, "#47c5fb"],
 };
 
 function iconEl(name){
@@ -428,6 +449,7 @@ function hexToRgb(h){
 }
 
 let snap = null, logTarget = null, logTimer = null;
+let filterText = "";
 
 function fmtUp(s){
   if(!s) return "";
@@ -435,6 +457,22 @@ function fmtUp(s){
   const m=Math.floor(s/60);
   if(m<60) return `${m}m${s%60}s`;
   return `${Math.floor(m/60)}h${m%60}m`;
+}
+
+function fmtCpu(v){
+  return v==null ? "CPU —" : `CPU ${Number(v).toFixed(1)}%`;
+}
+
+function fmtMem(kb){
+  if(kb==null) return "MEM —";
+  if(kb<1024) return `MEM ${kb}K`;
+  const mb=kb/1024;
+  if(mb<1024) return `MEM ${mb.toFixed(1)}M`;
+  return `MEM ${(mb/1024).toFixed(2)}G`;
+}
+
+function resourceBadges(s){
+  return `<span class="badge b-dim">${fmtCpu(s.cpu_percent)}</span><span class="badge b-dim">${fmtMem(s.memory_rss_kb)}</span>`;
 }
 
 function toast(msg,k="ok"){
@@ -474,8 +512,10 @@ function render(){
   const px=$("#proxyState");
   if(snap.proxy_target){
     const t=backends.find(b=>b.name===snap.proxy_target);
-    px.textContent=t?`${snap.proxy_target} · :${t.port}`:snap.proxy_target;
-    px.className="badge b-sig";
+    const p=snap.proxy||{};
+    const suffix=p.ok?"可用":(p.port_open?"目标未就绪":"代理未运行");
+    px.textContent=t?`${snap.proxy_target} · :${t.port} · ${suffix}`:`${snap.proxy_target} · ${suffix}`;
+    px.className="badge "+(p.ok?"b-ok":"b-err");
   }else{
     px.textContent="未设置"; px.className="badge b-dim";
   }
@@ -486,8 +526,9 @@ function render(){
   const hp=$("#hdrProxy");
   if(snap.proxy_target){
     const t=snap.stacks.find(s=>s.name===snap.proxy_target);
-    hp.textContent=snap.proxy_target+(t?` :${t.port}`:"");
-    hp.className="val sig";
+    const p=snap.proxy||{};
+    hp.textContent=snap.proxy_target+(t?` :${t.port}`:"")+(p.ok?" · 可用":" · 不可用");
+    hp.className=p.ok?"val sig":"val dim";
   }else{
     hp.textContent="未设置"; hp.className="val dim";
   }
@@ -501,7 +542,8 @@ function render(){
   if(!$("#pgPort").matches(":focus")) $("#pgPort").value=cfg.pg_port||"";
   if(!$("#pgDb").matches(":focus"))   $("#pgDb").value=cfg.pg_db||"";
   if(!$("#pgUser").matches(":focus")) $("#pgUser").value=cfg.pg_user||"";
-  if(!$("#pgPass").matches(":focus")) $("#pgPass").value=cfg.pg_pass||"";
+  if(!$("#pgPass").matches(":focus")) $("#pgPass").value="";
+  $("#pgPass").placeholder=cfg.pg_pass_configured?"已配置，留空保持不变":"未配置";
   if(!$("#sqlitePath").matches(":focus")) $("#sqlitePath").value=cfg.sqlite_path||"";
   const llm=snap.llm_config||{};
   $("#llmEnabled").checked=!!llm.enabled;
@@ -514,14 +556,17 @@ function render(){
   $("#llmKeyState").textContent=llm.api_key_configured?"Key 已配置":"未配置 Key";
   $("#llmKeyState").className="badge "+(llm.api_key_configured?"b-ok":"b-dim");
 
-  const groups={backend:[],frontend:[],fullstack:[]};
-  snap.stacks.forEach(s=>groups[s.kind].push(s));
+  const groups={backend:[],frontend:[],fullstack:[],desktop:[],mobile:[]};
+  snap.stacks.forEach(s=>{
+    const hay=[s.name,s.kind,s.runtime,s.dir,":"+s.port,s.status].join(" ").toLowerCase();
+    if(!filterText || hay.includes(filterText)) (groups[s.kind] ||= []).push(s);
+  });
   Object.keys(groups).forEach(k=>groups[k].sort((a,b)=>a.port-b.port));
 
   const root=$("#sections");
   const sy=window.scrollY;
   root.innerHTML="";
-  ["backend","frontend","fullstack"].forEach(kind=>{
+  ["backend","frontend","fullstack","desktop","mobile"].forEach(kind=>{
     const list=groups[kind]; if(!list.length) return;
     const sec=document.createElement("section");
     sec.className="section"; sec.dataset.kind=kind;
@@ -541,9 +586,12 @@ function render(){
 function buildCard(s,kind){
   const card=document.createElement("div");
   const managed=s.running;
-  const external=!s.running&&s.port_open;
+  const ready=!!s.ready;
+  const external=!!s.external || (!s.running&&s.port_open);
+  const starting=managed&&!ready;
   let cls="card";
-  if(managed) cls+=" managed";
+  if(ready) cls+=" managed";
+  else if(starting) cls+=" starting";
   else if(external) cls+=" external";
   if(!s.implemented) cls+=" unimpl";
   card.className=cls;
@@ -555,20 +603,28 @@ function buildCard(s,kind){
   const ch=document.createElement("div"); ch.className="ch";
   ch.appendChild(iconEl(s.name));
   const ci=document.createElement("div"); ci.className="ci";
-  const active=managed||external;
+  const active=s.port_open;
   const portHtml=active
     ?`<a href="http://127.0.0.1:${s.port}" target="_blank" rel="noopener">:${s.port}</a>`
     :":"+s.port;
   ci.innerHTML=`<div class="cname">${s.name}</div><div class="cport">${portHtml}</div>`;
   ch.appendChild(ci);
+  if(managed){
+    const meta=document.createElement("div");
+    meta.className="cmeta";
+    meta.innerHTML=`<div>pid ${s.pid}</div><div>${fmtUp(s.uptime_s)}</div>`;
+    ch.appendChild(meta);
+  }
   card.appendChild(ch);
 
   /* status */
   const cs=document.createElement("div"); cs.className="cs";
-  if(managed){
-    cs.innerHTML=`<span class="dot run"></span><span class="badge b-ok">运行中</span><span class="uptime">${fmtUp(s.uptime_s)}</span><span class="badge b-dim">pid&nbsp;${s.pid}</span>`;
+  if(ready){
+    cs.innerHTML=`<span class="dot run"></span><span class="badge b-ok">运行中</span>${resourceBadges(s)}`;
+  }else if(starting){
+    cs.innerHTML=`<span class="dot ext"></span><span class="badge b-ext">启动中</span>${resourceBadges(s)}`;
   }else if(external){
-    cs.innerHTML=`<span class="dot ext"></span><span class="badge b-ext">外部运行</span>`;
+    cs.innerHTML=`<span class="dot ext"></span><span class="badge b-ext">外部运行</span>${resourceBadges(s)}`;
   }else if(s.implemented){
     cs.innerHTML=`<span class="dot"></span><span class="badge b-dim">未启动</span>`;
   }else{
@@ -591,7 +647,7 @@ function buildCard(s,kind){
   }else{
     const b=document.createElement("button"); b.disabled=true; b.className="ghost"; b.textContent="未实现"; ca.appendChild(b);
   }
-  if((kind==="frontend"||kind==="fullstack")&&(managed||external)){
+  if((kind==="frontend"||kind==="fullstack"||kind==="desktop")&&s.port_open){
     btn(ca,"bopen","open","打开");
   }
   if((kind==="backend"||kind==="fullstack")&&(s.implemented||external)){
@@ -751,6 +807,13 @@ $("#btnDbConfig").addEventListener("click",async()=>{
   toast(j.result.msg,j.result.ok?"ok":"err");
   setTimeout(()=>{st.textContent="";st.className="badge b-dim";},3000);
 });
+$("#btnDbPassClear").addEventListener("click",async()=>{
+  if(!confirm("清除已保存的 PostgreSQL 密码？")) return;
+  const j=await api("/api/db-config",{method:"POST",body:JSON.stringify({clear_pg_pass:true})});
+  toast(j.result.msg,j.result.ok?"ok":"err");
+  $("#pgPass").value="";
+  refresh();
+});
 $("#btnLlmConfig").addEventListener("click",async()=>{
   const body={
     enabled:$("#llmEnabled").checked,
@@ -796,6 +859,10 @@ $("#logClear").addEventListener("click",async()=>{
   }catch(e){ toast("清空失败："+e.message,"err"); }
 });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeLogs(); $("#healthModal").classList.remove("open"); $("#cfgModal").classList.remove("open"); } });
+$("#filterInput").addEventListener("input",e=>{
+  filterText=e.target.value.trim().toLowerCase();
+  render();
+});
 
 refresh();
 setInterval(()=>{ if(!$("#cfgModal").classList.contains("open")) refresh(); },2000);

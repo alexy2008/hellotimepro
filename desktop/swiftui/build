@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# 校验 SwiftUI 桌面端：swift build 编译通过即视为构建成功。
+#
+# 生产 .app / .dmg 打包（assemble bundle + codesign）超出 dev MVP 范围，见 README。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v swift >/dev/null 2>&1; then
+  echo "需要 Swift 工具链（Xcode 或 Command Line Tools）。" >&2
+  exit 1
+fi
+
+swift build
+echo "✓ SwiftUI 桌面端编译通过"

@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# 启动 Tauri 桌面壳（系统 WebView + Rust，内嵌 Svelte 前端）。
+#
+# 流程：
+#   1. 确保自身与内嵌前端（frontends/svelte）依赖就绪
+#   2. 在端口 7191 拉起 Svelte 的 Vite dev server（/api → :9080 代理沿用前端配置）
+#   3. 等待渲染层就绪后 `tauri dev`（首次会编译 Rust，耗时数分钟）
+#   4. 退出时连带停止 Vite 子进程
+#
+# 后端代理目标默认 :9080（hello switch 切换的反代），也可直连：
+#   BACKEND_PROXY=http://localhost:29010 ./run
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+FRONTEND_DIR="$HERE/../../frontends/svelte"
+FRONTEND_PORT=7191
+RENDERER_URL="http://localhost:${FRONTEND_PORT}"
+BACKEND_PROXY="${BACKEND_PROXY:-http://localhost:9080}"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "需要 Node 20+ 与 npm，请先安装。" >&2
+  exit 1
+fi
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "需要 Rust 工具链（cargo），请先安装：https://rustup.rs" >&2
+  exit 1
+fi
+if [[ ! -d "$FRONTEND_DIR" ]]; then
+  echo "找不到内嵌前端目录：$FRONTEND_DIR" >&2
+  exit 1
+fi
+
+# 依赖
+[[ -d node_modules ]] || { echo "首次运行：npm install（含 @tauri-apps/cli）"; npm install --silent; }
+[[ -d "$FRONTEND_DIR/node_modules" ]] || { echo "内嵌前端首次安装：npm install"; (cd "$FRONTEND_DIR" && npm install --silent); }
+
+# 拉起内嵌 Svelte 前端的 Vite dev server（端口 7191，严格端口）
+echo "启动内嵌前端 Vite dev server → ${RENDERER_URL}（后端代理 ${BACKEND_PROXY}）"
+# VITE_DESKTOP_SHELL=tauri 让内嵌前端在关于页/页脚显示桌面端技术栈；
+# 独立运行（hello start svelte）不带此变量，故 SPA 不显示桌面内容。
+BACKEND_PROXY="$BACKEND_PROXY" VITE_DESKTOP_SHELL=tauri \
+  npm --prefix "$FRONTEND_DIR" run dev -- --port "$FRONTEND_PORT" --strictPort >/dev/null 2>&1 &
+VITE_PID=$!
+
+cleanup() { kill "$VITE_PID" >/dev/null 2>&1 || true; }
+trap cleanup EXIT INT TERM
+
+# 等待渲染层就绪。每轮先确认 Vite 进程仍存活：端口被占时 --strictPort 会让 Vite 退出，
+# 此时 curl 可能命中占用端口的外部服务而误判就绪——先查 VITE_PID 即可堵住此误判。
+echo -n "等待渲染层就绪"
+RENDER_READY=false
+for _ in $(seq 1 60); do
+  if ! kill -0 "$VITE_PID" 2>/dev/null; then
+    echo ""; echo "Vite dev server 已退出（端口 ${FRONTEND_PORT} 可能被占用）" >&2; exit 1
+  fi
+  if curl -sf "$RENDERER_URL" >/dev/null 2>&1; then echo " ✓"; RENDER_READY=true; break; fi
+  echo -n "."
+  sleep 0.5
+done
+[[ "$RENDER_READY" == true ]] || { echo ""; echo "渲染层 30s 内未就绪，退出" >&2; exit 1; }
+
+# 前台启动 Tauri（首次编译 Rust 较慢；关窗后 trap 清理 Vite）
+echo "tauri dev（首次会编译 Rust，请耐心）…"
+npx tauri dev

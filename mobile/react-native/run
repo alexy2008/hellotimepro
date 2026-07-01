@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# 启动 React Native（Expo）移动端。
+#
+# 流程：
+#   1. 确保依赖就绪（首次 npm install）
+#   2. 令牌 codegen（保证 src/theme/tokens.ts 与 spec/tokens/tokens.json 同源）
+#   3. 启动 Metro dev server（端口 7192）—— hello「探端口即就绪」模型
+#
+# 默认（无参数 / hello start react-native）：启动 Metro 并在 iOS 模拟器打开 App
+# （与 desktop/electron「启动即开窗」一致；Metro 端口就绪即被 hello 判为 ready，
+#  模拟器启动 + Expo Go 安装/打开在其后异步完成，首次较慢）。
+#   ./run / ./run ios   # Metro + iOS 模拟器
+#   ./run android       # Metro + Android 模拟器
+#   ./run metro         # 仅 Metro（headless，给 Maestro/CI 或自行选设备）
+#
+# 后端地址：RN 无 Vite 代理，fetch 直连 :9080（hello switch 切换的反代）。
+# 直连某后端口 / 真机用局域网 IP：
+#   EXPO_PUBLIC_API_BASE=http://192.168.1.10:9080 ./run ios
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+PORT="${RN_METRO_PORT:-7192}"
+BACKEND_PROXY="${BACKEND_PROXY:-http://localhost:9080}"
+export EXPO_PUBLIC_API_BASE="${EXPO_PUBLIC_API_BASE:-$BACKEND_PROXY}"
+
+# Metro 向客户端广播的主机名。默认钉成 127.0.0.1：模拟器与宿主共享网络，最稳；
+# 否则 Expo 可能选到 VPN/代理虚拟网卡的 IP（如 198.18.x），导致模拟器
+# 「network connection was lost / 加载 bundle 失败」。
+# 真机调试请用局域网 IP 覆盖：RN_PACKAGER_HOST=192.168.1.10 ./run ios
+export REACT_NATIVE_PACKAGER_HOSTNAME="${RN_PACKAGER_HOST:-127.0.0.1}"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "需要 Node 20+ 与 npm，请先安装。" >&2
+  exit 1
+fi
+
+[[ -d node_modules ]] || { echo "首次运行：npm install"; npm install; }
+
+# 设计令牌 codegen（不漂移）
+node ../../scripts/gen-tokens-rn || true
+
+echo "启动 Metro dev server → :${PORT}（后端 ${EXPO_PUBLIC_API_BASE}）"
+
+MODE="${1:-ios}"
+case "$MODE" in
+  ios|"")
+    # 启动 Metro 并自动打开 iOS 模拟器。若自动打开失败（最常见是首次下载
+    # Expo Go 的网络问题），回退到仅 Metro 保活——模拟器里可手动打开/重试，
+    # 不让一次性的打开失败把 Metro 也带崩。
+    npx expo start --port "$PORT" --ios || {
+      echo "iOS 自动打开失败（常见为首次 Expo Go 下载网络问题）；回退到仅 Metro。" >&2
+      echo "可在已启动的模拟器中手动打开，或稍后重试：cd mobile/react-native && ./run ios" >&2
+      exec env CI=1 npx expo start --port "$PORT"
+    }
+    ;;
+  android) exec npx expo start --port "$PORT" --android ;;
+  metro)   exec env CI=1 npx expo start --port "$PORT" ;;
+  *)       echo "未知模式: $MODE（可用 ios / android / metro）" >&2; exit 2 ;;
+esac
