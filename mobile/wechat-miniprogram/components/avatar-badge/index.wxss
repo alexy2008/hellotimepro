@@ -12,6 +12,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
+  /* 刻意硬编码：底色是任意饱和哈希色（非主题色），白字/白描边保证两套主题下
+     都有对比度；套 var(--text-primary) 在浅色主题会变深字压彩底，反而更差。 */
   color: #fff;
   font-weight: 700;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset;

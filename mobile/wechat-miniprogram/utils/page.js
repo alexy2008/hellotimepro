@@ -4,10 +4,25 @@
 // 原生小程序无法直接给 <page> 挂 class，故每页根节点写
 //   <view class="app-root theme-{{themeMode}}">，themeMode 由本工厂注入并订阅
 // theme store（切换即换 tokens.wxss 变量表，对齐 Web 的 <html data-theme>）。
+//
+// 同时注入 themeColors（palette.js 里当前主题的语义色）：小程序部分组件属性
+// （<switch color>、wx.showModal confirmColor 等）吃不了 CSS 变量，只能喂色值
+// 字符串——统一从这里取，避免业务文件硬编码色值与 spec token 漂移。
 // 用户自定义的 onLoad/onShow/onUnload 会被透传调用，互不干扰。
 // ============================================================
 
-const { useTheme } = require("../stores/theme");
+const { useTheme, palette } = require("../stores/theme");
+
+function themeData() {
+  const pal = palette();
+  return {
+    themeMode: useTheme.getState().mode,
+    themeColors: {
+      brandPrimary: pal.brand.primary,
+      dangerSolid: pal.danger.solid,
+    },
+  };
+}
 
 function createPage(options) {
   const { onLoad, onUnload } = options;
@@ -15,10 +30,8 @@ function createPage(options) {
   return Page(
     Object.assign({ toggleTheme() { useTheme.getState().toggle(); } }, options, {
       onLoad(query) {
-        this.setData({ themeMode: useTheme.getState().mode });
-        this.__themeUnsub = useTheme.subscribe((s) =>
-          this.setData({ themeMode: s.mode }),
-        );
+        this.setData(themeData());
+        this.__themeUnsub = useTheme.subscribe(() => this.setData(themeData()));
         if (onLoad) onLoad.call(this, query);
       },
       onUnload() {

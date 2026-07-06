@@ -131,7 +131,7 @@ struct PlazaView: View {
                 Text("🌌").font(.system(size: 44))
                 Text("广场暂无胶囊 —— 来当第一个写信给未来的人？")
                     .foregroundStyle(Theme.textMuted).multilineTextAlignment(.center)
-                Button(store.isAuthenticated ? "创建胶囊" : "注册并创建") { store.selectTab(.create) }
+                Button(store.canAccessProtected ? "创建胶囊" : "注册并创建") { store.selectTab(.create) }
                     .buttonStyle(.ht(.primary, .sm))
             }
             .frame(maxWidth: .infinity, minHeight: 240)

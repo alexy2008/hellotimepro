@@ -4,6 +4,7 @@
 const { createPage } = require("../../utils/page");
 const { useAuth } = require("../../stores/auth");
 const { useCapsule } = require("../../stores/capsule");
+const { palette } = require("../../stores/theme");
 
 createPage({
   data: {
@@ -69,7 +70,8 @@ createPage({
       title: "撤回胶囊",
       content: "确认撤回？此操作不可恢复。",
       confirmText: "撤回",
-      confirmColor: "#b84040",
+      // showModal 属性吃不了 CSS 变量，从 palette 取 danger.solid
+      confirmColor: palette().danger.solid,
       success: (res) => {
         if (res.confirm) {
           useCapsule
@@ -100,7 +102,7 @@ createPage({
       title: "登出",
       content: "确认登出当前账号？",
       confirmText: "登出",
-      confirmColor: "#b84040",
+      confirmColor: palette().danger.solid,
       success: (res) => {
         if (res.confirm) {
           void useAuth

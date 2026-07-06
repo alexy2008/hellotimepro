@@ -37,7 +37,15 @@ if [[ "$TARGET" == "android" ]]; then
   # Flutter+Gradle 9 严格仓库模式冲突（flutter/flutter#174035）→ 构建期临时挪开。
   INIT="$HOME/.gradle/init.gradle"
   MOVED=0
-  if [[ -f "$INIT" ]]; then mv "$INIT" "$INIT.htpro-bak"; MOVED=1; fi
+  if [[ -f "$INIT" ]]; then
+    # 残留备份 = 上次构建中断未还原；静默 mv 会覆盖它，改为中止交人工处理。
+    if [[ -e "$INIT.htpro-bak" ]]; then
+      echo "发现残留备份 $INIT.htpro-bak（上次构建可能中断未还原）。" >&2
+      echo "请人工确认后还原（mv 回 init.gradle）或删除，再重试。" >&2
+      exit 1
+    fi
+    mv "$INIT" "$INIT.htpro-bak"; MOVED=1
+  fi
   restore() { [[ "$MOVED" == 1 ]] && mv "$INIT.htpro-bak" "$INIT"; }
   trap restore EXIT
 

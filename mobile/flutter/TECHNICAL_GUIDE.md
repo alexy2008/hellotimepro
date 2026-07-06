@@ -56,18 +56,26 @@ flutter create --platforms=ios,android --org pro.hellotime --project-name hellot
 
 - **iOS ATS**：`ios/Runner/Info.plist` 加 `NSAppTransportSecurity` 本地明文例外，否则 Dart http 到 `:9080` 被静默拦、后端零日志（iOS 版「沙箱拦网」，同 mobile/ios、desktop/flutter 的 macOS network.client）。
 - **SVG `<filter>`**：`flutter_svg` 不支持滤镜元素，渲染头像时打印 `unhandled element <filter/>`，良性（图形仍出，仅忽略滤镜）。
-- **Android**：脚手架已就位，本机无 Android SDK 故 `flutter build apk` 待 SDK；代码层无移动分支之外的额外工作（同一 `lib/`）。
+- **Android**（2026-07-05 已验证）：代码层无移动分支之外的额外工作（同一 `lib/`），坑全在工具链：
+  - **全局 `~/.gradle/init.gradle` 镜像注入与 Flutter+Gradle 9 严格仓库模式冲突**（flutter/flutter#174035）→ `run`/`build` 构建期把它临时挪到 `init.gradle.htpro-bak`、退出时还原；发现残留备份（上次中断未还原）时中止交人工处理，不静默覆盖。
+  - **宿主后端走 `10.0.2.2`**（模拟器里 127.0.0.1 是模拟器自身）：`--dart-define=API_BASE` 注入 + `android/.../network_security_config.xml` 放行 cleartext（Android 版「沙箱拦网」）。
+  - NDK / build-tools 直连下载屡截断 → 预装（`sdkmanager` + curl 断点续传）。
 
 ## 4. 运行与验证（无 computer-use）
 
 ```bash
-cd mobile/flutter && ./build      # flutter analyze + build ios --simulator
-./scripts/hello start flutter-mobile   # flutter run -d iPhone 模拟器（前台附着判活）
+cd mobile/flutter && ./build            # iOS：flutter analyze + build ios --simulator
+TARGET=android ./build                  # Android：build apk --debug（注入 10.0.2.2 后端）
+./scripts/hello start flutter-mobile    # flutter run -d iPhone 模拟器（前台附着判活）
+TARGET=android ./run                    # Android 模拟器（AVD 默认 HelloTimePro，自动起）
 ```
 
 验证靠**编译 + 模拟器 + 后端日志**：`hello start flutter-mobile` 后 fastapi 日志出现
 `GET /api/v1/plaza/capsules?...&pageSize=15 200`、`GET /static/avatars/*.svg 200`、`GET /api/v1/health 200`，
-佐证 Dart http → `:9080` 全链路；`hello stop` 干净停。核心旅程 E2E（`integration_test`）：后续。
+佐证 Dart http → `:9080` 全链路；`hello stop` 干净停。
+
+- iOS ✅ 已验证（2026-07-01）；Android ✅ 已验证（2026-07-05，apk + 模拟器 + 后端日志偏移法）。
+- 核心旅程 E2E（`integration_test`）：后续。
 
 ## 5. 常见改动指南
 

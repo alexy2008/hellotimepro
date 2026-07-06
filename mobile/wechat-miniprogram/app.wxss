@@ -6,6 +6,8 @@
 @import "./tokens/tokens.wxss";
 
 page {
+  /* 刻意硬编码（= dark surface-0）：CSS 变量挂在 .theme-dark/.theme-light 类上，
+     page 节点拿不到 var()；这里只兜首帧渲染（theme 类挂上前）的底色防白闪。 */
   background: #06060c;
 }
 

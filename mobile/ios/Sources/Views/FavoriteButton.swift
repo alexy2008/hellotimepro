@@ -42,12 +42,14 @@ struct FavoriteButton: View {
     }
 
     private func toggle() {
-        guard store.isAuthenticated else { store.requireLogin(); return }
+        // 与 Tab 门禁同标准（canAccessProtected）：冷启动时 accessToken 只在内存、
+        // 尚未恢复，isAuthenticated 会把持有 refreshToken 的有效会话误判为未登录。
+        guard store.canAccessProtected else { store.requireLogin(); return }
         busy = true
         Task {
             defer { busy = false }
             do {
-                // 已由上方 guard store.isAuthenticated 拦匿名；不预检 token，让 api 自身走刷新/重放。
+                // 已由上方 guard 拦匿名；不预检 token，让 api 自身走刷新/重放。
                 if active {
                     try await store.api.unfavorite(capsuleId: id)
                     active = false; count = max(0, count - 1)

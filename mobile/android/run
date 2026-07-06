@@ -42,6 +42,10 @@ PY
     [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n')" == "1" ]] && break
     sleep 3
   done
+  if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n')" != "1" ]]; then
+    echo "模拟器 ${AVD} 启动超时（3 分钟未完成 boot）；请检查 AVD 或手动启动后重试。" >&2
+    exit 1
+  fi
 fi
 
 echo "编译并安装（后端 → ${BACKEND_PROXY:-http://10.0.2.2:9080}）…"

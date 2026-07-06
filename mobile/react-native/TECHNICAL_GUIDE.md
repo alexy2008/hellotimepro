@@ -75,7 +75,7 @@ cd mobile/react-native
 ./build          # codegen + tsc --noEmit + expo export --platform ios
 ```
 
-`./run`:① 首次 `npm install`;② 跑 `scripts/gen-tokens-rn` 重生成 `src/theme/tokens.ts`;③ `expo start --port 7192`(`hello` 探 :7192 即判 ready;模拟器启动 + Expo Go 安装在其后异步完成,首次较慢)。后端地址经 `EXPO_PUBLIC_API_BASE`(默认 `:9080`)注入。
+`./run`:① 首次 `npm install`;② 跑 `scripts/gen-tokens-rn` 重生成 `src/theme/tokens.ts`;③ `expo start --port 7192`(`hello` 探 :7192 即判 ready;模拟器启动 + Expo Go 安装在其后异步完成,首次较慢)。后端地址经 `EXPO_PUBLIC_API_BASE` 注入,**默认按平台分流**:iOS 走 `http://localhost:9080`(模拟器与宿主共享网络栈),`./run android` 走 `http://10.0.2.2:9080`(Android 模拟器里 localhost 是模拟器自身);真机用局域网 IP 覆盖。
 
 ## 4. Expo Router：文件即路由（与 React Router 的最大不同）
 
@@ -135,4 +135,7 @@ React Web 版用 `router.tsx` 集中声明路由表;RN 版用 **Expo Router** �
 
 - `./build`:codegen + `tsc --noEmit`(类型检查)+ `expo export --platform ios`(打包)全绿。
 - `hello start react-native`:Metro 在 :7192 `ready`(`packager-status:running`),codegen 自动执行,后端指向 :9080;`hello stop` 干净停。
-- 核心旅程 E2E 用 **Maestro**(`.maestro/core-journey.yaml`,testID 已埋:登录→建胶囊→开启→收藏);设备实跑待 iOS 模拟器运行时(`xcodebuild -downloadPlatform iOS`,~7GB)+ Maestro CLI 就绪。
+- **双平台原生运行已验证**(2026-07-06):`expo run:ios --device "iPhone 17 Pro Max"` 与
+  `expo run:android --device HelloTimePro` 均以后端日志佐证(plaza/avatars 200)。Android 坑清单
+  见 `README.md`(Gradle 8.14.3 版本矩阵 / JDK17 symlink / NDK 27.1 预装 / API_BASE 走 10.0.2.2)。
+- 核心旅程 E2E 用 **Maestro**(`.maestro/core-journey.yaml`,testID 已埋:登录→建胶囊→开启→收藏);实跑待 Maestro CLI 安装。

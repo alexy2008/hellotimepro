@@ -22,7 +22,16 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
 
 PORT="${RN_METRO_PORT:-7192}"
-BACKEND_PROXY="${BACKEND_PROXY:-http://localhost:9080}"
+MODE="${1:-ios}"
+
+# 后端默认地址按目标平台分流：Android 模拟器里 localhost 是模拟器自身，
+# 宿主后端必须走 10.0.2.2 固定别名；iOS 模拟器与宿主共享网络栈，localhost 直达。
+# 显式传 BACKEND_PROXY / EXPO_PUBLIC_API_BASE（真机局域网 IP 等）时不干预。
+if [[ "$MODE" == "android" ]]; then
+  BACKEND_PROXY="${BACKEND_PROXY:-http://10.0.2.2:9080}"
+else
+  BACKEND_PROXY="${BACKEND_PROXY:-http://localhost:9080}"
+fi
 export EXPO_PUBLIC_API_BASE="${EXPO_PUBLIC_API_BASE:-$BACKEND_PROXY}"
 
 # Metro 向客户端广播的主机名。默认钉成 127.0.0.1：模拟器与宿主共享网络，最稳；
@@ -43,7 +52,6 @@ node ../../scripts/gen-tokens-rn || true
 
 echo "启动 Metro dev server → :${PORT}（后端 ${EXPO_PUBLIC_API_BASE}）"
 
-MODE="${1:-ios}"
 case "$MODE" in
   ios|"")
     # 启动 Metro 并自动打开 iOS 模拟器。若自动打开失败（最常见是首次下载
