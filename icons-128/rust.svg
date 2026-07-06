@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="rust">
+<defs>
+  <linearGradient id="d" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#20202e"/><stop offset="1" stop-color="#14141e"/>
+  </linearGradient>
+  <linearGradient id="s" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
+    <stop offset=".5" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="kg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#7f52ff"/><stop offset=".5" stop-color="#e44857"/>
+    <stop offset="1" stop-color="#f88909"/>
+  </linearGradient>
+</defs>
+<rect x="4" y="4" width="120" height="120" rx="28" fill="url(#d)"/>
+<g transform="rotate(0 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(30 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(60 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(90 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(120 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(150 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(180 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(210 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(240 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(270 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(300 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g><g transform="rotate(330 64 64)"><rect x="59" y="14" width="10" height="14" rx="2.5" fill="#e8e8ee"/></g>
+  <circle cx="64" cy="64" r="40" fill="#e8e8ee"/>
+  <circle cx="64" cy="64" r="27" fill="url(#d)"/>
+  <g fill="url(#d)">
+    <circle cx="64" cy="29" r="3.4"/><circle cx="89" cy="46" r="3.4"/><circle cx="89" cy="82" r="3.4"/>
+    <circle cx="64" cy="99" r="3.4"/><circle cx="39" cy="82" r="3.4"/><circle cx="39" cy="46" r="3.4"/>
+  </g>
+  <text x="64" y="75" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="900" font-size="30" fill="#e8e8ee">R</text>
+<rect x="4" y="4" width="120" height="120" rx="28" fill="url(#s)"/>
+<rect x="4.5" y="4.5" width="119" height="119" rx="27.5" fill="none" stroke="#ffffff" stroke-opacity=".14" stroke-width="1"/>
+</svg>

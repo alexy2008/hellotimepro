@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Vue">
+  <title>Vue</title>
+  <defs>
+    <linearGradient id="vue128-green" x1="19" y1="20" x2="104" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7ee8b8"/>
+      <stop offset="0.46" stop-color="#42b883"/>
+      <stop offset="1" stop-color="#16a06a"/>
+    </linearGradient>
+    <linearGradient id="vue128-dark" x1="41" y1="20" x2="91" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#526b7c"/>
+      <stop offset="1" stop-color="#35495e"/>
+    </linearGradient>
+    <filter id="vue128-shadow" x="-15%" y="-15%" width="130%" height="135%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <g filter="url(#vue128-shadow)">
+    <path d="M8 22h31l25 43 25-43h31L64 119Z" fill="url(#vue128-green)"/>
+    <path d="M39 22h23l2 4 2-4h23L64 65Z" fill="url(#vue128-dark)"/>
+    <path d="M48 22h16l16 28L64 78 32 22Z" fill="#ffffff" opacity="0.16"/>
+  </g>
+</svg>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="SQLite">
+  <title>SQLite</title>
+  <defs>
+    <linearGradient id="sq128-blue" x1="18" y1="14" x2="110" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4db7f0"/>
+      <stop offset="0.48" stop-color="#0f80cc"/>
+      <stop offset="1" stop-color="#003b57"/>
+    </linearGradient>
+    <linearGradient id="sq128-feather" x1="68" y1="20" x2="106" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#bfe9ff"/>
+    </linearGradient>
+    <filter id="sq128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="18" width="104" height="92" rx="16" fill="url(#sq128-blue)" filter="url(#sq128-shadow)"/>
+  <ellipse cx="64" cy="36" rx="43" ry="13" fill="#e9f8ff" opacity="0.9"/>
+  <path d="M21 36v54c0 10 19 18 43 18s43-8 43-18V36" fill="none" stroke="#bfe9ff" stroke-width="5" opacity="0.42"/>
+  <path d="M22 63c14 9 69 9 84 0" fill="none" stroke="#bfe9ff" stroke-width="5" opacity="0.52"/>
+  <path d="M73 101c13-33 25-60 45-86-4 32-13 63-27 93-3 7-12 5-18-7Z" fill="url(#sq128-feather)"/>
+  <path d="M82 95c8-21 18-43 29-65" fill="none" stroke="#0f80cc" stroke-width="4" stroke-linecap="round" opacity="0.65"/>
+  <path d="M91 70 75 78M101 49 83 58" stroke="#0f80cc" stroke-width="3" stroke-linecap="round" opacity="0.52"/>
+  <circle cx="103" cy="28" r="5" fill="#ffb647"/>
+</svg>

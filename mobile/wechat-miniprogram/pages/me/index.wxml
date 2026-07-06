@@ -1,0 +1,86 @@
+<view class="app-root theme-{{themeMode}}">
+  <view class="screen-header">
+    <text class="screen-title display">我的空间</text>
+    <text class="t-xl" bindtap="toggleTheme">{{themeMode === 'dark' ? '☀' : '☾'}}</text>
+  </view>
+
+  <!-- 门禁 -->
+  <view wx:if="{{!hasUser}}" class="container">
+    <view class="card stack gap-4 center" style="align-items:center;padding-top:40px;padding-bottom:40px">
+      <text style="font-size:40px">👤</text>
+      <text class="t-secondary center">登录后查看你创建和收藏的胶囊。</text>
+      <view class="btn btn-primary" bindtap="goLogin">登录 / 注册</view>
+    </view>
+  </view>
+
+  <view wx:else class="container stack gap-4">
+    <!-- 资料卡 -->
+    <view class="card row gap-3">
+      <avatar-badge name="{{user.nickname}}" avatarId="{{user.avatarId}}" size="56" />
+      <view class="flex-1 stack">
+        <text class="t-lg t-bold">{{user.nickname}}</text>
+        <text class="t-muted t-sm">{{user.email}}</text>
+      </view>
+    </view>
+
+    <view class="row gap-3">
+      <view class="btn btn-outline flex-1" bindtap="goSettings">账号设置</view>
+      <view class="btn btn-danger flex-1" bindtap="doLogout">登出</view>
+    </view>
+
+    <!-- 分段 -->
+    <view class="me-seg">
+      <view class="me-seg-item {{tab === 'created' ? 'me-seg-on' : ''}}" data-t="created" bindtap="switchTab">💾 我创建的</view>
+      <view class="me-seg-item {{tab === 'favorites' ? 'me-seg-on' : ''}}" data-t="favorites" bindtap="switchTab">♥ 我收藏的</view>
+    </view>
+
+    <!-- 我创建的 -->
+    <block wx:if="{{tab === 'created'}}">
+      <text class="hint">共 {{mine.pagination ? mine.pagination.total : 0}} 条</text>
+      <view wx:if="{{mine.loading}}" class="loading">载入中…</view>
+      <block wx:elif="{{mine.items.length > 0}}">
+        <capsule-card
+          wx:for="{{mine.items}}"
+          wx:key="id"
+          item="{{item}}"
+          showFavorite="{{false}}"
+          showDelete="{{true}}"
+          bind:opencard="onOpenCard"
+          bind:deletecard="onDeleteCard"
+        />
+      </block>
+      <view wx:else class="empty">
+        <text class="empty-emoji">📭</text>
+        <text class="t-muted">还没有创建任何胶囊</text>
+        <view class="btn btn-primary btn-sm" bindtap="goCreate">去创建一个</view>
+      </view>
+    </block>
+
+    <!-- 我收藏的 -->
+    <block wx:else>
+      <text class="hint">共 {{favorites.pagination ? favorites.pagination.total : 0}} 条</text>
+      <view wx:if="{{favorites.loading}}" class="loading">载入中…</view>
+      <block wx:elif="{{favorites.items.length > 0}}">
+        <capsule-card
+          wx:for="{{favorites.items}}"
+          wx:key="id"
+          item="{{item}}"
+          bind:opencard="onOpenCard"
+          bind:favtoggle="onFavToggle"
+        />
+      </block>
+      <view wx:else class="empty">
+        <text class="empty-emoji">🗂</text>
+        <text class="t-muted">还没有收藏任何胶囊 —— 去广场看看？</text>
+        <view class="btn btn-outline btn-sm" bindtap="goPlaza">去广场</view>
+      </view>
+    </block>
+
+    <!-- 分页 -->
+    <view wx:if="{{(tab === 'created' ? mine.pagination : favorites.pagination) && (tab === 'created' ? mine.pagination.totalPages : favorites.pagination.totalPages) > 1}}" class="row between">
+      <view class="btn btn-outline btn-sm" bindtap="prevPage">上一页</view>
+      <text class="hint">第 {{tab === 'created' ? mine.page : favorites.page}} / {{tab === 'created' ? mine.pagination.totalPages : favorites.pagination.totalPages}} 页</text>
+      <view class="btn btn-outline btn-sm" bindtap="nextPage">下一页</view>
+    </view>
+  </view>
+</view>

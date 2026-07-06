@@ -1,0 +1,18 @@
+.avatar-badge {
+  border-radius: 9999px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.avatar-img {
+  border-radius: 9999px;
+  display: block;
+}
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+}

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Rails">
+  <title>Rails</title>
+  <defs>
+    <linearGradient id="rr128-red" x1="18" y1="13" x2="112" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5757"/>
+      <stop offset="0.52" stop-color="#cc0000"/>
+      <stop offset="1" stop-color="#7f0000"/>
+    </linearGradient>
+    <filter id="rr128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#rr128-red)" filter="url(#rr128-shadow)"/>
+  <path d="M24 79c12-29 34-46 67-51 15 18 18 42 12 70" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M31 88h74" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+  <path d="M39 98h55" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity="0.76"/>
+  <g stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.74">
+    <path d="M45 78 55 43"/>
+    <path d="M64 78 68 36"/>
+    <path d="M83 78 81 35"/>
+  </g>
+  <text x="64" y="31" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="900" fill="#fff">RAILS</text>
+</svg>

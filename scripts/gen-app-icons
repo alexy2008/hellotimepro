@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# ============================================================
+# gen-app-icons · App 图标跨端 codegen
+#
+# 以 spec/assets/logo.svg 为单一事实源，渲染各客户端的 launcher/app icon
+# （与 gen-tokens-* 同哲学：spec 单源 → 各端生成，杜绝漂移）。
+#
+# 依赖：rsvg-convert（brew install librsvg）
+#
+# 覆盖目标：
+#   mobile/android            → mipmap-*dpi/ic_launcher.png（深底铺满）
+#   desktop/flutter (android) → 同上
+#   desktop/flutter (ios)     → AppIcon.appiconset 全尺寸（iOS 图标禁透明，深底铺满）
+#   desktop/flutter (macos)   → app_icon_*.png（透明底，桌面 dock 惯例）
+#   mobile/ios                → Assets.xcassets/AppIcon.appiconset（1024 单尺寸，Xcode 14+）
+#   mobile/react-native       → icon / splash-icon / favicon / android 自适应前景+背景
+#
+# 未覆盖（后续）：electron/tauri 打包图标（icns/ico 需额外工具链）、
+#   swiftui(SwiftPM dev 无图标机制)、qt-pyside 窗口图标。
+# ============================================================
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SRC="$ROOT/spec/assets/logo.svg"
+BG="#06060c"   # surface-0 深底（iOS 禁 alpha；Android 遮罩形状内铺满好看）
+
+command -v rsvg-convert >/dev/null || { echo "需要 rsvg-convert：brew install librsvg" >&2; exit 1; }
+[[ -f "$SRC" ]] || { echo "找不到 $SRC" >&2; exit 1; }
+
+# 透明底渲染
+render() { # <size> <out>
+  rsvg-convert -w "$1" -h "$1" "$SRC" -o "$2"
+}
+# 深底铺满（iOS / launcher）：底色画布 + logo 占 82% 居中
+render_bg() { # <size> <out>
+  local s=$1 out=$2
+  local inner=$(( s * 82 / 100 ))
+  local off=$(( (s - inner) / 2 ))
+  rsvg-convert -b "$BG" --page-width "$s" --page-height "$s" \
+    --left "$off" --top "$off" -w "$inner" -h "$inner" "$SRC" -o "$out"
+}
+# 纯色背景块（RN 自适应图标背景层）
+solid() { # <size> <out>
+  printf '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d"><rect width="100%%" height="100%%" fill="%s"/></svg>' "$1" "$1" "$BG" \
+    | rsvg-convert -o "$2"
+}
+
+# ---------- Android 原生 + Flutter Android：mipmap ----------
+for entry in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+  dpi=${entry%%:*}; px=${entry##*:}
+  for base in "$ROOT/mobile/android/app/src/main/res" "$ROOT/desktop/flutter/android/app/src/main/res"; do
+    mkdir -p "$base/mipmap-$dpi"
+    render_bg "$px" "$base/mipmap-$dpi/ic_launcher.png"
+  done
+done
+echo "✓ android mipmaps（mobile/android + desktop/flutter/android）"
+
+# ---------- Flutter iOS：AppIcon.appiconset（模板文件名，全深底） ----------
+FIOS="$ROOT/desktop/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset"
+declare -a fios=(
+  "Icon-App-20x20@1x:20"  "Icon-App-20x20@2x:40"  "Icon-App-20x20@3x:60"
+  "Icon-App-29x29@1x:29"  "Icon-App-29x29@2x:58"  "Icon-App-29x29@3x:87"
+  "Icon-App-40x40@1x:40"  "Icon-App-40x40@2x:80"  "Icon-App-40x40@3x:120"
+  "Icon-App-60x60@2x:120" "Icon-App-60x60@3x:180"
+  "Icon-App-76x76@1x:76"  "Icon-App-76x76@2x:152"
+  "Icon-App-83.5x83.5@2x:167"
+  "Icon-App-1024x1024@1x:1024"
+)
+for e in "${fios[@]}"; do
+  render_bg "${e##*:}" "$FIOS/${e%%:*}.png"
+done
+echo "✓ flutter iOS AppIcon.appiconset"
+
+# ---------- Flutter macOS：app_icon_*（透明底，dock 惯例） ----------
+FMAC="$ROOT/desktop/flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset"
+for px in 16 32 64 128 256 512 1024; do
+  render "$px" "$FMAC/app_icon_$px.png"
+done
+echo "✓ flutter macOS AppIcon.appiconset"
+
+# ---------- mobile/ios：单尺寸 1024（Xcode 14+） ----------
+IOSSET="$ROOT/mobile/ios/Assets.xcassets/AppIcon.appiconset"
+mkdir -p "$IOSSET"
+render_bg 1024 "$IOSSET/icon-1024.png"
+cat > "$ROOT/mobile/ios/Assets.xcassets/Contents.json" << 'EOF'
+{
+  "info" : { "author" : "xcode", "version" : 1 }
+}
+EOF
+cat > "$IOSSET/Contents.json" << 'EOF'
+{
+  "images" : [
+    {
+      "filename" : "icon-1024.png",
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
+EOF
+echo "✓ mobile/ios AppIcon（1024 单尺寸）"
+
+# ---------- react-native（expo）：引用到的图标文件 ----------
+RN="$ROOT/mobile/react-native/assets/images"
+render_bg 1024 "$RN/icon.png"          # iOS 禁 alpha
+render 512 "$RN/splash-icon.png"       # 启动屏 logo（透明底）
+render 48  "$RN/favicon.png"           # web favicon
+# Android 自适应：前景 = 432 画布中央 66% 安全区内的 logo；背景 = 纯色块
+rsvg-convert --page-width 432 --page-height 432 --left 76 --top 76 -w 280 -h 280 "$SRC" -o "$RN/android-icon-foreground.png"
+solid 432 "$RN/android-icon-background.png"
+echo "✓ react-native icon/splash/favicon/adaptive"
+
+echo "✅ 全部生成完成（源：spec/assets/logo.svg，深底 ${BG}）"

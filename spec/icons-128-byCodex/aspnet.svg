@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="ASP.NET Core">
+  <title>ASP.NET Core</title>
+  <defs>
+    <linearGradient id="asp128-bg" x1="18" y1="13" x2="111" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8d65c5"/>
+      <stop offset="0.5" stop-color="#5c2d91"/>
+      <stop offset="1" stop-color="#35115f"/>
+    </linearGradient>
+    <filter id="asp128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#asp128-bg)" filter="url(#asp128-shadow)"/>
+  <circle cx="64" cy="64" r="38" fill="none" stroke="#c8a2ff" stroke-width="5" opacity="0.34"/>
+  <path d="M33 68c17-24 45-25 62-2" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.3"/>
+  <text x="64" y="62" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="900" fill="#fff">ASP</text>
+  <text x="64" y="88" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="850" fill="#d9c2ff">.NET</text>
+  <circle cx="32" cy="38" r="5" fill="#d9c2ff"/>
+  <circle cx="96" cy="90" r="5" fill="#d9c2ff"/>
+</svg>

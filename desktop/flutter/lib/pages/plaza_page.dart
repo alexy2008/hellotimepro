@@ -112,20 +112,44 @@ class _PlazaPageState extends ConsumerState<PlazaPage> {
               ),
             ),
             const SizedBox(height: 24),
-            Wrap(spacing: 12, runSpacing: 12, alignment: WrapAlignment.center, children: [
-              HtButton(
-                label: '创建我的胶囊',
-                icon: Icons.auto_awesome,
-                variant: HtVariant.heroPrimary,
-                onPressed: () => context.go(authed ? '/create' : '/register'),
-              ),
-              HtButton(
-                label: '用胶囊码开启',
-                icon: Icons.lock_open,
-                variant: HtVariant.heroSuccess,
-                onPressed: () => context.go('/open'),
-              ),
-            ]),
+            // 窄屏：等宽单行 + 短文案（= mobile/ios，防折行）；宽屏保持桌面样式。
+            if (narrow)
+              Row(children: [
+                Expanded(
+                  child: HtButton(
+                    label: '创建胶囊',
+                    icon: Icons.auto_awesome,
+                    variant: HtVariant.heroPrimary,
+                    fullWidth: true,
+                    onPressed: () => context.go(authed ? '/create' : '/register'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: HtButton(
+                    label: '用码开启',
+                    icon: Icons.lock_open,
+                    variant: HtVariant.heroSuccess,
+                    fullWidth: true,
+                    onPressed: () => context.go('/open'),
+                  ),
+                ),
+              ])
+            else
+              Wrap(spacing: 12, runSpacing: 12, alignment: WrapAlignment.center, children: [
+                HtButton(
+                  label: '创建我的胶囊',
+                  icon: Icons.auto_awesome,
+                  variant: HtVariant.heroPrimary,
+                  onPressed: () => context.go(authed ? '/create' : '/register'),
+                ),
+                HtButton(
+                  label: '用胶囊码开启',
+                  icon: Icons.lock_open,
+                  variant: HtVariant.heroSuccess,
+                  onPressed: () => context.go('/open'),
+                ),
+              ]),
           ]),
         ),
       ]),

@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "avatar-badge": "../../components/avatar-badge/index"
+  },
+  "navigationBarTitleText": "账号设置"
+}

@@ -391,7 +391,7 @@
 
 ### M5 · 全端扩散：桌面端 + 移动端（进行中）
 
-**状态**：🔄 **进行中（更新至 2026-07-01）** — 规划已定档。桌面端 6 个里 **5 个已落地并端到端验证**：electron + tauri（Web 壳，06-20）、swiftui（首个纯原生，06-21）、flutter（自绘引擎，06-24）、qt-pyside（QML+Python，首个 Linux 原生，06-25）；剩 winui3（需 Windows 机）。移动端 5 个里 **3 个已落地**：react-native（首个移动端，06-23）、ios（SwiftUI 原生，与 macOS 端共享逻辑，06-29）、flutter（一码多端，与桌面同源工程，iOS 目标 07-01）；剩 android、wechat 小程序。详见下「桌面 / 移动客户端落地记录」。在 v1.0 既有 20 个 Web 实现之上，新增 `desktop/`（6 个）与 `mobile/`（5 个）两大类目，共 11 个客户端实现。所有客户端均为**纯 API 消费者**，复用已绿的 10 套后端与 `/api/v1` 契约，不新增任何后端 / 数据库代码。
+**状态**：🔄 **进行中（更新至 2026-07-06）** — 规划已定档。桌面端 6 个里 **5 个已落地并端到端验证**：electron + tauri（Web 壳，06-20）、swiftui（首个纯原生，06-21）、flutter（自绘引擎，06-24）、qt-pyside（QML+Python，首个 Linux 原生，06-25）；剩 winui3（需 Windows 机）。移动端 5 个**全部已落地**：react-native（首个移动端，06-23，双平台原生验证 07-06）、ios（SwiftUI 原生，与 macOS 端共享逻辑，06-29）、flutter（一码多端，与桌面同源工程，iOS 07-01 / Android 07-05）、android（Jetpack Compose 原生，07-03）、wechat（原生微信小程序框架，07-06，移动端收官）。详见下「桌面 / 移动客户端落地记录」。在 v1.0 既有 20 个 Web 实现之上，新增 `desktop/`（6 个）与 `mobile/`（5 个）两大类目，共 11 个客户端实现。所有客户端均为**纯 API 消费者**，复用已绿的 10 套后端与 `/api/v1` 契约，不新增任何后端 / 数据库代码。
 
 **核心定位**：后端 / 契约 / 数据库**零增量**，全部复用。真正的工程增量只有两处——① 设计令牌从 CSS 翻译到各原生体系（codegen）；② 验证体系，Playwright 只懂 DOM，原生端需引入平台专属工具链。这两点构成 M5 的全部技术重量。
 
@@ -493,10 +493,10 @@
 | winui3 | ❌ 需 Windows | VS + WinAppSDK | **已有 Windows 机**，在该机上构建验证 |
 | flutter | ✅（除 Windows 桌面） | Flutter SDK（git clone ~/development/flutter） | ✅ 桌面已落地（2026-06-24）、移动 iOS 已落地（2026-07-01，与桌面同源工程）；Windows 桌面 / Android 目标待各自工具链 |
 | qt-pyside | ✅ | PySide6（uv，Qt 6.11） | ✅ 已落地（2026-06-25）；跨 Linux/mac/Win 同源，Linux 上即原生桌面 |
-| react-native | ✅ | Metro + Xcode/Android SDK | — |
+| react-native | ✅ | Metro + Xcode/Android SDK | ✅ 双平台原生已验证（2026-07-06）：`expo run:ios`/`run:android` 均后端日志佐证；Android 坑清单见 `mobile/react-native/README.md`（Gradle 8.14.3 版本矩阵 / JDK17 symlink / NDK 27.1 预装 / EXPO_PUBLIC_API_BASE=10.0.2.2） |
 | ios | ✅ | Xcode + XcodeGen | ✅ 已落地（2026-06-29）；iOS 模拟器运行时 26.3 已装 |
-| android | ✅ | Android SDK | **本机暂无 Android SDK**，flutter/RN/原生 android 目标的 apk 构建均待 SDK 安装 |
-| wechat 小程序 | ✅ | 微信开发者工具 | 本地「测试号」即可；真机扫码才需注册个人 AppID（免费，~10min） |
+| android | ✅ | Android SDK | ✅ 已落地（2026-07-03）；Android SDK 于 07-02 装好（Android Studio + 手动补 cmdline-tools/system-image，AVD `HelloTimePro`） |
+| wechat 小程序 | ✅ | 微信开发者工具 | ✅ 已落地（2026-07-06，移动端收官）；用户已装工具并配真实 AppID，`hello start wechat` + 工具内点「编译」验证通过 |
 
 #### 分批落地
 
@@ -633,13 +633,42 @@
 - **同源工程,不复制**：与 `desktop/flutter` 是**同一份 `lib/`**（物理工程唯一在 `desktop/flutter`；`mobile/flutter` 只提供移动运行入口 `run`/`build` + 文档,`./run` = `flutter run -d iOS 模拟器`,cd 到同源工程执行）。`hello` 里 `flutter`(desktop,`-d macos`) 与 `flutter-mobile`(mobile,`-d ios`) 是同一工程的两个运行目标。
 - **一批页面,两套 IA,桌面零回归**：**go_router 路由树完全没动**,移动 IA 全部由外壳层的 `MediaQuery` 宽窄分支实现——`kWideBreakpoint=740`,`MainLayout`/`MeLayout` 窄屏走新增的 `MobileShell`(精简顶部 bar + 底部 `NavigationBar` 广场/开启/创建/我的,`context.go` 切路由,受保护 tab 复用既有 redirect 守卫);宽屏保持顶部 nav + Footer 现状。页面级响应式:`CapsuleGrid` 本就 `LayoutBuilder`(窄屏单列)、hero 窄屏缩字号/紫光防溢出、`PlazaToolbar` 窄屏竖排全宽搜索、`Container2` 窄屏收紧边距(一处惠及所有页)。
 - **加平台**：`flutter create --platforms=ios,android --org pro.hellotime .` 只补 `ios/`/`android/` 脚手架,不动 `lib/`(bundle 与 macOS 一致 `pro.hellotime.hellotimeFlutter`)。iOS 加 ATS 本地明文例外(否则 Dart http 到 `:9080` 被拦、后端零日志)。`flutter_svg` 遇 `<filter>` 打印 `unhandled element` 警告,良性。
-- **平台状态**：iOS ✅ 已验证;Android 脚手架已就位但**本机无 Android SDK**,`flutter build apk` 待 SDK(代码层无额外工作,同一 `lib/`)。
+- **平台状态**：iOS ✅ 已验证;Android ✅ 已验证(2026-07-05:`flutter build apk` + 模拟器 + 后端日志偏移法 plaza/avatars 200,`TARGET=android ./run|./build`)。Android 踩坑链:全局 `~/.gradle/init.gradle` 镜像注入与 Flutter+Gradle 9 严格仓库模式冲突(flutter#174035,脚本构建期自动挪开/还原)、Gradle 发行版与 NDK(r28c)/build-tools;36.0.0 直连下载屡截断(curl 断点续传预置 + sdkmanager 预装)、API_BASE 需 `--dart-define` 注入 10.0.2.2 + manifest 加 network_security_config。
 
 **验收**（2026-07-01，编译 + 模拟器 + 后端日志，遵循不开 computer-use）：
 
 - `mobile/flutter/build`：令牌 codegen + `flutter analyze`(0 issue) + `flutter build ios --simulator` 通过。
 - 端到端：`hello start flutter-mobile` → `flutter run -d "iPhone 17 Pro Max"` 编译+启动(Dart VM Service ready);fastapi 日志出现 `GET /api/v1/plaza/capsules?...&pageSize=15 200`、`GET /static/avatars/*.svg 200`、`GET /api/v1/health 200`,佐证 Dart http → `:9080` 全链路;`hello stop` 干净停。
 - 待补：`integration_test` 核心旅程、Android SDK 后 apk 构建、`docs/mobile-comparison.md` 已补对应行。
+
+##### Android 原生（Jetpack Compose）落地（2026-07-03）
+
+- **「React 的 fetch 客户端在 Android 世界逐字重写」**：`data/ApiClient.kt` 与 `frontends/react-ts` 的 client.ts 1:1 对齐（Envelope 解包 / refresh 单飞 / 401 重放一次），fetch→OkHttp、Promise 共享→`Mutex` + 进锁复查（refresh token 旋转式，不能并发各刷各的）。UI 层 Jetpack Compose + Material 3 表达移动 IA：底部 `NavigationBar` 四 Tab + 受保护 Tab 拦截弹 `ModalBottomSheet` 登录（成功回跳 pendingRoute）。
+- **手写 gradle 工程**：无 Android Studio 向导，`settings/build.gradle.kts` + Version Catalog 全手写；**版本一律先 curl Google Maven / Maven Central 的 maven-metadata.xml 实查**（AGP 8.13.2 + Kotlin 2.4.0 + Compose BOM 2026.05.01 + OkHttp 5.4 + Coil 3.5）。坑：BOM 2026.05 传递依赖 stdlib 2.4 元数据 → Kotlin 编译器必须 ≥2.4；Kotlin 2.4 移除旧 `kotlinOptions` DSL。
+- **令牌 codegen**：`scripts/gen-tokens-android` → `theme/Tokens.kt`（Color / Brush 渐变 / 辉光 Color+Blur / FontWeight），暗浅两套经 `CompositionLocal`（`HT.colors`）下发——M5.1 管线第 4 个目标（rn/flutter/qt 之后）。
+- **Android 平台坑（已解决）**：① 模拟器里 `127.0.0.1` 是模拟器自身 → 宿主后端走 **`10.0.2.2`** 固定别名；② Android 9+ 默认拦明文 HTTP → `network_security_config.xml` 仅对 10.0.2.2/localhost 放行（Android 版「沙箱拦网」）；③ gradle 根 `build/` 目录与 `./build` 脚本同名 → 根工程 buildDirectory 挪到 `.gradle/root-build`（避免 flutter 那样的 build.sh 例外）；④ `hello stop` 是 killpg → emulator 经 `start_new_session` 挂独立会话不陪葬，app 以 `pidof` 存活为界（判活语义 = ios）。
+- **`hello` 登记**：`MOBILE` 表 `android`（`port: None` → `native`），doctor 加 adb，Web UI 加机器人图标。
+
+**验收**（2026-07-03，编译 + 模拟器 + 后端日志，遵循不开 computer-use）：
+
+- `./build`：令牌 codegen + `gradle assembleDebug` 通过（11 屏 + 组件全绿）。
+- 端到端：`hello start android` → 起模拟器(AVD HelloTimePro) → installDebug → am start；fastapi 日志出现 `GET /api/v1/plaza/capsules?...&pageSize=15 200`、`GET /static/avatars/*.svg 200`（**日志偏移法**确认为本次冷启动新增，非历史残留）；`hello stop` 干净停、模拟器保留。
+- 待补：Compose-test / Espresso 核心旅程，`docs/mobile-comparison.md` 已更新状态行。
+
+##### 微信小程序（原生框架）落地（2026-07-06）—— 移动端收官
+
+- **「同逻辑异视图」对照 `frontends/react-ts`**：不借助 Taro / uni-app，直接吃小程序原生原语（`App`/`Page`/`Component` + WXML/WXSS + `wx.request` + `setData`）。业务逻辑（auth/plaza/capsule/theme store + api client + format）从 react-ts 近逐字移植，承载它的是 `utils/store.js`——40 行手搓可观察 store（`getState`/`setState`/`subscribe`，**zustand vanilla 同形**，故移植来的 store 工厂零改）；视图层全量重建为小程序 IA（底部 `tabBar` + 页面栈），9 个页面功能对齐（含 AI 生成/推荐、实时倒计时+到期自动开启轮询、收藏、门禁、改密登出）。
+- **平台差异抹平**：`fetch`→`wx.request`（包一层 Promise；`res.status`→`statusCode`、`res.json()`→`res.data`、手搓 `qs()` 替代 `URLSearchParams`）；`AsyncStorage`（异步）→`wx.storageSync`（**同步**，hydrate 反而更接近 Web `localStorage`）；无 `<html data-theme>`→codegen 出 `.theme-dark`/`.theme-light` 两套 CSS 变量类，`utils/page.js` 的 `createPage` 工厂给每页根节点挂 `theme-{{mode}}` 类切换。
+- **令牌 codegen**：`scripts/gen-tokens-miniprogram` → `tokens/tokens.wxss`（CSS 变量，样式主通道）+ `tokens/palette.js`（JS 取色场景）——M5.1 管线第 5 个目标（rn/flutter/qt/android 之后）。
+- **头像 codegen（升级，而非停在色块降级）**：小程序 `<image>` 不支持渲染 SVG，无法像 iOS(SVGView)/Flutter(flutter_svg)/RN(react-native-svg) 那样直接显示 `spec/avatars/*.svg`。新增 `scripts/gen-avatars-miniprogram`（`rsvg-convert`/librsvg）在 codegen 阶段把 `spec/avatars` 的 10 个头像预渲染成 256×256 PNG，存进 `assets/avatars/`，`avatar-badge` 组件 `<image>` 直接加载本地文件，视觉与其它端一致；仅当加载失败（`binderror`，如 `rsvg-convert` 未装或 `avatarId` 不在内置 10 个之列）才回退到「品牌色底 + 首字」的确定性徽章。`about` 页技术栈图标（非固定小集合）仍用文本呈现。
+- **小程序平台坑（已解决）**：① 模拟器跑在宿主 macOS 进程内 → 后端走 **`127.0.0.1`**:9080（不同于 Android 模拟器的 `10.0.2.2`）；② 默认只放 https + 合法域名 → `project.config.json` `setting.urlCheck:false` 放行本地 http（仅限开发）；③ 游客 `touristappid` 联网受限 → 需换真实 AppID/测试号，写进 gitignored `project.private.config.json`，不污染仓库的 `project.config.json`；④ `hello start wechat` 里 `cli open --project` 只把工程加载进 IDE 编辑器，**不会自动编译运行**——需在工具里手动点「编译」才会真正跑模拟器/发请求（首次验证时曾误判为无响应，实际是没点编译）。
+- **`hello` 登记**：`MOBILE` 表 `wechat`（`port: None` → `native`，别名 miniprogram/weixin），doctor 加「微信开发者工具」与 `rsvg-convert` 检查项。
+
+**验收**（2026-07-06，用户已装微信开发者工具并配真实 AppID，编译 + 模拟器 + 后端日志，遵循不开 computer-use）：
+
+- `./build`：离线静态校验（工程结构 / 配置 JSON 合法性 / 页面四件套齐备 / `node --check` 语法）全绿；纯 JS 逻辑另在 Node 里 stub `wx` 跑通冒烟（store/format/api/stores 均可执行）。
+- 端到端：`hello start wechat` → DevTools `cli open --project` 打开工程 → 用户在工具里点「编译」→ fastapi 日志新增 `GET /api/v1/avatars 200`、`GET /api/v1/plaza/capsules?...&pageSize=15 200`、`GET /api/v1/health 200`、`GET /api/v1/capsules/{code} 200`，广场→详情导航链路打通；头像 PNG 在模拟器里正确渲染（用户目验确认）。
+- 待补：小程序自动化测试（miniprogram-automator）核心旅程。移动端 5 个实现（ios/android/flutter-mobile/react-native/wechat）至此**全部落地**。
 
 ## 4. 并行策略
 

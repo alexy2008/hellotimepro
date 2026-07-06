@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Axum">
+  <title>Axum</title>
+  <defs>
+    <linearGradient id="ax128-bg" x1="18" y1="13" x2="112" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd96a"/>
+      <stop offset="0.55" stop-color="#f7b500"/>
+      <stop offset="1" stop-color="#c47d00"/>
+    </linearGradient>
+    <filter id="ax128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#ax128-bg)" filter="url(#ax128-shadow)"/>
+  <path d="M28 103 64 23l36 80H80l-6-15H54l-6 15H28Zm32-31h8l-4-13-4 13Z" fill="#111827"/>
+  <path d="M46 42c13-14 26-14 39 0" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" opacity="0.4"/>
+  <path d="M25 26h78" stroke="#fff7cc" stroke-width="4" stroke-linecap="round" opacity="0.44"/>
+</svg>

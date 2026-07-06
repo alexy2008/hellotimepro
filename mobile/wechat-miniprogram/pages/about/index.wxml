@@ -1,0 +1,42 @@
+<view class="app-root theme-{{themeMode}}">
+  <view class="container stack gap-6">
+    <text class="t-signal" bindtap="goBack">‹ 返回</text>
+
+    <text class="t-2xl t-bold display">关于 <text class="t-signal">HelloTime Pro</text></text>
+
+    <text class="t-secondary about-p">一款时光胶囊应用——写下一段话，设定未来某刻才能开启，内容上锁后不可修改。同时也是一个多技术栈对比学习项目：同一份产品需求由多套前后端 / 客户端各自实现，共享同一份 API 契约、数据库 schema 与设计 token。</text>
+
+    <!-- 移动端技术栈 -->
+    <view class="stack gap-3">
+      <text class="t-xl t-semibold display">移动端技术栈</text>
+      <view class="card stack gap-3">
+        <view class="row wrap gap-3">
+          <view wx:for="{{mobileStack}}" wx:key="name" class="stack-chip">
+            {{item.name}}{{item.version ? ' · ' + item.version : ''}}
+          </view>
+        </view>
+        <text class="t-secondary t-sm about-p">{{mobileSummary}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{connected === false}}" class="error-box">无法读取后端信息，请确认后端已在 {{apiBase}} 运行。</view>
+
+    <!-- 后端技术栈 -->
+    <view wx:if="{{health}}" class="stack gap-3">
+      <text class="t-xl t-semibold display">后端技术栈</text>
+      <view class="card stack gap-3">
+        <view class="row wrap gap-3">
+          <view wx:for="{{backendItems}}" wx:key="name" class="stack-chip">
+            {{item.name}}{{item.version ? ' ' + item.version : ''}}
+          </view>
+        </view>
+        <text class="t-secondary t-sm about-p">{{health.stack.summary}}</text>
+      </view>
+    </view>
+
+    <view class="row gap-2 wrap">
+      <view class="dot {{connected === true ? 'dot-on' : (connected === false ? 'dot-off' : '')}}"></view>
+      <text class="t-muted t-sm">后端 {{connected === true ? '在线' : (connected === false ? '离线' : '连接中…')}} · {{backendFramework}} · License: MIT</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="JavaScript">
+  <title>JavaScript</title>
+  <defs>
+    <linearGradient id="js128-bg" x1="17" y1="14" x2="110" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff27a"/>
+      <stop offset="0.52" stop-color="#f7df1e"/>
+      <stop offset="1" stop-color="#d6b900"/>
+    </linearGradient>
+    <filter id="js128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="15" fill="url(#js128-bg)" filter="url(#js128-shadow)"/>
+  <path d="M20 24c0-3 2-5 5-5h78c3 0 5 2 5 5v20c-22-8-53-9-88-2V24Z" fill="#fff9b0" opacity="0.35"/>
+  <text x="65" y="96" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="50" font-weight="900" fill="#1f2933">JS</text>
+</svg>

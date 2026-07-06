@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Svelte">
+  <title>Svelte</title>
+  <defs>
+    <linearGradient id="sv128-bg" x1="18" y1="13" x2="111" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7a45"/>
+      <stop offset="0.45" stop-color="#ff3e00"/>
+      <stop offset="1" stop-color="#c2410c"/>
+    </linearGradient>
+    <filter id="sv128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="22" fill="url(#sv128-bg)" filter="url(#sv128-shadow)"/>
+  <path d="M89 34c-9-14-29-18-43-9L30 35c-12 8-17 23-10 35 3 6 9 11 15 14-4 8-3 17 2 25 9 14 29 18 43 9l16-10c12-8 17-23 10-35-3-6-9-11-15-14 4-8 3-17-2-25Z" fill="#fff"/>
+  <path d="M75 42c-4-5-11-7-17-4L43 47c-4 2-5 7-3 10 2 4 7 5 11 3l14-8c4-2 9-1 11 3 3 5 2 11-4 14l-15 9c-6 3-13 2-18-3" fill="none" stroke="#ff3e00" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M53 88c4 5 11 7 17 4l15-9c4-2 5-7 3-10-2-4-7-5-11-3l-14 8c-4 2-9 1-11-3-3-5-2-11 4-14l15-9c6-3 13-2 18 3" fill="none" stroke="#ff3e00" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

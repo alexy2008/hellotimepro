@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="TypeScript">
+  <title>TypeScript</title>
+  <defs>
+    <linearGradient id="ts128-bg" x1="18" y1="12" x2="112" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5aa7e8"/>
+      <stop offset="0.46" stop-color="#3178c6"/>
+      <stop offset="1" stop-color="#235a97"/>
+    </linearGradient>
+    <filter id="ts128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="15" fill="url(#ts128-bg)" filter="url(#ts128-shadow)"/>
+  <path d="M20 25c0-3 2-5 5-5h78c3 0 5 2 5 5v22c-20-9-53-11-88-4V25Z" fill="#ffffff" opacity="0.12"/>
+  <g fill="#fff">
+    <path d="M57 58H43v39H31V58H17V47h40v11Z"/>
+    <path d="M66 84c4 4 9 6 15 6 5 0 8-2 8-6 0-3-2-5-7-7l-8-3c-10-4-15-10-15-18 0-10 9-17 22-17 8 0 15 3 21 8l-6 9c-4-4-9-5-15-5-5 0-8 2-8 5 0 4 3 5 9 8l8 3c10 4 14 10 14 18 0 10-8 18-24 18-9 0-18-3-24-10l10-9Z"/>
+  </g>
+</svg>

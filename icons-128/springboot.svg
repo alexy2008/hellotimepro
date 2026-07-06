@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="springboot">
+<defs>
+  <linearGradient id="d" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#20202e"/><stop offset="1" stop-color="#14141e"/>
+  </linearGradient>
+  <linearGradient id="s" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
+    <stop offset=".5" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="kg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#7f52ff"/><stop offset=".5" stop-color="#e44857"/>
+    <stop offset="1" stop-color="#f88909"/>
+  </linearGradient>
+</defs>
+<rect x="4" y="4" width="120" height="120" rx="28" fill="url(#d)"/>
+<path d="M96 32 C 60 30 32 52 32 84 C 32 90 34 96 38 100 C 40 78 56 60 84 52 C 62 64 50 82 50 100 C 74 100 96 80 96 50 Z" fill="#6db33f"/>
+  <path d="M50 100 C 40 96 34 88 34 78" fill="none" stroke="#6db33f" stroke-width="6" stroke-linecap="round"/>
+  <path d="M84 52 C 66 60 56 74 52 92" fill="none" stroke="#bfe9a0" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
+<rect x="4" y="4" width="120" height="120" rx="28" fill="url(#s)"/>
+<rect x="4.5" y="4.5" width="119" height="119" rx="27.5" fill="none" stroke="#ffffff" stroke-opacity=".14" stroke-width="1"/>
+</svg>

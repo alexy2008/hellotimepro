@@ -1,0 +1,32 @@
+<view class="app-root theme-{{themeMode}}">
+  <view class="container stack gap-5">
+    <view class="row" style="justify-content:flex-end">
+      <text class="t-muted" style="font-size:22px" bindtap="close">✕</text>
+    </view>
+
+    <view class="card stack gap-4">
+      <view class="stack gap-1">
+        <text class="t-2xl t-bold display">欢迎回来</text>
+        <text class="t-secondary t-sm">你留给未来的信，还在等你开启。</text>
+      </view>
+
+      <view class="field">
+        <text class="label">邮箱</text>
+        <input class="input" type="text" value="{{email}}" bindinput="onEmail" placeholder="you@example.com" placeholder-class="hint" />
+      </view>
+      <view class="field">
+        <text class="label">密码</text>
+        <input class="input" password value="{{password}}" bindinput="onPassword" placeholder="••••••••" placeholder-class="hint" />
+        <text class="hint">忘记密码？暂不支持找回，请联系管理员重置。</text>
+      </view>
+
+      <view class="btn btn-primary" bindtap="submit" style="height:52px;line-height:52px">{{busy ? '登录中…' : '登录'}}</view>
+
+      <view class="center" bindtap="goRegister">
+        <text class="t-muted t-sm">还没有账号？</text><text class="t-signal t-sm">立即注册</text>
+      </view>
+    </view>
+
+    <view wx:if="{{err}}" class="error-box">{{err}}</view>
+  </view>
+</view>

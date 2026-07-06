@@ -1,0 +1,71 @@
+<view class="app-root theme-{{themeMode}}">
+  <view class="screen-header">
+    <text class="screen-title display">胶囊广场</text>
+    <view class="row gap-3">
+      <text class="t-muted t-xl" bindtap="goAbout">ⓘ</text>
+      <text class="t-xl" bindtap="toggleTheme">{{themeMode === 'dark' ? '☀' : '☾'}}</text>
+    </view>
+  </view>
+
+  <view class="container stack gap-4">
+    <!-- hero -->
+    <view class="card-hero stack gap-3">
+      <text class="t-2xl t-bold display">封存此刻 <text class="t-accent">开启未来</text></text>
+      <text class="t-secondary t-sm">写下此刻最真实的想法，设定一个解封时刻——时间到了，它才会被打开。</text>
+      <view class="row gap-3">
+        <view class="btn btn-primary flex-1" bindtap="goCreate">创建胶囊</view>
+        <view class="btn btn-success flex-1" bindtap="goOpen">用码开启</view>
+      </view>
+    </view>
+
+    <!-- 工具条 -->
+    <view class="stack gap-3">
+      <view class="row between">
+        <view class="seg">
+          <view class="chip {{sort === 'new' ? 'chip-active' : ''}}" data-v="new" bindtap="onSort">最新</view>
+          <view class="chip {{sort === 'hot' ? 'chip-active' : ''}}" data-v="hot" bindtap="onSort">最热</view>
+        </view>
+        <view class="seg">
+          <view class="chip {{filter === 'all' ? 'chip-active' : ''}}" data-v="all" bindtap="onFilter">全部</view>
+          <view class="chip {{filter === 'unopened' ? 'chip-active' : ''}}" data-v="unopened" bindtap="onFilter">封存中</view>
+          <view class="chip {{filter === 'opened' ? 'chip-active' : ''}}" data-v="opened" bindtap="onFilter">已解封</view>
+        </view>
+      </view>
+      <input
+        class="input"
+        placeholder="搜索标题 / 昵称…"
+        placeholder-class="hint"
+        value="{{q}}"
+        confirm-type="search"
+        bindinput="onSearchInput"
+        bindconfirm="onSearchConfirm"
+      />
+    </view>
+
+    <!-- 列表 -->
+    <view wx:if="{{loading}}" class="loading">载入中…</view>
+
+    <block wx:elif="{{items.length > 0}}">
+      <capsule-card
+        wx:for="{{items}}"
+        wx:key="id"
+        item="{{item}}"
+        bind:opencard="onOpenCard"
+        bind:favtoggle="onFavToggle"
+      />
+    </block>
+
+    <view wx:else class="empty">
+      <text class="empty-emoji">🌌</text>
+      <text class="t-muted center">广场暂无胶囊 —— 来当第一个写信给未来的人？</text>
+      <view class="btn btn-primary btn-sm" bindtap="goCreate">{{hasUser ? '创建胶囊' : '注册并创建'}}</view>
+    </view>
+
+    <!-- 分页 -->
+    <view wx:if="{{pagination && pagination.totalPages > 1}}" class="row between">
+      <view class="btn btn-outline btn-sm" bindtap="prevPage">上一页</view>
+      <text class="hint">第 {{page}} / {{pagination.totalPages}} 页 · {{totalLabel}}</text>
+      <view class="btn btn-outline btn-sm" bindtap="nextPage">下一页</view>
+    </view>
+  </view>
+</view>

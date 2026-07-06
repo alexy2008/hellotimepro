@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Node.js">
+  <title>Node.js</title>
+  <defs>
+    <linearGradient id="nd128-bg" x1="19" y1="13" x2="108" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#83cd29"/>
+      <stop offset="0.46" stop-color="#68a063"/>
+      <stop offset="1" stop-color="#3c873a"/>
+    </linearGradient>
+    <filter id="nd128-shadow" x="-14%" y="-14%" width="128%" height="132%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <path d="M64 8 114 36v56l-50 28-50-28V36Z" fill="url(#nd128-bg)" filter="url(#nd128-shadow)"/>
+  <path d="M64 19 103 42v44l-39 23-39-23V42Z" fill="none" stroke="#ffffff" stroke-width="5" opacity="0.18"/>
+  <path d="M37 43h16l22 37V43h16v48H74L52 55v36H37V43Z" fill="#fff"/>
+  <path d="M96 43h15v29c0 14-8 22-22 22-10 0-18-5-22-14l13-7c2 5 5 8 9 8 5 0 7-3 7-9V43Z" fill="#fff" opacity="0.92"/>
+</svg>

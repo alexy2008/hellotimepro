@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# 启动 HelloTime Pro · Android 原生（模拟器）。
+#
+# 纯原生：无 dev server 端口 —— OkHttp 直连后端。模拟器里 127.0.0.1 是模拟器自身，
+# 宿主后端走 10.0.2.2（emulator 固定别名）；BACKEND_PROXY 可覆盖（真机用局域网 IP）。
+# 流程：令牌 codegen → 起模拟器（独立会话，hello stop 不误杀）→ gradle installDebug
+# → am start → 以 app 进程存活为界前台附着（hello 据 run 进程判活）。
+#   ANDROID_AVD="Pixel_9" ./run     # 指定 AVD（默认 HelloTimePro）
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+export JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home -v 21)}"
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+
+if ! command -v adb >/dev/null 2>&1; then
+  echo "需要 Android SDK（$ANDROID_HOME/platform-tools 不存在？）" >&2
+  exit 1
+fi
+
+AVD="${ANDROID_AVD:-HelloTimePro}"
+APP_ID="pro.hellotime.android"
+
+# 设计令牌 codegen（保证 Tokens.kt 与 spec/tokens/tokens.json 同源）
+command -v node >/dev/null 2>&1 && node ../../scripts/gen-tokens-android
+
+# 起模拟器（若无在线设备）。经 python3 start_new_session 挂独立会话：
+# hello stop 用 killpg 杀 run 的进程组，模拟器不该陪葬。
+if ! adb devices | grep -qE "emulator-[0-9]+\s+device"; then
+  echo "启动模拟器 ${AVD}…"
+  python3 - "$ANDROID_HOME/emulator/emulator" "$AVD" << 'PY'
+import subprocess, sys
+subprocess.Popen([sys.argv[1], "-avd", sys.argv[2], "-no-audio", "-no-boot-anim"],
+                 start_new_session=True,
+                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+PY
+  adb wait-for-device
+  echo "等待系统启动完成…"
+  for _ in $(seq 1 60); do
+    [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n')" == "1" ]] && break
+    sleep 3
+  done
+fi
+
+echo "编译并安装（后端 → ${BACKEND_PROXY:-http://10.0.2.2:9080}）…"
+./gradlew :app:installDebug --console=plain -q
+
+adb shell am start -n "$APP_ID/.MainActivity" >/dev/null
+echo "app 已启动，附着日志（app 退出 / hello stop 结束）…"
+
+PID="$(adb shell pidof "$APP_ID" | tr -d '\r\n ')"
+adb logcat --pid="$PID" &
+LOGCAT=$!
+trap 'kill $LOGCAT 2>/dev/null || true' EXIT
+# 以 app 进程存活为界：app 退出则本脚本退出（hello 判活语义对齐 ios/swiftui）
+while adb shell pidof "$APP_ID" >/dev/null 2>&1; do sleep 3; done

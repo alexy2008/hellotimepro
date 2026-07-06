@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Bun">
+  <title>Bun</title>
+  <defs>
+    <linearGradient id="bun128-bg" x1="18" y1="13" x2="111" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff8ec"/>
+      <stop offset="1" stop-color="#f8e2c2"/>
+    </linearGradient>
+    <linearGradient id="bun128-bread" x1="28" y1="33" x2="103" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe2b8"/>
+      <stop offset="0.55" stop-color="#f4cfa3"/>
+      <stop offset="1" stop-color="#c49a6a"/>
+    </linearGradient>
+    <filter id="bun128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#bun128-bg)" filter="url(#bun128-shadow)"/>
+  <ellipse cx="64" cy="69" rx="47" ry="38" fill="url(#bun128-bread)" stroke="#9f7448" stroke-width="5"/>
+  <path d="M29 59c9-21 29-31 56-25 13 3 23 12 29 25-17-12-44-17-85 0Z" fill="#fff1d6" opacity="0.6"/>
+  <ellipse cx="48" cy="69" rx="7" ry="10" fill="#3b2f1e"/>
+  <ellipse cx="80" cy="69" rx="7" ry="10" fill="#3b2f1e"/>
+  <circle cx="46" cy="66" r="2" fill="#fff" opacity="0.75"/>
+  <circle cx="78" cy="66" r="2" fill="#fff" opacity="0.75"/>
+  <path d="M53 88c7 8 15 8 22 0" fill="none" stroke="#3b2f1e" stroke-width="6" stroke-linecap="round"/>
+  <g fill="#9f7448" opacity="0.55">
+    <ellipse cx="42" cy="47" rx="6" ry="3" transform="rotate(-28 42 47)"/>
+    <ellipse cx="64" cy="40" rx="6" ry="3" transform="rotate(8 64 40)"/>
+    <ellipse cx="88" cy="48" rx="6" ry="3" transform="rotate(28 88 48)"/>
+  </g>
+</svg>

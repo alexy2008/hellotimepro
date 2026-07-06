@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="C#">
+  <title>C#</title>
+  <defs>
+    <linearGradient id="cs128-bg" x1="21" y1="14" x2="109" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9b6cff"/>
+      <stop offset="0.55" stop-color="#68217a"/>
+      <stop offset="1" stop-color="#3b0f4f"/>
+    </linearGradient>
+    <filter id="cs128-shadow" x="-14%" y="-14%" width="128%" height="132%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <path d="M64 8 113 36v56l-49 28-49-28V36Z" fill="url(#cs128-bg)" filter="url(#cs128-shadow)"/>
+  <path d="M64 18 103 41v46l-39 23-39-23V41Z" fill="none" stroke="#ffffff" stroke-width="5" opacity="0.28"/>
+  <text x="64" y="78" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="38" font-weight="900" fill="#fff">C#</text>
+</svg>

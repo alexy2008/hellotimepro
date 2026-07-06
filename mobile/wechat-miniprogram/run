@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# 启动 HelloTime Pro · 微信小程序端。
+#
+# 原生小程序无 dev server：靠微信开发者工具（DevTools）的 CLI 打开工程 →
+# 内置模拟器起来 → wx.request 直连宿主后端 :9080（同机，故用 127.0.0.1，
+# 不同于 Android 模拟器的 10.0.2.2）。project.config.json 已关 urlCheck 放行本地 http。
+#
+# 流程：令牌 codegen → DevTools CLI open --project → 前台 keepalive
+# （hello 以本 run 进程存活判活，同 ios/android/swiftui 的 port=None 模型；
+#  hello stop 用 killpg 结束本脚本，DevTools 窗口不受影响，需自行关闭）。
+#
+# 前置：安装「微信开发者工具」并在其中「设置 → 安全 → 开启服务端口(CLI/HTTP)」，
+#       首次需扫码登录。CLI 路径可用 DEVTOOLS_CLI 覆盖。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+CLI="${DEVTOOLS_CLI:-/Applications/wechatwebdevtools.app/Contents/MacOS/cli}"
+
+if [[ ! -x "$CLI" ]]; then
+  echo "未找到微信开发者工具 CLI：$CLI" >&2
+  echo "请先安装「微信开发者工具」（https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html），" >&2
+  echo "并在 设置 → 安全 中开启「服务端口」，首次扫码登录。" >&2
+  echo "若安装在非默认位置，用 DEVTOOLS_CLI=/path/to/cli ./run 覆盖。" >&2
+  exit 1
+fi
+
+# 设计令牌 codegen（保证 tokens.wxss / palette.js 与 spec/tokens/tokens.json 同源）
+command -v node >/dev/null 2>&1 && node ../../scripts/gen-tokens-miniprogram
+# 头像 PNG codegen（需 rsvg-convert；未装则打印警告，组件自动回退色块+首字）
+command -v node >/dev/null 2>&1 && node ../../scripts/gen-avatars-miniprogram
+
+echo "用微信开发者工具打开工程（后端 → http://127.0.0.1:9080）…"
+# open 打开工程；模拟器随之启动并发出 wx.request（后端日志可见 plaza/avatars 200）
+"$CLI" open --project "$HERE" || {
+  echo "DevTools open 失败：请确认工具已启动、已登录、已开启服务端口。" >&2
+  exit 1
+}
+
+echo "工程已在开发者工具中打开。keepalive 中——hello stop 结束本进程（不关工具窗口）。"
+# 前台 keepalive：hello 以本进程存活判活。killpg 会终止本 sleep 循环。
+trap 'exit 0' TERM INT
+while true; do sleep 5; done

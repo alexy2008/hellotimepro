@@ -1,6 +1,7 @@
 // 广场（移动版）：紧凑 Hero + 工具栏（排序/过滤/搜索）+ 单列卡片 + 分页。匿名可浏览。
 // 卡片点开经 navigationDestination(code) 压栈详情。= desktop/swiftui PlazaView 适配移动 IA。
 import SwiftUI
+import SVGView
 
 struct PlazaView: View {
     @Environment(AppStore.self) private var store
@@ -29,10 +30,11 @@ struct PlazaView: View {
                 .padding(.bottom, Space.s8)
             }
             .background(Theme.surface0)
-            .navigationTitle("广场")
             .navigationBarTitleDisplayMode(.inline)
-            // 移动版无全局 header：主题切换 + 关于放广场工具栏（匿名可访问，对齐 mobile.html 原型）。
+            // 移动版无全局 header：品牌放 leading（= flutter MobileShell），
+            // 主题切换 + 关于放 trailing（匿名可访问，对齐 mobile.html 原型）。
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) { brand }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { withAnimation(.easeInOut) { store.toggleTheme() } } label: {
                         Image(systemName: store.theme == .dark ? "moon.stars.fill" : "sun.max.fill")
@@ -57,6 +59,21 @@ struct PlazaView: View {
             if Task.isCancelled { return }
             page = 1
             await reload()
+        }
+    }
+
+    /// 品牌头：logo + HelloTime + PRO 徽章（= flutter MobileShell / desktop AppHeader）。
+    private var brand: some View {
+        HStack(spacing: Space.s2) {
+            LogoMark(size: 26)
+            Text("HelloTime")
+                .font(.system(size: FontSize.lg, weight: .bold, design: .rounded))
+                .foregroundStyle(Theme.textPrimary)
+            Text("PRO")
+                .font(.system(size: FontSize.xs, weight: .bold, design: .rounded))
+                .foregroundStyle(Theme.brandGradient)
+                .padding(.horizontal, 6).padding(.vertical, 1)
+                .background(Theme.brandSubtle.opacity(0.5)).clipShape(Capsule())
         }
     }
 
@@ -132,6 +149,23 @@ struct PlazaView: View {
             let r = try await store.api.plaza(sort: sort, filter: filter, q: query, page: page)
             items = r.items; totalPages = max(r.pagination.totalPages, 1); total = r.pagination.total
         } catch { store.report(error) }
+    }
+}
+
+/// 品牌图标：渲染 bundle 内 logo.svg（SVGView，iOS UIImage 不认 SVG）；
+/// 缺失时退化为渐变圆角块兜底。= desktop/swiftui LogoMark。
+private struct LogoMark: View {
+    var size: CGFloat = 26
+    private static let url: URL? = Bundle.main.url(forResource: "logo", withExtension: "svg")
+    var body: some View {
+        if let url = Self.url {
+            SVGView(contentsOf: url).frame(width: size, height: size)
+        } else {
+            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                .fill(Theme.brandGradient)
+                .frame(width: size, height: size)
+                .overlay(Image(systemName: "clock.fill").font(.system(size: size * 0.5)).foregroundStyle(.white))
+        }
     }
 }
 

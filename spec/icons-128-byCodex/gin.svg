@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Gin">
+  <title>Gin</title>
+  <defs>
+    <linearGradient id="gin128-bg" x1="18" y1="13" x2="112" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6fe8ff"/>
+      <stop offset="0.48" stop-color="#00acd7"/>
+      <stop offset="1" stop-color="#087a9a"/>
+    </linearGradient>
+    <filter id="gin128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#gin128-bg)" filter="url(#gin128-shadow)"/>
+  <circle cx="64" cy="32" r="9" fill="#fff" opacity="0.95"/>
+  <path d="M34 42h60L84 91c-2 13-11 21-20 21s-18-8-20-21L34 42Z" fill="none" stroke="#fff" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M47 65h34" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity="0.75"/>
+  <path d="M53 91c3 5 7 8 11 8 5 0 9-3 12-8" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.65"/>
+  <path d="M37 42h54" stroke="#e8fbff" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+</svg>

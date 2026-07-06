@@ -28,12 +28,15 @@ cd mobile/flutter && ./run               # 默认 iPhone 17 Pro Max；IOS_SIM="i
 
 ## 平台状态
 
-- **iOS**：✅ 已落地并验证（编译 + 模拟器 + 后端日志）。Xcode + CocoaPods 就绪。
-- **Android**：平台脚手架已生成（`../../desktop/flutter/android/`），但**本机暂无 Android SDK**，`flutter build apk` 待 SDK 安装后启用。
+- **iOS**：✅ 已验证（编译 + 模拟器 + 后端日志，2026-07-01）。Xcode + CocoaPods 就绪。
+- **Android**：✅ 已验证（`flutter build apk` + 模拟器运行 + 后端日志偏移法确认 plaza/avatars 200，2026-07-05）。
+  `TARGET=android ./run` / `TARGET=android ./build`。
 
-## iOS 平台适配
+## 平台适配要点
 
-- **ATS**：`../../desktop/flutter/ios/Runner/Info.plist` 开 `NSAppTransportSecurity` 本地明文例外，否则 Dart http 到 `http://127.0.0.1:9080` 被拦、后端零日志（同 mobile/ios）。
+- **iOS ATS**：`ios/Runner/Info.plist` 开 `NSAppTransportSecurity` 本地明文例外，否则 Dart http 到 `http://127.0.0.1:9080` 被拦、后端零日志（同 mobile/ios）。
+- **Android 双坑**（同 mobile/android）：模拟器里 `127.0.0.1` 是模拟器自身 → 后端走 **`10.0.2.2:9080`**（run/build 自动注入）；Android 9+ 拦明文 HTTP → `android/app/src/main/res/xml/network_security_config.xml` 放行。
+- **⚠️ 全局 `~/.gradle/init.gradle`（镜像注入 allprojects.repositories）与 Flutter+Gradle 9 严格仓库模式冲突**（[flutter#174035](https://github.com/flutter/flutter/issues/174035)）——`TARGET=android` 的 run/build 会在构建期自动临时挪开、退出还原。
 - **SVG 头像**：`flutter_svg` 渲染后端 SVG；含 `<filter>` 的图标会打印 `unhandled element <filter/>` 警告，良性（忽略滤镜，图形仍渲染）。
 
 ## 与 desktop/flutter 的关系

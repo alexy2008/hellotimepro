@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Drogon">
+  <title>Drogon</title>
+  <defs>
+    <linearGradient id="dg128-bg" x1="18" y1="13" x2="112" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5b52"/>
+      <stop offset="0.5" stop-color="#cc0000"/>
+      <stop offset="1" stop-color="#7f0000"/>
+    </linearGradient>
+    <filter id="dg128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#dg128-bg)" filter="url(#dg128-shadow)"/>
+  <path d="M24 78c0-29 24-52 53-52 21 0 40 13 46 32-10-7-22-9-34-6 12 8 18 19 15 31-4 18-25 26-45 17-18-8-28-25-26-43 11 16 31 23 46 13 7-5 7-14 0-19-9-6-23-1-31 10-8 12-10 25-24 36 4-8 0-13 0-19Z" fill="#fff"/>
+  <path d="M78 50c7 1 12 5 15 11" fill="none" stroke="#cc0000" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+  <circle cx="96" cy="58" r="4" fill="#cc0000"/>
+  <path d="M45 37c-8 4-15 10-20 18" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.42"/>
+</svg>

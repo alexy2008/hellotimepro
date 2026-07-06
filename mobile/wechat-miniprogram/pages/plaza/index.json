@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "capsule-card": "../../components/capsule-card/index"
+  },
+  "navigationBarTitleText": "胶囊广场"
+}

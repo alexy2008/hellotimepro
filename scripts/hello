@@ -100,6 +100,16 @@ MOBILE = {
     # 运行入口（./run = flutter run -d iOS 模拟器），代码在 ../../desktop/flutter，靠 MediaQuery
     # 宽窄分支切两套 IA。port=None → 前台进程判活（同 ios/桌面 flutter），Dart http 直连 :9080。
     "flutter-mobile": {"dir": "mobile/flutter",      "port": None, "runtime": "flutter"},
+    # android（Jetpack Compose 原生）：./run 起模拟器（独立会话防 stop 误杀）+ installDebug
+    # + am start，以 app 进程存活为界前台附着判活。OkHttp 经 10.0.2.2:9080 直连宿主反代
+    # （模拟器里 127.0.0.1 是模拟器自身）。
+    "android":        {"dir": "mobile/android",      "port": None, "runtime": "kotlin"},
+    # wechat（原生微信小程序）：无 dev server 端口 → port=None。./run 走微信开发者工具 CLI
+    # （/Applications/wechatwebdevtools.app/.../cli）open --project 打开工程 → 模拟器起、
+    # wx.request 发出；随后前台 keepalive，以 run 进程存活判活（同 ios/android/swiftui）。
+    # 模拟器跑在宿主 macOS 上，wx.request 直连 127.0.0.1:9080（不同于 Android 的 10.0.2.2）；
+    # project.config.json 关 urlCheck 放行本地 http。
+    "wechat":         {"dir": "mobile/wechat-miniprogram", "port": None, "runtime": "miniprogram"},
 }
 
 PROXY_PORT = 9080
@@ -111,6 +121,9 @@ ALIASES = {
     "vue3-ts": "vue",
     "svelte-ts": "svelte",
     "solid-ts": "solid",
+    "wechat-miniprogram": "wechat",
+    "miniprogram": "wechat",
+    "weixin": "wechat",
 }
 
 # --------------------------------------------------------------
@@ -460,6 +473,9 @@ def cmd_doctor(args) -> int:
         ("CMake",       "cmake"),
         ("Flutter",     "flutter"),
         ("XcodeGen",    "xcodegen"),
+        ("Android adb", "adb"),
+        ("微信开发者工具", "/Applications/wechatwebdevtools.app/Contents/MacOS/cli"),
+        ("rsvg-convert", "rsvg-convert"),
         ("psql",        "psql"),
     ]
     print(bold("\n环境依赖检查\n"))

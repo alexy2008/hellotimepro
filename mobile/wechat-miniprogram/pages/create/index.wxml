@@ -1,0 +1,77 @@
+<view class="app-root theme-{{themeMode}}">
+  <view class="screen-header">
+    <text class="screen-title display">写给未来的信</text>
+    <text class="t-xl" bindtap="toggleTheme">{{themeMode === 'dark' ? '☀' : '☾'}}</text>
+  </view>
+
+  <!-- 门禁：未登录 -->
+  <view wx:if="{{!hasUser}}" class="container">
+    <view class="card stack gap-4 center" style="align-items:center;padding-top:40px;padding-bottom:40px">
+      <text style="font-size:40px">🔐</text>
+      <text class="t-secondary center">登录后才能封存写给未来的信。</text>
+      <view class="row gap-3">
+        <view class="btn btn-primary" bindtap="goLogin">登录</view>
+        <view class="btn btn-outline" bindtap="goRegister">注册</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 表单 -->
+  <view wx:else class="container stack gap-5">
+    <text class="t-secondary t-sm">这段文字会被上锁，直到你设定的时刻才能由任何人 —— 包括你自己 —— 开启。</text>
+
+    <view class="field">
+      <text class="label">标题 · 最多 60 字</text>
+      <view class="row gap-2">
+        <input class="input flex-1" maxlength="60" value="{{title}}" bindinput="onTitleInput" placeholder="给这封信起个名字" placeholder-class="hint" />
+        <view class="btn btn-ghost btn-sm" bindtap="runAi">{{aiBusy ? '生成中…' : (aiGenerated ? '✨ 重生成' : '✨ AI')}}</view>
+      </view>
+      <text wx:if="{{aiInfo}}" class="t-secondary t-xs">{{aiInfo}}</text>
+    </view>
+
+    <!-- 推荐（标题为空时） -->
+    <view wx:if="{{!title && recos.length > 0}}" class="stack gap-2">
+      <view class="row between">
+        <text class="label">✨ 灵感推荐</text>
+        <text class="t-signal t-xs" bindtap="loadRecos">{{recoBusy ? '…' : '换一批'}}</text>
+      </view>
+      <view class="row wrap gap-2">
+        <view wx:for="{{recos}}" wx:key="title" class="chip" data-i="{{index}}" bindtap="pickReco">{{item.title}}</view>
+      </view>
+    </view>
+
+    <view class="field">
+      <view class="row between">
+        <text class="label">内容 · 最多 5000 字</text>
+        <text class="hint">{{contentLen}} / 5000</text>
+      </view>
+      <textarea class="textarea" maxlength="5000" value="{{content}}" bindinput="onContentInput" placeholder="在这里写下你想传递到未来的话。" placeholder-class="hint" auto-height />
+    </view>
+
+    <view class="field">
+      <text class="label">开启时间 · 最早 60 秒后</text>
+      <view class="row gap-2">
+        <picker class="flex-1" mode="date" value="{{openDate}}" bindchange="onDateChange">
+          <view class="input">{{openDate}}</view>
+        </picker>
+        <picker mode="time" value="{{openTime}}" bindchange="onTimeChange">
+          <view class="input">{{openTime}}</view>
+        </picker>
+      </view>
+      <view class="row wrap gap-2">
+        <view wx:for="{{quick}}" wx:key="key" class="chip" data-k="{{item.key}}" bindtap="applyPreset">{{item.label}}</view>
+      </view>
+      <text class="hint">时区以你当前所在时区为准，提交时会转换为 UTC。</text>
+    </view>
+
+    <view class="hint">上锁后不可编辑、不可提前开启；可以在「我的」里随时撤回（删除）。</view>
+    <view wx:if="{{err}}" class="error-box">{{err}}</view>
+
+    <view class="row between">
+      <text class="t-sm">发布到胶囊广场</text>
+      <switch checked="{{inPlaza}}" bindchange="togglePlaza" color="#6b46ff" />
+    </view>
+
+    <view class="btn btn-primary" bindtap="submit" style="height:52px;line-height:52px">{{busy ? '封存中…' : '🔒 上锁封存'}}</view>
+  </view>
+</view>

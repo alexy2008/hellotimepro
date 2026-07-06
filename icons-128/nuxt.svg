@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="nuxt">
+<defs>
+  <linearGradient id="d" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#20202e"/><stop offset="1" stop-color="#14141e"/>
+  </linearGradient>
+  <linearGradient id="s" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
+    <stop offset=".5" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="kg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#7f52ff"/><stop offset=".5" stop-color="#e44857"/>
+    <stop offset="1" stop-color="#f88909"/>
+  </linearGradient>
+</defs>
+<rect x="4" y="4" width="120" height="120" rx="28" fill="url(#d)"/>
+<path d="M64 32 L104 100 L84 100 L64 66 L44 100 L24 100 Z" fill="#00dc82"/>
+  <path d="M86 66 L108 100 L92 100 L78 76 Z" fill="#00dc82" opacity=".55"/>
+<rect x="4" y="4" width="120" height="120" rx="28" fill="url(#s)"/>
+<rect x="4.5" y="4.5" width="119" height="119" rx="27.5" fill="none" stroke="#ffffff" stroke-opacity=".14" stroke-width="1"/>
+</svg>

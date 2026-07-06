@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Laravel">
+  <title>Laravel</title>
+  <defs>
+    <linearGradient id="lv128-red" x1="22" y1="20" x2="104" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff6b61"/>
+      <stop offset="0.55" stop-color="#ff2d20"/>
+      <stop offset="1" stop-color="#b91c1c"/>
+    </linearGradient>
+    <filter id="lv128-shadow" x="-15%" y="-15%" width="130%" height="135%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <g fill="none" stroke="url(#lv128-red)" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" filter="url(#lv128-shadow)">
+    <path d="M23 34v53l41 24 41-24V47L73 28 41 47v40l23 13 23-13V61L64 48 49 57"/>
+    <path d="M23 34 64 58l41-24"/>
+    <path d="M64 58v53"/>
+    <path d="M41 47 64 61l23-14"/>
+    <path d="M87 61 64 74 41 61"/>
+  </g>
+  <path d="M23 34 64 58l41-24" fill="none" stroke="#ffb4ae" stroke-width="3" stroke-linecap="round" opacity="0.72"/>
+</svg>

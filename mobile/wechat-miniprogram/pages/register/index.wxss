@@ -1,0 +1,29 @@
+.avatar-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.avatar-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  width: 64px;
+  box-sizing: border-box;
+}
+.avatar-cell-on {
+  border-color: var(--brand-primary);
+  background: var(--brand-subtle);
+}
+.avatar-name {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

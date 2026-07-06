@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# 构建校验 HelloTime Pro · Android 原生：令牌 codegen + gradle assembleDebug。
+# 注：gradle 根工程 build 目录已在 build.gradle.kts 挪到 .gradle/root-build，
+#     故本脚本可用仓库惯例名 ./build（不像 flutter 被迫 build.sh）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+export JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home -v 21)}"
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+
+echo "==> 令牌 codegen"
+node ../../scripts/gen-tokens-android
+
+echo "==> gradle assembleDebug"
+./gradlew :app:assembleDebug --console=plain
+
+echo "✅ Android 原生构建校验通过（apk: app/build/outputs/apk/debug/）"

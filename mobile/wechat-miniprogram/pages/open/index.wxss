@@ -1,0 +1,16 @@
+.code-input {
+  background: var(--surface-2);
+  border: 1px solid var(--capsule-sealed-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  text-align: center;
+  font-size: var(--font-3xl, 30px);
+  font-weight: 700;
+  letter-spacing: 10px;
+  color: var(--signal-primary);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+}
+.code-ph {
+  letter-spacing: 10px;
+  color: var(--text-disabled);
+}

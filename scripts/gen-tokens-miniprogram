@@ -1,0 +1,183 @@
+#!/usr/bin/env node
+// ============================================================
+// gen-tokens-miniprogram · 设计令牌跨端 codegen（微信小程序目标）
+//
+// 读 spec/tokens/tokens.json（由 spec/styles/tokens.css 派生的事实源），
+// 同时产出两份消费物，喂原生小程序的两套样式通道：
+//
+//   1) tokens/tokens.wxss —— CSS 自定义属性（WXSS 支持 var()）。
+//      每套主题落成一个类：.theme-dark{ --surface-0:… } / .theme-light{…}。
+//      页面根节点挂 class="app-root theme-{{themeMode}}"，切主题即换类，
+//      对齐 Web 版 <html data-theme> 的做法（小程序无法直接给 <page> 设类）。
+//
+//   2) tokens/palette.js —— 扁平前的嵌套 JS 对象（同 RN tokens.ts 形状），
+//      供 JS 侧少数按主题取色的场景（辉光色、渐变解析、tabBar 选中色）。
+//
+// 转换规则（对齐 gen-tokens-rn）：
+//   - rem → px 数字（1rem = 16px）；px → 去单位数字；颜色/渐变原样保留。
+// WXSS 里数值型令牌带 px 单位输出（尺寸/圆角/字号）；颜色/渐变原样。
+//
+// 产物头部标注「自动生成，勿手改」；重新生成后 git diff 应为空（同源保证）。
+// 用法：node scripts/gen-tokens-miniprogram
+// ============================================================
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const REPO_ROOT = path.resolve(__dirname, "..");
+const SRC = path.join(REPO_ROOT, "spec", "tokens", "tokens.json");
+const OUT_DIR = path.join(REPO_ROOT, "mobile", "wechat-miniprogram", "tokens");
+const OUT_JS = path.join(OUT_DIR, "palette.js");
+const OUT_WXSS = path.join(OUT_DIR, "tokens.wxss");
+
+const REM_PX = 16;
+
+/** "1rem" → 16 ; "8px" → 8 ; "0" → 0 ; 数字原样。 */
+function toPx(value) {
+  if (typeof value === "number") return value;
+  const v = String(value).trim();
+  if (v === "0") return 0;
+  if (v.endsWith("rem")) return Math.round(parseFloat(v) * REM_PX * 1000) / 1000;
+  if (v.endsWith("px")) return parseFloat(v);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+}
+
+function mapValues(obj, fn) {
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fn(v)]));
+}
+
+// ---------- JS 侧：嵌套结构（同 RN tokens.ts） ----------
+function buildJsTokens(raw) {
+  return {
+    semantic: raw.semantic,
+    typography: {
+      fontFamily: raw.typography.fontFamily,
+      fontSize: mapValues(raw.typography.fontSize, toPx),
+      lineHeight: raw.typography.lineHeight,
+      fontWeight: mapValues(raw.typography.fontWeight, (v) => String(v)),
+    },
+    space: mapValues(raw.space, toPx),
+    radius: mapValues(raw.radius, toPx),
+    shadow: raw.shadow,
+    layout: mapValues(raw.layout, toPx),
+    motion: {
+      duration: mapValues(raw.motion.duration, (v) => parseInt(v, 10)),
+      easing: raw.motion.easing,
+    },
+    zIndex: raw.zIndex,
+    breakpoint: mapValues(raw.breakpoint, toPx),
+  };
+}
+
+function jsKey(k) {
+  return /^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k);
+}
+
+function serialize(value, indent = 0) {
+  const pad = "  ".repeat(indent);
+  const padIn = "  ".repeat(indent + 1);
+  if (value === null) return "null";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "boolean") return String(value);
+  const entries = Object.entries(value);
+  if (entries.length === 0) return "{}";
+  const body = entries
+    .map(([k, v]) => `${padIn}${jsKey(k)}: ${serialize(v, indent + 1)},`)
+    .join("\n");
+  return `{\n${body}\n${pad}}`;
+}
+
+// ---------- WXSS 侧：扁平成 CSS 变量 ----------
+// camelCase → kebab；数字键（surface.0）原样拼接。
+function kebab(k) {
+  return String(k).replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+/** 递归把语义色对象扁平成 [--group-sub-key, value]。 */
+function flattenVars(obj, prefix, out) {
+  for (const [k, v] of Object.entries(obj)) {
+    const name = `${prefix}-${kebab(k)}`;
+    if (v && typeof v === "object") {
+      flattenVars(v, name, out);
+    } else {
+      out.push([name, v]);
+    }
+  }
+}
+
+function buildThemeVars(semanticOfMode) {
+  const out = [];
+  flattenVars(semanticOfMode, "-", out); // 顶层 group 前缀由 "-" 起头 → "--surface-0"
+  return out;
+}
+
+// 主题无关的尺寸令牌：字号 / 间距 / 圆角，带 px 单位。
+function scaleVars(raw) {
+  const out = [];
+  for (const [k, v] of Object.entries(raw.typography.fontSize))
+    out.push([`--font-${kebab(k)}`, `${toPx(v)}px`]);
+  for (const [k, v] of Object.entries(raw.space))
+    out.push([`--space-${kebab(k)}`, `${toPx(v)}px`]);
+  for (const [k, v] of Object.entries(raw.radius))
+    out.push([`--radius-${kebab(k)}`, `${toPx(v)}px`]);
+  return out;
+}
+
+function wxssBlock(selector, vars) {
+  const body = vars.map(([n, v]) => `  ${n}: ${v};`).join("\n");
+  return `${selector} {\n${body}\n}`;
+}
+
+function main() {
+  const raw = JSON.parse(fs.readFileSync(SRC, "utf8"));
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+
+  // ---- palette.js ----
+  const jsHeader = `// ============================================================
+// 自动生成 · 请勿手改 (AUTO-GENERATED — DO NOT EDIT)
+//
+// 由 scripts/gen-tokens-miniprogram 从 spec/tokens/tokens.json 生成。
+// 重新生成：node scripts/gen-tokens-miniprogram
+// 源（事实源）：spec/styles/tokens.css → spec/tokens/tokens.json
+//
+// rem 已折算为 px 数字（1rem=16px）；颜色/渐变保留原字符串。
+// 样式主通道是 tokens/tokens.wxss（CSS 变量）；本文件供 JS 侧少数取色场景。
+// ============================================================
+`;
+  const jsBody = `const tokens = ${serialize(buildJsTokens(raw))};\n\nmodule.exports = { tokens };\n`;
+  fs.writeFileSync(OUT_JS, jsHeader + "\n" + jsBody, "utf8");
+
+  // ---- tokens.wxss ----
+  const scale = scaleVars(raw);
+  const darkVars = buildThemeVars(raw.semantic.dark).concat(scale);
+  const lightVars = buildThemeVars(raw.semantic.light).concat(scale);
+  const wxssHeader = `/* ============================================================
+   自动生成 · 请勿手改 (AUTO-GENERATED — DO NOT EDIT)
+
+   由 scripts/gen-tokens-miniprogram 从 spec/tokens/tokens.json 生成。
+   重新生成：node scripts/gen-tokens-miniprogram
+
+   语义色随主题切换（.theme-dark / .theme-light）；尺寸令牌两套相同。
+   页面根节点挂 class="app-root theme-{{themeMode}}"，即可用 var(--…) 取值。
+   ============================================================ */`;
+  const wxssBody = [
+    wxssHeader,
+    "",
+    wxssBlock(".theme-dark", darkVars),
+    "",
+    wxssBlock(".theme-light", lightVars),
+    "",
+  ].join("\n");
+  fs.writeFileSync(OUT_WXSS, wxssBody, "utf8");
+
+  console.log(
+    `✅ 令牌已生成：\n   ${path.relative(REPO_ROOT, OUT_JS)}\n   ${path.relative(
+      REPO_ROOT,
+      OUT_WXSS,
+    )}\n   （源：${path.relative(REPO_ROOT, SRC)}）`,
+  );
+}
+
+main();

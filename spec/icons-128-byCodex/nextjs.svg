@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Next.js">
+  <title>Next.js</title>
+  <defs>
+    <radialGradient id="nx128-bg" cx="38%" cy="28%" r="82%">
+      <stop offset="0" stop-color="#30343a"/>
+      <stop offset="0.52" stop-color="#000"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <filter id="nx128-shadow" x="-14%" y="-14%" width="128%" height="132%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="55" fill="url(#nx128-bg)" filter="url(#nx128-shadow)"/>
+  <path d="M39 35h13l36 55V35h13v58c0 7-4 12-10 15L52 54v39H39V35Z" fill="#fff"/>
+  <path d="M75 35h13v55L75 70Z" fill="#fff"/>
+  <path d="M52 54 91 108c-5 3-11 5-18 7L39 66V35h13v19Z" fill="#dfe5ee" opacity="0.7"/>
+</svg>

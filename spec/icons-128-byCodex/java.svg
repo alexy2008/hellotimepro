@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Java">
+  <title>Java</title>
+  <defs>
+    <linearGradient id="java128-red" x1="46" y1="8" x2="85" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7a45"/>
+      <stop offset="1" stop-color="#e11d48"/>
+    </linearGradient>
+    <linearGradient id="java128-blue" x1="30" y1="66" x2="103" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5aa2d8"/>
+      <stop offset="1" stop-color="#0f5e9c"/>
+    </linearGradient>
+    <filter id="java128-shadow" x="-20%" y="-20%" width="140%" height="145%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <g fill="none" stroke="url(#java128-red)" stroke-width="7" stroke-linecap="round">
+    <path d="M60 17c19 16-24 24 2 40"/>
+    <path d="M78 8c22 22-28 29-2 51" opacity="0.72"/>
+    <path d="M48 32c12 11-16 18 1 29" opacity="0.55"/>
+  </g>
+  <g filter="url(#java128-shadow)">
+    <path d="M31 73h68c-3 27-15 40-34 40S34 100 31 73Z" fill="url(#java128-blue)"/>
+    <path d="M99 76h11c11 0 16 7 13 17-4 12-16 18-31 18l3-10c11-1 18-5 20-11 2-5-1-8-8-8H98l1-6Z" fill="#0f5e9c"/>
+    <path d="M39 80h52c-3 16-11 23-26 23s-23-7-26-23Z" fill="#eaf6ff" opacity="0.18"/>
+    <ellipse cx="65" cy="115" rx="44" ry="8" fill="#0f5e9c" opacity="0.55"/>
+    <ellipse cx="65" cy="71" rx="42" ry="8" fill="#eaf6ff"/>
+    <ellipse cx="65" cy="71" rx="35" ry="4" fill="#7dbbe5" opacity="0.9"/>
+  </g>
+</svg>

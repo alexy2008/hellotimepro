@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "capsule-card": "../../components/capsule-card/index",
+    "avatar-badge": "../../components/avatar-badge/index"
+  },
+  "navigationBarTitleText": "我的空间"
+}

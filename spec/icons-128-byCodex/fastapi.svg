@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="FastAPI">
+  <title>FastAPI</title>
+  <defs>
+    <linearGradient id="fa128-bg" x1="20" y1="16" x2="109" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18c8b7"/>
+      <stop offset="0.55" stop-color="#009688"/>
+      <stop offset="1" stop-color="#00695f"/>
+    </linearGradient>
+    <filter id="fa128-shadow" x="-14%" y="-14%" width="128%" height="132%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <circle cx="64" cy="64" r="55" fill="url(#fa128-bg)" filter="url(#fa128-shadow)"/>
+  <circle cx="64" cy="64" r="45" fill="none" stroke="#ffffff" stroke-width="5" opacity="0.16"/>
+  <path d="M69 12c22 2 40 17 47 38-16-14-39-22-68-20 5-10 12-16 21-18Z" fill="#ffffff" opacity="0.12"/>
+  <path d="M71 17 36 73h28l-8 40 39-63H68l3-33Z" fill="#fff"/>
+  <path d="M64 73H47l18-29-2 18h17l-17 27 1-16Z" fill="#009688" opacity="0.12"/>
+</svg>

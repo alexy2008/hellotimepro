@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+// ============================================================
+// gen-avatars-miniprogram · 头像资产 codegen（微信小程序目标）
+//
+// 小程序原生 <image> 不支持渲染远程/内联 SVG，无法像其它原生端
+// （iOS SVGView / Flutter flutter_svg / RN react-native-svg）那样直接显示
+// spec/avatars/*.svg。这里用 rsvg-convert（librsvg）在 codegen 阶段把 10 个
+// 头像 SVG 预渲染成 PNG，作为静态资产打包进小程序——<image> 直接引用本地
+// 文件即可，视觉上与其它端保持一致（而非色块+首字的降级展示）。
+//
+// 源（事实源）：spec/avatars/catalog.json + *.svg
+// 产物：mobile/wechat-miniprogram/assets/avatars/<id>.png（256×256，2x 保证清晰度）
+// 前置：brew install librsvg（提供 rsvg-convert）；未装时打印警告并跳过——
+//       components/avatar-badge 会在 <image> 加载失败（或资产缺失）时自动
+//       回退到「色块+首字」，不影响功能。
+//
+// 用法：node scripts/gen-avatars-miniprogram
+// ============================================================
+
+const fs = require("node:fs");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+
+const REPO_ROOT = path.resolve(__dirname, "..");
+const SRC_DIR = path.join(REPO_ROOT, "spec", "avatars");
+const OUT_DIR = path.join(
+  REPO_ROOT,
+  "mobile",
+  "wechat-miniprogram",
+  "assets",
+  "avatars",
+);
+const SIZE = 256; // 128 viewBox 的 2x，覆盖列表(~32px)到设置页(~56px)的清晰度需求
+
+function main() {
+  const catalog = JSON.parse(
+    fs.readFileSync(path.join(SRC_DIR, "catalog.json"), "utf8"),
+  );
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+
+  let ok = 0;
+  for (const av of catalog.avatars) {
+    const src = path.join(SRC_DIR, `${av.id}.svg`);
+    const out = path.join(OUT_DIR, `${av.id}.png`);
+    try {
+      execFileSync("rsvg-convert", [
+        "-w", String(SIZE),
+        "-h", String(SIZE),
+        "-o", out,
+        src,
+      ]);
+      ok++;
+    } catch (e) {
+      if (e.code === "ENOENT") {
+        console.error(
+          "⚠️ 未找到 rsvg-convert（brew install librsvg）；跳过头像 PNG 生成，" +
+            "avatar-badge 组件将回退到色块+首字展示，不影响功能。",
+        );
+        return;
+      }
+      throw e;
+    }
+  }
+  console.log(
+    `✅ 头像 PNG 已生成（${ok}/${catalog.avatars.length} 个，${SIZE}×${SIZE}）：` +
+      `${path.relative(REPO_ROOT, OUT_DIR)}/（源：${path.relative(REPO_ROOT, SRC_DIR)}）`,
+  );
+}
+
+main();

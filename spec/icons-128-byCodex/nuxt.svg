@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Nuxt">
+  <title>Nuxt</title>
+  <defs>
+    <linearGradient id="nu128-green" x1="26" y1="22" x2="104" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7cffbe"/>
+      <stop offset="0.52" stop-color="#00dc82"/>
+      <stop offset="1" stop-color="#00a86b"/>
+    </linearGradient>
+    <linearGradient id="nu128-teal" x1="48" y1="44" x2="107" y2="107" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00f2a9"/>
+      <stop offset="1" stop-color="#00b57a"/>
+    </linearGradient>
+    <filter id="nu128-shadow" x="-15%" y="-15%" width="130%" height="135%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <g filter="url(#nu128-shadow)">
+    <path d="M64 20 116 108H74L64 90l-10 18H12Z" fill="url(#nu128-green)"/>
+    <path d="M82 49 116 108H74L52 70 64 49Z" fill="url(#nu128-teal)" opacity="0.94"/>
+    <path d="M64 20 82 49 64 82 46 49Z" fill="#d6fff0" opacity="0.18"/>
+    <path d="M64 90 54 108h20Z" fill="#0f172a" opacity="0.16"/>
+  </g>
+</svg>

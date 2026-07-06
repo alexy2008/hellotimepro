@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Swift">
+  <title>Swift</title>
+  <defs>
+    <linearGradient id="sw128-bg" x1="18" y1="13" x2="108" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb04d"/>
+      <stop offset="0.45" stop-color="#ff6b2d"/>
+      <stop offset="1" stop-color="#f05138"/>
+    </linearGradient>
+    <filter id="sw128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="24" fill="url(#sw128-bg)" filter="url(#sw128-shadow)"/>
+  <path d="M31 34c20 21 34 32 52 42-12-15-21-29-29-43 24 21 41 39 51 56-5-3-12-4-19-1-12 6-28 8-45 1-12-5-22-14-29-25 15 10 30 15 45 15-13-9-26-23-26-45Z" fill="#fff"/>
+  <path d="M92 78c9 3 17 10 23 22-10-8-20-11-31-7 4-5 7-10 8-15Z" fill="#fff" opacity="0.9"/>
+  <path d="M28 34c21 20 40 35 59 44" fill="none" stroke="#ffd7c2" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+</svg>

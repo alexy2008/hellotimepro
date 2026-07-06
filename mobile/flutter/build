@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# 构建校验 HelloTime Pro · Flutter 移动端（iOS 模拟器 target）。
+# 构建校验 HelloTime Pro · Flutter 移动端。
 #
-# 工程同 desktop/flutter（一码多端，代码不复制）。校验：令牌 codegen + analyze + build ios --simulator。
+# 工程同 desktop/flutter（一码多端，代码不复制）。
+#   ./build                 # iOS：令牌 codegen + analyze + build ios --simulator
+#   TARGET=android ./build  # Android：build apk --debug（注入 10.0.2.2 后端）
+#
 # 注：产物写入 desktop/flutter/build/，本目录不产出 build/ 目录，故脚本名可用 build
 #     （桌面端因产物与脚本同名冲突才用 build.sh，见 CLAUDE.md）。
-# Android：本机暂无 Android SDK，`flutter build apk` 待 SDK 安装后启用。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,6 +14,7 @@ PROJECT="$HERE/../../desktop/flutter"
 cd "$PROJECT"
 
 export PATH="$HOME/development/flutter/bin:$PATH"
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 export LANG="${LANG:-en_US.UTF-8}"
 
 if ! command -v flutter >/dev/null 2>&1; then
@@ -28,7 +31,21 @@ flutter pub get
 echo "==> flutter analyze"
 flutter analyze
 
-echo "==> flutter build ios --debug --simulator --no-codesign"
-flutter build ios --debug --simulator --no-codesign
+TARGET="${TARGET:-ios}"
+if [[ "$TARGET" == "android" ]]; then
+  # 全局 ~/.gradle/init.gradle（镜像注入 allprojects.repositories）与
+  # Flutter+Gradle 9 严格仓库模式冲突（flutter/flutter#174035）→ 构建期临时挪开。
+  INIT="$HOME/.gradle/init.gradle"
+  MOVED=0
+  if [[ -f "$INIT" ]]; then mv "$INIT" "$INIT.htpro-bak"; MOVED=1; fi
+  restore() { [[ "$MOVED" == 1 ]] && mv "$INIT.htpro-bak" "$INIT"; }
+  trap restore EXIT
 
-echo "✅ Flutter 移动端（iOS）构建校验通过；Android 待 Android SDK（flutter build apk）"
+  echo "==> flutter build apk --debug（后端 → 10.0.2.2:9080，模拟器访问宿主别名）"
+  flutter build apk --debug --dart-define=API_BASE="${BACKEND_PROXY:-http://10.0.2.2:9080}"
+  echo "✅ Flutter 移动端（Android）构建校验通过（apk: build/app/outputs/flutter-apk/）"
+else
+  echo "==> flutter build ios --debug --simulator --no-codesign"
+  flutter build ios --debug --simulator --no-codesign
+  echo "✅ Flutter 移动端（iOS）构建校验通过；Android 用 TARGET=android ./build"
+fi

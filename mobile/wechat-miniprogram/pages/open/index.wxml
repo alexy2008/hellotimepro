@@ -1,0 +1,38 @@
+<view class="app-root theme-{{themeMode}}">
+  <view class="screen-header">
+    <text class="screen-title display">开启胶囊</text>
+    <text class="t-xl" bindtap="toggleTheme">{{themeMode === 'dark' ? '☀' : '☾'}}</text>
+  </view>
+
+  <view class="container stack gap-6">
+    <view class="stack gap-2">
+      <text class="t-xl t-bold display">用 8 位密钥开启胶囊</text>
+      <text class="t-secondary t-sm">输入朋友分享给你的 8 位大写字母和数字，可直接查看胶囊。</text>
+    </view>
+
+    <input
+      class="code-input"
+      type="text"
+      maxlength="8"
+      placeholder="XXXXXXXX"
+      placeholder-class="code-ph"
+      value="{{code}}"
+      confirm-type="go"
+      bindinput="onInput"
+      bindconfirm="open"
+    />
+
+    <view class="row gap-3 center" style="justify-content:center">
+      <view
+        class="btn btn-primary {{(busy || code.length !== 8) ? '' : ''}}"
+        bindtap="open"
+        style="min-width:140px"
+      >{{busy ? '查询中…' : '开启 →'}}</view>
+      <view class="btn btn-ghost" bindtap="paste">粘贴识别</view>
+    </view>
+
+    <text class="hint center">🔒 未到开启时间的胶囊也会显示倒计时</text>
+
+    <view wx:if="{{err}}" class="error-box">{{err}}</view>
+  </view>
+</view>

@@ -1,0 +1,36 @@
+{
+  "pages": [
+    "pages/plaza/index",
+    "pages/open/index",
+    "pages/create/index",
+    "pages/me/index",
+    "pages/login/index",
+    "pages/register/index",
+    "pages/capsule/index",
+    "pages/settings/index",
+    "pages/about/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "HelloTime Pro",
+    "navigationBarBackgroundColor": "#0d0d15",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#06060c",
+    "backgroundTextStyle": "dark",
+    "enablePullDownRefresh": false
+  },
+  "tabBar": {
+    "color": "#80808f",
+    "selectedColor": "#14d4f0",
+    "backgroundColor": "#0d0d15",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/plaza/index", "text": "广场" },
+      { "pagePath": "pages/open/index", "text": "开启" },
+      { "pagePath": "pages/create/index", "text": "创建" },
+      { "pagePath": "pages/me/index", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

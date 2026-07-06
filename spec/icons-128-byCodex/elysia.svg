@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Elysia">
+  <title>Elysia</title>
+  <defs>
+    <linearGradient id="el128-bg" x1="19" y1="13" x2="111" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a855f7"/>
+      <stop offset="0.5" stop-color="#ec4899"/>
+      <stop offset="1" stop-color="#fb7185"/>
+    </linearGradient>
+    <linearGradient id="el128-leaf" x1="42" y1="19" x2="88" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff7fb"/>
+      <stop offset="1" stop-color="#ffe4f1"/>
+    </linearGradient>
+    <filter id="el128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#el128-bg)" filter="url(#el128-shadow)"/>
+  <path d="M64 20c-25 21-35 55-22 79 5 9 13 14 22 14s17-5 22-14c13-24 3-58-22-79Z" fill="url(#el128-leaf)"/>
+  <path d="M64 25v80" stroke="#c026d3" stroke-width="5" stroke-linecap="round" opacity="0.52"/>
+  <path d="M64 58c-12 4-22 13-28 27" fill="none" stroke="#c026d3" stroke-width="4" stroke-linecap="round" opacity="0.36"/>
+  <path d="M64 49c12 4 22 14 29 29" fill="none" stroke="#c026d3" stroke-width="4" stroke-linecap="round" opacity="0.36"/>
+  <circle cx="64" cy="24" r="5" fill="#fff" opacity="0.88"/>
+</svg>

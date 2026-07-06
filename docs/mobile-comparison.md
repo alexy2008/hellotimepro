@@ -1,9 +1,8 @@
 # HelloTime Pro · 移动端实现对比
 
 > 对比对象：`mobile/` 下的移动端客户端实现。**本文随实现推进逐步生长**。
-> 当前已落地：**React Native（Expo）**（首个，2026-06-23）· **iOS**（SwiftUI 原生，与 macOS 端共享逻辑，2026-06-29）· **Flutter**（一码多端，与桌面同源工程，iOS 目标 2026-07-01）。
-> 规划中：`android`(Jetpack Compose) · `wechat-miniprogram`。
-> 详细逐端对比表随「移动端全部落地」后补齐；各端要点先见其 `README.md` / `TECHNICAL_GUIDE.md` 与 roadmap 落地记录。
+> 当前已落地（**5/5，移动端收官**）：**React Native（Expo）**（首个，2026-06-23）· **iOS**（SwiftUI 原生，与 macOS 端共享逻辑，2026-06-29）· **Flutter**（一码多端，与桌面同源工程，iOS 2026-07-01 / Android 2026-07-05）· **Android**（Jetpack Compose 原生，2026-07-03）· **微信小程序**（原生框架，2026-07-06）。
+> 详细逐端对比表待补；各端要点先见其 `README.md` / `TECHNICAL_GUIDE.md` 与 roadmap 落地记录。
 > 姊妹篇：桌面端对比见 `docs/desktop-comparison.md`（规划中）；
 > Web 前端对比见 [`docs/frontend-comparison.md`](frontend-comparison.md)。
 

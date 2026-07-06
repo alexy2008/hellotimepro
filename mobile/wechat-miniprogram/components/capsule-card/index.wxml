@@ -1,0 +1,35 @@
+<view class="cc-card" bindtap="onOpen">
+  <view class="cc-head">
+    <avatar-badge name="{{item.creator.nickname}}" avatarId="{{item.creator.avatarId}}" size="32" />
+    <view class="cc-creator">
+      <text class="cc-nick">{{item.creator.nickname}}</text>
+      <text class="cc-code">#{{item.code}}</text>
+    </view>
+    <view class="badge {{opened ? 'badge-opened' : 'badge-sealed'}}">
+      {{opened ? '已解封' : '封存中'}}
+    </view>
+  </view>
+
+  <text class="cc-title">{{item.title}}</text>
+
+  <text wx:if="{{item.contentPreview}}" class="cc-preview">{{item.contentPreview}}</text>
+
+  <view class="cc-foot">
+    <text class="cc-count">⏳ {{countdown}}</text>
+
+    <view wx:if="{{showFavorite}}" class="cc-fav {{item.favoritedByMe ? 'cc-fav-on' : ''}}" catchtap="onFav">
+      <text class="cc-heart">{{item.favoritedByMe ? '♥' : '♡'}}</text>
+      <text class="cc-favnum">{{favCount}}</text>
+    </view>
+
+    <block wx:if="{{showDelete}}">
+      <view wx:if="{{opened}}" class="cc-fav cc-fav-on">
+        <text class="cc-heart">♥</text>
+        <text class="cc-favnum">{{favCount}}</text>
+      </view>
+      <view wx:else class="cc-del" catchtap="onDelete">
+        <text>撤回</text>
+      </view>
+    </block>
+  </view>
+</view>

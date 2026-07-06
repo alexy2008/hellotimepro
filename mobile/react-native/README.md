@@ -108,6 +108,25 @@ EXPO_PUBLIC_API_BASE=http://192.168.1.10:9080 ./run ios
 > 建议在交互式终端/Xcode 中执行）；Maestro CLI 见 https://maestro.mobile.dev 。
 > 二者就绪后即可跑上面的核心旅程 + 截图留证。
 
+## 双平台原生运行（已验证，2026-07-06）
+
+Expo **managed workflow**（`/ios` `/android` 为 prebuild 产物、gitignored），原生构建经 `expo run:*` 现场 prebuild：
+
+```bash
+npx expo run:ios --device "iPhone 17 Pro Max"                      # iOS ✅（prebuild+pods+xcodebuild）
+EXPO_PUBLIC_API_BASE=http://10.0.2.2:9080 \
+  npx expo run:android --device HelloTimePro                       # Android ✅（prebuild+gradle）
+```
+
+两平台均以后端日志佐证（`plaza/capsules` + `avatars` 200）。**Android 侧坑清单**（重跑 `expo prebuild -p android --clean` 后需重新应用 ①）：
+
+1. **Gradle 版本矩阵**：Expo 模板给 wrapper 生成 9.3.1，但 RN 0.85 自带 gradle-plugin 钉 foojay-resolver 0.5.0（引用 Gradle 9 已删除的 `JvmVendorSpec.IBM_SEMERU`）→ 必须改 `android/gradle/wrapper/gradle-wrapper.properties` 用 **Gradle 8.14.3**（AGP 8.12 要求 ≥8.13，交集在 8.14.x）。
+2. **JDK 17 工具链**：RN gradle-plugin 要 JDK 17，Gradle 想经 api.foojay.io 自动下载（网络不可达）→ 本机 brew 的 keg-only `openjdk@17` 做用户级 symlink 进 `~/Library/Java/JavaVirtualMachines/` 即可被探测。
+3. **NDK 27.1.12297006**（expo-modules-core 编译 C++ 需要）：AGP 构建中途自动下载易截断 → 预装（腾讯镜像 `mirrors.cloud.tencent.com/AndroidSDK/android-ndk-r27b-darwin.zip`）。
+4. **`EXPO_PUBLIC_API_BASE` 是 Metro 打 bundle 时从其进程环境读取**：Android 必须带 `http://10.0.2.2:9080` 起 Metro（模拟器里 127.0.0.1 是自己）；若 Metro 已以别的环境跑着，先停再起。
+5. **`--device` 要 AVD 名不是 adb 序列号**（`HelloTimePro` ✓ / `emulator-5554` ✗）；不带 `--device` 时 expo 可能对运行中的 headless 模拟器识别超时。
+6. 全局 `~/.gradle/init.gradle` 镜像注入与 RN 的经典 `allprojects.repositories` **兼容**（不像 Flutter+Gradle 9 会硬冲突），保留即可且能加速。
+
 ## 目录
 
 ```

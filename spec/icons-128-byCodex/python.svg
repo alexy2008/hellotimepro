@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Python">
+  <title>Python</title>
+  <defs>
+    <linearGradient id="py128-blue" x1="25" y1="18" x2="97" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5aa7d8"/>
+      <stop offset="0.55" stop-color="#3776ab"/>
+      <stop offset="1" stop-color="#244b75"/>
+    </linearGradient>
+    <linearGradient id="py128-yellow" x1="36" y1="41" x2="104" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe873"/>
+      <stop offset="0.55" stop-color="#ffd43b"/>
+      <stop offset="1" stop-color="#d9a300"/>
+    </linearGradient>
+    <filter id="py128-shadow" x="-15%" y="-15%" width="130%" height="135%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <g filter="url(#py128-shadow)">
+    <path d="M63 12c-23 0-34 9-34 27v12h39v9H21C9 60 4 70 4 83v9c0 15 11 25 29 25h18V98c0-15 12-27 28-27h25c12 0 21-10 21-23v-9c0-18-12-27-36-27H63Z" fill="url(#py128-blue)"/>
+    <path d="M39 43c0-5 3-8 9-8h41c6 0 9 3 9 8v8H75v9h31c7 0 13-4 13-12v-9c0-13-9-20-29-20H63c-18 0-27 7-27 20v12h3v-8Z" fill="#ffffff" opacity="0.12"/>
+    <circle cx="47" cy="35" r="5.2" fill="#f8fbff"/>
+    <path d="M65 116c23 0 34-9 34-27V77H60v-9h47c12 0 17-10 17-23v-9c0-15-11-25-29-25H77v19c0 15-12 27-28 27H24C12 57 3 67 3 80v9c0 18 12 27 36 27h26Z" fill="url(#py128-yellow)" transform="rotate(180 64 64)"/>
+    <path d="M89 85c0 5-3 8-9 8H39c-6 0-9-3-9-8v-8h23v-9H22c-7 0-13 4-13 12v9c0 13 9 20 29 20h27c18 0 27-7 27-20V77h-3v8Z" fill="#fff6c4" opacity="0.24"/>
+    <circle cx="81" cy="93" r="5.2" fill="#fff9dc"/>
+  </g>
+</svg>

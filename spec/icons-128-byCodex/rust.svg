@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Rust">
+  <title>Rust</title>
+  <defs>
+    <linearGradient id="rs128-bg" x1="14" y1="14" x2="113" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7048"/>
+      <stop offset="0.55" stop-color="#ce422b"/>
+      <stop offset="1" stop-color="#7f1d1d"/>
+    </linearGradient>
+    <filter id="rs128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="15" fill="url(#rs128-bg)" filter="url(#rs128-shadow)"/>
+  <g transform="translate(64 64)" fill="#fff">
+    <g opacity="0.96">
+      <rect x="-7" y="-54" width="14" height="17" rx="2"/>
+      <rect x="-7" y="37" width="14" height="17" rx="2"/>
+      <rect x="-54" y="-7" width="17" height="14" rx="2"/>
+      <rect x="37" y="-7" width="17" height="14" rx="2"/>
+      <rect x="-7" y="-54" width="14" height="17" rx="2" transform="rotate(45)"/>
+      <rect x="-7" y="-54" width="14" height="17" rx="2" transform="rotate(90)"/>
+      <rect x="-7" y="-54" width="14" height="17" rx="2" transform="rotate(135)"/>
+      <rect x="-7" y="-54" width="14" height="17" rx="2" transform="rotate(180)"/>
+      <rect x="-7" y="-54" width="14" height="17" rx="2" transform="rotate(225)"/>
+      <rect x="-7" y="-54" width="14" height="17" rx="2" transform="rotate(270)"/>
+      <rect x="-7" y="-54" width="14" height="17" rx="2" transform="rotate(315)"/>
+    </g>
+    <circle r="39"/>
+    <circle r="29" fill="#ce422b"/>
+    <circle r="20" fill="#fff"/>
+    <circle r="13" fill="#ce422b"/>
+    <text y="8" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="32" font-weight="900" fill="#fff">R</text>
+  </g>
+</svg>

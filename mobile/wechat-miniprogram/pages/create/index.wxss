@@ -1,0 +1,2 @@
+/* 创建页复用全局共享类；picker 内的 .input 需占满可点区域 */
+picker { display: block; }

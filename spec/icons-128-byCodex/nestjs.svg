@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="NestJS">
+  <title>NestJS</title>
+  <defs>
+    <linearGradient id="ne128-bg" x1="18" y1="13" x2="111" y2="117" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff5c7a"/>
+      <stop offset="0.5" stop-color="#e0234e"/>
+      <stop offset="1" stop-color="#9f1239"/>
+    </linearGradient>
+    <filter id="ne128-shadow" x="-12%" y="-12%" width="124%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="104" height="104" rx="18" fill="url(#ne128-bg)" filter="url(#ne128-shadow)"/>
+  <path d="M32 40 47 26h34l15 14-12 24 12 25-16 13H48L32 89l12-25-12-24Z" fill="#fff"/>
+  <path d="M47 45h34L71 64l10 19H47l10-19-10-19Z" fill="#e0234e"/>
+  <circle cx="64" cy="64" r="11" fill="#fff"/>
+  <circle cx="64" cy="64" r="5" fill="#e0234e"/>
+  <path d="M50 31c8 7 20 7 28 0" fill="none" stroke="#e0234e" stroke-width="5" stroke-linecap="round" opacity="0.85"/>
+</svg>

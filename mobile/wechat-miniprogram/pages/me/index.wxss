@@ -1,0 +1,21 @@
+.me-seg {
+  display: flex;
+  flex-direction: row;
+  gap: 3px;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+.me-seg-item {
+  flex: 1;
+  text-align: center;
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+.me-seg-on {
+  background: var(--brand-primary);
+  color: var(--brand-on);
+}

@@ -1,0 +1,13 @@
+.about-p { line-height: 1.7; }
+.stack-chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+}
+.dot { width: 8px; height: 8px; border-radius: 4px; background: var(--text-muted); }
+.dot-on { background: var(--success-solid); }
+.dot-off { background: var(--danger-solid); }

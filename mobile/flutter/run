@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# 启动 HelloTime Pro · Flutter 移动端（iOS 模拟器）。
+# 启动 HelloTime Pro · Flutter 移动端（iOS 模拟器 / Android 模拟器）。
 #
 # 「一码多端」：本端与 desktop/flutter 是**同一份工程**（代码在 ../../desktop/flutter，
-# 本目录只提供移动运行入口 + 文档）。桌面 = `flutter run -d macos`，移动 = `flutter run -d <iPhone>`，
+# 本目录只提供移动运行入口 + 文档）。桌面 = `flutter run -d macos`，移动 = iOS/Android 目标，
 # 共享同一 lib/ —— 仅靠 MediaQuery 宽窄分支切两套 IA（顶部 nav vs 底部 Tab Bar）。
 #
-# 纯原生：无 dev server 端口，Dart http 直连后端（默认 :9080，BACKEND_PROXY 可覆盖）。
-#   IOS_SIM="iPhone 16" ./run     # 指定模拟器机型
+# 纯原生：无 dev server 端口，Dart http 直连后端（BACKEND_PROXY 可覆盖）。
+#   ./run                          # iOS 模拟器（默认）；IOS_SIM="iPhone 16" 指定机型
+#   TARGET=android ./run           # Android 模拟器；ANDROID_AVD 指定 AVD（默认 HelloTimePro）
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,18 +15,57 @@ PROJECT="$HERE/../../desktop/flutter"       # 同源工程（不复制）
 cd "$PROJECT"
 
 export PATH="$HOME/development/flutter/bin:$PATH"
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 if ! command -v flutter >/dev/null 2>&1; then
   echo "需要 Flutter SDK（~/development/flutter/bin 不在 PATH）。" >&2
   exit 1
 fi
 
-BACKEND_PROXY="${BACKEND_PROXY:-http://127.0.0.1:9080}"
-DEVICE="${IOS_SIM:-iPhone 17 Pro Max}"
-
 # 设计令牌 codegen（与桌面共享 lib/theme/tokens.dart）。
 if command -v node >/dev/null 2>&1; then
   node ../../scripts/gen-tokens-flutter
 fi
+
+TARGET="${TARGET:-ios}"
+
+if [[ "$TARGET" == "android" ]]; then
+  export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+  AVD="${ANDROID_AVD:-HelloTimePro}"
+  # Android 模拟器里 127.0.0.1 是模拟器自身；宿主后端走 10.0.2.2 固定别名。
+  BACKEND_PROXY="${BACKEND_PROXY:-http://10.0.2.2:9080}"
+
+  # 起模拟器（独立会话，hello stop 的 killpg 不误杀；= mobile/android run 同款）
+  if ! adb devices | grep -qE "emulator-[0-9]+\s+device"; then
+    echo "启动模拟器 ${AVD}…"
+    python3 - "$ANDROID_HOME/emulator/emulator" "$AVD" << 'PY'
+import subprocess, sys
+subprocess.Popen([sys.argv[1], "-avd", sys.argv[2], "-no-audio", "-no-boot-anim"],
+                 start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+PY
+    adb wait-for-device
+    for _ in $(seq 1 60); do
+      [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r\n')" == "1" ]] && break
+      sleep 3
+    done
+  fi
+
+  # 全局 ~/.gradle/init.gradle（镜像注入）与 Flutter+Gradle 9 严格仓库模式冲突
+  # （flutter/flutter#174035）→ 构建期临时挪开，退出时还原。
+  INIT="$HOME/.gradle/init.gradle"
+  MOVED=0
+  if [[ -f "$INIT" ]]; then mv "$INIT" "$INIT.htpro-bak"; MOVED=1; fi
+  restore() { [[ "$MOVED" == 1 ]] && mv "$INIT.htpro-bak" "$INIT" 2>/dev/null || true; }
+  trap restore EXIT
+
+  DEV_ID="$(adb devices | grep -Eo '^emulator-[0-9]+' | head -1)"
+  echo "启动 Flutter Android（${DEV_ID}，后端 API → ${BACKEND_PROXY}）"
+  # 不用 exec：exec 会替换 shell，EXIT trap 不再执行，init.gradle 就还原不了。
+  flutter run -d "$DEV_ID" --dart-define=API_BASE="$BACKEND_PROXY"
+  exit $?
+fi
+
+BACKEND_PROXY="${BACKEND_PROXY:-http://127.0.0.1:9080}"
+DEVICE="${IOS_SIM:-iPhone 17 Pro Max}"
 
 xcrun simctl boot "$DEVICE" 2>/dev/null || true
 open -a Simulator

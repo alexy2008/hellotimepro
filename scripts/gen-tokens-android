@@ -1,0 +1,244 @@
+#!/usr/bin/env node
+// ============================================================
+// gen-tokens-android · 设计令牌跨端 codegen（Android / Jetpack Compose 目标）
+//
+// 读 spec/tokens/tokens.json（由 spec/styles/tokens.css 派生的事实源），
+// 生成强类型的 mobile/android/.../theme/Tokens.kt。
+//
+// M5.1「设计令牌跨端 codegen」管线的 Kotlin 目标（继 rn / flutter / qt 之后）。
+// 转换规则（CSS 值 → Compose）：
+//   - #rrggbb / #rgb        → Color(0xFFRRGGBB)
+//   - rgb()/rgba()          → Color(0xAARRGGBB)（alpha 折算为字节）
+//   - linear-gradient(...)  → Brush.linearGradient(colorStops/colors + start/end Offset)
+//   - 阴影/辉光 "0 0 Npx rgba()" → 同名 Color 字段 + <名>Blur(Float)
+//   - rem → px Float（1rem=16px）；px → 去单位 Float
+//   - fontWeight 数字 → FontWeight(NNN)
+//   - fontFamily CSS 栈 → List<String>
+//
+// 两套主题（dark/light）键完全一致 → 同一字段清单生成 class + 两个顶层实例。
+// 产物头部标注「自动生成，勿手改」。用法：node scripts/gen-tokens-android
+// ============================================================
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const REPO_ROOT = path.resolve(__dirname, "..");
+const SRC = path.join(REPO_ROOT, "spec", "tokens", "tokens.json");
+const OUT = path.join(
+  REPO_ROOT, "mobile", "android", "app", "src", "main", "kotlin",
+  "pro", "hellotime", "android", "theme", "Tokens.kt",
+);
+const REM_PX = 16;
+
+// ---------- 数值 ----------
+function toPx(value) {
+  const v = String(value).trim();
+  if (v === "0") return 0;
+  if (v.endsWith("rem")) return Math.round(parseFloat(v) * REM_PX * 1000) / 1000;
+  if (v.endsWith("px")) return parseFloat(v);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+const ktFloat = (n) => `${n}f`;
+
+// ---------- 命名 ----------
+function camel(dotted) {
+  return dotted.split(".").map((s, i) => (i === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1))).join("");
+}
+
+// ---------- 颜色 ----------
+function hexNorm(hex) {
+  let h = hex.replace("#", "").trim();
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  return h.toUpperCase();
+}
+function colorToKt(v) {
+  const s = String(v).trim();
+  if (s.startsWith("#")) return `Color(0xFF${hexNorm(s)})`;
+  const m = s.match(/rgba?\(([^)]+)\)/i);
+  if (m) {
+    const parts = m[1].split(",").map((x) => x.trim());
+    const [r, g, b] = parts.map((x) => parseInt(x, 10));
+    const a = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
+    const byte = (x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).toUpperCase().padStart(2, "0");
+    return `Color(0x${byte(a * 255)}${byte(r)}${byte(g)}${byte(b)})`;
+  }
+  throw new Error(`无法解析颜色: ${v}`);
+}
+
+// ---------- 渐变 ----------
+// CSS 角度 → Compose start/end Offset（∞ 在绘制期解析为绘制区尺寸，
+// 与 Brush.vertical/horizontalGradient 内部实现一致）。
+function angleOffsets(deg) {
+  const INF = "Float.POSITIVE_INFINITY";
+  const map = {
+    0:   [`Offset(0f, ${INF})`, "Offset.Zero"],
+    90:  ["Offset.Zero", `Offset(${INF}, 0f)`],
+    135: ["Offset.Zero", "Offset.Infinite"],
+    180: ["Offset.Zero", `Offset(0f, ${INF})`],
+    225: [`Offset(${INF}, 0f)`, `Offset(0f, ${INF})`],
+  };
+  return map[deg] || ["Offset.Zero", "Offset.Infinite"];
+}
+function gradientToKt(v) {
+  const inner = String(v).match(/linear-gradient\((.*)\)\s*$/is)[1];
+  const parts = [];
+  let depth = 0, cur = "";
+  for (const ch of inner) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) { parts.push(cur.trim()); cur = ""; }
+    else cur += ch;
+  }
+  if (cur.trim()) parts.push(cur.trim());
+
+  let [start, end] = ["Offset.Zero", "Offset.Infinite"];
+  let stopList = parts;
+  if (/deg$/.test(parts[0])) {
+    [start, end] = angleOffsets(parseInt(parts[0], 10));
+    stopList = parts.slice(1);
+  }
+  const colors = [];
+  const stops = [];
+  let hasStops = true;
+  for (const stop of stopList) {
+    const pm = stop.match(/\s(-?[\d.]+)%\s*$/);
+    let colStr = stop;
+    if (pm) { stops.push(Math.round((parseFloat(pm[1]) / 100) * 1000) / 1000); colStr = stop.slice(0, pm.index).trim(); }
+    else hasStops = false;
+    colors.push(colorToKt(colStr));
+  }
+  if (hasStops && stops.length === colors.length) {
+    const pairs = colors.map((c, i) => `${stops[i]}f to ${c}`).join(", ");
+    return `Brush.linearGradient(colorStops = arrayOf(${pairs}), start = ${start}, end = ${end})`;
+  }
+  return `Brush.linearGradient(listOf(${colors.join(", ")}), start = ${start}, end = ${end})`;
+}
+
+// ---------- 阴影/辉光 ----------
+const isShadow = (v) => /^-?[\d.]+\s+-?[\d.]+\s+[\d.]+px/.test(String(v).trim());
+function shadowToKt(v) {
+  const s = String(v).trim();
+  const blur = parseFloat(s.match(/[\d.]+px/)[0]);
+  const color = colorToKt(s.match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}/)[0]);
+  return { color, blur };
+}
+
+const classify = (v) => {
+  const s = String(v).trim();
+  if (s.startsWith("linear-gradient(")) return "gradient";
+  if (isShadow(s)) return "shadow";
+  return "color";
+};
+
+function* flatten(obj, prefix = "") {
+  for (const [k, val] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (val && typeof val === "object" && !Array.isArray(val)) yield* flatten(val, key);
+    else yield [key, val];
+  }
+}
+
+const fontList = (css) => css.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
+const ktStrList = (arr) => `listOf(${arr.map((s) => JSON.stringify(s)).join(", ")})`;
+
+function main() {
+  const raw = JSON.parse(fs.readFileSync(SRC, "utf8"));
+  const darkLeaves = [...flatten(raw.semantic.dark)];
+
+  const fields = [];
+  for (const [dotted, v] of darkLeaves) {
+    const name = camel(dotted);
+    const kind = classify(v);
+    if (kind === "shadow") {
+      fields.push({ name, kind: "shadowColor" });
+      fields.push({ name: `${name}Blur`, kind: "shadowBlur" });
+    } else {
+      fields.push({ name, kind });
+    }
+  }
+  const ktTypeOf = (k) => (k === "gradient" ? "Brush" : k === "shadowBlur" ? "Float" : "Color");
+  const fieldDecls = fields.map((f) => `    val ${f.name}: ${ktTypeOf(f.kind)},`).join("\n");
+
+  function instance(mode) {
+    const byName = new Map();
+    for (const [dotted, v] of flatten(raw.semantic[mode])) {
+      const name = camel(dotted);
+      const kind = classify(v);
+      if (kind === "gradient") byName.set(name, gradientToKt(v));
+      else if (kind === "shadow") {
+        const { color, blur } = shadowToKt(v);
+        byName.set(name, color);
+        byName.set(`${name}Blur`, ktFloat(blur));
+      } else byName.set(name, colorToKt(v));
+    }
+    const args = fields.map((f) => `    ${f.name} = ${byName.get(f.name)},`).join("\n");
+    return `val ${mode}Colors = SemanticColors(\n${args}\n)`;
+  }
+
+  const space = Object.entries(raw.space).map(([k, v]) => `    const val s${k} = ${ktFloat(toPx(v))}`).join("\n");
+  const radius = Object.entries(raw.radius)
+    .map(([k, v]) => `    const val radius${k.charAt(0).toUpperCase() + k.slice(1)} = ${ktFloat(toPx(v))}`)
+    .join("\n");
+  const fontSize = Object.entries(raw.typography.fontSize)
+    .map(([k, v]) => `    const val fs${k.charAt(0).toUpperCase() + k.slice(1)} = ${ktFloat(toPx(v))}`)
+    .join("\n");
+  const layout = Object.entries(raw.layout).map(([k, v]) => `    const val ${k} = ${ktFloat(toPx(v))}`).join("\n");
+  const weights = Object.entries(raw.typography.fontWeight)
+    .map(([k, v]) => `    val ${k} = FontWeight(${v})`)
+    .join("\n");
+  const families = ["sans", "mono", "display"]
+    .map((k) => `    val ${k} = ${ktStrList(fontList(raw.typography.fontFamily[k]))}`)
+    .join("\n");
+
+  const out = `// ============================================================
+// 自动生成 · 请勿手改 (AUTO-GENERATED — DO NOT EDIT)
+//
+// 由 scripts/gen-tokens-android 从 spec/tokens/tokens.json 生成。
+// 重新生成：node scripts/gen-tokens-android
+// 源（事实源）：spec/styles/tokens.css → spec/tokens/tokens.json
+//
+// rem 已折算为 px Float（1rem=16px）；颜色→Color、渐变→Brush、
+// 辉光→Color + <名>Blur。消费入口见 theme/Theme.kt。
+// ============================================================
+package pro.hellotime.android.theme
+
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+
+/** 间距 / 圆角 / 字号 / 布局（主题无关 px 常量）。 */
+object AppSize {
+${space}
+
+${radius}
+
+${fontSize}
+
+${layout}
+}
+
+/** 字体族（fallback 列表）与字重。 */
+object AppFont {
+${families}
+
+${weights}
+}
+
+/** 语义色板（每主题一套；字段由 codegen 生成）。 */
+class SemanticColors(
+${fieldDecls}
+)
+
+${instance("dark")}
+
+${instance("light")}
+`;
+
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, out, "utf8");
+  console.log(`✅ Tokens.kt 已生成：${path.relative(REPO_ROOT, OUT)}（源：${path.relative(REPO_ROOT, SRC)}）`);
+}
+
+main();

@@ -26,6 +26,11 @@ targets:
     platform: iOS
     sources:
       - Sources
+      # 品牌 logo（广场顶栏），SVGView 从 bundle 渲染
+      - path: Resources/logo.svg
+        buildPhase: resources
+      # App 图标（scripts/gen-app-icons 从 spec/assets/logo.svg 生成）
+      - Assets.xcassets
     dependencies:
       - package: SVGView
     settings:
@@ -34,5 +39,5 @@ targets:
         TARGETED_DEVICE_FAMILY: 1        # 1 = iPhone
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Resources/Info.plist
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_USER_SCRIPT_SANDBOXING: NO

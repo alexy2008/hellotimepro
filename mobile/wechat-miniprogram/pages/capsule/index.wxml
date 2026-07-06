@@ -1,0 +1,58 @@
+<view class="app-root theme-{{themeMode}}">
+  <view class="container stack gap-5">
+    <text class="t-signal" bindtap="goBack">‹ 返回</text>
+
+    <view wx:if="{{loading}}" class="loading">加载中…</view>
+
+    <block wx:elif="{{cap}}">
+      <view class="row gap-2 wrap">
+        <view class="badge {{opened ? 'badge-opened' : 'badge-sealed'}}">{{opened ? '已开启' : '未开启'}}</view>
+        <view wx:if="{{cap.inPlaza}}" class="badge badge-sealed">广场公开</view>
+        <text class="t-signal t-sm">{{cap.code}}</text>
+      </view>
+
+      <text class="t-2xl t-bold display">{{cap.title}}</text>
+
+      <!-- 已开启：显示内容 -->
+      <view wx:if="{{opened && cap.content !== null}}" class="card stack gap-3">
+        <text class="hint">🔓 开启于 {{openAtText}}</text>
+        <text class="cap-content">{{cap.content}}</text>
+      </view>
+
+      <!-- 未开启：倒计时 -->
+      <view wx:else class="card stack gap-4 center" style="align-items:center;padding-top:32px;padding-bottom:32px">
+        <text style="font-size:40px">🔒</text>
+        <text class="t-secondary t-sm center">这封信还在上锁，将在以下时刻开启</text>
+        <view class="cd-row">
+          <view wx:for="{{units}}" wx:key="l" class="cd-unit">
+            <view class="cd-box"><text class="cd-num">{{item.v}}</text></view>
+            <text class="hint">{{item.l}}</text>
+          </view>
+        </view>
+        <text class="t-secondary t-sm center">{{expired ? '正在开启…' : '开启于 ' + openAtText}}</text>
+      </view>
+
+      <view class="row gap-2">
+        <text class="t-secondary t-sm">来自</text>
+        <avatar-badge name="{{cap.creator.nickname}}" avatarId="{{cap.creator.avatarId}}" size="28" />
+        <text class="t-semibold t-sm">{{cap.creator.nickname}}</text>
+      </view>
+
+      <view class="row gap-2 wrap">
+        <view class="btn btn-ghost btn-sm" bindtap="copyCode">{{codeCopied ? '✓ 已复制' : '📎 复制码'}}</view>
+        <button class="btn btn-ghost btn-sm" open-type="share">🔗 分享</button>
+        <view class="btn btn-sm {{cap.favoritedByMe ? 'btn-accent' : 'btn-outline'}}" bindtap="onFav">
+          {{cap.favoritedByMe ? '♥ 已收藏' : '♡ 收藏'}} {{cap.favoriteCount}}
+        </view>
+      </view>
+
+      <view wx:if="{{!opened}}" class="hint">未开启的胶囊仅显示标题与倒计时，内容将在开启后公开。</view>
+      <view wx:elif="{{cap.inPlaza}}" class="hint">这条胶囊已在广场公开，任何人都可通过广场或 8 位码访问。</view>
+    </block>
+
+    <view wx:else class="stack gap-4" style="padding-top:48px">
+      <view class="error-box">{{err || '胶囊不存在'}}</view>
+      <view class="btn btn-ghost" bindtap="goOpen">返回输入码</view>
+    </view>
+  </view>
+</view>

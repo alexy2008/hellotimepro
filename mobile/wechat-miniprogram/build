@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# 构建 / 校验：令牌 codegen + 工程结构 + JSON 合法性 + JS 语法冒烟。
+#
+# 原生小程序无独立编译工具链（由微信开发者工具 / 微信运行时解释执行），
+# 故这里做「离线可跑」的静态校验：保证工程结构完整、配置 JSON 合法、每个
+# 页面四件套齐备、所有 .js 语法正确。真机 / 模拟器运行见 ./run（需开发者工具）。
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "需要 Node 18+（用于令牌 codegen 与 JS 语法校验）。" >&2
+  exit 1
+fi
+
+echo "→ 令牌 codegen（tokens.wxss + palette.js）"
+node ../../scripts/gen-tokens-miniprogram
+
+echo "→ 头像 PNG codegen（需 rsvg-convert；未装则警告并回退色块+首字）"
+node ../../scripts/gen-avatars-miniprogram
+
+echo "→ 校验配置 JSON 合法性"
+for f in app.json project.config.json sitemap.json $(find pages components -name "*.json"); do
+  node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" \
+    || { echo "  ✗ JSON 非法: $f" >&2; exit 1; }
+done
+
+echo "→ 校验页面四件套齐备（app.json.pages 每项需有 .js/.json/.wxml/.wxss）"
+node -e '
+  const fs = require("fs");
+  const app = JSON.parse(fs.readFileSync("app.json","utf8"));
+  let bad = 0;
+  for (const p of app.pages) {
+    for (const ext of ["js","json","wxml","wxss"]) {
+      if (!fs.existsSync(p + "." + ext)) { console.error("  ✗ 缺文件: " + p + "." + ext); bad++; }
+    }
+  }
+  // tabBar 页必须在 pages 里
+  for (const t of (app.tabBar ? app.tabBar.list : [])) {
+    if (!app.pages.includes(t.pagePath)) { console.error("  ✗ tabBar 页未登记: " + t.pagePath); bad++; }
+  }
+  if (bad) process.exit(1);
+'
+
+echo "→ JS 语法冒烟（node --check）"
+while IFS= read -r f; do
+  node --check "$f" || { echo "  ✗ 语法错误: $f" >&2; exit 1; }
+done < <(find . -name "*.js" -not -path "./node_modules/*")
+
+echo "→ 确认 codegen 产物存在"
+test -f tokens/tokens.wxss && test -f tokens/palette.js \
+  || { echo "  ✗ 缺少 tokens 产物" >&2; exit 1; }
+test -d assets/avatars && [ "$(ls assets/avatars/*.png 2>/dev/null | wc -l)" -gt 0 ] \
+  || echo "  ○ 头像 PNG 未生成（rsvg-convert 未装，组件会回退色块+首字，不阻塞 build）"
+
+echo "✓ build ok（结构 / JSON / 页面四件套 / JS 语法 全部通过）"
+echo "  运行需微信开发者工具：./run（或工具里直接打开本目录）"

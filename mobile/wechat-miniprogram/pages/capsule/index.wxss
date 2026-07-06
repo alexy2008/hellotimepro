@@ -1,0 +1,38 @@
+.cap-content {
+  color: var(--text-primary);
+  font-size: var(--font-base);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.cd-row {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-2);
+  justify-content: center;
+}
+.cd-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.cd-box {
+  min-width: 60px;
+  padding: var(--space-3) var(--space-2);
+  background: var(--surface-2);
+  border: 1px solid var(--capsule-sealed-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 12px rgba(20, 212, 240, 0.4);
+}
+.cd-num {
+  color: var(--signal-primary);
+  font-size: var(--font-3xl, 30px);
+  font-weight: 700;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+}
+/* 分享按钮：抹掉小程序原生 button 的默认外观，套回 .btn 语义 */
+button.btn { margin: 0; }
+button.btn::after { border: none; }
