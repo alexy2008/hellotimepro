@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="HelloTimePro.Views.CreateView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <Grid Padding="24,40" HorizontalAlignment="Center" MaxWidth="720">
+        <StackPanel Spacing="16" HorizontalAlignment="Stretch">
+            <TextBlock Text="写给未来的信" FontSize="{ThemeResource FontSize4xl}" FontWeight="Bold"
+                       Foreground="{ThemeResource TextPrimaryBrush}" />
+            <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource TextSecondaryBrush}"
+                       Text="这段文字会被上锁，直到你设定的时刻才能由任何人（包括你自己）开启。" />
+
+            <!-- 标题 + AI -->
+            <StackPanel Spacing="6">
+                <TextBlock Text="标题 · 最多 60 字" Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}" />
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="TitleBox" Grid.Column="0" MaxLength="60" PlaceholderText="给这枚胶囊起个名字" />
+                    <Button x:Name="AiButton" Grid.Column="1" Content="✨ AI 生成" Click="OnAiGenerate" />
+                </Grid>
+                <TextBlock x:Name="AiInfo" Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}"
+                           TextWrapping="Wrap" Visibility="Collapsed" />
+            </StackPanel>
+
+            <!-- 推荐灵感 -->
+            <StackPanel x:Name="RecoPanel" Spacing="6" Visibility="Collapsed">
+                <Grid>
+                    <TextBlock Text="✨ 没有头绪？试试这些灵感" Foreground="{ThemeResource TextSecondaryBrush}"
+                               FontSize="{ThemeResource FontSizeSm}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                    <Button Content="换一批" Click="OnRefreshRecos" HorizontalAlignment="Right" Padding="10,2" />
+                </Grid>
+                <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled">
+                    <StackPanel x:Name="RecoChips" Orientation="Horizontal" Spacing="8" />
+                </ScrollViewer>
+            </StackPanel>
+
+            <!-- 正文 -->
+            <StackPanel Spacing="6">
+                <TextBlock Text="内容 · 最多 5000 字" Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}" />
+                <TextBox x:Name="ContentBox" AcceptsReturn="True" TextWrapping="Wrap" MaxLength="5000"
+                         Height="200" TextChanged="OnContentChanged"
+                         PlaceholderText="在这里写下你想传递到未来的话。" />
+                <TextBlock x:Name="ContentCount" Text="0 / 5000" HorizontalAlignment="Right"
+                           Foreground="{ThemeResource TextMutedBrush}" FontSize="{ThemeResource FontSizeXs}" />
+            </StackPanel>
+
+            <!-- 开启时间 -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="开启时间 · 最早 60 秒后" Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <DatePicker x:Name="OpenDate" />
+                    <TimePicker x:Name="OpenTime" ClockIdentifier="24HourClock" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="快速预设" VerticalAlignment="Center" Foreground="{ThemeResource TextMutedBrush}"
+                               FontSize="{ThemeResource FontSizeSm}" />
+                    <Button Content="1 分钟后" Click="OnPreset1Min" Padding="10,2" />
+                    <Button Content="1 小时后" Click="OnPreset1Hour" Padding="10,2" />
+                    <Button Content="明天 9:00" Click="OnPresetTomorrow" Padding="10,2" />
+                    <Button Content="1 年后" Click="OnPreset1Year" Padding="10,2" />
+                </StackPanel>
+            </StackPanel>
+
+            <Border Padding="12,10" CornerRadius="{ThemeResource RadiusMd}" Background="{ThemeResource SignalSubtleBrush}">
+                <TextBlock Text="ⓘ 上锁后不可编辑、不可提前开启；可以在「我创建的」列表里随时撤回（删除）。"
+                           Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}" TextWrapping="Wrap" />
+            </Border>
+
+            <TextBlock x:Name="ErrorText" Foreground="{ThemeResource DangerFgBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+
+            <!-- 操作 -->
+            <Grid Margin="0,8,0,0">
+                <ToggleSwitch x:Name="PlazaToggle" IsOn="True" OnContent="发布到胶囊广场" OffContent="发布到胶囊广场"
+                              HorizontalAlignment="Left" />
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Content="取消" Click="OnCancel" />
+                    <Button x:Name="SubmitButton" Content="🔒 上锁封存" Click="OnSubmit" Height="44" Padding="20,0"
+                            Background="{ThemeResource BrandPrimaryBrush}" Foreground="{ThemeResource BrandOnBrush}" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Grid>
+</UserControl>

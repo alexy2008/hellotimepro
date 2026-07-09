@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="HelloTimePro.Views.AppFooter"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <Grid Padding="24,16" ColumnSpacing="8">
+        <TextBlock Foreground="{ThemeResource TextMutedBrush}" FontSize="{ThemeResource FontSizeXs}"
+                   HorizontalAlignment="Left" VerticalAlignment="Center"
+                   Text="HelloTime Pro · 把此刻封存给未来" />
+        <TextBlock x:Name="ApiText" Foreground="{ThemeResource TextMutedBrush}" FontSize="{ThemeResource FontSizeXs}"
+                   HorizontalAlignment="Right" VerticalAlignment="Center" />
+    </Grid>
+</UserControl>

@@ -85,6 +85,12 @@ DESKTOP = {
     "swiftui":  {"dir": "desktop/swiftui",        "port": None,  "runtime": "swift"},
     "flutter":  {"dir": "desktop/flutter",        "port": None,  "runtime": "flutter"},
     "qt-pyside": {"dir": "desktop/qt-pyside",     "port": None,  "runtime": "python"},
+    # winui3（WinUI 3 / Windows App SDK，C#）：Windows-only，无 macOS 交叉编译 → 远程构建。
+    # 代码在 Mac 仓库，./build 经 SSH 同步+编译到远端 Windows，./run 建反向 SSH 隧道
+    # （远端 127.0.0.1:9080 ⇄ Mac :9080 反代）+ schtasks 交互桌面拉起 exe。port=None →
+    # 进程存活判活（判活对象是本地那条 hold 住隧道的 ssh，被 stop 的 SIGTERM 触发 trap 清理远端）。
+    # 远端主机在 desktop/winui3/remote.env（gitignored）。
+    "winui3":   {"dir": "desktop/winui3",         "port": None,  "runtime": "dotnet"},
 }
 
 # 移动客户端：纯 API 消费者，复用后端契约。

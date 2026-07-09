@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# ============================================================
+# 启动 HelloTime Pro · WinUI 3 桌面端（远端 Windows 上运行，Mac 这边编排）。
+#
+# 纯原生 API 消费者：无 dev server 端口（hello 里 port=None → 进程存活判活）。
+# 本脚本前台进程即「判活对象」——hello stop 对它发 SIGTERM，trap 清理远端 app。
+#
+# 运行链路（对照 desktop/swiftui 的「本地前台 GUI」，这里是「远端 GUI + 隧道」）：
+#   ./build 同步+编译 → 建反向 SSH 隧道（远端 127.0.0.1:9080 ⇄ Mac :9080 反代）
+#   → schtasks 在已登录交互桌面拉起 exe（SSH 会话非交互，直接启 GUI 不显示）
+#   → 前台 hold 住隧道会话；退出时 trap 远端 taskkill + 删计划任务。
+#
+# 为什么 self-contained / 反向隧道 / schtasks：见 TECHNICAL_GUIDE.md 与 remote.env.example。
+# 引号：ssh→cmd→powershell 多层转义极易断，启动/清理载荷统一用 -EncodedCommand（base64/UTF-16LE）。
+# ============================================================
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if [[ ! -f remote.env ]]; then
+  echo "缺少 remote.env —— 请 cp remote.env.example remote.env 并填入远端 Windows 主机信息。" >&2
+  exit 1
+fi
+# shellcheck disable=SC1091
+source ./remote.env
+: "${WINUI_SSH_HOST:?remote.env 未设 WINUI_SSH_HOST}"
+: "${WINUI_SSH_PORT:?remote.env 未设 WINUI_SSH_PORT}"
+: "${WINUI_SSH_USER:?remote.env 未设 WINUI_SSH_USER}"
+: "${WINUI_REMOTE_DIR:?remote.env 未设 WINUI_REMOTE_DIR}"
+WINUI_API_BASE="${WINUI_API_BASE:-http://127.0.0.1:9080}"
+
+TASK="HelloTimeProRun"
+EXE="${WINUI_REMOTE_DIR}\\bin\\x64\\Debug\\net8.0-windows10.0.26100.0\\win-x64\\HelloTimePro.exe"
+REMOTE="${WINUI_SSH_USER}@${WINUI_SSH_HOST}"
+
+# PowerShell 脚本 → base64(UTF-16LE)，供 powershell -EncodedCommand（绕开多层引号）。
+enc_ps() { printf '%s' "$1" | iconv -t UTF-16LE | base64 | tr -d '\n'; }
+
+cleanup() {
+  local ps="\$ErrorActionPreference='SilentlyContinue'; taskkill /f /im HelloTimePro.exe | Out-Null; schtasks /delete /tn ${TASK} /f | Out-Null"
+  ssh -p "$WINUI_SSH_PORT" "$REMOTE" "powershell -NoProfile -EncodedCommand $(enc_ps "$ps")" >/dev/null 2>&1 || true
+  echo "已清理远端 app 与计划任务。"
+}
+trap cleanup EXIT INT TERM
+
+# 1) 同步 + 编译（远端）
+./build
+
+# 2) 反向隧道 + 交互桌面拉起 + hold
+#    - 反向隧道在 ssh 连接建立时即生效（先于远端命令）→ app 首个请求就能回程
+#    - HELLO_API_BASE 写 User 级环境变量（计划任务以该用户身份运行时读取；默认值本就等于隧道端点）
+#    - while 无限 Start-Sleep 把 ssh 会话（连同隧道）hold 住，直到本脚本被杀
+launch_ps="\$ErrorActionPreference='SilentlyContinue'
+[Environment]::SetEnvironmentVariable('HELLO_API_BASE','${WINUI_API_BASE}','User')
+schtasks /create /tn ${TASK} /tr '${EXE}' /sc once /st 23:59 /f /it /rl LIMITED | Out-Null
+schtasks /run /tn ${TASK} | Out-Null
+Write-Output 'APP_LAUNCHED（远端交互桌面已拉起 HelloTimePro 窗口）'
+while(\$true){ Start-Sleep -Seconds 3600 }"
+
+echo "启动远端 app + 反向隧道（${REMOTE} :9080 ⇄ Mac :9080）…"
+ssh -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+    -p "$WINUI_SSH_PORT" -R 9080:127.0.0.1:9080 "$REMOTE" \
+    "powershell -NoProfile -EncodedCommand $(enc_ps "$launch_ps")" &
+SSH_PID=$!
+wait "$SSH_PID"

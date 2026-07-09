@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="HelloTimePro.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:HelloTimePro.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="HelloTime Pro"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid" Background="{ThemeResource Surface0Brush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 顶部导航 -->
+        <views:AppHeader x:Name="Header" Grid.Row="0" />
+        <Border Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{ThemeResource BorderSubtleBrush}" />
+
+        <!-- 内容区（随 store.Current 切换） -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled">
+            <ContentControl x:Name="ContentHost"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch" />
+        </ScrollViewer>
+
+        <!-- 页脚 -->
+        <Border Grid.Row="2" VerticalAlignment="Top" Height="1" Background="{ThemeResource BorderSubtleBrush}" />
+        <views:AppFooter Grid.Row="2" />
+
+        <!-- 全局提示浮层 -->
+        <Border x:Name="BannerBar" Grid.Row="1" VerticalAlignment="Top" Margin="0,16,0,0"
+                Visibility="Collapsed" HorizontalAlignment="Center" MaxWidth="520"
+                Background="{ThemeResource Surface2Brush}" BorderBrush="{ThemeResource BorderDefaultBrush}"
+                BorderThickness="1" CornerRadius="{ThemeResource RadiusFull}" Padding="16,10">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="⚠" Foreground="{ThemeResource WarningFgBrush}" />
+                <TextBlock x:Name="BannerText" Foreground="{ThemeResource TextPrimaryBrush}"
+                           FontSize="{ThemeResource FontSizeSm}" VerticalAlignment="Center" />
+                <Button Content="✕" Background="Transparent" BorderThickness="0" Padding="6,0"
+                        Foreground="{ThemeResource TextMutedBrush}" Click="OnDismissBanner" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

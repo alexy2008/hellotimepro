@@ -130,3 +130,11 @@ Makefile
 
 # --- Dev-manager 状态 ---
 .hello-state.json
+
+# --- WinUI 3 桌面端（远程构建）---
+# 远端主机连接信息（个人设置，见 remote.env.example）
+desktop/winui3/remote.env
+# 本地若出现 .NET 构建产物一并忽略（正常构建发生在远端 Windows）
+desktop/winui3/bin/
+desktop/winui3/obj/
+desktop/winui3/build*.log

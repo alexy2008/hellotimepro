@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+// ============================================================
+// gen-tokens-winui · 设计令牌跨端 codegen（WinUI 3 / XAML 目标）
+//
+// 读 spec/tokens/tokens.json（事实源）→ 生成 desktop/winui3/Themes/Tokens.xaml。
+// 产物是一个 ResourceDictionary：
+//   - 语义色（semantic.dark / semantic.light）放进 <ThemeDictionaries> 的
+//     "Dark" / "Light" 两套；每个 leaf 颜色生成 <Color> + <SolidColorBrush> 两个 key，
+//     视图经 {ThemeResource XxxBrush} 消费，随系统主题自动切换。
+//   - 主题无关令牌（space / radius / fontSize / fontFamily）作根级静态资源
+//     （<x:Double> / <CornerRadius> / <FontFamily>）。
+//
+// 颜色转换（CSS → XAML #AARRGGBB）：
+//   #rrggbb / #rgb           → #FFrrggbb
+//   rgb()/rgba()            → #AARRGGBB（alpha 在前）
+//   其它（阴影 "0 0 24px..."、linear-gradient(...)）→ 跳过（非纯色，视图侧按需处理）
+//
+// 命名：语义路径段拼 PascalCase，如 surface.0 → Surface0、text.primary → TextPrimary、
+//       capsule.sealed.border → CapsuleSealedBorder；再加 Color / Brush 后缀。
+//
+// 产物头部标注「自动生成，勿手改」；重生成后 git diff 应为空。
+// 用法：node scripts/gen-tokens-winui
+// ============================================================
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const REPO_ROOT = path.resolve(__dirname, "..");
+const SRC = path.join(REPO_ROOT, "spec", "tokens", "tokens.json");
+const OUT = path.join(REPO_ROOT, "desktop", "winui3", "Themes", "Tokens.xaml");
+const REM_PX = 16;
+
+const tokens = JSON.parse(fs.readFileSync(SRC, "utf8"));
+
+function hex2(n) {
+  return Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0").toUpperCase();
+}
+
+/** CSS 颜色 → XAML "#AARRGGBB"；非纯色返回 null（跳过）。 */
+function toXamlColor(v) {
+  const s = String(v).trim();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s)) {
+    let h = s.slice(1);
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    return `#FF${h.toUpperCase()}`;
+  }
+  const m = s.match(/^rgba?\(([^)]+)\)$/i);
+  if (m) {
+    const p = m[1].split(",").map((x) => x.trim());
+    const [r, g, b] = p.map(Number);
+    const a = p[3] !== undefined ? parseFloat(p[3]) : 1;
+    return `#${hex2(a * 255)}${hex2(r)}${hex2(g)}${hex2(b)}`;
+  }
+  return null; // 阴影 / 渐变 / 其它 → 跳过
+}
+
+function pascal(seg) {
+  const s = String(seg);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** 递归展平语义色对象 → [{name, color}]（跳过非纯色 leaf）。 */
+function flattenColors(obj, prefix, out) {
+  for (const [k, v] of Object.entries(obj)) {
+    const name = prefix + pascal(k);
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      flattenColors(v, name, out);
+    } else {
+      const c = toXamlColor(v);
+      if (c) out.push({ name, color: c });
+    }
+  }
+  return out;
+}
+
+function toPx(value) {
+  const v = String(value).trim();
+  if (v === "0") return 0;
+  if (v.endsWith("rem")) return Math.round(parseFloat(v) * REM_PX);
+  if (v.endsWith("px")) return Math.round(parseFloat(v));
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+function themeBlock(themeName, semanticTheme) {
+  const colors = flattenColors(semanticTheme, "", []);
+  const lines = [`      <ResourceDictionary x:Key="${themeName}">`];
+  for (const { name, color } of colors) {
+    lines.push(`        <Color x:Key="${name}Color">${color}</Color>`);
+    lines.push(`        <SolidColorBrush x:Key="${name}Brush" Color="${color}" />`);
+  }
+  lines.push(`      </ResourceDictionary>`);
+  return lines.join("\n");
+}
+
+function staticResources() {
+  const lines = [];
+  // 间距 space.* → x:Double（Padding/Margin/Spacing 用）
+  for (const [k, v] of Object.entries(tokens.space)) {
+    lines.push(`  <x:Double x:Key="Space${pascal(k)}">${toPx(v)}</x:Double>`);
+  }
+  // 圆角 radius.* → CornerRadius
+  for (const [k, v] of Object.entries(tokens.radius)) {
+    const px = k === "full" ? 9999 : toPx(v);
+    lines.push(`  <CornerRadius x:Key="Radius${pascal(k)}">${px}</CornerRadius>`);
+  }
+  // 字号 fontSize.* → x:Double
+  for (const [k, v] of Object.entries(tokens.typography.fontSize)) {
+    lines.push(`  <x:Double x:Key="FontSize${pascal(k)}">${toPx(v)}</x:Double>`);
+  }
+  // 字族 fontFamily.*（去掉 CSS 的引号，XAML FontFamily 用逗号分隔回退族）
+  for (const [k, v] of Object.entries(tokens.typography.fontFamily)) {
+    const fam = String(v).replace(/"/g, "").trim();
+    lines.push(`  <FontFamily x:Key="FontFamily${pascal(k)}">${fam}</FontFamily>`);
+  }
+  return lines.join("\n");
+}
+
+const xaml = `<?xml version="1.0" encoding="utf-8"?>
+<!-- 自动生成，勿手改。源：spec/tokens/tokens.json；生成器：scripts/gen-tokens-winui -->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <ResourceDictionary.ThemeDictionaries>
+${themeBlock("Dark", tokens.semantic.dark)}
+${themeBlock("Light", tokens.semantic.light)}
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!-- 主题无关令牌 -->
+${staticResources()}
+
+</ResourceDictionary>
+`;
+
+fs.mkdirSync(path.dirname(OUT), { recursive: true });
+fs.writeFileSync(OUT, xaml, "utf8");
+console.log(`✓ 生成 ${path.relative(REPO_ROOT, OUT)}`);

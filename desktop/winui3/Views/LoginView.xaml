@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="HelloTimePro.Views.LoginView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <Grid Padding="24,48" HorizontalAlignment="Center" VerticalAlignment="Top">
+        <Border Width="440" Padding="32" CornerRadius="{ThemeResource RadiusXl}"
+                Background="{ThemeResource Surface1Brush}" BorderBrush="{ThemeResource BorderSubtleBrush}"
+                BorderThickness="1">
+            <StackPanel Spacing="8">
+                <TextBlock Text="欢迎回来" FontSize="{ThemeResource FontSize3xl}" FontWeight="Bold"
+                           Foreground="{ThemeResource TextPrimaryBrush}" />
+                <TextBlock Text="你留给未来的信，还在等你开启。" Foreground="{ThemeResource TextSecondaryBrush}"
+                           Margin="0,0,0,16" />
+
+                <TextBlock Text="邮箱" Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}" />
+                <TextBox x:Name="EmailBox" InputScope="EmailNameOrAddress" />
+
+                <TextBlock Text="密码" Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}"
+                           Margin="0,8,0,0" />
+                <PasswordBox x:Name="PasswordBox" />
+
+                <TextBlock x:Name="ErrorText" Foreground="{ThemeResource DangerFgBrush}" TextWrapping="Wrap"
+                           Visibility="Collapsed" Margin="0,4,0,0" />
+
+                <Button x:Name="SubmitButton" Content="登录" Click="OnSubmit" Margin="0,12,0,0"
+                        HorizontalAlignment="Stretch" Height="44"
+                        Background="{ThemeResource BrandPrimaryBrush}" Foreground="{ThemeResource BrandOnBrush}" />
+
+                <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" Margin="0,8,0,0">
+                    <TextBlock Text="还没有账号？" Foreground="{ThemeResource TextMutedBrush}" FontSize="{ThemeResource FontSizeSm}" />
+                    <HyperlinkButton Content="立即注册" Padding="0" Click="OnGoRegister" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

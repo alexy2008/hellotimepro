@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ============================================================
+       HelloTime Pro · WinUI 3 桌面端（M5 最后一个桌面实现）
+       纯 API 消费者：WinUI 3 (Windows App SDK) + C#，直连后端 :9080 反代。
+
+       非打包（unpackaged）形态：WindowsPackageType=None → 产物是普通 .exe，
+       无需 MSIX 打包组件，与 swiftui/qt/flutter 桌面端「直接跑二进制」一致。
+
+       版本显式钉死（教学仓库要可复现）——模板默认 Version="*" 会浮动到最新，
+       曾因此拉到需要更新 SDK.NET.Ref 的 WindowsAppSDK：
+         WindowsAppSDK 2.2.0 要求 Microsoft.Windows.SDK.NET.Ref ≥ 10.0.26100.38，
+         而 .NET 8.0.400 默认给 .34 → 必须 pin WindowsSdkPackageVersion。
+       ============================================================ -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>HelloTimePro</RootNamespace>
+    <AssemblyName>HelloTimePro</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- 非打包：直接产出 .exe（免 MSIX 打包组件） -->
+    <WindowsPackageType>None</WindowsPackageType>
+
+    <!-- Windows App Runtime 自包含：把运行时打进输出目录，exe 自带、不依赖
+         机器上「已安装的运行时组件集」。否则非打包 exe 启动会弹
+         「Required components of the Windows App Runtime are missing」——
+         机器即便有框架包，bootstrapper 仍要求完整运行时集齐全。
+         自包含需指定 RID（构建时 -p:RuntimeIdentifier=win-x64），故也补齐 native bootstrap dll。 -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+
+    <!-- 见文件头：WindowsAppSDK 2.2.0 要求的 SDK 投影版本 -->
+    <WindowsSdkPackageVersion>10.0.26100.38</WindowsSdkPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+</Project>

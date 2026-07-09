@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# ============================================================
+# 构建 HelloTime Pro · WinUI 3 桌面端（远程 Windows 主机上编译）。
+#
+# WinUI 3 = Windows App SDK，只能在 Windows 上编译（无 macOS 交叉编译）。本脚本：
+#   1) tar-over-ssh 把源码同步到远端 Windows（排除 bin/obj/本地产物）
+#   2) 远端 dotnet build（带 RID + self-contained → 产出自带运行时的可运行 exe）
+#
+# 成败判定：直接用 ssh 透传的远端 dotnet 退出码（避开 `cmd /c "... & echo %ERRORLEVEL%"`
+# 在解析时就展开的老坑）。set -e 下构建失败即脚本失败。
+#
+# 前置：cp remote.env.example remote.env 并填好主机信息（见该文件）。
+# ============================================================
+set -euo pipefail
+
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE"
+
+if [[ ! -f remote.env ]]; then
+  echo "缺少 remote.env —— 请 cp remote.env.example remote.env 并填入远端 Windows 主机信息。" >&2
+  exit 1
+fi
+# shellcheck disable=SC1091
+source ./remote.env
+: "${WINUI_SSH_HOST:?remote.env 未设 WINUI_SSH_HOST}"
+: "${WINUI_SSH_PORT:?remote.env 未设 WINUI_SSH_PORT}"
+: "${WINUI_SSH_USER:?remote.env 未设 WINUI_SSH_USER}"
+: "${WINUI_REMOTE_DIR:?remote.env 未设 WINUI_REMOTE_DIR}"
+
+SSH=(ssh -p "$WINUI_SSH_PORT" "${WINUI_SSH_USER}@${WINUI_SSH_HOST}")
+
+echo "同步源码 → ${WINUI_SSH_USER}@${WINUI_SSH_HOST}:${WINUI_REMOTE_DIR}"
+"${SSH[@]}" "cmd /c \"if not exist ${WINUI_REMOTE_DIR} mkdir ${WINUI_REMOTE_DIR}\"" >/dev/null
+# tar 流经 stdin 送到远端 bsdtar 解包（Windows 10+ 自带 tar.exe）。
+# COPYFILE_DISABLE=1 + --exclude='._*'：阻止 macOS tar 打包 AppleDouble（._xxx）扩展属性文件；
+# 否则 ._Tokens.xaml 之类会被 WinUI 的 **/*.xaml glob 当 XAML 编译 → 0x00 null 字符报错。
+COPYFILE_DISABLE=1 tar czf - \
+  --exclude=./bin --exclude=./obj \
+  --exclude='._*' --exclude='.DS_Store' \
+  --exclude=./remote.env --exclude='./build*.log' \
+  -C "$HERE" . \
+  | "${SSH[@]}" "cmd /c \"cd /d ${WINUI_REMOTE_DIR} && tar xzf -\""
+
+echo "远端编译（dotnet build，带 RID + self-contained）…"
+"${SSH[@]}" "cmd /c \"cd /d ${WINUI_REMOTE_DIR} && dotnet build -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -nologo\""
+
+echo "✓ WinUI 3 桌面端编译通过"
+echo "  产物：${WINUI_REMOTE_DIR}\\bin\\x64\\Debug\\net8.0-windows10.0.26100.0\\win-x64\\HelloTimePro.exe"

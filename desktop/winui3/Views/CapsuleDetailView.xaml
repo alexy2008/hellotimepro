@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="HelloTimePro.Views.CapsuleDetailView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <Grid Padding="24,40" HorizontalAlignment="Center" MaxWidth="760">
+        <StackPanel Spacing="16" HorizontalAlignment="Stretch">
+
+            <!-- 加载 / 错误 -->
+            <StackPanel x:Name="StatusPanel" Spacing="12" HorizontalAlignment="Center" Margin="0,40">
+                <TextBlock x:Name="StatusText" Text="加载中…" Foreground="{ThemeResource TextMutedBrush}"
+                           HorizontalAlignment="Center" />
+                <Button x:Name="BackToOpen" Content="返回输入码" Click="OnBackToOpen" HorizontalAlignment="Center"
+                        Visibility="Collapsed" />
+            </StackPanel>
+
+            <!-- 详情 -->
+            <StackPanel x:Name="DetailPanel" Spacing="16" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Border x:Name="StateBadge" CornerRadius="{ThemeResource RadiusFull}" Padding="10,3">
+                        <TextBlock x:Name="StateBadgeText" FontSize="{ThemeResource FontSizeXs}" />
+                    </Border>
+                    <Border x:Name="PlazaBadge" CornerRadius="{ThemeResource RadiusFull}" Padding="10,3"
+                            Background="{ThemeResource BrandSubtleBrush}" Visibility="Collapsed">
+                        <TextBlock Text="广场公开" FontSize="{ThemeResource FontSizeXs}" Foreground="{ThemeResource TextPrimaryBrush}" />
+                    </Border>
+                    <TextBlock x:Name="CodeText" FontFamily="Consolas" Foreground="{ThemeResource SignalPrimaryBrush}"
+                               VerticalAlignment="Center" />
+                    <TextBlock x:Name="CreatedText" Foreground="{ThemeResource TextMutedBrush}"
+                               FontSize="{ThemeResource FontSizeSm}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <TextBlock x:Name="TitleText" FontSize="{ThemeResource FontSize4xl}" FontWeight="Bold"
+                           Foreground="{ThemeResource TextPrimaryBrush}" TextWrapping="Wrap" />
+
+                <!-- 已开启：内容 -->
+                <StackPanel x:Name="OpenedPanel" Spacing="8" Visibility="Collapsed">
+                    <TextBlock x:Name="OpenedAtText" Foreground="{ThemeResource TextMutedBrush}"
+                               FontSize="{ThemeResource FontSizeSm}" />
+                    <Border Padding="20" CornerRadius="{ThemeResource RadiusLg}"
+                            Background="{ThemeResource Surface1Brush}" BorderBrush="{ThemeResource BorderSubtleBrush}"
+                            BorderThickness="1">
+                        <TextBlock x:Name="ContentText" TextWrapping="Wrap" Foreground="{ThemeResource TextPrimaryBrush}"
+                                   LineHeight="26" IsTextSelectionEnabled="True" />
+                    </Border>
+                </StackPanel>
+
+                <!-- 未开启：倒计时 -->
+                <Border x:Name="SealedPanel" Padding="32" CornerRadius="{ThemeResource RadiusXl}" Visibility="Collapsed"
+                        Background="{ThemeResource Surface1Brush}" BorderBrush="{ThemeResource BorderSubtleBrush}"
+                        BorderThickness="1">
+                    <StackPanel Spacing="12" HorizontalAlignment="Center">
+                        <TextBlock Text="🔒" FontSize="40" HorizontalAlignment="Center" Opacity="0.7" />
+                        <TextBlock Text="这封信还在上锁，将在以下时刻开启" HorizontalAlignment="Center"
+                                   Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}" />
+                        <TextBlock x:Name="CountdownText" HorizontalAlignment="Center" FontFamily="Consolas"
+                                   FontSize="{ThemeResource FontSize2xl}" Foreground="{ThemeResource SignalPrimaryBrush}" />
+                        <TextBlock x:Name="OpenAtText" HorizontalAlignment="Center"
+                                   Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{ThemeResource FontSizeSm}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 底部：创作者 + 操作 -->
+                <Grid Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <TextBlock Text="来自" Foreground="{ThemeResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                   FontSize="{ThemeResource FontSizeSm}" />
+                        <Border x:Name="CreatorAvatar" Width="32" Height="32" CornerRadius="{ThemeResource RadiusFull}" />
+                        <TextBlock x:Name="CreatorName" Foreground="{ThemeResource TextPrimaryBrush}" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                        <Button x:Name="CopyCodeButton" Content="📎 复制 8 位码" Click="OnCopyCode" />
+                        <Button x:Name="FavButton" Click="OnToggleFavorite"
+                                Foreground="{ThemeResource FavoriteActiveBrush}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>
