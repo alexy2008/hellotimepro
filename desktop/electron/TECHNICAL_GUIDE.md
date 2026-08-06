@@ -56,7 +56,7 @@ cd desktop/electron && ./run       # npm install + 拉 Vite(react-ts)@7190 + npx
 - `main.cjs`:`app.whenReady()` 后创建 `BrowserWindow`(`webPreferences: { preload, contextIsolation: true, nodeIntegration: false }`),`loadURL(RENDERER_URL)` 加载 React 前端。注册原生菜单「胶囊 → 导出应用信息为 JSON…」,点它触发 IPC → 拉 `/api/v1/health`(公开接口)+ `dialog.showSaveDialog` + `fs.writeFile`。
 - `preload.cjs`:`contextBridge.exposeInMainWorld("helloDesktop", { exportInfo: () => ipcRenderer.invoke("export-info") })`——只暴露白名单,页面无法直接碰 Node。
 
-> **鉴权版「导出我的胶囊」未做**:React 把 access token 只放内存,壳层 out-of-band 调 `/auth/refresh` 会轮换吊销→误登出。正解是 desktop-aware 前端经桥主动交数据;挂载点已就绪,列为后续。
+> **鉴权版「导出我的胶囊」已取消**(2026-08-06,不再列为后续):React 把 access token 只放内存,壳层 out-of-band 调 `/auth/refresh` 会轮换吊销→误登出;正解需 desktop-aware 前端经桥主动交数据,即为一个导出按钮反向改造内嵌前端。原生桥的教学点已由「导出应用信息」在两壳各演示一次,鉴权版不增加新对比信息。桥挂载点保留。
 
 ## 5. 与 Tauri 的对照
 

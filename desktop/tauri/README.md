@@ -46,7 +46,9 @@
 
 ### 与 Electron 的刻意不对称
 
-Electron 主进程自带 `fetch`，导出时顺带抓了 `/api/v1/health`；Tauri 的 Rust 壳要抓 HTTP 得引入 `reqwest`（显著拉长编译），故本实现**不在壳层抓后端健康**，只导出壳/平台信息。这个不对称正是「同一功能、两套壳」的教学点。鉴权版「导出我的胶囊」同样应由 desktop-aware 前端经 `invoke` 把数据交给壳层（避免壳层 out-of-band 刷新 token 触发轮换误登出）。
+Electron 主进程自带 `fetch`，导出时顺带抓了 `/api/v1/health`；Tauri 的 Rust 壳要抓 HTTP 得引入 `reqwest`（显著拉长编译），故本实现**不在壳层抓后端健康**，只导出壳/平台信息。这个不对称正是「同一功能、两套壳」的教学点。
+
+> 鉴权版「导出我的胶囊」**已于 2026-08-06 取消**：它同样需要 desktop-aware 前端经 `invoke` 把数据交给壳层（壳层 out-of-band 刷新 token 会触发轮换误登出），但原生桥的对比已由「导出应用信息」完成，鉴权版不增加新信息。`invoke` 挂载点保留。
 
 ## 构建 / 校验
 

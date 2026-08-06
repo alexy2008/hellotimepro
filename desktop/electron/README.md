@@ -46,7 +46,9 @@ Electron 是业界事实标准（VS Code / Slack / Discord）。
 
 ### 为什么不是「导出我的胶囊」
 
-`/api/v1/me/capsules` 需要鉴权，而 React 前端把 **access token 只放在内存**（zustand），仅 refresh token 落 `localStorage`。壳层若 out-of-band 调 `/auth/refresh` 取 token，会**轮换并吊销** refresh token 族，下次前端刷新触发重用检测 → 误登出（next/nuxt 曾踩此坑）。正确做法是让一个 **desktop-aware 前端**通过 `window.helloDesktop` 主动把已加载的胶囊数据交给壳层导出——挂载点已就绪（`preload.cjs`），作为后续增强。
+`/api/v1/me/capsules` 需要鉴权，而 React 前端把 **access token 只放在内存**（zustand），仅 refresh token 落 `localStorage`。壳层若 out-of-band 调 `/auth/refresh` 取 token，会**轮换并吊销** refresh token 族，下次前端刷新触发重用检测 → 误登出（next/nuxt 曾踩此坑）。正确做法是让一个 **desktop-aware 前端**通过 `window.helloDesktop` 主动把已加载的胶囊数据交给壳层导出。
+
+> **该功能已于 2026-08-06 取消**，不再列为后续增强：原生桥这个教学点已由「导出应用信息」在 Electron / Tauri 上各演示一次（Node `fs` + IPC vs Rust `command`），鉴权版要为一个导出按钮反向改造内嵌前端，却不增加新的对比信息。`preload.cjs` 的桥挂载点保留。
 
 ## 构建 / 校验
 

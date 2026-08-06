@@ -188,6 +188,8 @@
 2. ~~**UI 冒烟测试 2-4 在前端上 timeout**~~：✅ 已修复（M2.1 · 2026-05-12）。react / vue / angular / next / nuxt 各 4/4 通过。
 3. **`favorite_count` 并发漂移 / `refresh` token 并发重放窗口**（Next.js 实现）：services 层 SELECT→INSERT/DELETE→UPDATE 三段不是事务。按项目 [质量策略](../.claude/projects/-Users-alex-AiWork-HelloTimeProByClaude/memory/project_quality_policy.md) "教学项目不修生产级并发"暂不动，代码顶部已加注释说明生产化做法（transaction / `UPDATE ... WHERE revoked_at IS NULL RETURNING`）。
 
+   > **2026-08-06 决定：并发契约用例舍弃，本条维持"不修"。** 曾试写两条黑盒用例把并发行为升格为硬约束（`auth.spec.ts` 的"并发消费 refresh token 只签发一对"、`favorites-count.spec.ts` 的"并发重复取消只按实际删除行数递减"，契约数 104 → 106），但那等于推翻上述质量策略，并要求 15 个实现逐一改造 + 全矩阵复验，与教学目标不成比例。两条用例已从 `verification/contract/` 撤回，**契约数维持 104**。各实现的并发姿态因此**允许不一致**，属预期：axum / vapor / drogon / laravel 天然按 rowcount 判定；gin / ktor / spring-boot / nest / elysia 已顺手改成同样形状；fastapi / aspnet / rails / spring-mvc 仅 PG 有行锁；next / nuxt 保留注释说明的窗口。这种差异本身就是跨栈对比的素材。
+
 ---
 
 ### M3 · 全面扩散（4–6 周，高度并行）
@@ -389,9 +391,9 @@
 
 ---
 
-### M5 · 全端扩散：桌面端 + 移动端（进行中）
+### M5 · 全端扩散：桌面端 + 移动端（已完成）
 
-**状态**：🔄 **进行中（更新至 2026-07-06）** — 规划已定档。桌面端 6 个里 **5 个已落地并端到端验证**：electron + tauri（Web 壳，06-20）、swiftui（首个纯原生，06-21）、flutter（自绘引擎，06-24）、qt-pyside（QML+Python，首个 Linux 原生，06-25）；剩 winui3（需 Windows 机）。移动端 5 个**全部已落地**：react-native（首个移动端，06-23，双平台原生验证 07-06）、ios（SwiftUI 原生，与 macOS 端共享逻辑，06-29）、flutter（一码多端，与桌面同源工程，iOS 07-01 / Android 07-05）、android（Jetpack Compose 原生，07-03）、wechat（原生微信小程序框架，07-06，移动端收官）。详见下「桌面 / 移动客户端落地记录」。在 v1.0 既有 20 个 Web 实现之上，新增 `desktop/`（6 个）与 `mobile/`（5 个）两大类目，共 11 个客户端实现。所有客户端均为**纯 API 消费者**，复用已绿的 10 套后端与 `/api/v1` 契约，不新增任何后端 / 数据库代码。
+**状态**：✅ **已完成并验收（更新至 2026-07-06）**。桌面端 **6/6 全部落地并端到端验证**：electron + tauri（Web 壳，06-20）、swiftui（首个纯原生，06-21）、flutter（自绘引擎，06-24）、qt-pyside（QML+Python，首个 Linux 原生，06-25）、winui3（唯一 Windows 原生，远程构建，07-06）。移动端 **5/5 全部落地**：react-native（首个移动端，06-23，双平台原生验证 07-06）、ios（SwiftUI 原生，与 macOS 端共享逻辑，06-29）、flutter（一码多端，与桌面同源工程，iOS 07-01 / Android 07-05）、android（Jetpack Compose 原生，07-03）、wechat（原生微信小程序框架，07-06，移动端收官）。详见下「桌面 / 移动客户端落地记录」。在 v1.0 既有 20 个 Web 实现之上，新增 `desktop/`（6 个）与 `mobile/`（5 个）两大类目，共 11 个客户端实现。所有客户端均为**纯 API 消费者**，复用已绿的 10 套后端与 `/api/v1` 契约，不新增任何后端 / 数据库代码。`docs/desktop-comparison.md`、`docs/mobile-comparison.md` 均已扩写完成。**遗留**：各端核心旅程 E2E 自动化（XCUITest / Compose-test / integration_test / pytest-qt / Maestro / miniprogram-automator / WinAppDriver）均待跑，当前靠「编译 + 后端日志佐证」验证连通性。
 
 **核心定位**：后端 / 契约 / 数据库**零增量**，全部复用。真正的工程增量只有两处——① 设计令牌从 CSS 翻译到各原生体系（codegen）；② 验证体系，Playwright 只懂 DOM，原生端需引入平台专属工具链。这两点构成 M5 的全部技术重量。
 
@@ -404,7 +406,7 @@
 | `desktop/tauri/` | Rust 壳 + 系统 WebView | 轻量（~3–10MB）；**内嵌 Svelte/Solid**；原生桥走 `#[tauri::command]` + Rust；与 `backends/axum` 的 Rust 呼应 |
 | `desktop/electron/` | 自带 Chromium 壳 | 业界事实标准（~100–200MB）；**内嵌 React**；原生桥走 Node `fs` + IPC；Playwright 原生支持其 E2E |
 
-> **Electron vs Tauri 差异化（避免重复）**：两者壳层哲学相反——「自带引擎 vs 借系统 WebView」「JS 壳 vs Rust 壳」，是真实世界做桌面 Web 应用的核心选择题。为让对比成为承重墙而非一张包体积表：① **内嵌不同前端**（Electron→React，Tauri→Svelte/Solid），各自多演示一套 SPA 接壳；② **各真用一次原生桥**——同一功能「导出我的胶囊到本地文件」，Electron 走 Node `fs` + IPC、Tauri 走 Rust `command`，让 IPC/命令模型差异落到代码里。
+> **Electron vs Tauri 差异化（避免重复）**：两者壳层哲学相反——「自带引擎 vs 借系统 WebView」「JS 壳 vs Rust 壳」，是真实世界做桌面 Web 应用的核心选择题。为让对比成为承重墙而非一张包体积表：① **内嵌不同前端**（Electron→React，Tauri→Svelte/Solid），各自多演示一套 SPA 接壳；② **各真用一次原生桥**——同一功能导出到本地文件，Electron 走 Node `fs` + IPC、Tauri 走 Rust `command`，让 IPC/命令模型差异落到代码里。（落地时导出内容定为**应用信息**而非"我的胶囊"：后者需鉴权，见下文取消说明。）
 | `desktop/swiftui/` | macOS 原生声明式 UI | SF 字体 + Material 模糊，平台原生质感；**仅 Apple 平台** |
 | `desktop/winui3/` | Windows 原生（WinAppSDK） | Fluent + Mica/Acrylic；**需 Windows 工具链**（已有 Windows 机）；**仅 Windows** |
 | `desktop/qt-pyside/` | Qt Quick/QML + PySide6（自绘引擎） | 声明式 QML + Python 逻辑；跨 Linux/mac/Win 同源；**项目首个 Linux 原生桌面**；呼应 `backends/fastapi` 的 Python |
@@ -490,7 +492,7 @@
 | tauri | ✅ | Rust + Vite | — |
 | electron | ✅ | Node | — |
 | swiftui (desktop) | ✅ | SwiftPM（Swift 6.2，无需 .xcodeproj） | ✅ 已落地（2026-06-21） |
-| winui3 | ❌ 需 Windows | VS + WinAppSDK | **已有 Windows 机**，在该机上构建验证 |
+| winui3 | ⚙️ 远程构建 | VS + WinAppSDK（远端 Windows） | ✅ 已落地（2026-07-06）；代码留 Mac 仓库，`./build`/`./run` 经 SSH 驱动远端 Windows 主机编译/运行（tar-over-ssh + 反向隧道，见 `desktop/winui3/TECHNICAL_GUIDE.md`） |
 | flutter | ✅（除 Windows 桌面） | Flutter SDK（git clone ~/development/flutter） | ✅ 桌面已落地（2026-06-24）、移动 iOS 已落地（2026-07-01，与桌面同源工程）；Windows 桌面 / Android 目标待各自工具链 |
 | qt-pyside | ✅ | PySide6（uv，Qt 6.11） | ✅ 已落地（2026-06-25）；跨 Linux/mac/Win 同源，Linux 上即原生桌面 |
 | react-native | ✅ | Metro + Xcode/Android SDK | ✅ 双平台原生已验证（2026-07-06）：`expo run:ios`/`run:android` 均后端日志佐证；Android 坑清单见 `mobile/react-native/README.md`（Gradle 8.14.3 版本矩阵 / JDK17 symlink / NDK 27.1 预装 / EXPO_PUBLIC_API_BASE=10.0.2.2） |
@@ -531,7 +533,7 @@
 - **差异化已落实**（避免两壳重复）：
   - `desktop/electron/`：自带 Chromium + Node 壳 + `main.cjs`/`preload.cjs`（`contextIsolation` + `contextBridge`）。原生菜单「胶囊 → 导出应用信息为 JSON…」演示 `native menu / IPC → Node fs + dialog`，走公开 `/api/v1/health`。
   - `desktop/tauri/`：系统 WebView + Rust 壳（`src-tauri/src/lib.rs`），`#[tauri::command]` + `tauri-plugin-dialog` + `std::fs`，能力在 `capabilities/default.json`（`dialog:default`）。刻意不在壳层抓后端健康（Rust 需 reqwest 重编译，Node 自带 fetch）—— 不对称即教学点。
-- **鉴权版「导出我的胶囊」未做**：React/Svelte 把 access token 只放内存，壳层 out-of-band 调 `/auth/refresh` 会轮换吊销→误登出（next/nuxt 旧坑）。正解是 desktop-aware 前端经桥主动交数据；挂载点已就绪，列为后续。
+- **鉴权版「导出我的胶囊」已取消**（2026-08-06 决定，不再列为后续）：React/Svelte 把 access token 只放内存，壳层 out-of-band 调 `/auth/refresh` 会轮换吊销→误登出（next/nuxt 旧坑）。正解需要一个 desktop-aware 前端经桥主动交数据，即为了一个导出按钮反向改造内嵌前端——而原生桥这个教学点已由「导出应用信息」在两壳上各演示一次（Node `fs` + IPC vs Rust `command`），鉴权版不增加新的对比信息。挂载点（`preload.cjs` / `invoke`）保留，不再实现。
 - `identifier` 由脚手架默认 `com.tauri.dev`（保留值，build 会拒）改为 `pro.hellotime.tauri`。
 
 **验收**：
@@ -752,5 +754,7 @@ M2 6 个实现可以完全并行。M3 后端较多，建议按上述顺序投入
 | 桌面与移动 UI 共享代码？ | 分层共享：契约/令牌/逻辑共享，布局/导航不共享；移动端对标 `ui-prototype/mobile.html` |
 | Flutter 桌面 + 移动两份代码？ | 否，单工程双类目，`LayoutBuilder` 按断点分叉布局 |
 | Electron 与 Tauri 是否重复？ | 不重复，两者都留并差异化：内嵌不同前端（React vs Svelte/Solid）+ 各做一次原生桥（Node IPC vs Rust command），对比「自带引擎/JS 壳 vs 系统 WebView/Rust 壳」 |
+| 并发行为要不要写进黑盒契约？ | 否（2026-08-06）。两条并发用例已撤回，契约数维持 **104**；「教学项目不修生产级并发」的质量策略继续有效，各实现并发姿态允许不一致 |
+| 鉴权版「导出我的胶囊」还做吗？ | 否（2026-08-06 取消）。原生桥教学点已由「导出应用信息」在 Electron/Tauri 各演示一次，鉴权版需反向改造内嵌前端却不增加新对比信息；桥的挂载点保留 |
 | WinUI 3 Windows 环境？ | 用自有 Windows 机构建验证，排 M5 最后 |
 | 微信小程序 AppID？ | 本地调试用「测试号」即可；真机扫码才注册个人免费 AppID |
