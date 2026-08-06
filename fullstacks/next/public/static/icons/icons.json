@@ -43,6 +43,10 @@
     { "id": "laravel",      "file": "laravel.svg",      "name": "Laravel",      "role": ["framework", "fullstack"] },
     { "id": "rails",        "file": "rails.svg",        "name": "Rails",        "role": ["framework", "fullstack"] },
 
+    { "id": "electron",     "file": "electron.svg",     "name": "Electron",     "role": ["desktop-shell"] },
+    { "id": "tauri",        "file": "tauri.svg",        "name": "Tauri",        "role": ["desktop-shell"] },
+    { "id": "swiftui",      "file": "swiftui.svg",      "name": "SwiftUI",      "role": ["desktop-framework"] },
+
     { "id": "nodejs",       "file": "nodejs.svg",       "name": "Node.js",      "role": ["runtime"] },
     { "id": "bun",          "file": "bun.svg",          "name": "Bun",          "role": ["runtime"] },
     { "id": "dotnet",       "file": "dotnet.svg",       "name": ".NET",         "role": ["runtime"] },
