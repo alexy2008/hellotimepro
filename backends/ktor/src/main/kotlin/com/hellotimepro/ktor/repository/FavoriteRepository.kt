@@ -22,9 +22,9 @@ class FavoriteRepository {
         }
     }
 
-    fun delete(userId: UUID, capsuleId: UUID) {
+    fun delete(userId: UUID, capsuleId: UUID): Int {
         val cond = Op.build { (Favorites.userId eq userId) and (Favorites.capsuleId eq capsuleId) }
-        Favorites.deleteWhere { cond }
+        return Favorites.deleteWhere { cond }
     }
 
     fun deleteByCapsule(capsuleId: UUID) {

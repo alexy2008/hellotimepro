@@ -27,6 +27,7 @@ def test_llm_client_falls_back_to_chat_completions(monkeypatch):
     monkeypatch.setattr(settings, "llm_api_key", "test-key")
     monkeypatch.setattr(settings, "llm_base_url", "https://example.test/api/v3")
     monkeypatch.setattr(settings, "llm_model", "demo-model")
+    monkeypatch.setattr(settings, "llm_api_style", "auto")
 
     calls: list[str] = []
 

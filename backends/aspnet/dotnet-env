@@ -1,0 +1,17 @@
+# 供 build/test/run source：当前 PATH 可能先命中旧 SDK；优先选择任一已安装的 .NET 8。
+if ! dotnet --list-sdks 2>/dev/null | grep -q '^8\.'; then
+  for _dotnet_root in \
+      "$HOME/.vmr/versions/dotnet_versions/dotnet" \
+      "$HOME/.dotnet" \
+      /opt/homebrew/share/dotnet \
+      /usr/local/share/dotnet; do
+    if [[ -x "$_dotnet_root/dotnet" ]] && \
+       "$_dotnet_root/dotnet" --list-sdks 2>/dev/null | grep -q '^8\.'; then
+      export DOTNET_ROOT="$_dotnet_root"
+      export PATH="$_dotnet_root:$PATH"
+      break
+    fi
+  done
+fi
+
+unset _dotnet_root

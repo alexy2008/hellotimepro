@@ -55,9 +55,17 @@ public class FavoriteService {
 
   @Transactional
   public void removeFavorite(UserEntity user, String capsuleId) {
-    // 取消收藏同样在事务里删除 favorites 行并递减计数，保持 spec 的 I2 不变式。
-    UUID uuid = UUID.fromString(capsuleId);
-    CapsuleEntity capsule = capsules.findById(uuid).orElse(null);
+    // 与 add 一样先锁胶囊行，序列化同一胶囊上的并发取消；否则两个请求都可能
+    // 看到 favorite 存在，第二个 DELETE 0 行后仍把计数再减一次。
+    UUID uuid;
+    try {
+      uuid = UUID.fromString(capsuleId);
+    } catch (IllegalArgumentException ex) {
+      return;
+    }
+    CapsuleEntity capsule = "postgres".equals(props.getDbDriver())
+        ? capsules.findByIdForUpdate(uuid).orElse(null)
+        : capsules.findById(uuid).orElse(null);
     if (capsule == null) return;
     FavoriteId id = new FavoriteId(user.getId(), capsule.getId());
     if (favorites.existsById(id)) {

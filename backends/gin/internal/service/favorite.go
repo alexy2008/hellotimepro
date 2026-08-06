@@ -76,14 +76,14 @@ func AddFavorite(db *gorm.DB, user *model.User, capsuleID string) (*dto.Favorite
 
 // RemoveFavorite 取消收藏（幂等）。
 func RemoveFavorite(db *gorm.DB, user *model.User, capsuleID string) error {
-	var fav model.Favorite
-	if err := db.Where("user_id = ? AND capsule_id = ?", user.ID, capsuleID).First(&fav).Error; err != nil {
-		// 不存在 → 幂等，不报错
-		return nil
-	}
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Delete(&fav).Error; err != nil {
-			return err
+		deleted := tx.Where("user_id = ? AND capsule_id = ?", user.ID, capsuleID).
+			Delete(&model.Favorite{})
+		if deleted.Error != nil {
+			return deleted.Error
+		}
+		if deleted.RowsAffected == 0 {
+			return nil
 		}
 		return tx.Model(&model.Capsule{}).
 			Where("id = ? AND favorite_count > 0", capsuleID).

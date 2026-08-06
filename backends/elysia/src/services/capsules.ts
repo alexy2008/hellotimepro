@@ -1,7 +1,7 @@
 import { one, query } from "../db";
 import { ERR } from "../errors";
 import { randomUUID } from "../security";
-import { bool, capsuleDetail, CapsuleRow, OwnerBrief } from "../types";
+import { bool, capsuleDetail, CapsuleRow, dbTimestamp, OwnerBrief } from "../types";
 import { findUserById } from "./auth";
 
 const CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -57,14 +57,15 @@ export async function createCapsule(ownerId: string, req: {
   let lastErr: unknown;
   for (let i = 0; i < 5; i++) {
     const id = randomUUID();
-    const now = new Date().toISOString();
+    const now = dbTimestamp(new Date());
+    const openAtStored = dbTimestamp(openAt);
     const capsuleCode = code();
     try {
       await query(
         `INSERT INTO capsules
           (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, ownerId, capsuleCode, req.title, req.content, openAt.toISOString(), req.inPlaza ?? true, 0, now, now],
+        [id, ownerId, capsuleCode, req.title, req.content, openAtStored, req.inPlaza ?? true, 0, now, now],
       );
       return capsuleDetail(
         {
@@ -73,7 +74,7 @@ export async function createCapsule(ownerId: string, req: {
           code: capsuleCode,
           title: req.title,
           content: req.content,
-          openAt: openAt.toISOString(),
+          openAt: openAtStored,
           inPlaza: req.inPlaza ?? true,
           favoriteCount: 0,
           createdAt: now,

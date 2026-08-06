@@ -16,6 +16,9 @@ if [[ "$DB_DRIVER" == "sqlite" ]]; then
   export SPRING_DATASOURCE_DRIVER="org.sqlite.JDBC"
   export SPRING_JPA_DATABASE_PLATFORM="org.hibernate.community.dialect.SQLiteDialect"
   export SPRING_DATASOURCE_MAX_POOL_SIZE="${SPRING_DATASOURCE_MAX_POOL_SIZE:-1}"
+  # 测试库是一次性的；启动测试上下文时显式应用 spec schema。生产 run 脚本仍不做任何 DB 维护。
+  export SPRING_SQL_INIT_MODE="always"
+  export SPRING_SQL_INIT_SCHEMA_LOCATIONS="file:$REPO_ROOT/spec/db/schema.sqlite.sql"
   export DB_USERNAME=""
   export DB_PASSWORD=""
 fi

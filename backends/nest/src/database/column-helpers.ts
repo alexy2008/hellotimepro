@@ -2,10 +2,17 @@ import { ColumnOptions, ValueTransformer } from 'typeorm';
 
 const isSqlite = () => (process.env.DB_DRIVER || 'postgres') === 'sqlite';
 
+export function formatSqliteTimestamp(value: Date): string {
+  return value.toISOString().replace(/\.(\d{3})Z$/, (_match, fraction: string) => {
+    const trimmed = fraction.replace(/0+$/, '');
+    return `${trimmed ? `.${trimmed}` : ''}+00:00`;
+  });
+}
+
 const dateTransformer: ValueTransformer = {
   to: (v: Date | null | undefined) => {
     if (v == null) return null;
-    return v instanceof Date ? v.toISOString() : v;
+    return v instanceof Date ? formatSqliteTimestamp(v) : v;
   },
   from: (v: string | null | undefined) => {
     if (v == null) return null;

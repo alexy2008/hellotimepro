@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mattn/go-sqlite3"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -32,6 +33,9 @@ func Open() (*gorm.DB, error) {
 		dsn := normalizePgURL(rawURL)
 		db, err = gorm.Open(postgres.Open(dsn), cfg)
 	case "sqlite":
+		// spec seed 与其它栈统一使用 T 分隔、UTC +00:00。go-sqlite3 默认的
+		// 第一写出格式是空格分隔，同日字符串排序/过滤会因此失真。
+		sqlite3.SQLiteTimestampFormats[0] = "2006-01-02T15:04:05.999999999-07:00"
 		path := sqliteFilePath(rawURL)
 		db, err = gorm.Open(sqlite.Open(path+"?_foreign_keys=on&_journal_mode=WAL"), cfg)
 	default:

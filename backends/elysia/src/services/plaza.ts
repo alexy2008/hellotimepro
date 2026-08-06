@@ -1,6 +1,6 @@
 import { one, query } from "../db";
 import { ERR } from "../errors";
-import { capsuleListItem, CapsuleRow, iso, OwnerBrief, pagination } from "../types";
+import { capsuleListItem, CapsuleRow, dbTimestamp, iso, OwnerBrief, pagination } from "../types";
 import { rowOwner } from "./capsules";
 
 function validatePage(page: number, pageSize: number) {
@@ -39,7 +39,7 @@ export async function plazaList(opts: {
 
   const where: string[] = ["c.in_plaza = ?"];
   const params: unknown[] = [true];
-  const now = new Date().toISOString();
+  const now = dbTimestamp(new Date());
   if (opts.filter === "opened") {
     where.push("c.open_at <= ?");
     params.push(now);

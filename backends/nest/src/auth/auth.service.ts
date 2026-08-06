@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import {
   conflict,
@@ -46,18 +46,19 @@ export class AuthService {
     private readonly tokenRepo: Repository<RefreshToken>,
     @InjectRepository(Capsule)
     private readonly capsuleRepo: Repository<Capsule>,
+    private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService<AppConfig>,
   ) {}
 
-  private hashPassword(plain: string): string {
+  private async hashPassword(plain: string): Promise<string> {
     const rounds = this.config.get('bcryptRounds', { infer: true }) ?? 12;
-    return bcrypt.hashSync(plain, rounds);
+    return bcrypt.hash(plain, rounds);
   }
 
-  private verifyPassword(plain: string, hashed: string): boolean {
+  private async verifyPassword(plain: string, hashed: string): Promise<boolean> {
     try {
-      return bcrypt.compareSync(plain, hashed);
+      return await bcrypt.compare(plain, hashed);
     } catch {
       return false;
     }
@@ -144,7 +145,7 @@ export class AuthService {
     const user: User = this.userRepo.create({
       id: uuidv4(),
       email: emailNorm,
-      passwordHash: this.hashPassword(dto.password),
+      passwordHash: await this.hashPassword(dto.password),
       nickname: dto.nickname,
       avatarId: dto.avatarId,
       createdAt: now,
@@ -170,7 +171,7 @@ export class AuthService {
     this.checkRateLimit(emailNorm);
 
     const user = await this.userRepo.findOne({ where: { email: emailNorm } });
-    if (!user || !this.verifyPassword(dto.password, user.passwordHash)) {
+    if (!user || !(await this.verifyPassword(dto.password, user.passwordHash))) {
       this.recordFailure(emailNorm);
       throw unauthorized('邮箱或密码错误');
     }
@@ -181,35 +182,56 @@ export class AuthService {
   }
 
   async refresh(rawRefresh: string): Promise<AuthTokens> {
-    // 教学注释：生产环境应用行锁（SELECT ... FOR UPDATE）或原子操作
-    // （UPDATE ... WHERE revoked_at IS NULL RETURNING *）消除并发 refresh 的双发窗口。
     const tokenHash = this.hashRefreshToken(rawRefresh);
-    const row = await this.tokenRepo.findOne({ where: { tokenHash } });
-    if (!row) throw unauthorized('refresh token 无效');
+    // 用条件 UPDATE 线性消费旧 token。并发请求中只有一个 affected=1；失败者在
+    // 同一事务里吊销整个 family，事务提交后再抛 401，避免吊销随异常回滚。
+    const outcome = await this.dataSource.transaction(async (manager) => {
+      const tokens = manager.getRepository(RefreshToken);
+      const users = manager.getRepository(User);
+      const row = await tokens.findOne({ where: { tokenHash } });
+      if (!row) return { kind: 'invalid' as const, message: 'refresh token 无效' };
 
-    const now = new Date();
-    if (row.expiresAt <= now) throw unauthorized('refresh token 已过期');
+      const now = new Date();
+      if (row.expiresAt <= now) {
+        return { kind: 'invalid' as const, message: 'refresh token 已过期' };
+      }
+      if (row.revokedAt !== null) {
+        await tokens
+          .createQueryBuilder()
+          .update()
+          .set({ revokedAt: now })
+          .where('family_id = :fid AND revoked_at IS NULL', { fid: row.familyId })
+          .execute();
+        return { kind: 'reused' as const };
+      }
 
-    if (row.revokedAt !== null) {
-      // Reuse detected — revoke entire family
-      await this.tokenRepo
+      const user = await users.findOne({ where: { id: row.userId } });
+      if (!user) return { kind: 'invalid' as const, message: '用户不存在' };
+
+      const consumed = await tokens
         .createQueryBuilder()
         .update()
         .set({ revokedAt: now })
-        .where('family_id = :fid AND revoked_at IS NULL', { fid: row.familyId })
+        .where('id = :id AND revoked_at IS NULL', { id: row.id })
         .execute();
-      throw unauthorized('refresh token 已失效');
-    }
+      if (consumed.affected !== 1) {
+        await tokens
+          .createQueryBuilder()
+          .update()
+          .set({ revokedAt: now })
+          .where('family_id = :fid AND revoked_at IS NULL', { fid: row.familyId })
+          .execute();
+        return { kind: 'reused' as const };
+      }
 
-    const user = await this.userRepo.findOne({ where: { id: row.userId } });
-    if (!user) throw unauthorized('用户不存在');
+      const { tokenRow, ...issued } = this.issueTokenPair(user, row.familyId);
+      await tokens.save(tokens.create(tokenRow));
+      return { kind: 'success' as const, tokens: { ...issued, user: this.toUserOut(user) } };
+    });
 
-    row.revokedAt = now;
-    await this.tokenRepo.save(row);
-
-    const { tokenRow, ...tokens } = this.issueTokenPair(user, row.familyId);
-    await this.tokenRepo.save(this.tokenRepo.create(tokenRow));
-    return { ...tokens, user: this.toUserOut(user) };
+    if (outcome.kind === 'success') return outcome.tokens;
+    if (outcome.kind === 'reused') throw unauthorized('refresh token 已失效');
+    throw unauthorized(outcome.message);
   }
 
   async logout(rawRefresh: string | undefined): Promise<void> {
@@ -226,10 +248,10 @@ export class AuthService {
     user: User,
     dto: { currentPassword: string; newPassword: string },
   ): Promise<void> {
-    if (!this.verifyPassword(dto.currentPassword, user.passwordHash)) {
+    if (!(await this.verifyPassword(dto.currentPassword, user.passwordHash))) {
       throw unauthorized('当前密码错误');
     }
-    user.passwordHash = this.hashPassword(dto.newPassword);
+    user.passwordHash = await this.hashPassword(dto.newPassword);
     user.updatedAt = new Date();
     await this.userRepo.save(user);
     // Revoke all refresh tokens

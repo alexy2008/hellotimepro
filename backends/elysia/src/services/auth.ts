@@ -10,7 +10,7 @@ import {
   randomUUID,
   verifyPassword,
 } from "../security";
-import { UserRow, userDto } from "../types";
+import { dbTimestamp, UserRow, userDto } from "../types";
 
 const loginFailures = new Map<string, number[]>();
 function checkLoginRate(email: string) {
@@ -62,8 +62,8 @@ async function issueTokenPair(user: UserRow, familyId?: string, q: typeof query 
       user.id,
       hashRefreshToken(refreshToken),
       familyId ?? randomUUID(),
-      new Date(now.getTime() + env.refreshTokenTtlSeconds * 1000).toISOString(),
-      now.toISOString(),
+      dbTimestamp(new Date(now.getTime() + env.refreshTokenTtlSeconds * 1000)),
+      dbTimestamp(now),
       null,
     ],
   );
@@ -88,7 +88,7 @@ export async function register(input: {
   const nick = await one(`SELECT id FROM users WHERE nickname = ? LIMIT 1`, [input.nickname]);
   if (nick) throw ERR.conflict("昵称已被使用", "nickname");
 
-  const now = new Date().toISOString();
+  const now = dbTimestamp(new Date());
   const user: UserRow = {
     id: randomUUID(),
     email,
@@ -154,7 +154,7 @@ export async function refresh(rawToken: string) {
     if (row.revokedAt) {
       await q(
         `UPDATE refresh_tokens SET revoked_at = ? WHERE family_id = ? AND revoked_at IS NULL`,
-        [now.toISOString(), row.familyId],
+        [dbTimestamp(now), row.familyId],
       );
       return { ok: false as const, error: ERR.unauthorized("refresh token 已失效") };
     }
@@ -162,7 +162,7 @@ export async function refresh(rawToken: string) {
     const user = await findUserById(row.userId);
     if (!user) return { ok: false as const, error: ERR.unauthorized("用户不存在") };
 
-    await q(`UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?`, [now.toISOString(), row.id]);
+    await q(`UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?`, [dbTimestamp(now), row.id]);
     return { ok: true as const, tokens: await issueTokenPair(user, row.familyId, q) };
   });
 
@@ -175,7 +175,7 @@ export async function logout(rawToken?: string) {
   await query(
     `UPDATE refresh_tokens SET revoked_at = ?
       WHERE token_hash = ? AND revoked_at IS NULL`,
-    [new Date().toISOString(), hashRefreshToken(rawToken)],
+    [dbTimestamp(new Date()), hashRefreshToken(rawToken)],
   );
 }
 
@@ -201,7 +201,7 @@ export async function updateProfile(userId: string, patch: { nickname?: string; 
     next.avatarId = patch.avatarId;
   }
   if (next.nickname === user.nickname && next.avatarId === user.avatarId) return userDto(user);
-  const now = new Date().toISOString();
+  const now = dbTimestamp(new Date());
   await query(`UPDATE users SET nickname = ?, avatar_id = ?, updated_at = ? WHERE id = ?`, [
     next.nickname,
     next.avatarId,
@@ -217,7 +217,7 @@ export async function changePassword(userId: string, currentPassword: string, ne
   if (!(await verifyPassword(currentPassword, user.passwordHash))) {
     throw ERR.unauthorized("当前密码错误");
   }
-  const now = new Date().toISOString();
+  const now = dbTimestamp(new Date());
   await query(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`, [
     await hashPassword(newPassword),
     now,

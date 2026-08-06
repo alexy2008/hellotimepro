@@ -60,7 +60,12 @@ async function queryOn(target: DbHandle | PgClient, sql: string, params: unknown
   }
   const trimmed = sql.trim().toLowerCase();
   const stmt = target.sqlite.query(sql);
-  if (trimmed.startsWith("select") || trimmed.startsWith("with") || trimmed.startsWith("pragma")) {
+  if (
+    trimmed.startsWith("select") ||
+    trimmed.startsWith("with") ||
+    trimmed.startsWith("pragma") ||
+    /\breturning\b/.test(trimmed)
+  ) {
     return stmt.all(...(params as never[]));
   }
   stmt.run(...(params as never[]));

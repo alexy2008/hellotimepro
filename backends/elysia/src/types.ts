@@ -41,6 +41,14 @@ export function iso(value: string | Date) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+/** SQLite 存储/比较专用：与 spec seed 的 T + UTC offset 格式逐字符一致。 */
+export function dbTimestamp(value: Date) {
+  return value.toISOString().replace(/\.(\d{3})Z$/, (_match, fraction: string) => {
+    const trimmed = fraction.replace(/0+$/, "");
+    return `${trimmed ? `.${trimmed}` : ""}+00:00`;
+  });
+}
+
 export function bool(value: unknown) {
   return value === true || value === 1 || value === "1" || value === "true";
 }

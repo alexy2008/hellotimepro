@@ -38,8 +38,7 @@ class FavoriteService(
         val capsuleId = parseUuidOrNull(capsuleIdRaw) ?: return
         dbQuery {
             val capsule = capsules.findById(capsuleId) ?: return@dbQuery
-            if (favorites.exists(user.id, capsule.id)) {
-                favorites.delete(user.id, capsule.id)
+            if (favorites.delete(user.id, capsule.id) == 1) {
                 capsules.decrementFavoriteCount(capsule.id)
             }
         }
