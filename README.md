@@ -23,7 +23,9 @@ HelloTime Pro 是一个**多技术栈对比学习项目**。围绕同一个业�
 
 ## 我是新读者，从哪儿开始
 
-按顺序读：
+**先读这一份**：[`docs/multi-stack-reading-guide.md`](docs/multi-stack-reading-guide.md) — 多栈阅读导览。面对 31 个实现该按什么顺序读、读哪几个文件、读到什么程度可以停；含五条按角色划分的路线、一条从点击到数据库的纵切链路，以及"同一个东西在各栈叫什么"的文件映射表。
+
+然后按顺序读：
 
 1. [`docs/01-requirements.md`](docs/01-requirements.md) — 这个项目做什么 / 不做什么
 2. [`docs/02-design.md`](docs/02-design.md) — 架构、数据模型、API、鉴权、前端 / 后端如何组织

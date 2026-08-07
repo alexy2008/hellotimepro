@@ -383,7 +383,7 @@
 - [x] `docs/auth.md`（鉴权全流程：令牌策略 / rotate+family / 改密吊销 / 前端协作，2026-06-14）
 - [x] `docs/db-schema.md`（ERD + 字段级注解 + 跨库方言映射，2026-06-14）
 - [x] `docs/readme-template.md` + README 对齐（模板 + 对齐审计；nuxt 重写、nest 补实现特色，2026-06-14）
-- [ ] `docs/multi-stack-reading-guide.md`
+- [x] `docs/multi-stack-reading-guide.md`（多栈阅读导览：文档地图 + 五条角色路线 + 一次收藏点击的纵切链路 + 跨栈文件映射表，2026-08-07）
 - [ ] 视觉回锅：渐变 / 动效 / 微交互增强
 - [ ] A11y 审查：键盘可达、WCAG AA 对比度
 - [ ] 广场接口 p95 < 200ms（5 万行测试数据）
