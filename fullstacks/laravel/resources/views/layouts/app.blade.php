@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@yield('title', 'HelloTime Pro') · HelloTime Pro</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <script>
+    // 提早注入主题，避免首屏闪白
+    (function () {
+      try {
+        var t = localStorage.getItem("hellotime.theme");
+        if (t === "dark" || t === "light") {
+          document.documentElement.setAttribute("data-theme", t);
+        }
+      } catch (e) {}
+    })();
+  </script>
   @php
     // 资源带 mtime 版本号，避免浏览器缓存旧的 CSS/JS（改动后能即时生效）。
     $cssV = @filemtime(public_path('css/app.css')) ?: time();

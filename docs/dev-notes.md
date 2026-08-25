@@ -82,6 +82,34 @@ PGPASSWORD=<pw> /Library/PostgreSQL/16/bin/psql \
 
 ---
 
+## 2.1 主题预注入：4 家全栈/前端曾缺失（2026-08-07 修复）
+
+react/vue/svelte/solid（`index.html` 内联脚本）与 rails（`application.html.erb`）
+一直有「提早注入主题」脚本：页面渲染前同步读 `localStorage`，把 `data-theme`
+提前设到 `<html>` 上，避免浅色主题用户开页先闪一下深色（CSS 默认 `:root` 等价
+深色）。angular / next / nuxt / laravel 当时没有，各自成因不同：
+
+- **angular**：`index.html` 单纯缺这段脚本，直接照其余 SPA 的写法补齐即可。
+- **next**：主题只在 `ThemeToggle` 组件的 `useEffect` 里 `apply()`，首屏必然
+  闪一次。zustand `persist` 落盘是 JSON（`{"state":{"theme":"dark"},"version":0}`），
+  key 是 `hellotime-pro-theme`，不是其余栈的纯字符串 `hellotime.theme`——预注入
+  脚本要先 `JSON.parse` 再取 `.state.theme`。用 App Router 的显式 `<head>` +
+  `dangerouslySetInnerHTML` 注入，metadata API 不覆盖自定义 script。
+- **nuxt**：主题 store 走 `bootstrap.client.ts` 插件的 `hydrate()`，是 `.client.ts`
+  只在客户端挂载后才跑。key 与其余栈一致（`hellotime.theme`），但需要脚本在
+  SSR 阶段就直出到 `<head>`——用 `nuxt.config.ts` 的 `app.head.script` 声明，
+  Nitro 会把它序列化进服务端渲染的 HTML，早于 `bootstrap.client` 执行。
+- **laravel**：主题只在 `alpine:init` 事件里应用，同样是客户端挂载后才生效；
+  且 `Alpine.store('theme')` 一直用裸 key `'theme'`，与其余 9 家的
+  `hellotime.theme` 不一致（`public/js/app.js` 是被 git 跟踪的真源文件，非构建
+  产物，直接改）。两处一并修：key 改名 + `app.blade.php` `<head>` 补内联脚本。
+
+四家均用浏览器实测验证：手动切到浅色 → 刷新 → 首帧 `data-theme` 已是 `light`
+（而不是等框架挂载后才变）。nuxt 额外核对过 SSR 响应体，脚本确实出现在
+`</head>` 之前。
+
+---
+
 ## 3. LLM 集成经验
 
 参考实现：`backends/fastapi/app/services/llm_client.py`。

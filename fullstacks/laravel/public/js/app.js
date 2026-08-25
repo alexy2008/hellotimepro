@@ -2,14 +2,14 @@ document.addEventListener('alpine:init', () => {
 
   /* ── Theme store ── */
   Alpine.store('theme', {
-    current: localStorage.getItem('theme') || 'dark',
+    current: localStorage.getItem('hellotime.theme') || 'dark',
     init() {
       document.documentElement.dataset.theme = this.current;
     },
     toggle() {
       this.current = this.current === 'dark' ? 'light' : 'dark';
       document.documentElement.dataset.theme = this.current;
-      localStorage.setItem('theme', this.current);
+      localStorage.setItem('hellotime.theme', this.current);
     },
   });
 

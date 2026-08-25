@@ -47,6 +47,19 @@ export default defineNuxtConfig({
         { name: "viewport", content: "width=device-width, initial-scale=1" },
         { name: "description", content: "写一封信给未来的自己——多技术栈教学项目" },
       ],
+      // 提早注入主题，避免首屏闪白：SSR 阶段直出到 <head>，早于 bootstrap.client 插件的 hydrate()。
+      script: [
+        {
+          innerHTML: `(function () {
+  try {
+    var t = localStorage.getItem("hellotime.theme");
+    if (t === "dark" || t === "light") {
+      document.documentElement.setAttribute("data-theme", t);
+    }
+  } catch (e) {}
+})();`,
+        },
+      ],
     },
   },
 });
