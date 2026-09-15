@@ -18,8 +18,10 @@ struct LlmConfig
     int retryBackoffMs{400};
     // chat（默认，多数兼容网关只支持它）| responses | auto
     std::string apiStyle{"chat"};
-    // 避免被网关按默认 UA 封禁（Cloudflare 1010）
+    // 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare 1010 封禁）
     std::string userAgent;
+    // x-opencode-session：进程内稳定的会话 ID
+    std::string sessionId;
 
     static LlmConfig fromEnvironment();
 };

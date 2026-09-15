@@ -45,10 +45,10 @@ public class AppProperties {
     private int retryBackoffMs = 400;
     // chat（默认，多数兼容网关只支持它）| responses | auto
     private String apiStyle = "chat";
-    // 避免被网关按默认 UA 封禁（Cloudflare 1010）
-    private String userAgent =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+    // 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare 1010 封禁）
+    private String userAgent = "hellotimepro";
+    // x-opencode-session：进程内稳定的会话 ID（application.yml 缺省取 ${random.uuid}）
+    private String sessionId;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -70,5 +70,7 @@ public class AppProperties {
     public void setApiStyle(String apiStyle) { this.apiStyle = apiStyle; }
     public String getUserAgent() { return userAgent; }
     public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
+    public String getSessionId() { return sessionId; }
+    public void setSessionId(String sessionId) { this.sessionId = sessionId; }
   }
 }

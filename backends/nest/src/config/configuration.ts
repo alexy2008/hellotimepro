@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import * as path from 'path';
 
 export interface AppConfig {
@@ -20,6 +21,7 @@ export interface AppConfig {
   llmRetryBackoffMs: number;
   llmApiStyle: string;
   llmUserAgent: string;
+  llmSessionId: string;
   seedDemo: boolean;
   repoRoot: string;
   serviceName: string;
@@ -58,10 +60,10 @@ export default (): AppConfig => {
     llmMaxRetries: parseInt(process.env.LLM_MAX_RETRIES || '2', 10),
     llmRetryBackoffMs: parseInt(process.env.LLM_RETRY_BACKOFF_MS || '400', 10),
     llmApiStyle: process.env.LLM_API_STYLE || 'chat',
-    llmUserAgent:
-      process.env.LLM_USER_AGENT ||
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
-        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    // 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare 1010 封禁）
+    llmUserAgent: process.env.LLM_USER_AGENT || 'hellotimepro',
+    // x-opencode-session：进程内稳定的会话 ID
+    llmSessionId: process.env.LLM_SESSION_ID || randomUUID(),
     seedDemo: process.env.SEED_DEMO !== 'false',
     repoRoot,
     serviceName: 'hellotime-pro',

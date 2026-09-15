@@ -180,8 +180,10 @@ func postJSON(url string, payload map[string]any) (map[string]any, error) {
 		req.Header.Set("Authorization", "Bearer "+config.App.LLMAPIKey)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
-		// 避免被网关机器人防护按默认 UA 封禁（Cloudflare error 1010）
+		// 应用自有 UA（默认 Go UA 会被 Cloudflare error 1010 封禁）
 		req.Header.Set("User-Agent", config.App.LLMUserAgent)
+		// OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+		req.Header.Set("x-opencode-session", config.App.LLMSessionID)
 
 		resp, doErr := httpClient().Do(req)
 		if doErr != nil {

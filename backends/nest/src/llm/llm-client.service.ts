@@ -156,8 +156,10 @@ export class LlmClientService {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       Authorization: `Bearer ${this.cfg('llmApiKey', '')}`,
-      // 避免被网关机器人防护按默认 UA 封禁（Cloudflare error 1010）
+      // 应用自有 UA（默认 UA 会被 Cloudflare error 1010 封禁）
       'User-Agent': this.cfg('llmUserAgent', ''),
+      // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+      'x-opencode-session': this.cfg('llmSessionId', ''),
       'Content-Length': Buffer.byteLength(payloadStr),
     };
 

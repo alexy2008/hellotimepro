@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Exceptions\LlmException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -74,12 +76,20 @@ class LlmClient
         return (int)$this->conf('LLM_RETRY_BACKOFF_MS', '400');
     }
 
+    /** 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare 1010 封禁）。 */
     private function userAgent(): string
     {
-        return $this->conf(
-            'LLM_USER_AGENT',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        );
+        return $this->conf('LLM_USER_AGENT', 'hellotimepro');
+    }
+
+    /**
+     * x-opencode-session 会话 ID。PHP 每个请求都重新引导，进程内常量会退化成"每请求一个"，
+     * 所以存进缓存跨请求保持稳定；可用 LLM_SESSION_ID 覆盖。
+     */
+    private function sessionId(): string
+    {
+        $fromEnv = $this->conf('LLM_SESSION_ID', '');
+        return $fromEnv !== '' ? $fromEnv : Cache::rememberForever('llm_session_id', fn () => (string) Str::uuid());
     }
 
     public function generateCapsuleSuggestion(string $prompt): array
@@ -163,6 +173,8 @@ class LlmClient
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                     'User-Agent' => $this->userAgent(),
+                    // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+                    'x-opencode-session' => $this->sessionId(),
                 ])
                     ->connectTimeout((int)ceil($this->timeoutMs() / 1000))
                     ->timeout((int)ceil($this->timeoutMs() / 1000))

@@ -38,9 +38,11 @@ module AppConfig
   def llm_retry_backoff_ms = env("LLM_RETRY_BACKOFF_MS", "400").to_i
   def llm_api_style = env("LLM_API_STYLE", "chat")
 
-  def llm_user_agent
-    env("LLM_USER_AGENT",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " \
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+  # 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare 1010 封禁）
+  def llm_user_agent = env("LLM_USER_AGENT", "hellotimepro")
+
+  # x-opencode-session：进程内稳定的会话 ID（模块实例变量记忆化）
+  def llm_session_id
+    @llm_session_id ||= env("LLM_SESSION_ID", SecureRandom.uuid)
   end
 end

@@ -138,6 +138,8 @@ public sealed class LlmClient
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", llm.ApiKey);
                 request.Headers.Accept.ParseAdd("application/json");
                 request.Headers.UserAgent.ParseAdd(llm.UserAgent);
+                // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+                request.Headers.TryAddWithoutValidation("x-opencode-session", llm.SessionId);
 
                 using var response = await _http.SendAsync(request, cts.Token);
                 var elapsed = Environment.TickCount64 - start;

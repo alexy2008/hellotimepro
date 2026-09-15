@@ -99,6 +99,8 @@ module LlmClient
         req["Content-Type"] = "application/json"
         req["Accept"] = "application/json"
         req["User-Agent"] = AppConfig.llm_user_agent
+        # OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+        req["x-opencode-session"] = AppConfig.llm_session_id
         req.body = body
         res = http.request(req)
         elapsed = now_ms - start

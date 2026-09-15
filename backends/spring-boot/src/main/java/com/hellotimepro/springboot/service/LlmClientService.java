@@ -191,8 +191,10 @@ public class LlmClientService {
             .header("Authorization", "Bearer " + llm.getApiKey())
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
-            // 避免被网关机器人防护按默认 UA 封禁（Cloudflare error 1010）
+            // 应用自有 UA（默认 Java UA 会被 Cloudflare error 1010 封禁）
             .header("User-Agent", llm.getUserAgent())
+            // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+            .header("x-opencode-session", llm.getSessionId())
             .POST(HttpRequest.BodyPublishers.ofString(body))
             .build();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());

@@ -69,6 +69,8 @@ async function postJson(payload: Record<string, unknown>): Promise<unknown> {
           "Content-Type": "application/json",
           Accept: "application/json",
           "User-Agent": env.llm.userAgent,
+          // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+          "x-opencode-session": env.llm.sessionId,
         },
         body: JSON.stringify(payload),
         signal: ctrl.signal,

@@ -104,6 +104,8 @@ struct LlmClient: Sendable {
                 headers.add(name: .contentType, value: "application/json")
                 headers.add(name: .accept, value: "application/json")
                 headers.add(name: .userAgent, value: config.userAgent)
+                // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+                headers.add(name: "x-opencode-session", value: config.sessionId)
                 let response = try await client.post(URI(string: url), headers: headers) { req in
                     req.body = ByteBuffer(data: bodyData)
                 }

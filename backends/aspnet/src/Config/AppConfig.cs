@@ -59,9 +59,9 @@ public sealed class LlmConfig
     // chat（默认，多数兼容网关只支持它）| responses | auto
     public string ApiStyle { get; } = AppConfig.Env("LLM_API_STYLE", "chat");
 
-    // 避免被网关按默认 UA 封禁（Cloudflare 1010）。
-    public string UserAgent { get; } = AppConfig.Env(
-        "LLM_USER_AGENT",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+    // 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare 1010 封禁）。
+    public string UserAgent { get; } = AppConfig.Env("LLM_USER_AGENT", "hellotimepro");
+
+    // x-opencode-session：进程内稳定的会话 ID。
+    public string SessionId { get; } = AppConfig.Env("LLM_SESSION_ID", Guid.NewGuid().ToString());
 }

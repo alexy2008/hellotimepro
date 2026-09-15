@@ -26,10 +26,9 @@ export const env = {
     // 瞬时网络/TLS 错误（如 SSL EOF、连接被代理掐断）的额外重试次数
     maxRetries: num(process.env.LLM_MAX_RETRIES, 2),
     retryBackoffMs: num(process.env.LLM_RETRY_BACKOFF_MS, 400),
-    // 避免被网关机器人防护按默认 UA 封禁（Cloudflare error 1010）
-    userAgent:
-      process.env.LLM_USER_AGENT ??
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    // 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare error 1010 封禁）
+    userAgent: process.env.LLM_USER_AGENT || "hellotimepro",
+    // x-opencode-session：进程内稳定的会话 ID（Nitro 服务端单 bundle，模块只求值一次）
+    sessionId: process.env.LLM_SESSION_ID || crypto.randomUUID(),
   },
 };

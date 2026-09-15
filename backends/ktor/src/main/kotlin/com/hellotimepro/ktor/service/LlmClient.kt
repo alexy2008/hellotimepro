@@ -124,6 +124,8 @@ class LlmClient(private val config: AppConfig) {
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")
                     .header("User-Agent", llm.userAgent)
+                    // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+                    .header("x-opencode-session", llm.sessionId)
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build()
                 val response = client.send(request, HttpResponse.BodyHandlers.ofString())

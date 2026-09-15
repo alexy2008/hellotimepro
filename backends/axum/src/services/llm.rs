@@ -137,6 +137,8 @@ async fn post_json(state: &AppState, url: &str, payload: &Value) -> Result<Value
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
             .header("User-Agent", &llm.user_agent)
+            // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+            .header("x-opencode-session", &llm.session_id)
             .json(payload)
             .send()
             .await;

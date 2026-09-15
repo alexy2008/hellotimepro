@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+
+	"github.com/google/uuid"
 )
 
 // Settings 保存应用全局配置。
@@ -45,7 +47,8 @@ type Settings struct {
 	LLMMaxRetries     int    // 瞬时网络/TLS 错误（如 SSL EOF）的额外重试次数
 	LLMRetryBackoffMs int    // 线性退避基数
 	LLMAPIStyle       string // chat（默认）| responses | auto
-	LLMUserAgent      string // 避免被网关按默认 UA 封禁（Cloudflare 1010）
+	LLMUserAgent      string // 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare 1010 封禁）
+	LLMSessionID      string // x-opencode-session：进程内稳定的会话 ID
 
 	// 仓库根目录（供 spec/ 路径拼接使用）
 	RepoRoot string
@@ -133,9 +136,8 @@ func init() {
 		LLMMaxRetries:     getEnvInt("LLM_MAX_RETRIES", 2),
 		LLMRetryBackoffMs: getEnvInt("LLM_RETRY_BACKOFF_MS", 400),
 		LLMAPIStyle:       getEnv("LLM_API_STYLE", "chat"),
-		LLMUserAgent: getEnv("LLM_USER_AGENT",
-			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "+
-				"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+		LLMUserAgent:      getEnv("LLM_USER_AGENT", "hellotimepro"),
+		LLMSessionID:      getEnv("LLM_SESSION_ID", uuid.NewString()),
 
 		RepoRoot: root,
 	}

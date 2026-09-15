@@ -9,6 +9,13 @@ const num = (v: string | undefined, fallback: number) => {
 };
 const bool = (v: string | undefined) => v === "1" || v === "true";
 
+// Next 可能把本模块打进多个路由 bundle 各自求值，会话 ID 挂到 globalThis 保证整个进程只有一份。
+const llmSessionId = () => {
+  const g = globalThis as { __llmSessionId?: string };
+  g.__llmSessionId ??= process.env.LLM_SESSION_ID || crypto.randomUUID();
+  return g.__llmSessionId;
+};
+
 export const env = {
   port: num(process.env.PORT, 7177),
   serviceName: process.env.SERVICE_NAME ?? "hellotime-pro",
@@ -28,10 +35,9 @@ export const env = {
     // 瞬时网络/TLS 错误（如 SSL EOF、连接被代理掐断）的额外重试次数
     maxRetries: num(process.env.LLM_MAX_RETRIES, 2),
     retryBackoffMs: num(process.env.LLM_RETRY_BACKOFF_MS, 400),
-    // 避免被网关机器人防护按默认 UA 封禁（Cloudflare error 1010）
-    userAgent:
-      process.env.LLM_USER_AGENT ??
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    // 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare error 1010 封禁）
+    userAgent: process.env.LLM_USER_AGENT || "hellotimepro",
+    // x-opencode-session：进程内稳定的会话 ID
+    sessionId: llmSessionId(),
   },
 };

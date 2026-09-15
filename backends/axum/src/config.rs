@@ -34,8 +34,10 @@ pub struct LlmConfig {
     pub retry_backoff_ms: u64,
     /// chat（默认，多数兼容网关只支持它）| responses | auto
     pub api_style: String,
-    /// 避免被网关按默认 UA 封禁（Cloudflare 1010）
+    /// 应用自有 UA（OpenCode Go 要求；库默认 UA 会被 Cloudflare 1010 封禁）
     pub user_agent: String,
+    /// x-opencode-session：进程内稳定的会话 ID
+    pub session_id: String,
 }
 
 fn env_or(name: &str, fallback: &str) -> String {
@@ -96,11 +98,8 @@ impl LlmConfig {
             max_retries: env_or("LLM_MAX_RETRIES", "2").parse().unwrap_or(2),
             retry_backoff_ms: env_or("LLM_RETRY_BACKOFF_MS", "400").parse().unwrap_or(400),
             api_style: env_or("LLM_API_STYLE", "chat"),
-            user_agent: env_or(
-                "LLM_USER_AGENT",
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
-                 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            ),
+            user_agent: env_or("LLM_USER_AGENT", "hellotimepro"),
+            session_id: env_or("LLM_SESSION_ID", &uuid::Uuid::new_v4().to_string()),
         }
     }
 }

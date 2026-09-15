@@ -1,4 +1,5 @@
 #include "config.h"
+#include "db.h"  // newUuid()
 
 #include <cstdlib>
 #include <filesystem>
@@ -38,9 +39,8 @@ LlmConfig LlmConfig::fromEnvironment()
     c.maxRetries = envInt("LLM_MAX_RETRIES", 2);
     c.retryBackoffMs = envInt("LLM_RETRY_BACKOFF_MS", 400);
     c.apiStyle = envOr("LLM_API_STYLE", "chat");
-    c.userAgent = envOr("LLM_USER_AGENT",
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+    c.userAgent = envOr("LLM_USER_AGENT", "hellotimepro");
+    c.sessionId = envOr("LLM_SESSION_ID", newUuid());
     return c;
 }
 

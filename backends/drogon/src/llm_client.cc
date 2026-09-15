@@ -219,6 +219,8 @@ drogon::Task<Json::Value> LlmClient::postJson(std::string path, Json::Value payl
             req->addHeader("Authorization", "Bearer " + config_.apiKey);
             req->addHeader("Accept", "application/json");
             req->addHeader("User-Agent", config_.userAgent);
+            // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+            req->addHeader("x-opencode-session", config_.sessionId);
             req->setContentTypeCode(drogon::CT_APPLICATION_JSON);
             req->setBody(bodyStr);
 

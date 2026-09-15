@@ -115,6 +115,8 @@ async function postJson(url: string, payload: Record<string, unknown>): Promise<
           "content-type": "application/json",
           accept: "application/json",
           "user-agent": env.llm.userAgent,
+          // OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+          "x-opencode-session": env.llm.sessionId,
         },
         body: data,
         signal: ctrl.signal,
