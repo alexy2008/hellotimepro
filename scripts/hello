@@ -217,6 +217,7 @@ class LlmConfig:
     api_key: str = ""
     model: str = "gpt-4.1-mini"
     timeout_ms: int = 30000
+    user_agent: str = "hellotimepro"
 
 @dataclass
 class State:
@@ -632,7 +633,8 @@ def op_start(name: str) -> dict:
                  "LLM_BASE_URL": llm.base_url,
                  "LLM_API_KEY": llm.api_key,
                  "LLM_MODEL": llm.model,
-                 "LLM_TIMEOUT_MS": str(llm.timeout_ms)},
+                 "LLM_TIMEOUT_MS": str(llm.timeout_ms),
+                 "LLM_USER_AGENT": llm.user_agent},
         )
     except Exception as e:
         return {"ok": False, "code": 5, "msg": f"启动失败: {e}"}
@@ -898,6 +900,9 @@ def op_set_llm_config(cfg: dict) -> dict:
         key = str(cfg["api_key"]).strip()
         if key:
             c.api_key = key
+    if "user_agent" in cfg and cfg["user_agent"] is not None:
+        # 留空即恢复默认值
+        c.user_agent = str(cfg["user_agent"]).strip() or LlmConfig.user_agent
     if "timeout_ms" in cfg:
         try:
             c.timeout_ms = max(1000, min(60000, int(cfg["timeout_ms"])))
@@ -1139,6 +1144,7 @@ def op_snapshot() -> dict:
             "base_url": llm.base_url,
             "model": llm.model,
             "timeout_ms": llm.timeout_ms,
+            "user_agent": llm.user_agent,
             "api_key_configured": bool(llm.api_key),
         },
         "now": now,

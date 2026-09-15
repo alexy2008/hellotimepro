@@ -81,8 +81,10 @@ def _post_json(url: str, payload: dict[str, Any]) -> dict:
         "Authorization": f"Bearer {settings.llm_api_key}",
         "Content-Type": "application/json",
         "Accept": "application/json",
-        # 避免被网关的机器人防护按默认 urllib UA 封禁（Cloudflare error 1010）
+        # 应用自有 UA（默认 urllib UA 会被 Cloudflare error 1010 封禁）
         "User-Agent": settings.llm_user_agent,
+        # OpenCode Go 要求带稳定会话 ID，缺失时返回 400 MissingSessionID
+        "x-opencode-session": settings.llm_session_id,
     }
     attempts = max(1, settings.llm_max_retries + 1)
     for attempt in range(1, attempts + 1):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 from pydantic import Field
@@ -62,12 +63,11 @@ class Settings(BaseSettings):
     # 调用风格：chat=只用 /chat/completions（默认，多数兼容网关只支持它）；
     # responses=只用 /responses；auto=先 responses 失败再回退 chat。可用 LLM_API_STYLE 覆盖。
     llm_api_style: str = "chat"
-    # 部分网关（如 Cloudflare 后的代理）会封禁 urllib 默认 UA（error 1010），
-    # 默认发送浏览器风格 User-Agent；可用环境变量 LLM_USER_AGENT 覆盖。
-    llm_user_agent: str = (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    )
+    # 以应用自身名义标识客户端（OpenCode Go 要求；HTTP 库默认 UA 会被 Cloudflare 1010 封禁）。
+    # hello 从 Web UI 配置注入 LLM_USER_AGENT。
+    llm_user_agent: str = "hellotimepro"
+    # 发往 x-opencode-session 的会话 ID：进程内稳定，便于网关路由与 prompt 缓存；可用 LLM_SESSION_ID 覆盖。
+    llm_session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 
 
 settings = Settings()

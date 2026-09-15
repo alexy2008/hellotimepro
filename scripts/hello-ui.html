@@ -343,6 +343,7 @@ a:hover{color:var(--sig);text-decoration:underline}
             <div><div class="dblabel">Model</div><input class="dbi" id="llmModel" placeholder="gpt-4.1-mini"/></div>
           </div>
           <div style="margin-top:6px"><div class="dblabel">Base URL</div><input class="dbi" id="llmBaseUrl" placeholder="https://api.openai.com/v1"/></div>
+          <div style="margin-top:6px"><div class="dblabel">User-Agent（留空恢复默认）</div><input class="dbi" id="llmUserAgent" placeholder="hellotimepro"/></div>
           <div class="dbfields" style="margin-top:6px">
             <div><div class="dblabel">API Key（留空保持不变）</div><input class="dbi" id="llmApiKey" type="password" placeholder="sk-..."/></div>
             <div><div class="dblabel">Timeout ms</div><input class="dbi" id="llmTimeoutMs" placeholder="8000"/></div>
@@ -554,6 +555,7 @@ function render(){
   if(!$("#llmModel").matches(":focus")) $("#llmModel").value=llm.model||"";
   if(!$("#llmBaseUrl").matches(":focus")) $("#llmBaseUrl").value=llm.base_url||"";
   if(!$("#llmTimeoutMs").matches(":focus")) $("#llmTimeoutMs").value=llm.timeout_ms||"";
+  if(!$("#llmUserAgent").matches(":focus")) $("#llmUserAgent").value=llm.user_agent||"";
   if(!$("#llmApiKey").matches(":focus")) $("#llmApiKey").value="";
   $("#llmApiKey").placeholder=llm.api_key_configured?"已配置，留空保持不变":"sk-...";
   $("#llmKeyState").textContent=llm.api_key_configured?"Key 已配置":"未配置 Key";
@@ -825,6 +827,7 @@ $("#btnLlmConfig").addEventListener("click",async()=>{
     api_key:$("#llmApiKey").value,
     model:$("#llmModel").value,
     timeout_ms:$("#llmTimeoutMs").value,
+    user_agent:$("#llmUserAgent").value,
   };
   const j=await api("/api/llm-config",{method:"POST",body:JSON.stringify(body)});
   const st=$("#llmConfigState");
