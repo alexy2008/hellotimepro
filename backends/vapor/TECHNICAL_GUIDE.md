@@ -345,7 +345,7 @@ func createAccessToken(user: User, now: Date = Date()) -> String {
 - **重试策略**：仅网络/TLS 瞬时错误重试（默认 2 次、退避 400ms×n）；HTTP 4xx/5xx 与坏 JSON 不重试。
 - **API 风格**：默认 `chat`（兼容网关大多只支持它）；`responses`/`auto` 可切。
   chat 路径带 `thinking: disabled`，网关报 400 时去掉重试一次。
-- **UA 伪装**：默认 Chrome UA，避开 Cloudflare 1010。
+- **客户端标识**：UA 默认 `hellotimepro`（`LLM_USER_AGENT`，Web UI 可配），并带进程内稳定的 `x-opencode-session`（OpenCode Go 必需，见 `docs/dev-notes.md §3.4`）。
 - 建议端点失败走 `local-template` 兜底（7 篇内置中文胶囊）；推荐端点失败返回空列表 `generatedBy=none`。
 
 契约测试默认 `LLM_ENABLED=false`，客户端入口直接抛错、上层立即兜底，HTTP 路径不在测试链上。

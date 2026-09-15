@@ -146,10 +146,31 @@ react/vue/svelte/solid（`index.html` 内联脚本）与 rails（`application.ht
 - 默认：`LLM_MAX_RETRIES=2` + `LLM_RETRY_BACKOFF_MS=400`（线性退避）。
 - 失败约 3–4 s 就返回（不等满超时），两次重试最坏约 13 s，成功率提到 ~87%。
 
-### 3.4 Cloudflare error 1010
+### 3.4 客户端标识：User-Agent + x-opencode-session
 
-urllib 默认 UA 会被网关 Bot 防护封禁（HTTP 403, error_code 1010）。
-解决：请求头带浏览器风格 `User-Agent`（可用 `LLM_USER_AGENT` 覆盖）。
+OpenCode Go（`opencode.ai/zen/go/v1`）自 2026-09-05 起对客户端有两条要求（见 [官方文档](https://opencode.ai/docs/go/)）：
+
+1. **`x-opencode-session`**：每个会话带稳定的会话 ID，缺失直接 `400 MissingSessionID`。
+2. **`User-Agent`**：以应用自己的名字标识客户端，不要用通用 SDK / HTTP 库名。
+
+实测（2026-09-15，deepseek-v4-flash）：
+
+| 请求头 | 结果 |
+|---|---|
+| 浏览器 UA，无 session（旧做法） | 400 MissingSessionID |
+| 自有 UA + session | 200 |
+| HTTP 库默认 UA（`Python-urllib`）+ session | 403 Cloudflare 1010 |
+
+做法（15 个实现统一）：
+
+- UA 默认 `hellotimepro`，Web UI「大模型 API」可改，`hello` 以 `LLM_USER_AGENT` 注入（留空恢复默认）。
+- 会话 ID：两个 AI 端点公开、无会话概念，按**进程**生成一次 UUID（`LLM_SESSION_ID` 可覆盖）；system prompt 固定，进程级 ID 最利于网关前缀缓存。
+- 各栈落地差异：
+  - **laravel**：PHP 每请求重新引导，进程级常量会退化成"每请求一个" → `Cache::rememberForever` 持久化。
+  - **next**：模块可能被打进多个路由 bundle 各自求值 → 会话 ID 挂 `globalThis`。
+  - **spring-boot / spring-mvc**：`application.yml` 用 `${LLM_SESSION_ID:${random.uuid}}`；原先 yml 没映射 `LLM_USER_AGENT`，hello 注入的 UA 到不了，已补。
+- 验证不能靠契约测试（LLM 失败时端点照样 200 + `local-template`），要看响应 `generatedBy` 与后端 `LLM response` 日志。
+- 坑：aspnet 的 `./run` 在已有 Release DLL 时直接执行旧产物，改代码后要先 `./build`。
 
 ### 3.5 调用风格 llm_api_style
 

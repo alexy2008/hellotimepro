@@ -152,6 +152,8 @@ Tailwind CSS v4 + semantic design tokens. All color/spacing references must use 
 
 参考实现：`backends/fastapi/app/services/llm_client.py` 的 `_post_json()`。
 
+请求头：除 `Authorization` 外必须带 `User-Agent`（默认 `hellotimepro`，Web UI 可配，经 `LLM_USER_AGENT` 注入）与 `x-opencode-session`（进程内稳定 UUID，`LLM_SESSION_ID` 可覆盖）——OpenCode Go 缺后者直接 400。详见 `docs/dev-notes.md §3.4`。
+
 ## Port Allocation
 
 | Range | Purpose |

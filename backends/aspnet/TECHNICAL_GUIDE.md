@@ -265,7 +265,7 @@ catch (Exception ex)           { _log.LogError(ex,...); await Write(ctx, 500, /*
 ## 12. LLM 客户端
 
 `LlmClient.cs`（基于 `HttpClient`）对齐 FastAPI 参考实现：日志规范（`LLM request/response/error` 三时机 + 必含字段）、
-网关瞬时错误重试、CF-1010 改 Chrome UA、chat 风格 + `thinking` 关闭、`responses`/`auto` 可切。
+网关瞬时错误重试、自有 UA + `x-opencode-session`（dev-notes §3.4）、chat 风格 + `thinking` 关闭、`responses`/`auto` 可切。
 提示词来自 `spec/llm/*.prompt.md`；未配置时建议端点本地兜底、推荐端点返回空列表。
 
 ## 13. 一个 .NET 特有坑：EF 插入排序

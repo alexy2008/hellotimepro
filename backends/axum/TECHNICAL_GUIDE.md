@@ -318,7 +318,7 @@ CJK 内容下字节数会虚高 3 倍。
   （usage 缺失记 n/a）；失败 WARN `LLM error model= elapsed_ms= status=/error=`。
 - **重试策略**：只重试 reqwest 传输层错误（网关 SSL EOF 一类瞬时故障，退避递增）；HTTP 4xx/5xx 与坏 JSON 不重试。
 - **api_style**：`chat`（默认）/ `responses` / `auto`（responses 失败回落 chat）。chat 路径带 `thinking: {type: disabled}`，网关 400 不认时去掉重试一次。
-- **UA 伪装**：默认 Chrome UA，避开 Cloudflare 1010。
+- **客户端标识**：UA 默认 `hellotimepro`（`LLM_USER_AGENT`，Web UI 可配），并带进程内稳定的 `x-opencode-session`（OpenCode Go 必需，见 `docs/dev-notes.md §3.4`）。
 - 建议端点失败走本地模板兜底（`generatedBy=local-template`）；推荐端点失败返回空列表（`generatedBy=none`），按 spec 的定位区分。
 
 ## 13. 从真实请求读代码：`POST /api/v1/auth/register`

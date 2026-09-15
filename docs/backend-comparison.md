@@ -277,9 +277,9 @@ ORM 不知道怎么把 `uuid`/时间戳 存进 SQLite TEXT，于是各自在**�
 | Axum | `services/llm.rs` |
 | Drogon | `src/llm_client.cc` |
 
-共性（移植自参考实现）：只重试瞬时传输错误、坏 JSON 与 HTTP 4xx 不重试、Chrome UA 避 Cloudflare 1010、关闭 `thinking` 提速、
+共性（移植自参考实现）：只重试瞬时传输错误、坏 JSON 与 HTTP 4xx 不重试、自有 UA（`hellotimepro`）+ 进程级 `x-opencode-session`、关闭 `thinking` 提速、
 `chat`/`responses`/`auto` 风格切换；建议端点失败走本地模板兜底（`generatedBy=local-template`），推荐端点失败返回空列表（`generatedBy=none`）。
-（网关 SSL EOF 重试、CF 1010 改 UA 等坑见 `docs/dev-notes.md`。）
+（网关 SSL EOF 重试、OpenCode Go 请求头要求等坑见 `docs/dev-notes.md`。）
 
 ---
 
