@@ -62,7 +62,7 @@
   function slip() {
     const f = HT.api.featured();
     if (!f) return '';
-    return `<a class="slip" href="#/plaza/${f.id}" style="--glow:${HT.palette(f.code).glow}">
+    return `<a class="slip" href="#/capsules/${f.code}" style="--glow:${HT.palette(f.code).glow}">
       <div class="slip__k"><span class="slip__dot"></span>广场上最受期待的一枚</div>
       <div class="slip__row">${HT.capsuleArt(f.code, 'locked', 64)}<div><b class="slip__t">${esc(f.title)}</b><span class="slip__cd mono" data-cd="${f.openAt}">${HT.cdShort(f.openAt)}</span></div></div>
       <div class="slip__f">${icon('heart')}${fmt.num(f.favoriteCount)} 人在等它</div>
@@ -238,7 +238,7 @@
         if (!c) { ci.error(); quickErr.textContent = '没有找到这枚胶囊，请核对胶囊码'; return; }
         ci.setState('ok');
         await HT.sleep(280);
-        HT.go('/c/' + c.code);
+        HT.go('/capsules/' + c.code);
       }
       quickEl.addEventListener('submit', (e) => { e.preventDefault(); go(ci.value); });
 

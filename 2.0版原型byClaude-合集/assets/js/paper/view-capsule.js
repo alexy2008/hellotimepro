@@ -1,5 +1,5 @@
 /* ============================================================
-   胶囊详情（/c/:code · /capsules/:code · /plaza/:id）与 开启页（/open）
+   胶囊详情（/capsules/:code）与 开启页（/open）
    详情有三种形态：未启封（信封 + 倒计时）· 启封动画 · 已启封（信纸）
    ============================================================ */
 (function (HT) {
@@ -9,7 +9,7 @@
   /* ---------------- 详情 ---------------- */
 
   function find(ctx) {
-    return ctx.params.id ? HT.api.byId(ctx.params.id) : HT.api.byCode(ctx.params.code);
+    return HT.api.byCode(ctx.params.code);
   }
 
   const visTag = (c) => c.inPlaza
@@ -94,7 +94,7 @@
     return `<div class="lost">
       <div class="lost__mark">${HT.seal('无', 'line')}</div>
       <h1 class="h1">查无此信</h1>
-      <p>${code ? `没有找到胶囊码为 <b class="mono">${esc(code)}</b> 的胶囊。` : '这枚胶囊不存在，或者没有发布到广场。'}<br>也许它已经被主人撤回了。</p>
+      <p>${code ? `没有找到胶囊码为 <b class="mono">${esc(code)}</b> 的胶囊。` : '这枚胶囊不存在。'}<br>它也可能已经被作者删除了。</p>
       <div class="lost__act"><a class="btn btn--primary" href="#/open">${icon('key')}重新输入胶囊码</a><a class="btn btn--ghost" href="#/">回到广场</a></div>
     </div>`;
   }
@@ -171,7 +171,7 @@
 
       host.addEventListener('click', (e) => {
         if (e.target.closest('[data-copy-code]')) return HT.copy(c.code, `已复制胶囊码 ${c.code}`);
-        if (e.target.closest('[data-copy-link]')) return HT.copy(location.origin + location.pathname + '#/c/' + c.code, '已复制分享链接');
+        if (e.target.closest('[data-copy-link]')) return HT.copy(location.origin + location.pathname + '#/capsules/' + c.code, '已复制分享链接');
         if (e.target.closest('[data-ff]')) {
           HT.api.fastForward(c.id, 3600);
           c = find(ctx);
@@ -202,7 +202,7 @@
     render() {
       const me = HT.state.user;
       const mine = me ? HT.api.mine().slice(0, 3) : [];
-      const row = (c) => `<li><a class="mylist__row" href="#/c/${c.code}">${HT.seal(c.isOpened ? '启' : '封', c.isOpened ? 'line' : 'solid')}<span class="mylist__info"><b class="serif">${esc(c.title)}</b><span class="mono">${c.code}</span></span><span class="mylist__st">${c.isOpened ? '已开启' : '距启封 ' + fmt.span(c.openAt - Date.now())}</span>${icon('chev-right')}</a></li>`;
+      const row = (c) => `<li><a class="mylist__row" href="#/capsules/${c.code}">${HT.seal(c.isOpened ? '启' : '封', c.isOpened ? 'line' : 'solid')}<span class="mylist__info"><b class="serif">${esc(c.title)}</b><span class="mono">${c.code}</span></span><span class="mylist__st">${c.isOpened ? '已开启' : '距启封 ' + fmt.span(c.openAt - Date.now())}</span>${icon('chev-right')}</a></li>`;
       const cell = (i) => `<input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 ${i + 1} 位" data-i="${i}" style="--k:${i}">`;
       return `<div class="page page--open">
         <div class="wrap openp">
@@ -284,7 +284,7 @@
         }
         box.classList.add('is-ok');
         await sleep(360);
-        HT.go('/c/' + c.code);
+        HT.go('/capsules/' + c.code);
       }
 
       cells.forEach((cell, i) => {

@@ -106,8 +106,8 @@
   /* 收藏按钮 */
   U.favBtn = (c, size) => {
     const md = size === 'md';
-    return `<button class="fav fav--${md ? 'md' : 'sm'}${c.favoritedByMe ? ' is-on' : ''}${c.mine ? ' is-mine' : ''}" type="button" data-fav="${c.id}" aria-pressed="${c.favoritedByMe}"
-      aria-label="${c.favoritedByMe ? '取消收藏' : '收藏'}，已有 ${c.favoriteCount} 人收藏"${c.mine ? ' title="不能收藏自己的胶囊"' : ''}>
+    return `<button class="fav fav--${md ? 'md' : 'sm'}${c.favoritedByMe ? ' is-on' : ''}" type="button" data-fav="${c.id}" aria-pressed="${c.favoritedByMe}"
+      aria-label="${c.favoritedByMe ? '取消收藏' : '收藏'}，已有 ${c.favoriteCount} 人收藏">
       <span class="fav__ic">${icon('heart')}</span>${md ? `<span class="fav__t">${c.favoritedByMe ? '已收藏' : '收藏'}</span>` : ''}<span class="fav__n">${fmt.num(c.favoriteCount)}</span></button>`;
   };
 
@@ -131,7 +131,7 @@
   /* 胶囊卡片：封 / 启两种形态 */
   U.card = (c, opt) => {
     const o = opt || {};
-    const href = c.inPlaza ? `#/plaza/${c.id}` : `#/c/${c.code}`;
+    const href = `#/capsules/${c.code}`;
     const now = Date.now();
     const body = c.isOpened
       ? `<p class="cap__preview">${esc(preview(c.content))}</p>
@@ -146,6 +146,7 @@
       <header class="cap__top">
         ${HT.seal(c.isOpened ? '启' : '封', c.isOpened ? 'line' : 'solid')}
         <span class="cap__status">${c.isOpened ? '已开启' : '未开启'}</span>
+        ${c.inPlaza ? '' : `<span class="cap__private" title="没有发布到广场，凭胶囊码可见">${icon('lock')}未公开</span>`}
         ${o.rank ? `<span class="cap__rank latin" title="热度第 ${o.rank}">No.${o.rank}</span>` : ''}
         <span class="cap__code mono">${c.code}</span>
       </header>

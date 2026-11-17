@@ -152,7 +152,7 @@
             <li><b>粒子背景</b><span>星夜是闪烁的星星和偶尔划过的流星，晨曦是阳光里上浮的金色微尘；标签页切到后台时暂停绘制。</span></li>
             <li><b>昼夜切换</b><span>顶栏的小天窗：月亮滑到另一侧变成太阳、云朵飘进来；整页从点击处圆形晕开。</span></li>
             <li><b>8 格码输入</b><span>一个透明的原生输入框盖在 8 个格子上，键盘、粘贴、输入法都自然可用；填入的字会弹一下，输满自动开启。</span></li>
-            <li><b>开启</b><span>倒计时逐位落下；归零时胶囊抖动、两半分开、迸出一团光，信纸自上而下展开，邮戳「啪」地盖上。</span><a class="link-btn" href="#/c/${(HT.api.featured() || {}).code || 'SAMESONG'}">去看看${icon('arrow')}</a></li>
+            <li><b>开启</b><span>倒计时逐位落下；归零时胶囊抖动、两半分开、迸出一团光，信纸自上而下展开，邮戳「啪」地盖上。</span><a class="link-btn" href="#/capsules/${(HT.api.featured() || {}).code || 'SAMESONG'}">去看看${icon('arrow')}</a></li>
             <li><b>封存</b><span>信纸落进胶囊、两半合拢，8 位码牌随后逐个翻出。</span><a class="link-btn" href="#/create">去看看${icon('arrow')}</a></li>
             <li><b>卡片翻面</b><span>广场卡片的状态由「开启时间 vs 此刻」实时算出，倒计时归零的那一秒，卡片上的胶囊当场打开。</span></li>
             <li><b>克制</b><span>系统设置了「减少动态效果」时，所有动画降级为直接切换，粒子只画一帧。</span></li>

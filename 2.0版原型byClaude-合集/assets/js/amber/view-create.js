@@ -100,7 +100,7 @@
             <ul class="notes">
               <li>${icon('key')}<span>封存后会得到一串 8 位胶囊码，它是开启胶囊的凭证，也能分享给别人。</span></li>
               <li>${icon('lock')}<span>到开启时间之前，内容对所有人不可见——包括写下它的你。</span></li>
-              <li>${icon('trash')}<span>内容和开启时间封存后不可修改；可以在「我创建的」里随时撤回。</span></li>
+              <li>${icon('trash')}<span>封存后，内容和开启时间都不能再修改；可以在「我创建的」里删除。</span></li>
             </ul>
           </aside>
         </div>
@@ -262,7 +262,7 @@
             <div><dt>属性</dt><dd>${HT.visBadge(c)}</dd></div>
           </dl>
           <div class="sealed__links">
-            <a class="link-btn" href="#/c/${c.code}">看看它的倒计时${icon('arrow')}</a>
+            <a class="link-btn" href="#/capsules/${c.code}">看看它的倒计时${icon('arrow')}</a>
             <button class="link-btn" type="button" data-again>再写一枚${icon('plus')}</button>
             <a class="link-btn" href="#/me/created">我创建的${icon('feather')}</a>
           </div>
@@ -276,7 +276,7 @@
         }));
         sealed.addEventListener('click', (e) => {
           if (e.target.closest('[data-copy-code]')) HT.copy(c.code, `已复制胶囊码 ${c.code}`);
-          else if (e.target.closest('[data-copy-link]')) HT.copy(location.origin + location.pathname + '#/c/' + c.code, '已复制开启链接');
+          else if (e.target.closest('[data-copy-link]')) HT.copy(location.origin + location.pathname + '#/capsules/' + c.code, '已复制开启链接');
           else if (e.target.closest('[data-again]')) { HT.state.draft = null; HT.refresh(); }
         });
       }

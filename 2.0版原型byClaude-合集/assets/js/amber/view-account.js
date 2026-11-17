@@ -279,9 +279,9 @@
     return `<div class="me__sub"><span>按创建时间倒序 · 共 ${list.length} 枚</span><a class="btn btn--primary btn--sm" href="#/create">${icon('plus')}写一枚</a></div>
       <ul class="ledger">
         ${list.map((c, i) => `<li class="ledger__row" data-id="${c.id}" style="--i:${i};--glow:${HT.palette(c.code).glow}">
-          <a class="ledger__art" href="#/c/${c.code}" tabindex="-1" aria-hidden="true">${HT.capsuleArt(c.code, c.isOpened ? 'opened' : 'locked', 112)}</a>
+          <a class="ledger__art" href="#/capsules/${c.code}" tabindex="-1" aria-hidden="true">${HT.capsuleArt(c.code, c.isOpened ? 'opened' : 'locked', 112)}</a>
           <div class="ledger__main">
-            <a class="ledger__title" href="#/c/${c.code}">${esc(c.title)}</a>
+            <a class="ledger__title" href="#/capsules/${c.code}">${esc(c.title)}</a>
             <div class="ledger__sub">
               <button class="ledger__code mono" type="button" data-copy="${c.code}" title="点击复制胶囊码">${c.code}${icon('copy')}</button>
               ${HT.visBadge(c)}<span>封存于 ${fmt.date(c.createdAt)}</span>
@@ -292,12 +292,12 @@
             : `<span class="ledger__cd">${icon('hourglass')}<b class="mono" data-cd="${c.openAt}">${HT.cdShort(c.openAt, now)}</b></span><div class="pc__progress"><span style="width:${Math.max(2, fmt.progress(c, now))}%"></span></div>`}</div>
           <div class="ledger__fav" title="被收藏 ${c.favoriteCount} 次">${icon('heart')}<span class="mono">${fmt.num(c.favoriteCount)}</span></div>
           <div class="ledger__act">
-            <a class="btn btn--ghost btn--sm" href="#/c/${c.code}">查看</a>
-            <button class="btn btn--danger-ghost btn--sm" type="button" data-withdraw="${c.id}">撤回</button>
+            <a class="btn btn--ghost btn--sm" href="#/capsules/${c.code}">查看</a>
+            <button class="btn btn--danger-ghost btn--sm" type="button" data-delete="${c.id}">删除</button>
           </div>
         </li>`).join('')}
       </ul>
-      <p class="tip tip--quiet">${icon('info')}<span>胶囊的内容与开启时间封存后不可修改；你可以随时撤回（删除）自己写的胶囊，无论它是否已经开启。</span></p>`;
+      <p class="tip tip--quiet">${icon('info')}<span>胶囊的内容与开启时间封存后不可修改；你可以随时删除自己写的胶囊，无论它是否已经开启。</span></p>`;
   }
 
   function favoritesHTML() {
@@ -415,13 +415,13 @@
         const cp = e.target.closest('[data-copy]');
         if (cp) return HT.copy(cp.dataset.copy, `已复制胶囊码 ${cp.dataset.copy}`);
         if (e.target.closest('[data-logout]')) { HT.api.logout(); HT.toast('已登出'); return HT.go('/'); }
-        const wd = e.target.closest('[data-withdraw]');
+        const wd = e.target.closest('[data-delete]');
         if (wd) {
-          const c = HT.api.byId(wd.dataset.withdraw, true);
+          const c = HT.api.byId(wd.dataset.delete, true);
           const ok = await HT.dialog({
-            title: '撤回这枚胶囊？',
-            body: `<p>《${esc(c.title)}》会被永久删除，持有胶囊码 <b class="mono">${c.code}</b> 的人也将无法再打开它。</p><p class="dlg__warn">${icon('alert')}此操作不可恢复。</p>`,
-            confirm: '撤回', cancel: '再想想', tone: 'danger',
+            title: '删除这枚胶囊？',
+            body: `<p>《${esc(c.title)}》会被永久删除。持有胶囊码 <b class="mono">${c.code}</b> 的人将无法再打开它，它也会从所有收藏过它的人的列表里消失。</p><p class="dlg__warn">${icon('alert')}此操作不可恢复。</p>`,
+            confirm: '删除', cancel: '再想想', tone: 'danger',
             mark: `<div class="dlg__art">${HT.capsuleArt(c.code, 'opened', 120)}</div>`,
           });
           if (!ok) return;
@@ -431,7 +431,7 @@
           row.classList.add('is-gone');
           await sleep(HT.reduced() ? 0 : 460);
           HT.api.remove(c.id);
-          HT.toast(`已撤回《${c.title}》`);
+          HT.toast(`已删除《${c.title}》`);
           $('#meBody', page).innerHTML = createdHTML();
           refreshCounts();
         }

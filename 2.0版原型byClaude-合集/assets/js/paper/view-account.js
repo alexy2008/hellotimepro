@@ -318,7 +318,7 @@
           return `<li class="ledger__row" data-id="${c.id}" style="--i:${i}">
             <div class="ledger__seal">${HT.seal(c.isOpened ? '启' : '封', c.isOpened ? 'line' : 'solid')}</div>
             <div class="ledger__main">
-              <a class="ledger__title serif" href="#/c/${c.code}">${esc(c.title)}</a>
+              <a class="ledger__title serif" href="#/capsules/${c.code}">${esc(c.title)}</a>
               <div class="ledger__sub">
                 <button class="ledger__code mono" type="button" data-copy="${c.code}" title="点击复制胶囊码">${c.code}${icon('copy')}</button>
                 ${c.inPlaza ? `<span class="tag">${icon('globe')}广场公开</span>` : `<span class="tag tag--quiet">${icon('lock')}仅凭码可见</span>`}
@@ -328,13 +328,13 @@
             ${when}
             <div class="ledger__fav" title="被收藏 ${c.favoriteCount} 次">${icon('heart')}<span class="latin">${fmt.num(c.favoriteCount)}</span></div>
             <div class="ledger__act">
-              <a class="btn btn--text" href="#/c/${c.code}">查看</a>
-              <button class="btn btn--text btn--danger" type="button" data-withdraw="${c.id}">撤回</button>
+              <a class="btn btn--text" href="#/capsules/${c.code}">查看</a>
+              <button class="btn btn--text btn--danger" type="button" data-delete="${c.id}">删除</button>
             </div>
           </li>`;
         }).join('')}
       </ul>
-      <p class="me__fine">${icon('info')}胶囊的内容与启封时刻一经封存就不可修改；你可以随时撤回（删除）自己写的胶囊，无论它是否已经启封。</p>`;
+      <p class="me__fine">${icon('info')}胶囊的内容与启封时刻一经封存就不可修改；你可以随时删除自己写的胶囊，无论它是否已经启封。</p>`;
   }
 
   function favoritesHTML() {
@@ -477,14 +477,14 @@
           return HT.go('/');
         }
 
-        const wd = e.target.closest('[data-withdraw]');
+        const wd = e.target.closest('[data-delete]');
         if (wd) {
-          const c = HT.api.byId(wd.dataset.withdraw, true);
+          const c = HT.api.byId(wd.dataset.delete, true);
           const ok = await HT.dialog({
-            title: '撤回这枚胶囊？',
-            body: `<p>《${esc(c.title)}》会被永久删除，持有胶囊码 <b class="mono">${c.code}</b> 的人也将无法再打开它。</p><p class="dlg__warn">${icon('alert')}此操作不可恢复。</p>`,
-            confirm: '撤回', cancel: '再想想', tone: 'danger',
-            mark: `<div class="dlg__mark">${HT.seal('撤', 'line')}</div>`,
+            title: '删除这枚胶囊？',
+            body: `<p>《${esc(c.title)}》会被永久删除。持有胶囊码 <b class="mono">${c.code}</b> 的人将无法再打开它，它也会从所有收藏过它的人的列表里消失。</p><p class="dlg__warn">${icon('alert')}此操作不可恢复。</p>`,
+            confirm: '删除', cancel: '再想想', tone: 'danger',
+            mark: `<div class="dlg__mark">${HT.seal('删', 'line')}</div>`,
           });
           if (!ok) return;
           const row = wd.closest('.ledger__row');
@@ -493,7 +493,7 @@
           row.classList.add('is-gone');
           await sleep(HT.reduced() ? 0 : 420);
           HT.api.remove(c.id);
-          HT.toast(`已撤回《${c.title}》`);
+          HT.toast(`已删除《${c.title}》`);
           $('#meBody', page).innerHTML = createdHTML();
           refreshCounts();
         }

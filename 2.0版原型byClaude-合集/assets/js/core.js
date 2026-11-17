@@ -40,7 +40,7 @@
   const state = {
     user: LS.get('user', null),
     extra: LS.get('extra', []),          // 用户新建的胶囊
-    removed: LS.get('removed', []),      // 已撤回的 id
+    removed: LS.get('removed', []),      // 已删除的 id
     favs: LS.get('favs', null),          // { capsuleId: favoritedAt }
     overrides: LS.get('overrides', {}),  // 原型「快进」用：{ id: { openAt } }
     accounts: LS.get('accounts', []),    // 原型里注册的账号
@@ -170,7 +170,7 @@
     },
 
     favorites() {
-      return all().filter((c) => c.favoritedByMe && c.inPlaza).sort((a, b) => b.favoritedAt - a.favoritedAt);
+      return all().filter((c) => c.favoritedByMe).sort((a, b) => b.favoritedAt - a.favoritedAt);
     },
 
     remove(id) {

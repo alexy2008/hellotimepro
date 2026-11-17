@@ -13,7 +13,7 @@
     const now = Date.now();
     const f = HT.api.featured();
     const slip = f ? `
-      <a class="ha ha--slip" style="--depth:1.5" href="#/plaza/${f.id}" aria-label="广场上最受期待的胶囊：${esc(f.title)}">
+      <a class="ha ha--slip" style="--depth:1.5" href="#/capsules/${f.code}" aria-label="广场上最受期待的胶囊：${esc(f.title)}">
         <div class="slip">
           <div class="slip__k"><span class="pulse-dot"></span>广场上最受期待的一枚</div>
           <div class="slip__t">${esc(f.title)}</div>
@@ -230,7 +230,7 @@
         if (!c) { HT.shake(qForm); qForm.classList.add('is-error'); qErr.textContent = '没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1'; return; }
         qForm.classList.add('is-ok');
         await HT.sleep(260);
-        HT.go('/c/' + c.code);
+        HT.go('/capsules/' + c.code);
       }
       qIn.addEventListener('input', () => {
         const v = qIn.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);

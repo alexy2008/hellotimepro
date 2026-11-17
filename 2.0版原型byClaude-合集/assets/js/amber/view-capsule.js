@@ -1,5 +1,5 @@
 /* ============================================================
-   胶囊详情（/c/:code · /capsules/:code · /plaza/:id）与开启页（/open）
+   胶囊详情（/capsules/:code）与开启页（/open）
    详情是一台小状态机：封存中（进度环 + 翻牌倒计时）→ 开启中（抖动 · 迸光）→ 信笺
    ============================================================ */
 (function (HT) {
@@ -8,7 +8,7 @@
   const RING_C = 2 * Math.PI * 150;
 
   function find(ctx) {
-    return ctx.params.id ? HT.api.byId(ctx.params.id) : HT.api.byCode(ctx.params.code);
+    return HT.api.byCode(ctx.params.code);
   }
 
   const backLink = (c) => `<a class="back" href="#/">${icon('arrow-left')}返回广场</a>`;
@@ -92,7 +92,7 @@
       ${HT.capsuleArt('LOST0000', 'opened', 200, 'notice__art')}
       <div class="eyebrow">Not found</div>
       <h1 class="page-title">找不到这枚胶囊</h1>
-      <p class="page-lead">${code ? `没有胶囊码为 <b class="mono">${esc(code)}</b> 的胶囊。` : '这枚胶囊不存在，或者没有发布到广场。'}也许是码抄错了一位，也许它已经被主人撤回。</p>
+      <p class="page-lead">${code ? `没有胶囊码为 <b class="mono">${esc(code)}</b> 的胶囊。` : '这枚胶囊不存在。'}也许是码抄错了一位，也许它已经被作者删除了。</p>
       <div class="notice__act"><a class="btn btn--primary" href="#/open">${icon('key')}重新输入胶囊码</a><a class="btn btn--ghost" href="#/">回到广场</a></div>
     </div>`;
   }
@@ -152,7 +152,7 @@
 
       host.addEventListener('click', (e) => {
         if (e.target.closest('[data-copy-code]')) return HT.copy(c.code, `已复制胶囊码 ${c.code}`);
-        if (e.target.closest('[data-copy-link]')) return HT.copy(location.origin + location.pathname + '#/c/' + c.code, '已复制分享链接');
+        if (e.target.closest('[data-copy-link]')) return HT.copy(location.origin + location.pathname + '#/capsules/' + c.code, '已复制分享链接');
         if (e.target.closest('[data-ff]')) {
           HT.api.fastForward(c.id, 3600);
           c = find(ctx);
@@ -166,7 +166,7 @@
 
   /* ---------------- 开启页 ---------------- */
   function capsuleRow(c) {
-    return `<li><a class="crow" href="#/c/${c.code}" style="--glow:${HT.palette(c.code).glow}">
+    return `<li><a class="crow" href="#/capsules/${c.code}" style="--glow:${HT.palette(c.code).glow}">
       ${HT.capsuleArt(c.code, c.isOpened ? 'opened' : 'locked', 72)}
       <span class="crow__info"><b>${esc(c.title)}</b><span class="mono">${c.code}</span></span>
       ${c.isOpened ? HT.badge('opened', 'mail', '已开启') : HT.badge('locked', 'lock', HT.cdShort(c.openAt) + ' 后')}
@@ -217,7 +217,7 @@
         if (!c) { ci.error(); err.textContent = '没有找到这枚胶囊。请核对胶囊码。'; ci.focus(); return; }
         ci.setState('ok');
         await sleep(320);
-        HT.go('/c/' + c.code);
+        HT.go('/capsules/' + c.code);
       }
       form.addEventListener('submit', (e) => { e.preventDefault(); submit(ci.value); });
 

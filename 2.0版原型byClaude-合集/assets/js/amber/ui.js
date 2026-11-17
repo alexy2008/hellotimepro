@@ -122,8 +122,8 @@
   /* 收藏按钮 */
   U.favBtn = (c, size) => {
     const md = size === 'md';
-    return `<button class="fav fav--${md ? 'md' : 'sm'}${c.favoritedByMe ? ' is-on' : ''}${c.mine ? ' is-mine' : ''}" type="button" data-fav="${c.id}" aria-pressed="${c.favoritedByMe}"
-      aria-label="${c.favoritedByMe ? '取消收藏' : '收藏'}，已有 ${c.favoriteCount} 人收藏"${c.mine ? ' title="不能收藏自己的胶囊"' : ''}>
+    return `<button class="fav fav--${md ? 'md' : 'sm'}${c.favoritedByMe ? ' is-on' : ''}" type="button" data-fav="${c.id}" aria-pressed="${c.favoritedByMe}"
+      aria-label="${c.favoritedByMe ? '取消收藏' : '收藏'}，已有 ${c.favoriteCount} 人收藏">
       <span class="fav__ic">${icon('heart')}</span>${md ? `<span class="fav__t">${c.favoritedByMe ? '已收藏' : '收藏'}</span>` : ''}<span class="fav__n">${fmt.num(c.favoriteCount)}</span></button>`;
   };
 
@@ -131,7 +131,7 @@
   U.card = (c, opt) => {
     const o = opt || {};
     const p = HT.palette(c.code);
-    const href = c.inPlaza ? `#/plaza/${c.id}` : `#/c/${c.code}`;
+    const href = `#/capsules/${c.code}`;
     const now = Date.now();
     const body = c.isOpened
       ? `<p class="pc__excerpt">${esc(preview(c.content))}</p>`

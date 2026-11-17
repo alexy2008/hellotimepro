@@ -296,8 +296,6 @@ button.chip:hover { border-color: var(--amber-line); color: var(--text); transfo
 .fav.is-on { color: var(--rose); }
 .fav.is-on .ic { fill: currentColor; }
 .fav.is-pop .ic { animation: fav-pop .55s var(--ease-spring); }
-.fav.is-mine { cursor: default; }
-.fav.is-mine:hover { color: var(--text-2); background: none; }
 @keyframes fav-pop { 0% { transform: scale(.5); } 55% { transform: scale(1.35); } 100% { transform: scale(1); } }
 .fav--md { height: 44px; padding: 0 18px; gap: 8px; border: 1px solid var(--border-strong); background: var(--field); color: var(--text); font-family: var(--font-sans); font-size: 15px; }
 .fav--md .fav__n { padding-left: 10px; border-left: 1px solid var(--border-strong); font: 600 13px/1 var(--font-mono); color: var(--text-3); }

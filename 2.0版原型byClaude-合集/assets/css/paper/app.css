@@ -309,8 +309,6 @@ button.chip:hover { border-color: var(--ink); color: var(--ink); transform: tran
 .fav.is-on { color: var(--seal); }
 .fav.is-on .ic { fill: currentColor; }
 .fav.is-pop .ic { animation: fav-pop .55s var(--ease-spring); }
-.fav.is-mine { cursor: default; }
-.fav.is-mine:hover { color: var(--ink-3); background: none; }
 @keyframes fav-pop { 0% { transform: scale(.5); } 55% { transform: scale(1.32); } 100% { transform: scale(1); } }
 .fav--md { height: 42px; padding: 0 16px; margin: 0; gap: 8px; border: 1px solid var(--rule-2); border-radius: var(--r1); color: var(--ink); font-family: var(--font-sans); font-size: 14px; letter-spacing: .06em; }
 .fav--md:hover { border-color: var(--seal); }
@@ -364,6 +362,8 @@ button.chip:hover { border-color: var(--ink); color: var(--ink); transform: tran
 .cap__top .seal { transition: transform var(--dur-3) var(--ease-spring); }
 .cap:hover .cap__top .seal { transform: rotate(0) scale(1.08); }
 .cap__status { font-size: 12px; letter-spacing: .08em; color: var(--ink-3); }
+.cap__private { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; letter-spacing: .06em; color: var(--ink-3); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px 1px 5px; }
+.cap__private .ic { width: 11px; height: 11px; }
 .cap__rank { font-style: italic; font-weight: 600; font-size: 16px; line-height: 1; color: var(--gold); margin-left: 2px; }
 .cap__code { margin-left: auto; font-size: 10.5px; letter-spacing: .16em; color: var(--ink-4); transition: color var(--dur-1); }
 .cap:hover .cap__code { color: var(--ink-3); }

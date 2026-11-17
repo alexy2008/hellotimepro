@@ -116,8 +116,7 @@
     { re: /^\/$/, view: 'plaza', nav: 'plaza' },
     { re: /^\/create$/, view: 'create', nav: 'create' },
     { re: /^\/open$/, view: 'open', nav: 'open' },
-    { re: /^\/(?:c|capsules)\/([A-Za-z0-9]{1,16})$/, view: 'capsule', keys: ['code'], nav: 'open' },
-    { re: /^\/plaza\/([\w-]+)$/, view: 'capsule', keys: ['id'], nav: 'plaza' },
+    { re: /^\/capsules\/([A-Za-z0-9]{1,16})$/, view: 'capsule', keys: ['code'], nav: 'open' },
     { re: /^\/login$/, view: 'login', nav: 'me' },
     { re: /^\/register$/, view: 'register', nav: 'me' },
     { re: /^\/me(?:\/(created|favorites|profile))?$/, view: 'me', keys: ['tab'], nav: 'me' },
@@ -212,7 +211,6 @@
       if (!HT.state.user) return HT.askLogin('登录后才能收藏');
       const c = HT.api.byId(id, true);
       if (!c) return;
-      if (c.mine) { HT.shake(fb); return HT.toast('不能收藏自己写的胶囊', { type: 'info' }); }
       const r = HT.api.toggleFav(id);
       $$(`[data-fav="${id}"]`).forEach((b) => {
         b.classList.toggle('is-on', r.favorited);
@@ -246,7 +244,7 @@
           <h4>页面直达</h4>
           <div class="guide__links">
             ${link('#/', '首页 · 胶囊广场')}${link('#/create', '写一枚胶囊', ' data-need="auth"')}${link('#/open', '开启胶囊')}
-            ${link('#/c/SAMESONG', '详情 · 未开启', ' data-g-sealed')}${link('#/c/GK25WIND', '详情 · 已开启')}${link('#/c/NOSUCH00', '详情 · 查无此码')}
+            ${link('#/capsules/SAMESONG', '详情 · 未开启', ' data-g-sealed')}${link('#/capsules/GK25WIND', '详情 · 已开启')}${link('#/capsules/NOSUCH00', '详情 · 查无此码')}
             ${link('#/login', '登录', ' data-need="guest"')}${link('#/register', '注册', ' data-need="guest"')}
             ${link('#/me/created', '我创建的', ' data-need="auth"')}${link('#/me/favorites', '我收藏的', ' data-need="auth"')}${link('#/me/profile', '账号设置', ' data-need="auth"')}
             ${link('#/about', '关于')}${link('#/design', '设计规范')}${link('#/nowhere', '404')}
@@ -274,7 +272,7 @@
     if (sel) sel.value = HT.state.backend;
     const hot = HT.api.featured();
     const sealed = $('[data-g-sealed]', guideEl);
-    if (sealed && hot) sealed.setAttribute('href', '#/c/' + hot.code);
+    if (sealed && hot) sealed.setAttribute('href', '#/capsules/' + hot.code);
   }
   function closeGuide() { guideEl.classList.remove('is-open'); const f = $('#guideFab'); if (f) f.setAttribute('aria-expanded', 'false'); }
 

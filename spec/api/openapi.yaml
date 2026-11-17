@@ -8,7 +8,15 @@ info:
     - 每个端点都通过外部黑盒脚本 `verify-contract.sh` 校验
     - 统一响应包装：`{ success, data, message, errorCode }`
     - 鉴权端点以外，鉴权头 `Authorization: Bearer <accessToken>` 可选（匿名可访问的端点忽略；需要登录的端点缺失返回 `UNAUTHORIZED`）
-  version: 0.1.0
+
+    ## 2.0.0 变更（相对 0.1.0，破坏性升级，所有实现一并升级）
+    - 新增 `GET /api/v1/plaza/stats`：广场统计（各状态数量受 `q` 影响，与列表同口径；另含最远 / 最近开启时刻）
+    - 新增 `GET /api/v1/me/stats`：当前用户的胶囊与收藏统计
+    - 收藏不再校验胶囊状态：自己创建的、`inPlaza = false` 的、未开启 / 已开启的胶囊都可以收藏；
+      `POST /api/v1/me/favorites` 不再返回 `BAD_REQUEST`
+    - `GET /api/v1/me/favorites` 因此可能包含 `inPlaza = false` 的胶囊
+    - `/api/v1/health` 的 `version` 固定返回 `2.0.0`
+  version: 2.0.0
   contact:
     name: HelloTime Pro
   license:
@@ -402,6 +410,70 @@ components:
           type: string
           format: uuid
 
+    # ----- 统计（2.0.0 新增） -----
+    PlazaStats:
+      type: object
+      description: |
+        广场统计。只统计 `inPlaza = true` 的胶囊。
+        `counts` 受查询参数 `q` 影响，口径与 `GET /plaza/capsules` 相同（同样的 trim 与长度校验），
+        保证「筛选标签上的数量」与「切到该筛选后列表的 total」一致；
+        `farthestOpenAt` / `nextOpenAt` 不受 `q` 影响。
+      required: [counts, farthestOpenAt, nextOpenAt]
+      properties:
+        counts:
+          type: object
+          required: [all, opened, unopened]
+          properties:
+            all:
+              type: integer
+              minimum: 0
+            opened:
+              type: integer
+              minimum: 0
+              description: '`openAt <= now`'
+            unopened:
+              type: integer
+              minimum: 0
+              description: '`openAt > now`；恒有 `all = opened + unopened`'
+        farthestOpenAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 广场上开启时间最晚的一枚胶囊的 `openAt`（无论是否已开启）；广场为空时为 null
+        nextOpenAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 尚未开启的胶囊里最早到来的 `openAt`；没有未开启胶囊时为 null
+
+    MyStats:
+      type: object
+      description: 当前登录用户的统计。胶囊数量包含 `inPlaza = false` 的胶囊。
+      required: [created, opened, unopened, inPlaza, favoritesReceived, favoritesGiven]
+      properties:
+        created:
+          type: integer
+          minimum: 0
+          description: 我创建的胶囊总数；恒有 `created = opened + unopened`
+        opened:
+          type: integer
+          minimum: 0
+        unopened:
+          type: integer
+          minimum: 0
+        inPlaza:
+          type: integer
+          minimum: 0
+          description: 其中发布到广场的数量
+        favoritesReceived:
+          type: integer
+          minimum: 0
+          description: 我创建的胶囊累计被收藏的次数（各胶囊 `favoriteCount` 之和，含我自己的收藏）
+        favoritesGiven:
+          type: integer
+          minimum: 0
+          description: 我收藏的胶囊数量（与 `GET /me/favorites` 的 total 一致）
+
     # ----- health -----
     StackItem:
       type: object
@@ -431,6 +503,8 @@ components:
           const: hellotime-pro
         version:
           type: string
+          const: 2.0.0
+          description: 契约版本；所有实现固定返回 `2.0.0`
         uptimeSeconds:
           type: integer
           minimum: 0
@@ -643,7 +717,7 @@ components:
             $ref: '#/components/schemas/ErrorEnvelope'
 
     BadRequest:
-      description: 业务规则冲突（如收藏自己的胶囊）
+      description: 业务规则冲突（2.0.0 起收藏不再产生此错误）
       content:
         application/json:
           schema:
@@ -1048,6 +1122,31 @@ paths:
                           pagination:
                             $ref: '#/components/schemas/Pagination'
 
+  /api/v1/plaza/stats:
+    get:
+      tags: [Plaza]
+      summary: 广场统计（2.0.0 新增）
+      description: |
+        供首页「年鉴」与广场筛选标签上的数量使用。
+        `q` 的处理与 `GET /plaza/capsules` 完全一致：trim 后为空视为未传，超过 50 字符返回 `VALIDATION_ERROR`。
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PlazaQueryParam'
+      responses:
+        '200':
+          description: 统计结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PlazaStats'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
   /api/v1/plaza/capsules/{id}:
     get:
       tags: [Plaza]
@@ -1109,11 +1208,35 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/v1/me/stats:
+    get:
+      tags: [Me]
+      summary: 我的统计（2.0.0 新增）
+      description: 供「我的」页头展示：写下的胶囊数、封存中 / 已开启、发布到广场的数量、被收藏次数、我收藏的数量
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 统计结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MyStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/v1/me/capsules/{id}:
     delete:
       tags: [MyCapsules]
       summary: 删除我创建的胶囊（无论是否到期）
-      description: 不允许修改 content / openAt；删除永远允许
+      description: |
+        不允许修改 content / openAt；删除永远允许，且不可恢复。
+        删除时一并删除所有用户对它的收藏：它会从别人的「我收藏的」里消失，持有胶囊码的人也将无法再打开它。
       security:
         - bearerAuth: []
       parameters:
@@ -1139,6 +1262,7 @@ paths:
     get:
       tags: [Favorites]
       summary: 我收藏的胶囊（按收藏时间降序）
+      description: 2.0.0 起可能包含 `inPlaza = false` 的胶囊（用户凭码打开后收藏的）；前端应通过 `code` 打开详情，而不是广场详情
       security:
         - bearerAuth: []
       parameters:
@@ -1171,10 +1295,10 @@ paths:
       tags: [Favorites]
       summary: 收藏胶囊
       description: |
-        约束：
-        - 只能收藏 `inPlaza = true` 的胶囊
-        - 不能收藏自己创建的胶囊（`BAD_REQUEST`）
-        - 重复收藏幂等：返回 200 而非 409
+        2.0.0 起不校验胶囊状态：
+        - 自己创建的、`inPlaza = false` 的、未开启 / 已开启的胶囊都可以收藏
+        - 胶囊不存在返回 `NOT_FOUND`；`capsuleId` 不是合法 UUID 返回 `VALIDATION_ERROR`
+        - 重复收藏幂等：返回 200 而非 409，`favoriteCount` 不重复累加
       security:
         - bearerAuth: []
       requestBody:
@@ -1206,7 +1330,7 @@ paths:
                             type: string
                             format: date-time
         '400':
-          $ref: '#/components/responses/BadRequest'
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':

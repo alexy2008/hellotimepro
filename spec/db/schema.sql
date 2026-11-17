@@ -1,6 +1,6 @@
 -- ============================================================
 -- HelloTime Pro · 数据库 Schema（规范事实源）
--- 版本：0.1 · 2026-04-20
+-- 版本：2.0 · 2026-11-17（表结构与 0.1 相同，只更新了注释）
 --
 -- 本文件使用 PostgreSQL 16 方言。所有后端 / 全栈的迁移工具
 -- 必须以此为"事实基准"，实际运行时的 DDL 由各栈的迁移框架
@@ -101,7 +101,8 @@ CREATE INDEX capsules_title_trgm_ix
 -- favorites
 -- ------------------------------------------------------------
 -- 复合主键 (user_id, capsule_id) 天然去重
--- 不变式 I1（不能收藏自己）用业务层校验，SQLite 不支持 subquery CHECK
+-- 2.0 起收藏不校验胶囊状态：自己的、inPlaza = false 的都可以收藏（1.x 的 I1 已移除）
+-- 删除胶囊时，ON DELETE CASCADE 连带删除它的所有收藏（SQLite 需开启 PRAGMA foreign_keys）
 CREATE TABLE favorites (
     user_id     UUID         NOT NULL REFERENCES users (id)    ON DELETE CASCADE,
     capsule_id  UUID         NOT NULL REFERENCES capsules (id) ON DELETE CASCADE,

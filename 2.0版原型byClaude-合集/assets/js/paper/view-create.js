@@ -190,7 +190,7 @@
                   </button>
                   <div class="hold-copy">
                     <b id="holdHint">长按火漆，封缄</b>
-                    <p>封缄后不可修改、不可提前开启；<br>可在「我创建的」里随时撤回。</p>
+                    <p>封缄后不可修改、不可提前开启；<br>可以在「我创建的」里删除。</p>
                     <p class="hold-poem serif">复恐匆匆说不尽，行人临发又开封。</p>
                   </div>
                 </div>
@@ -566,13 +566,13 @@
                 <button class="btn btn--primary" type="button" data-copy-code>${icon('copy')}复制胶囊码</button>
                 <button class="btn btn--ghost" type="button" data-copy-link>${icon('link')}复制分享链接</button>
               </div>
-              <div class="rcpt__more"><a href="#/c/${c.code}">查看这枚胶囊${icon('arrow')}</a><button class="linkbtn" type="button" data-again>${icon('pen')}再写一枚</button></div>
+              <div class="rcpt__more"><a href="#/capsules/${c.code}">查看这枚胶囊${icon('arrow')}</a><button class="linkbtn" type="button" data-again>${icon('pen')}再写一枚</button></div>
             </div>
           </div>`;
         $('#overlay').appendChild(cer);
         cer.addEventListener('click', (e) => {
           if (e.target.closest('[data-copy-code]')) HT.copy(c.code, `已复制胶囊码 ${c.code}`);
-          else if (e.target.closest('[data-copy-link]')) HT.copy(location.origin + location.pathname + '#/c/' + c.code, '已复制分享链接');
+          else if (e.target.closest('[data-copy-link]')) HT.copy(location.origin + location.pathname + '#/capsules/' + c.code, '已复制分享链接');
           else if (e.target.closest('[data-again]')) { closeCer(); resetForm(); }
         });
         const env = $('.env', cer);

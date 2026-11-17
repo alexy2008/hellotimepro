@@ -127,7 +127,7 @@
             <div class="ty"><div class="ty__s ty__s--song">把此刻，寄给未来</div><div class="ty__m"><b>思源宋体 · 900 / 700</b><span>标题、信的正文。笔画对比强，像刻出来的字。</span></div></div>
             <div class="ty"><div class="ty__s latin ty__s--latin">2030 · 365 <i>days</i></div><div class="ty__m"><b>Cormorant Garamond</b><span>倒计时、统计数字与西文点缀。</span></div></div>
             <div class="ty"><div class="ty__s mono ty__s--mono">NO. GK25WIND · 09:00</div><div class="ty__m"><b>IBM Plex Mono</b><span>胶囊码、时间戳、路径——一切「单据上的字」。</span></div></div>
-            <div class="ty"><div class="ty__s ty__s--sans">封缄后不可修改，可随时撤回。</div><div class="ty__m"><b>系统黑体（苹方 / 雅黑）</b><span>界面文字与说明，保证小字号下的清晰。</span></div></div>
+            <div class="ty"><div class="ty__s ty__s--sans">封缄后不可修改，可随时删除。</div><div class="ty__m"><b>系统黑体（苹方 / 雅黑）</b><span>界面文字与说明，保证小字号下的清晰。</span></div></div>
           </div>
         </section>
 
@@ -169,7 +169,7 @@
           <ul class="ds__motion">
             <li><b>长按封缄</b><span>创建页的提交不是一次点击，而是按住火漆约 1 秒——不可撤销的动作，值得一点仪式感。随后信纸入封、封舌合上、火漆落下，取信凭证滑出。</span><a class="link" href="#/create">去看看${icon('arrow')}</a></li>
             <li><b>时间标尺</b><span>一把对数刻度的尺，从「此刻」到「十年」。拖动、点按、方向键都可以，信封上的邮戳会跟着变；需要精确时再展开日历。</span><a class="link" href="#/create">去看看${icon('arrow')}</a></li>
-            <li><b>启封</b><span>倒计时归零的那一刻：火漆裂开，封舌掀起露出朱红内衬，信纸升起，字迹逐段显影。详情页有「快进」可以立即体验。</span><a class="link" href="#/c/${hot ? hot.code : 'SAMESONG'}">去看看${icon('arrow')}</a></li>
+            <li><b>启封</b><span>倒计时归零的那一刻：火漆裂开，封舌掀起露出朱红内衬，信纸升起，字迹逐段显影。详情页有「快进」可以立即体验。</span><a class="link" href="#/capsules/${hot ? hot.code : 'SAMESONG'}">去看看${icon('arrow')}</a></li>
             <li><b>AI 代笔</b><span>正文像被人一笔一笔写上信纸；标尺同时滑向 AI 建议的启封时刻。开始打字即可随时打断。</span><a class="link" href="#/create">去看看${icon('arrow')}</a></li>
             <li><b>昼夜切换</b><span>以点击处为圆心晕开（View Transitions），像一盏灯被拧亮或熄灭。</span></li>
             <li><b>克制</b><span>缓动统一为一条出场曲线；尊重「减少动态效果」的系统设置，此时所有仪式都退化为直接切换。</span></li>

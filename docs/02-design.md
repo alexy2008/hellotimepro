@@ -1,6 +1,8 @@
 # HelloTime Pro 总体设计
 
-> 版本 0.1 · 2026-04-17 · 面向对象：第一次接触本项目的新开发者
+> 版本 2.0 · 2026-11-17 · 面向对象：第一次接触本项目的新开发者
+>
+> 2.0 相对 0.1 的设计变化：收藏不再校验状态（§5.3）、两个统计接口（§6.2、§12.1）、双皮肤与令牌分层（§9.3）、组件清单与测试钩子（§9.4、§9.5）、胶囊专属色（§9.6）、头像新画法（§13）、验证策略（§15）。
 
 > 阅读本文之前建议先读 [01-requirements.md](01-requirements.md)。
 
@@ -67,15 +69,18 @@ HelloTimeProByClaude/
 │   └── multi-stack-reading-guide.md
 ├── spec/
 │   ├── api/openapi.yaml
-│   ├── styles/
-│   │   ├── tokens.css        ← 语义令牌（brand / surface / text / ...）
-│   │   ├── palette.css       ← 色阶（50..900）
-│   │   └── cyber.css         ← 共享组件样式（按钮 / 卡片 / 输入）
+│   ├── styles/               ← 见 §9.3
+│   │   ├── base.css          ← 皮肤无关：间距、圆角刻度、字号阶梯、动效曲线、层级、断点
+│   │   ├── paper/            ← 「时笺」：tokens.css（明 / 暗语义令牌）+ components.css（共享组件类）
+│   │   └── amber/            ← 「琥珀」：同上
 │   ├── tokens/
-│   │   └── tokens.json       ← 由 tokens.css 同步生成，供 Tailwind/JS 消费
+│   │   └── tokens.json       ← 由 spec/styles 生成，供 Tailwind / JS / 原生客户端消费
+│   ├── ui/
+│   │   ├── testids.md        ← 界面测试钩子契约（UI 冒烟唯一依赖）
+│   │   └── copy.md           ← 两套皮肤共用的文案（校验提示、关于页、确认框）
 │   ├── avatars/
-│   │   ├── 01-neo.svg ... 10-specter.svg
-│   │   └── catalog.json      ← id / 名称 / 推荐色
+│   │   ├── neo.svg ... void.svg   ← 10 个单线徽记，用 currentColor 着色
+│   │   └── catalog.json      ← id / 名称 / 题记 / 主色
 │   └── icons/                ← 技术栈 SVG 图标（Simple Icons 来源，统一 24×24 viewBox）
 │       ├── python.svg
 │       ├── fastapi.svg
@@ -116,7 +121,8 @@ HelloTimeProByClaude/
 │   ├── build.sh
 │   ├── test.sh
 │   └── docker-compose.yml        ← 本地 Postgres
-└── ui-prototype/                 ← 设计原型（HTML 静态页）
+├── ui-prototype/                 ← 1.x 设计原型（HTML 静态页）
+└── 2.0版原型byClaude-合集/        ← 2.0 设计原型：「时笺」「琥珀」双皮肤，视觉与交互基准
 ```
 
 ## 4. 端口分配
@@ -211,7 +217,7 @@ HelloTimeProByClaude/
 | `capsule_id` | UUID | FK → capsules.id |
 | `created_at` | timestamptz | NOT NULL |
 | PK | `(user_id, capsule_id)` | |
-| CHECK | `user_id != capsules.owner_id`（见 §5.3） |
+| FK | `capsule_id` → `capsules.id` `ON DELETE CASCADE` | 删除胶囊时连带删除收藏 |
 
 **refresh_tokens**（服务端维护，便于 rotate / 吊销）
 
@@ -226,10 +232,12 @@ HelloTimeProByClaude/
 
 ### 5.3 不变式（Invariants）
 
-- **I1**：不能收藏自己的胶囊。实现层面在 service 里显式校验（数据库 CHECK 需要 subquery，SQLite 不支持，统一用业务校验）。
+- **I1**（2.0 移除）：1.x 的"不能收藏自己的胶囊 / 不能收藏 `inPlaza = false` 的胶囊"不再成立。收藏只要求胶囊存在；各实现删掉对应的业务校验。
 - **I2**：`favorite_count == COUNT(favorites WHERE capsule_id = c.id)`。所有 favorites 表写操作必须与 capsules 的 `favorite_count` 在同一事务里完成。
 - **I3**：`code` 严格 8 位 `[A-Z0-9]`。生成失败重试最多 5 次。
 - **I4**：`open_at > created_at + 60 seconds` 在创建时校验。
+- **I5**：删除胶囊与删除它的所有收藏在同一事务里完成（依赖外键级联，或显式先删收藏）。SQLite 必须开启 `PRAGMA foreign_keys = ON`，否则级联不生效。
+- **I6**：`title`、`content`、`open_at` 创建后不可修改；没有任何更新接口。
 
 ## 6. API 契约
 
@@ -258,7 +266,10 @@ HelloTimeProByClaude/
 | GET | `/api/v1/avatars` | 内置头像列表 |
 | GET | `/api/v1/capsules/{code}` | 按 8 位码查询（凭证即可见） |
 | GET | `/api/v1/plaza/capsules` | 广场列表（分页 + sort + filter + q 模糊搜索） |
-| GET | `/api/v1/plaza/capsules/{id}` | 广场胶囊详情 |
+| GET | `/api/v1/plaza/stats` | **2.0 新增**：广场统计（各筛选的数量受 `q` 影响；最远 / 最近开启时刻） |
+| GET | `/api/v1/plaza/capsules/{id}` | 广场胶囊详情（2.0 前端不再使用，契约保留） |
+| POST | `/api/v1/capsule-suggestion` | AI 生成胶囊正文与建议开启天数（标题可空） |
+| GET | `/api/v1/capsule-recommendations` | AI 推荐主题（LLM 不可用时返回空数组） |
 
 **鉴权**
 
@@ -278,10 +289,13 @@ HelloTimeProByClaude/
 | POST | `/api/v1/me/password` | 修改密码 |
 | POST | `/api/v1/capsules` | 创建胶囊 |
 | GET | `/api/v1/me/capsules` | 我创建的 |
-| DELETE | `/api/v1/me/capsules/{id}` | 删除我创建的（MUST；胶囊内容与时间一经创建不可修改） |
-| GET | `/api/v1/me/favorites` | 我收藏的 |
-| POST | `/api/v1/me/favorites` | 收藏 |
-| DELETE | `/api/v1/me/favorites/{capsuleId}` | 取消收藏 |
+| GET | `/api/v1/me/stats` | **2.0 新增**：我的统计（创建 / 已开启 / 未开启 / 在广场 / 被收藏 / 收藏了） |
+| DELETE | `/api/v1/me/capsules/{id}` | 删除我创建的（不限状态；连带删除所有收藏；不可恢复） |
+| GET | `/api/v1/me/favorites` | 我收藏的（可能含 `inPlaza = false` 的胶囊） |
+| POST | `/api/v1/me/favorites` | 收藏（2.0 起不校验状态；不存在 404，非法 UUID 400，重复幂等） |
+| DELETE | `/api/v1/me/favorites/{capsuleId}` | 取消收藏（幂等） |
+
+> 2.0 是破坏性升级：所有实现一起升，不做能力协商。`/api/v1/health` 的 `version` 固定返回 `"2.0.0"`，验证脚本据此确认目标已升级。
 
 ### 6.3 请求鉴权
 
@@ -327,7 +341,7 @@ HelloTimeProByClaude/
         }
       ]
     },
-    "version": "0.1.0",
+    "version": "2.0.0",
     "uptimeSeconds": 1234
   }
 }
@@ -434,16 +448,16 @@ DB_URL=sqlite://../../data/hellotime.db
 
 ### 9.1 共用层
 
-- **Tailwind CSS v4** 为主要样式方案，通过 `tokens.json` 生成 Tailwind preset，保持与 CSS 令牌一致
-- `spec/styles/cyber.css` 提供少量不适合 utility class 表达的组件样式（渐变、动画关键帧）
-- 每个前端 SHOULD 有一个 `api/client.ts`（fetch 封装，统一错误、自动 refresh token）
-- 每个前端 SHOULD 有一个 `types/index.ts`（从 OpenAPI 生成或手维护，但 shape 一致）
+- **Tailwind CSS v4** 只用于少量布局 utility；颜色、字体、间距一律走 `spec/styles` 的令牌（§9.3）
+- 每个前端 SHOULD 有一个 `api/client.ts`（fetch 封装，统一错误、自动 refresh token 并重放）
+- 每个前端 SHOULD 有一个 `types/index.ts`（从 OpenAPI 生成或手维护，但 shape 一致），2.0 新增 `PlazaStats`、`MyStats`
+- 2.0 的视觉原型在 `2.0版原型byClaude-合集/`（纯静态，可直接双击打开）：它是两套皮肤的**视觉与交互基准**，实现时以它为参照，以 `spec/` 为契约
 
 ### 9.2 各栈状态方案
 
 | 栈 | 状态方案 | 路由 |
 |---|---|---|
-| Vue 3 | **Pinia**（auth / plaza store；capsule 逻辑内联在页面） | `vue-router` |
+| Vue 3 | **Pinia**（auth / plaza / ui store；capsule 逻辑内联在页面） | `vue-router` |
 | React | **Zustand**（小而直接，符合 React 生态风气） | `react-router` |
 | Angular | **Signal Store (@ngrx/signals)**（Signals 原生融合） | Angular Router |
 | Svelte 5 | **runes + 模块级 store**（Svelte 官方推荐） | `svelte-routing` |
@@ -451,37 +465,122 @@ DB_URL=sqlite://../../data/hellotime.db
 
 > 选择理由：**Pinia** 是 Vue 生态标准；对其他栈特意不统一，因为"各栈用各自习惯"本身就是教学目标。
 
-### 9.3 样式：Design Tokens + cy-* 共享类
+2.0 在各栈的 store 里新增两份**跨皮肤保留**的状态：
 
-真正的样式体系分三层，均位于 `spec/styles/`：
+- `ui`：`skin`（`paper | amber`）、`theme`（`light | dark`），持久化到 `localStorage` 的 `hellotime.skin`、`hellotime.theme`
+- `draft`：创建页草稿（标题、正文、开启时间、是否发布到广场），只放内存，封存成功后清空
+- 广场的 `sort / filter / q / page` 1.x 已在 plaza store 里，切换皮肤时不重置
+
+### 9.3 皮肤机制与令牌分层
+
+**两个正交维度，挂在 `<html>` 上：**
+
+```html
+<html data-skin="amber" data-theme="dark">
+```
+
+- `data-skin`：`paper`（时笺）| `amber`（琥珀），默认 `amber`
+- `data-theme`：`light` | `dark`，默认跟随 `prefers-color-scheme`
+- 两个属性 MUST 在首帧之前由 `index.html` 里的内联脚本（或服务端模板）根据 `localStorage` 写好，否则会闪出另一套皮肤
+- 切换时 MAY 用 View Transitions 做转场（换皮肤：模糊淡入淡出；换明暗：从开关处圆形晕开），MUST 在 `prefers-reduced-motion` 或不支持时直接切换
+
+**令牌三层，全部位于 `spec/styles/`：**
 
 ```
-spec/styles/palette.css   ← 色阶变量（brand-50..900 等，原始值）
-spec/styles/tokens.css    ← 语义令牌（--color-text-primary、--space-4…；含 dark 主题覆盖）
-spec/styles/cyber.css     ← 共享组件类（cy-btn、cy-capsule、cy-cal、cy-form、cy-badge……）
+spec/styles/base.css              ← 第一层：皮肤无关的刻度
+                                     --space-*、--radius-*（刻度，不是取值）、--text-*（字号阶梯）、
+                                     --ease-*、--dur-*、--z-*、断点
+spec/styles/<skin>/tokens.css     ← 第二层：皮肤语义令牌，各含明 / 暗两套
+                                     --color-bg / --color-surface / --color-text / --color-accent / --color-danger …
+                                     --font-display / --font-body / --font-mono
+                                     --radius-card / --shadow-card …（同名令牌，不同皮肤取不同值）
+spec/styles/<skin>/components.css ← 第三层：皮肤组件类（ht-btn、ht-card、ht-seg、ht-field …）
+spec/tokens/tokens.json           ← 由以上生成：{ base, skins: { paper: { light, dark }, amber: { light, dark } } }
 ```
 
-各前端 / 全栈的 `src/styles/index.css` 直接 `@import` 这三个文件，加上 Tailwind v4（用于少量 utility 布局类）。
+规则：
 
-**组件层禁止硬编码色值**；颜色一律使用 `--color-*` CSS 变量或 `cy-*` class，不得使用 `brand-50` 等原始色阶。
+- 两套皮肤**语义令牌同名**：同一个组件引用 `--color-accent`，在时笺下是朱红，在琥珀下是琥珀金。组件代码不出现皮肤名
+- 选择器写法固定：`:root[data-skin="paper"]`、`:root[data-skin="paper"][data-theme="dark"]`，各实现原样 `@import` 两套 `tokens.css`，不做二次加工
+- **组件层禁止硬编码色值**，只能引用令牌。`verify-design-tokens.sh` 校验"引用的令牌必须已声明"与"组件样式里无十六进制 / rgb / oklch 字面量"
+- 1.x 的 `palette.css`、`tokens.css`、`cyber.css` 与 `cy-*` 类在 2.0 移除
+
+**结构差异怎么办**：两套皮肤不只是换色——时笺的卡片是信封，琥珀的卡片是胶囊；时笺用长按火漆封缄，琥珀用按钮。因此：
+
+- **逻辑层共享**：store、api client、路由守卫、倒计时、表单校验、收藏的乐观更新，每个实现只写一份
+- **视图层按皮肤分**：结构差异大的组件（卡片、首页 hero、创建页的封缄台、详情页的开启动画、页头页脚）每套皮肤一份，放在 `skins/paper/`、`skins/amber/` 之类的目录里，通过当前 `skin` 选择渲染哪一份；结构相同只是样式不同的组件（表单字段、分段控件、分页、对话框、Toast）只写一份，靠令牌换肤
+- 无论哪套皮肤，**测试钩子（§9.5）与文案（`spec/ui/copy.md`）完全相同**
+- 全栈（服务端模板）同理：模板按皮肤分片段，切换皮肤 MAY 整页刷新，但 MUST 保留草稿与筛选（草稿可暂存 `sessionStorage`）
+
+**字体**：时笺用宋体标题（思源宋体）+ 衬线拉丁（Cormorant Garamond）+ 等宽（IBM Plex Mono）；琥珀全部用系统字体。网络字体 MUST 自托管（放在实现的静态目录，或由 `spec/assets/fonts/` 提供子集），不得依赖 Google Fonts 等外网 CDN；回退到系统字体时版式不能崩。
 
 ### 9.4 组件清单（所有前端 / 全栈必须有）
 
-- `AppHeader`（logo / 首页链接 / 登录态切换）
-- `AppFooter`（技术栈展示）
-- `ThemeToggle`
-- `AuthGate`（路由守卫）
-- `CapsuleCard`（广场列表项）
-- `CapsuleGrid`（含 sort / filter / 关键词搜索）
-- `PlazaToolbar`（`CapsuleGrid` 顶部：sort segmented + filter segmented + `SearchInput` 300ms 防抖）
-- `CapsuleForm`（创建；各栈内联在 `CreatePage` 中，不单独抽组件）
-- `CapsuleCodeInput`（8 位码输入）
-- `CapsuleDetail`（未开启倒计时 + 已开启正文）
-- `FavoriteButton`（含匿名用户跳登录提示）
-- `AvatarPicker`（9 / 10 宫格 + 选中态）
-- `NicknameField`（带唯一性异步校验）
+标 **[分皮肤]** 的组件每套皮肤各一份，其余共用一份。
+
+**外壳**
+
+- `AppHeader` [分皮肤]：品牌、主导航（广场 / 开启 / 创建 / 我的）、皮肤开关、明暗开关、登录态
+- `AppFooter` [分皮肤]：技术栈（来自 `/health`）
+- `TabBar`：手机宽度下的底部标签栏
+- `SkinSwitcher`：两个选项的单选组（`role="radiogroup"`，选项 `aria-checked`）；`ThemeToggle`：`role="switch"` 开关。两者互相独立
+- `AuthGate`：路由守卫，未登录跳 `/login?redirect=`
+- `Toast`、`ConfirmDialog`（焦点圈定、Esc 关闭、确认按钮可设危险色）
+
+**首页 / 广场**
+
+- `HomeHero` [分皮肤]：标题、创建入口、`QuickOpen`（就地输码）
+- `PlazaStats` [分皮肤]：广场概览（`/plaza/stats`）
+- `PlazaToolbar`：sort 分段 + filter 分段（带数量）+ `SearchInput`（300ms 防抖）
+- `CapsuleGrid`：列表、加载骨架、空态、出错重试、分页
+- `CapsuleCard` [分皮肤]：已开启 / 未开启在形态上区分；未开启有倒计时与模糊遮蔽
+- `FavoriteButton`：收藏数 + 状态；匿名用户跳登录；乐观更新
+
+**胶囊**
+
+- `CapsuleCodeInput`：8 格输码，粘贴整码、退格回跳、输满自动查询
+- `MySealedList`：开启页的「我封存过的胶囊」（至多 3 枚）
+- `CapsuleDetail` [分皮肤]：未开启倒计时（归零自动开启）+ 已开启正文 + 开启动画 + 复制码 / 链接
+- `CreatePage` [分皮肤]：表单内联；`OpenAtPicker`（快捷时长 + 日历 + 时间）、`AiAssist`（推荐主题 chip、换一批、AI 生成）、`SealControl`（长按或按钮）、`SealedReceipt`（封存完成，展示码）
+
+**账号**
+
 - `LoginForm` / `RegisterForm` / `PasswordChangeForm`
-- `MeLayout`（左侧我的二级菜单 + 右侧内容区）
+- `AvatarPicker`：10 宫格 + 选中态
+- `Avatar`：按 `avatarId` 渲染单线徽记（§13）
+- `NicknameField`：带唯一性异步校验
+- `MeLayout` [分皮肤]：页头统计（`/me/stats`）+ 二级菜单（带数量）+ 内容区
+- `MyCapsuleRow`：每行带「删除」按钮（含已开启），点击弹 `ConfirmDialog`
+
+**关于**
+
+- `AboutPage` [分皮肤]：文字来自 `spec/ui/copy.md`；技术栈只列本实现
+
+### 9.5 界面测试钩子
+
+UI 冒烟不再依赖类名、按钮文案和 DOM 结构，只依赖 `data-testid`。完整清单与交互约定见 [`spec/ui/testids.md`](../spec/ui/testids.md)。要点：
+
+- 每个实现、每套皮肤 MUST 在等价元素上提供同名 `data-testid`；同一页面内的列表项用同名 testid 重复出现，并用 `data-code` 等属性携带标识
+- 状态用 `data-state` 等属性表达（例如卡片的 `data-state="opened|sealed"`、收藏按钮的 `aria-pressed`），不让测试去读文案
+- 长按类控件 MUST 同时响应键盘：按下空格开始、松开结束；长按时长 ≤ 1200ms。测试统一用 `press('Space', { delay: 1500 })` 触发，普通按钮天然满足
+- `verify-ui-smoke.sh` 对每个前端 / 全栈在 `paper`、`amber` 两套皮肤下各跑一遍（通过预置 `localStorage` 的 `hellotime.skin` 切换）
+
+### 9.6 胶囊专属色（琥珀）
+
+琥珀给每枚胶囊一种颜色，由胶囊码算出，任何实现结果一致：
+
+```
+h   = FNV-1a 32 位哈希(code)            // 初值 0x811c9dc5，素数 0x01000193，按 UTF-16 码元逐个异或再乘
+hue = h mod 360
+hue2 = (hue + 40 + ((h >>> 9) mod 41)) mod 360
+
+capLight = oklch(0.84 0.14 hue)          // 舱盖亮面
+capDeep  = oklch(0.63 0.19 hue)          // 舱盖暗面
+accent   = oklch(0.78 0.13 hue2)         // 点缀
+glow     = oklch(0.72 0.17 hue / 0.34)   // 光晕
+```
+
+OKLCH 固定亮度与彩度、只变色相，任何色相看上去一样鲜亮。品牌默认色取 `hue = 68, hue2 = 300`。这些值属于"由数据算出的颜色"，是组件层不得硬编码色值规则的唯一例外，计算函数放在共享逻辑层。
 
 ## 10. 后端架构（通用分层建议）
 
@@ -505,8 +604,9 @@ infrastructure (repo / orm / migration / auth providers)
 - `AuthService`：注册、登录、token rotate、修改密码、吊销
 - `UserService`：资料读写、昵称冲突校验
 - `CapsuleService`：创建、查询、按 code 查、按 id 查、隐藏 content 规则
-- `PlazaService`：广场列表（sort / filter / 模糊搜索 q / 分页 + 是否已收藏投影）
-- `FavoriteService`：收藏 / 取消收藏 + 计数同步
+- `PlazaService`：广场列表（sort / filter / 模糊搜索 q / 分页 + 是否已收藏投影）+ 广场统计（复用列表的过滤与搜索条件）
+- `FavoriteService`：收藏 / 取消收藏 + 计数同步（2.0 起只校验胶囊存在）
+- `MeService`（或并入 `CapsuleService`）：我的统计；删除自己的胶囊（连带收藏，同一事务）
 
 ## 11. 全栈架构
 
@@ -559,12 +659,53 @@ LIMIT $pageSize OFFSET ($page - 1) * $pageSize;
   - `users    USING gin (lower(nickname) gin_trgm_ops)`
   - SQLite 无等价索引；数据量小可接受全表 `LIKE` 扫描
 
+> 2.0 起作者可以收藏自己的胶囊，因此"最热"里作者本人的那一票也算数。这是有意接受的结果，不做扣除。
+
+### 12.1 统计查询（2.0）
+
+**广场统计 `GET /plaza/stats`**：`counts` 与列表**同一套 WHERE**（`in_plaza` + 可选 `q`），只是不带 `filter`、改成条件计数；两个时刻不受 `q` 影响。
+
+```sql
+-- counts（与列表共用 q 条件；all = opened + unopened 恒成立）
+SELECT count(*)                                   AS all,
+       count(*) FILTER (WHERE c.open_at <= now()) AS opened,   -- SQLite：sum(CASE WHEN ... THEN 1 ELSE 0 END)
+       count(*) FILTER (WHERE c.open_at >  now()) AS unopened
+FROM capsules c JOIN users u ON c.owner_id = u.id
+WHERE c.in_plaza = true
+  AND ($q IS NULL OR lower(c.title) LIKE ... OR lower(u.nickname) LIKE ...);
+
+-- 两个时刻（不带 q）
+SELECT max(open_at)                              AS farthest_open_at,
+       min(open_at) FILTER (WHERE open_at > now()) AS next_open_at
+FROM capsules WHERE in_plaza = true;
+```
+
+- "现在"取一次，三处判断共用同一个时刻，避免边界上 `opened + unopened ≠ all`
+- `q` 的 trim 与长度校验与列表完全相同，越界同样返回 `VALIDATION_ERROR`
+
+**我的统计 `GET /me/stats`**：
+
+```sql
+SELECT count(*)                                     AS created,
+       count(*) FILTER (WHERE open_at <= now())     AS opened,
+       count(*) FILTER (WHERE open_at >  now())     AS unopened,
+       count(*) FILTER (WHERE in_plaza)             AS in_plaza,
+       coalesce(sum(favorite_count), 0)             AS favorites_received
+FROM capsules WHERE owner_id = $me;
+
+SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
+```
+
+- 胶囊数量包含 `in_plaza = false` 的胶囊
+- `favorites_received` 直接对冗余计数求和，依赖不变式 I2
+
 ## 13. 内置头像
 
-- 10 个 SVG 赛博风格头像，存在 `spec/avatars/*.svg`
-- 每个头像有 `id`（小写 kebab-case，如 `neo` / `specter` / `glyph`）、中文名、主色
-- `spec/avatars/catalog.json` 为事实源；`GET /api/v1/avatars` 直接返回
-- 设计由 `ui-prototype/` 原型驱动；本项目自制，不依赖外部资源
+- 10 个头像，存在 `spec/avatars/*.svg`；`id` 沿用 1.x（`neo`、`specter`、`glyph`、`pulse`、`circuit`、`nova`、`oracle`、`drift`、`echo`、`void`），**数据库与接口不变**
+- 2.0 重绘为**单线徽记**：24×24 视口、圆端点圆拐角，只用 `currentColor`，不内置底色与描边粗细（时笺 1.6、琥珀 1.8，由皮肤样式给）。由皮肤决定怎么上色：时笺是主色淡底 + 主色线，琥珀是主色渐变底 + 浅色线
+- `GET /avatars` 的返回形状不变（`id`、`name`、`primaryColor`、`svgUrl`）；`primaryColor` 换成新徽记的主色，`svgUrl` 指向新画法的文件
+- 每个头像有 `id`、中文名（如「新生」）、一句题记（如「破土的芽」）、主色；`spec/avatars/catalog.json` 为事实源，`GET /api/v1/avatars` 直接返回
+- 画法以 `2.0版原型byClaude-合集/assets/js/data.js` 的 `HT.AVATARS` 为准；本项目自制，不依赖外部资源
 
 ## 14. dev-manager v2（`scripts/hello`）
 
@@ -612,20 +753,23 @@ LIMIT $pageSize OFFSET ($page - 1) * $pageSize;
 |---|---|---|
 | 单元 | 各实现内部逻辑 | 栈原生（pytest / jest / go test / swift test / ...） |
 | 契约 | 从外部黑盒验证 API 行为与 spec 一致 | 自研 `verify-contract.sh`（见下） + Schemathesis 辅助 |
-| UI 冒烟 | 从外部跑一遍主流程 | Playwright（单一套用例，跑到 :9080 + 任一前端） |
+| UI 冒烟 | 从外部跑一遍主流程 | Playwright（单一套用例，只依赖测试钩子，每套皮肤各跑一遍） |
+| 令牌 | 样式只引用已声明的令牌、无硬编码色值 | `verify-design-tokens.sh`（静态扫描） |
 
 ### 15.2 契约验证脚本
 
 `verification/scripts/verify-contract.sh <target>` 对一个后端 / 全栈跑完整脚本：
 
-1. 启动目标（通过 `hello start`），等健康检查
+1. 启动目标（通过 `hello start`），等健康检查；确认 `version == "2.0.0"`，否则直接判红
 2. 注册 2 个用户 → 登录 → 创建若干胶囊（含 `inPlaza=true/false`）
 3. 跑 [`verification/contract/*.spec.ts`](../verification/contract/)（fetch + 断言）
 4. 验证未到期 `content = null`
 5. 验证广场只返回 `in_plaza = true`
-6. 验证收藏不能收藏自己 / 不能收藏 private
-7. 验证热度排序正确
-8. 清理
+6. 验证收藏：收藏自己的成功；凭码收藏 `inPlaza = false` 的成功并出现在「我收藏的」；不存在 404；非法 UUID 400；重复收藏与重复取消幂等
+7. 验证删除：删除后按码查询 404，并从收藏者的「我收藏的」里消失；不能删除别人的
+8. 验证统计：`/plaza/stats` 的 `counts` 与三种 `filter` 下列表的 `total` 一致、随 `q` 变化、`all = opened + unopened`；`/me/stats` 与「我创建的 / 我收藏的」的 `total` 一致、未登录 401
+9. 验证热度排序正确
+10. 清理
 
 输出统一的绿 / 红报告。
 
@@ -634,14 +778,18 @@ LIMIT $pageSize OFFSET ($page - 1) * $pageSize;
 `verification/scripts/verify-ui-smoke.sh <frontend>`：
 
 - 对前端启动 dev 服务器
-- Playwright 用例：注册 → 创建公开胶囊 → 登出 → 匿名浏览广场看到 → 再登另一用户 → 收藏 → 进"我收藏的"看到
+- 先跑一遍 `paper`，再跑一遍 `amber`（用 Playwright 的 `storageState` / `addInitScript` 预置 `localStorage['hellotime.skin']`），两遍都绿才算通过
+- 用例只通过 `getByTestId` 与 `data-*` 状态属性定位，不读类名，不依赖按钮文案（清单见 `spec/ui/testids.md`）
+- 主流程：注册 → 创建公开胶囊 → 登出 → 匿名浏览广场看到 → 再登另一用户 → 收藏 → 进"我收藏的"看到；另覆盖登录回跳、就地输码、删除确认、皮肤与明暗切换后状态保留、AI 推荐（route mock）
 
 ### 15.4 Design Token 验证
 
 `verification/scripts/verify-design-tokens.sh` 静态比对：
 
-- 读 `spec/styles/tokens.css` 提取所有语义变量
-- 扫描每个前端构建产物是否引用了未声明的 token
+- 读 `spec/styles/base.css` 与两套 `tokens.css`，提取所有已声明的变量
+- 扫描每个前端 / 全栈的样式源码：`var(--x)` 引用的变量必须已声明（实现内部以 `--_` 开头的私有变量除外）
+- 组件样式里不得出现十六进制、`rgb()`、`hsl()`、`oklch()` 色值字面量（`spec/styles` 本身与胶囊专属色计算函数除外）
+- 两套皮肤的语义令牌必须同名同集合：一套有、另一套没有即红灯
 - 失败即红灯
 
 ## 16. 本地开发体验（Day-1 指标）
@@ -665,6 +813,10 @@ LIMIT $pageSize OFFSET ($page - 1) * $pageSize;
 | 每次 refresh 去数据库增加延迟 | 登录态切换慢感知 | refresh 是低频事件（1h 一次），可接受 |
 | `favorite_count` 冗余计数器一致性 | 排序错误 | 事务写 + 契约验证覆盖 |
 | 5 全栈各自样式漂移 | 视觉不一致 | Design Token 验证脚本把关 |
+| 两套皮肤让视图层工作量翻倍 | 20 个实现 × 2 套视图 | 逻辑层只写一份；结构相同的组件只靠令牌换肤；只有标 [分皮肤] 的组件写两份（§9.4） |
+| 两套皮肤行为悄悄分叉 | 某套皮肤缺功能 | 测试钩子 + 每套皮肤各跑一遍冒烟 |
+| 时笺的网络字体在国内不可达 | 首屏字体闪烁或版式错乱 | 字体自托管，回退系统字体时版式不崩（§9.3） |
+| 琥珀的粒子与毛玻璃在低端机上吃力 | 卡顿、耗电 | 页面不可见时暂停；`prefers-reduced-motion` 时关闭 |
 
 ## 18. 和 v1 的替换关系
 
