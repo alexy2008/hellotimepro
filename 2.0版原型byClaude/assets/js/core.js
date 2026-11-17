@@ -460,6 +460,23 @@
       <span class="fav__ic">${icon('heart')}</span>${md ? `<span class="fav__t">${c.favoritedByMe ? '已收藏' : '收藏'}</span>` : ''}<span class="fav__n">${fmt.num(c.favoriteCount)}</span></button>`;
   };
 
+  /* 卡片底图：同一只信封的两种状态——合着、舌尖钤朱印 / 封舌掀起、信纸露出半截 */
+  const ENV_ART = {
+    sealed: `<svg class="cap__art" viewBox="0 0 120 84" aria-hidden="true">
+      <rect class="ea__body" x="2" y="6" width="116" height="76" rx="3"/>
+      <path class="ea__line" d="M2.5 80.5 47 46M117.5 80.5 73 46"/>
+      <path class="ea__flap" d="M3 7.5 60 48 117 7.5"/>
+      <g class="ea__seal"><circle cx="60" cy="48" r="11"/><circle class="ea__seal-ring" cx="60" cy="48" r="7"/></g>
+    </svg>`,
+    opened: `<svg class="cap__art" viewBox="0 0 120 100" aria-hidden="true">
+      <path class="ea__body" d="M2 42 60 4 118 42V96a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3Z"/>
+      <rect class="ea__paper" x="16" y="14" width="88" height="62" rx="1.5"/>
+      <path class="ea__rule" d="M26 30h68M26 40h68M26 50h68M26 60h44"/>
+      <path class="ea__pocket" d="M2 42 60 78 118 42V96a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3Z"/>
+      <path class="ea__line" d="M2.5 97.5 49 70M117.5 97.5 71 70"/>
+    </svg>`,
+  };
+
   /* 胶囊卡片：封 / 启两种形态 */
   HT.card = (c, opt) => {
     const o = opt || {};
@@ -468,11 +485,12 @@
     const body = c.isOpened
       ? `<p class="cap__preview">${esc(preview(c.content))}</p>
          <div class="cap__when"><span>启于 ${fmt.date(c.openAt)}</span><i></i><span>在途 ${fmt.span(c.openAt - c.createdAt)}</span></div>`
-      : `<div class="cap__veil" aria-hidden="true"><i></i><i></i><i></i></div>
+      : `<div class="cap__veil" aria-hidden="true"><i></i><i></i></div>
          <div class="cap__cd"><span class="cap__cd-label">距启封</span><span class="cap__cd-val" data-cd="${c.openAt}">${HT.cdShort(c.openAt, now)}</span></div>
          ${HT.scale(fmt.progress(c, now))}
          <div class="cap__ends mono"><span>${fmt.date(c.createdAt)}</span><span>${fmt.date(c.openAt)}</span></div>`;
     return `<article class="cap cap--${c.isOpened ? 'opened' : 'sealed'}" style="--i:${o.i || 0}" data-id="${c.id}">
+      <div class="cap__bg" aria-hidden="true">${ENV_ART[c.isOpened ? 'opened' : 'sealed']}</div>
       <a class="cap__link" href="${href}" aria-label="${esc(c.title)}，${c.isOpened ? '已开启' : '未开启'}"></a>
       <header class="cap__top">
         ${HT.seal(c.isOpened ? '启' : '封', c.isOpened ? 'line' : 'solid')}

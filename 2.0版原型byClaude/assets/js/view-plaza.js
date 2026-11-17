@@ -46,7 +46,7 @@
           <div class="overline"><i></i>HelloTime Pro · 时间胶囊</div>
           <h1 class="hero__title">
             <span class="hero__line"><span class="hero__clip"><span>把此刻，</span></span></span>
-            <span class="hero__line"><span class="hero__clip"><span>寄给未来</span></span>${HT.seal('封', 'solid', 'hero__dot')}</span>
+            <span class="hero__line"><span class="hero__clip"><span>寄给<em class="hero__future" data-text="未来">未来</em></span></span>${HT.seal('封', 'solid', 'hero__dot')}</span>
           </h1>
           <p class="hero__lede">写下一段话，再选一个启封的时刻。<br>在那之前，谁也打不开它——包括你自己。</p>
           <div class="hero__cta">

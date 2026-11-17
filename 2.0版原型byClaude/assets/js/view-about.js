@@ -37,56 +37,30 @@
       </div>`;
   }
 
-  function matrix() {
-    const h = HT.api.health();
-    return HT.IMPLS.map((g) => `
-      <div class="mx">
-        <div class="mx__k"><b class="serif">${g.label}</b><span class="latin">${g.en}</span><em class="latin">${g.items.length}</em></div>
-        <div class="mx__body">
-          <ul class="mx__list">
-            ${g.items.map((m) => {
-              const live = (g.key === 'frontends' && m.name === 'React') || (g.key === 'backends' && m.name === h.backend.name);
-              return `<li class="mx__it${live ? ' is-live' : ''}">${m.icon ? `<img src="assets/icons/${m.icon}.svg" alt="" loading="lazy">` : `<span class="mx__dot"></span>`}<b>${m.name}</b><small>${m.note}</small>${live ? HT.seal('此', 'solid', 'mx__seal') : ''}${m.ref ? '<i class="mx__ref">参考实现</i>' : ''}</li>`;
-            }).join('')}
-          </ul>
-          <p class="mx__note">${g.note}</p>
-        </div>
-      </div>`).join('');
-  }
 
   HT.views = HT.views || {};
   HT.views.about = {
     title: '关于',
     render() {
-      const total = HT.IMPLS.reduce((n, g) => n + g.items.length, 0);
       return `<div class="page page--about"><div class="wrap about">
         <header class="about__hero">
           <div class="overline"><i></i>About</div>
-          <h1 class="about__title"><span>同一枚胶囊，</span><span>${['三', '十', '一'].map((c) => `<em>${c}</em>`).join('')}种写法<i class="about__stop"></i></span></h1>
+          <h1 class="about__title"><span>有些话，</span><span>要<em>等一等</em>再说<i class="about__stop"></i></span></h1>
           <div class="about__lede">
             <p>HelloTime Pro 是一款时间胶囊应用：写下一段话，设定未来某一刻才能开启，封存之后不可修改。它有胶囊广场、AI 代笔、收藏与账号。</p>
-            <p>它同时也是一个<b>多技术栈对比学习项目</b>——同一份产品需求，由 ${total} 套后端、前端、全栈、桌面端与移动端，各自用本技术栈最地道的写法实现一遍；所有实现共享同一份 API 契约、数据库 schema 与设计令牌。</p>
+            <p>它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的前端与后端技术栈实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。</p>
           </div>
         </header>
 
-        <section class="about__nums" aria-label="实现数量">
-          ${HT.IMPLS.map((g) => `<div><b class="latin">${g.items.length}</b><span>${g.label}</span></div>`).join('')}
-          <div class="about__nums-sum"><b class="latin">104</b><span>条契约用例</span></div>
-          <div class="about__nums-sum"><b class="latin">25</b><span>条 UI 冒烟</span></div>
-        </section>
 
         <section class="about__sec">
           <header class="sechead"><span class="sechead__no">壹</span><div><h2 class="h2">此刻运行的技术栈</h2><p>页脚与这里展示的内容，都来自后端的健康检查接口——换一个后端，它们会跟着变。</p></div></header>
           <div id="stackHost">${stackSection()}</div>
         </section>
 
-        <section class="about__sec">
-          <header class="sechead"><span class="sechead__no">贰</span><div><h2 class="h2">实现矩阵</h2><p>从任何一个入手，都能完整地跑起来。</p></div></header>
-          <div class="matrix" id="matrixHost">${matrix()}</div>
-        </section>
 
         <section class="about__sec">
-          <header class="sechead"><span class="sechead__no">叁</span><div><h2 class="h2">四条原则</h2><p>这个仓库为什么长成现在的样子。</p></div></header>
+          <header class="sechead"><span class="sechead__no">贰</span><div><h2 class="h2">四条原则</h2><p>这个仓库为什么长成现在的样子。</p></div></header>
           <ol class="tenets">
             <li><b class="serif">规范即唯一事实源</b><p>业务契约放在 <code class="mono">spec/</code> 下：OpenAPI、数据库 schema、设计令牌。代码只是规范的投影，有歧义先改规范。</p></li>
             <li><b class="serif">栈内地道</b><p>Signals、组合式、Hooks、Runes、Compose……每个实现都用自己技术栈的惯用写法，而不是把同一份代码翻译十遍。</p></li>
@@ -107,7 +81,6 @@
     mount(page) {
       const off = HT.bus.on('backend', () => {
         $('#stackHost', page).innerHTML = stackSection();
-        $('#matrixHost', page).innerHTML = matrix();
       });
       page.addEventListener('click', (e) => { if (e.target.closest('[data-noop]')) { e.preventDefault(); HT.toast('原型里没有接入真实链接', { type: 'info' }); } });
       return off;

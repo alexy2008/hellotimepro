@@ -392,20 +392,4 @@
 
   HT.ROLE_LABEL = { language: '语言', framework: '框架', database: '数据库', orm: 'ORM', runtime: '运行时', styling: '样式' };
 
-  /* ---------- 实现矩阵（关于页） ---------- */
-  const im = (name, icon, note, ref) => ({ name, icon, note, ref: !!ref });
-  HT.IMPLS = [
-    { key: 'backends', label: '后端', en: 'Backends', note: '各自实现同一份 OpenAPI 契约 · 端口 :29000 – :29090', items: [
-      im('Spring Boot', 'springboot', 'Java'), im('FastAPI', 'fastapi', 'Python', true), im('Gin', 'gin', 'Go'), im('Elysia', 'elysia', 'Bun'),
-      im('NestJS', 'nestjs', 'Node.js'), im('ASP.NET Core', 'aspnet', 'C#'), im('Vapor', 'vapor', 'Swift'), im('Axum', 'axum', 'Rust'),
-      im('Drogon', 'drogon', 'C++'), im('Ktor', 'ktor', 'Kotlin') ] },
-    { key: 'frontends', label: '前端', en: 'Frontends', note: '纯 SPA · 经 :9080 反向代理访问「当前选中」的后端', items: [
-      im('Vue 3', 'vue', 'Pinia'), im('React', 'react', 'Zustand', true), im('Angular', 'angular', 'Signals'), im('Svelte', 'svelte', 'Runes'), im('Solid', 'solidjs', 'Signals') ] },
-    { key: 'fullstacks', label: '全栈', en: 'Full-stacks', note: '自成闭环，不走代理 · 端口 :7177 – :7182', items: [
-      im('Next.js', 'nextjs', 'App Router'), im('Nuxt', 'nuxt', 'Nitro'), im('Spring MVC', 'springboot', 'Thymeleaf'), im('Laravel', 'laravel', 'Blade'), im('Rails', 'rails', 'Hotwire') ] },
-    { key: 'desktop', label: '桌面端', en: 'Desktop', note: 'Web 壳与纯原生两类范式 · 纯 API 消费者', items: [
-      im('Electron', 'electron', 'Chromium'), im('Tauri', 'tauri', 'Rust'), im('SwiftUI', 'swiftui', 'macOS'), im('WinUI 3', 'dotnet', 'Windows'), im('Qt / PySide', 'qt', 'QML'), im('Flutter', 'flutter', 'Dart') ] },
-    { key: 'mobile', label: '移动端', en: 'Mobile', note: '底部 Tab Bar 的移动信息架构 · 直连 :9080', items: [
-      im('React Native', 'react', 'Expo'), im('iOS', 'swift', 'SwiftUI'), im('Android', 'kotlin', 'Compose'), im('Flutter', 'flutter', '一码多端'), im('微信小程序', null, '原生框架') ] },
-  ];
 })(window.HT = window.HT || {});
