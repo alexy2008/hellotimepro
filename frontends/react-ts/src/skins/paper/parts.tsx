@@ -5,6 +5,7 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { fmt, pad2 } from "@/lib/fmt";
+import { avatarOf } from "@/lib/avatars";
 
 /** 印章：solid = 白文（朱底白字，表示「封」）；line = 朱文（朱框朱字，表示「启」） */
 export function Seal({ ch, variant = "solid", className }: { ch: string; variant?: "solid" | "line"; className?: string }) {
@@ -209,5 +210,18 @@ export function FlipDigits({ value }: { value: string }) {
         <Dg key={i} v={ch} />
       ))}
     </>
+  );
+}
+
+/** 邮票：头像徽记 + 齿孔边（label=false 时不写名字） */
+export function AvatarStamp({ id, className, label = true }: { id: string; className?: string; label?: boolean }) {
+  const a = avatarOf(id);
+  return (
+    <span className={className ? `stamp ${className}` : "stamp"} style={{ "--av": a.color } as CSSProperties}>
+      <span className="stamp__in">
+        <svg viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: a.glyph }} />
+        {label ? <b>{a.name}</b> : null}
+      </span>
+    </span>
   );
 }
