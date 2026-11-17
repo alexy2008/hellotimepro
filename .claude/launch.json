@@ -20,6 +20,12 @@
       "port": 5500
     },
     {
+      "name": "prototype-v2-claude",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5510", "--directory", "2.0版原型byClaude"],
+      "port": 5510
+    },
+    {
       "name": "react-ts",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontends/react-ts", "run", "dev"],
