@@ -1,0 +1,45 @@
+/* ============================================================
+   两套皮肤共用的少量样式：皮肤切换开关 · 皮肤转场 · 互斥的背景层
+   这里的颜色一律取自「当前皮肤」的令牌（另一套样式表此时处于停用状态）
+   ============================================================ */
+
+/* 「琥珀」的星空背景只在琥珀下出现 */
+html[data-skin="paper"] .bg { display: none; }
+
+/* ---------------- 皮肤切换开关 ---------------- */
+.skinsw { display: inline-flex; flex: none; align-items: center; padding: 3px; }
+.skinsw button { height: 28px; padding: 0 11px; white-space: nowrap; transition: background-color .25s, color .25s, box-shadow .25s; }
+
+/* 「时笺」：一张小小的选择单，选中的那格像被墨涂实 */
+html[data-skin="paper"] .skinsw { gap: 2px; border: 1px solid var(--rule-2); border-radius: var(--r-pill); }
+html[data-skin="paper"] .skinsw button { border-radius: var(--r-pill); font: 700 13px/1 var(--font-serif); letter-spacing: .12em; color: var(--ink-3); }
+html[data-skin="paper"] .skinsw button:hover { color: var(--ink); }
+html[data-skin="paper"] .skinsw button.is-active { background: var(--inverse); color: var(--on-inverse); }
+
+/* 「琥珀」：一枚迷你胶囊，选中的那半是琥珀色 */
+html[data-skin="amber"] .skinsw { border: 1px solid var(--border-strong); border-radius: var(--r-pill); background: var(--field); }
+html[data-skin="amber"] .skinsw button { border-radius: var(--r-pill); font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+html[data-skin="amber"] .skinsw button:hover { color: var(--text); }
+html[data-skin="amber"] .skinsw button.is-active { background: var(--grad-amber); color: var(--ink-on-amber); box-shadow: 0 4px 12px -4px rgba(255, 140, 50, .7); }
+
+/* ---------------- 皮肤转场：旧皮肤失焦淡出，新皮肤从微缩中清晰起来 ---------------- */
+html.is-skinning::view-transition-old(root) { animation: skin-out .45s cubic-bezier(.65, 0, .35, 1) both; }
+html.is-skinning::view-transition-new(root) { animation: skin-in .7s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes skin-out { to { opacity: 0; filter: blur(8px); transform: scale(1.015); } }
+@keyframes skin-in { from { opacity: 0; filter: blur(10px); transform: scale(.985); } }
+html.is-skinning *, html.is-skinning *::before, html.is-skinning *::after { transition: none !important; }
+
+/* ---------------- 原型导览里的下拉框：「时笺」没有封装样式，用原生的 ---------------- */
+html[data-skin="paper"] .guide__row .select { position: relative; display: flex; flex: 1; }
+html[data-skin="paper"] .guide__row .select select { flex: 1; }
+html[data-skin="paper"] .guide__row .select__arrow { display: none; }
+
+/* ---------------- 窄屏：顶栏放不下时，品牌只留标志 ---------------- */
+@media (max-width: 480px) {
+  .brand__name, .brand__pro { display: none; }
+  .skinsw button { padding: 0 9px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.is-skinning::view-transition-old(root), html.is-skinning::view-transition-new(root) { animation: none; }
+}

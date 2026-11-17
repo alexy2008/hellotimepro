@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Ktor">
+  <defs>
+    <linearGradient id="kto-a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#087cfa"/>
+      <stop offset="100%" stop-color="#3d40ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="3" fill="url(#kto-a)"/>
+  <path d="M7 4 L 7 20 L 10 20 L 10 14 L 16 20 L 19 20 L 12 12 L 18 4 L 15 4 L 10 10 L 10 4 Z" fill="#fff"/>
+</svg>

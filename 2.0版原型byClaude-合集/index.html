@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark" data-skin="amber">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>HelloTime Pro · 把此刻寄给未来</title>
+  <meta name="description" content="HelloTime Pro 2.0 UI 原型合集：同一套功能，「时笺」与「琥珀与夜空」两套皮肤可随时切换。">
+  <meta name="theme-color" content="#080b1a">
+
+  <!-- 首帧之前定好皮肤与明暗，避免闪烁 -->
+  <script>
+    (function () {
+      try {
+        var read = function (k) { var v = localStorage.getItem('htx.' + k); return v ? JSON.parse(v) : null; };
+        var skin = read('skin');
+        if (skin !== 'paper' && skin !== 'amber') skin = 'amber';
+        var t = read('theme');
+        if (t !== 'dark' && t !== 'light') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.dataset.skin = skin;
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%231d1650'/%3E%3Cg transform='rotate(45 32 32)'%3E%3Cpath d='M22 32V22a10 10 0 0 1 20 0v10Z' fill='%23ffb347'/%3E%3Cpath d='M22 32v10a10 10 0 0 0 20 0V32Z' fill='%23e8ecff'/%3E%3Crect x='20.6' y='30.4' width='22.8' height='3.2' rx='1.6' fill='%231b1550'/%3E%3C/g%3E%3C/svg%3E">
+
+  <!-- 「时笺」：思源宋体 · Cormorant Garamond · IBM Plex Mono（离线时回退系统字体） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link data-skin-css="paper" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500;700;900&display=swap">
+  <link data-skin-css="paper" rel="stylesheet" href="assets/css/paper/tokens.css">
+  <link data-skin-css="paper" rel="stylesheet" href="assets/css/paper/app.css">
+  <link data-skin-css="paper" rel="stylesheet" href="assets/css/paper/pages.css">
+  <!-- 「琥珀与夜空」：全部系统字体 -->
+  <link data-skin-css="amber" rel="stylesheet" href="assets/css/amber/tokens.css">
+  <link data-skin-css="amber" rel="stylesheet" href="assets/css/amber/base.css">
+  <link data-skin-css="amber" rel="stylesheet" href="assets/css/amber/pages.css">
+  <!-- 两套皮肤共用：皮肤切换开关与转场 -->
+  <link rel="stylesheet" href="assets/css/shared.css">
+  <!-- 只让当前皮肤的样式表生效（脚本放在样式表之后，才能拿到它们）。
+       另一套用 media="not all" 停用：浏览器仍会在后台预先下载，切换皮肤时不会闪出无样式的页面 -->
+  <script>
+    (function () {
+      var skin = document.documentElement.dataset.skin;
+      var links = document.querySelectorAll('link[data-skin-css]');
+      for (var i = 0; i < links.length; i++) links[i].media = links[i].getAttribute('data-skin-css') === skin ? 'all' : 'not all';
+    })();
+  </script>
+</head>
+<body>
+  <!-- 「时笺」的油墨毛边滤镜（印章 / 邮戳用） -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <filter id="f-rough" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="4" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="f-ink" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" seed="11" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -3.4 0 0 0 2.55" result="m"/>
+        <feComposite in="d" in2="m" operator="in"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- 「琥珀」的背景：光晕 + 粒子画布 + 颗粒（「时笺」下隐藏） -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg__aurora bg__aurora--a"></div>
+    <div class="bg__aurora bg__aurora--b"></div>
+    <div class="bg__aurora bg__aurora--c"></div>
+    <canvas class="bg__canvas" id="sky"></canvas>
+    <div class="bg__grain"></div>
+  </div>
+
+  <a class="skip" href="#view">跳到正文</a>
+
+  <header id="header" class="hdr"></header>
+  <main id="view" tabindex="-1"></main>
+  <footer id="footer" class="ftr"></footer>
+  <nav id="tabbar" class="tabbar" aria-label="主导航"></nav>
+
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+  <div id="overlay"></div>
+  <div id="guide"></div>
+
+  <noscript><p style="padding:48px">这份原型需要启用 JavaScript 才能浏览。</p></noscript>
+
+  <!-- 共享内核 -->
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/core.js"></script>
+  <!-- 皮肤「时笺」 -->
+  <script src="assets/js/paper/ui.js"></script>
+  <script src="assets/js/paper/shell.js"></script>
+  <script src="assets/js/paper/view-plaza.js"></script>
+  <script src="assets/js/paper/view-capsule.js"></script>
+  <script src="assets/js/paper/view-create.js"></script>
+  <script src="assets/js/paper/view-account.js"></script>
+  <script src="assets/js/paper/view-about.js"></script>
+  <!-- 皮肤「琥珀与夜空」 -->
+  <script src="assets/js/amber/ui.js"></script>
+  <script src="assets/js/amber/shell.js"></script>
+  <script src="assets/js/amber/sky.js"></script>
+  <script src="assets/js/amber/view-plaza.js"></script>
+  <script src="assets/js/amber/view-capsule.js"></script>
+  <script src="assets/js/amber/view-create.js"></script>
+  <script src="assets/js/amber/view-account.js"></script>
+  <script src="assets/js/amber/view-about.js"></script>
+  <!-- 共享外壳 -->
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

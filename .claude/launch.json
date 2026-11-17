@@ -26,6 +26,18 @@
       "port": 5510
     },
     {
+      "name": "prototype-v2-amber",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5520", "--directory", "2.0版原型byClaude-琥珀"],
+      "port": 5520
+    },
+    {
+      "name": "prototype-v2-merged",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5530", "--directory", "2.0版原型byClaude-合集"],
+      "port": 5530
+    },
+    {
       "name": "react-ts",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontends/react-ts", "run", "dev"],

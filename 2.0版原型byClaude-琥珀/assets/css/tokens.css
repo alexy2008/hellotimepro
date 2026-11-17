@@ -1,0 +1,157 @@
+/* ============================================================
+   HelloTime Pro · 2.0 原型 ·「琥珀与夜空」设计令牌
+   · 琥珀：能把一个瞬间完整封存千万年 —— 品牌主色
+   · 夜空 / 晨曦：时间流转的两面 —— 暗、明两套主题
+   组件只引用这里的变量；切换主题 = 切换 <html data-theme>
+   ============================================================ */
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* 标题与信件正文用宋体系衬线字，取「见字如面」的书信感 */
+  --font-serif: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", "STSong", "SimSun", Georgia, "Times New Roman", serif;
+  --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* 圆角整体偏圆润，呼应「胶囊」的形状 */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 26px;
+  --r-xl: 36px;
+  --r-pill: 999px;
+
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+
+  --content: 1180px;
+  --header-h: 94px;
+
+  /* 品牌渐变：琥珀 → 夕照橙，明暗通用 */
+  --grad-amber: linear-gradient(135deg, #ffdc85 0%, #ffae45 48%, #ff7b4a 100%);
+  --ink-on-amber: #2b1500;
+}
+
+/* ---------------- 暗色 ·「星夜」 ---------------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #080b1a;
+  --bg-elevated: #0f1330;
+  --card: rgba(19, 23, 52, .72);
+  --card-solid: #131734;
+  --card-hover: rgba(27, 32, 68, .86);
+  --field: rgba(255, 255, 255, .045);
+  --field-hover: rgba(255, 255, 255, .07);
+  --border: rgba(255, 255, 255, .09);
+  --border-strong: rgba(255, 255, 255, .18);
+
+  --text: #eef0fb;
+  --text-2: #abb2d1;
+  --text-3: #767ea3;
+
+  --grad-text: linear-gradient(135deg, #ffe08a 0%, #ffae45 50%, #ff7b4a 100%);
+
+  --amber: #ffb648;
+  --amber-text: #ffc875;
+  --amber-soft: rgba(255, 182, 72, .13);
+  --amber-line: rgba(255, 182, 72, .38);
+  --violet: #9b8cff;
+  --violet-soft: rgba(155, 140, 255, .15);
+  --cyan: #62d6f5;
+  --cyan-soft: rgba(98, 214, 245, .13);
+  --danger: #ff7a70;
+  --danger-soft: rgba(255, 122, 112, .13);
+  --success: #4fdc8f;
+  --success-soft: rgba(79, 220, 143, .13);
+  --rose: #ff6f91;
+
+  --paper: #181b38;
+  --paper-edge: rgba(255, 214, 150, .16);
+  --paper-line: rgba(255, 255, 255, .06);
+  --paper-ink: #efe8da;
+  --stamp: #ff9d6b;
+
+  --header-bg: rgba(13, 17, 42, .62);
+  --nav-active: rgba(255, 255, 255, .09);
+  --backdrop: rgba(4, 6, 16, .66);
+
+  --aurora-a: rgba(122, 92, 255, .3);
+  --aurora-b: rgba(255, 150, 70, .15);
+  --aurora-c: rgba(70, 190, 255, .13);
+  --grain-opacity: .05;
+
+  --ring: rgba(255, 255, 255, .2);
+  --ring-strong: rgba(255, 255, 255, .42);
+  --glass-fill: rgba(255, 255, 255, .1);
+  --glass-stroke: rgba(255, 255, 255, .5);
+  --seam: #1b1550;
+
+  --shadow-card: 0 18px 50px -18px rgba(0, 0, 0, .65);
+  --shadow-pop: 0 30px 80px -20px rgba(0, 0, 0, .75);
+  --shadow-header: 0 10px 40px -12px rgba(0, 0, 0, .6);
+  --skeleton: rgba(255, 255, 255, .06);
+  --skeleton-shine: rgba(255, 255, 255, .11);
+}
+
+/* ---------------- 亮色 ·「晨曦」 ---------------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #faf5ea;
+  --bg-elevated: #fffdf7;
+  --card: rgba(255, 253, 247, .82);
+  --card-solid: #fffdf7;
+  --card-hover: rgba(255, 255, 255, .96);
+  --field: rgba(255, 255, 255, .72);
+  --field-hover: rgba(255, 255, 255, .95);
+  --border: rgba(74, 52, 120, .13);
+  --border-strong: rgba(74, 52, 120, .26);
+
+  --text: #221a3a;
+  --text-2: #5a5378;
+  --text-3: #837d9e;
+
+  --grad-text: linear-gradient(135deg, #f7a31c 0%, #f0702a 55%, #e04a30 100%);
+
+  --amber: #e8870e;
+  --amber-text: #b45f06;
+  --amber-soft: rgba(232, 135, 14, .12);
+  --amber-line: rgba(232, 135, 14, .4);
+  --violet: #5b46e5;
+  --violet-soft: rgba(91, 70, 229, .1);
+  --cyan: #0b8fb3;
+  --cyan-soft: rgba(11, 143, 179, .1);
+  --danger: #d6403f;
+  --danger-soft: rgba(214, 64, 63, .1);
+  --success: #188a4d;
+  --success-soft: rgba(24, 138, 77, .11);
+  --rose: #e0335f;
+
+  --paper: #fffdf5;
+  --paper-edge: rgba(190, 140, 50, .3);
+  --paper-line: rgba(190, 140, 50, .18);
+  --paper-ink: #2b2340;
+  --stamp: #c8432a;
+
+  --header-bg: rgba(255, 252, 244, .7);
+  --nav-active: rgba(74, 52, 120, .08);
+  --backdrop: rgba(42, 30, 70, .34);
+
+  --aurora-a: rgba(255, 178, 104, .5);
+  --aurora-b: rgba(168, 148, 255, .34);
+  --aurora-c: rgba(255, 148, 170, .22);
+  --grain-opacity: .06;
+
+  --ring: rgba(74, 52, 120, .2);
+  --ring-strong: rgba(74, 52, 120, .45);
+  --glass-fill: rgba(255, 255, 255, .55);
+  --glass-stroke: rgba(74, 52, 120, .32);
+  --seam: #3a2f7c;
+
+  --shadow-card: 0 18px 44px -20px rgba(92, 62, 20, .28);
+  --shadow-pop: 0 30px 70px -24px rgba(60, 40, 90, .38);
+  --shadow-header: 0 10px 34px -14px rgba(92, 62, 20, .28);
+  --skeleton: rgba(74, 52, 120, .07);
+  --skeleton-shine: rgba(74, 52, 120, .13);
+}

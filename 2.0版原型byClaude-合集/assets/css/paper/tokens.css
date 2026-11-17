@@ -1,0 +1,136 @@
+/* ============================================================
+   HelloTime Pro · 2.0 原型 ·「时笺」设计令牌
+   ------------------------------------------------------------
+   纸（surface）· 墨（text）· 印（accent）三组语义色，
+   昼 / 夜两套主题只改这一个文件里的变量。
+   组件层一律引用语义变量，不直接写色值。
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* —— 纸 · surface —— */
+  --paper:   #F3EFE5;   /* 页面底：宣纸白 */
+  --paper-2: #FAF7F0;   /* 抬升面：卡片 / 信纸 */
+  --paper-3: #EAE4D6;   /* 下沉面：槽 / 输入底 */
+  --paper-4: #DED6C4;   /* 更深一层：分隔块 */
+
+  /* —— 墨 · text —— */
+  --ink:   #1D1B18;     /* 主文字：焦墨 */
+  --ink-2: #4C4841;     /* 次文字：浓墨 */
+  --ink-3: #736D62;     /* 辅助：淡墨（≥ 4.5:1） */
+  --ink-4: #ACA597;     /* 装饰 / 占位：枯墨 */
+  --rule:   rgba(29, 27, 24, .11);   /* 细线 */
+  --rule-2: rgba(29, 27, 24, .24);   /* 强调线 */
+
+  /* —— 印 · accent —— */
+  --seal:      #C13A25; /* 朱砂：封缄、主强调、收藏 */
+  --seal-deep: #A12C1A;
+  --seal-ink:  #FFF6EA; /* 朱砂上的字 */
+  --seal-wash: rgba(193, 58, 37, .08);
+  --indigo:      #28516C; /* 黛蓝：已启封、链接、信息 */
+  --indigo-wash: rgba(40, 81, 108, .08);
+  --gold:      #94701F; /* 藤黄：AI、热度、点睛 */
+  --gold-wash: rgba(148, 112, 31, .12);
+  --pine:      #2E6A54; /* 松绿：成功 */
+  --pine-wash: rgba(46, 106, 84, .1);
+
+  /* —— 反相面（深色块 / 主按钮） —— */
+  --inverse:    #1D1B18;
+  --on-inverse: #F3EFE5;
+
+  /* —— 火漆 —— */
+  --wax:    #B8321F;
+  --wax-hi: #E2634A;
+  --wax-lo: #7C1F12;
+
+  /* —— 信笺红格 / 纸纹 —— */
+  --ruled: rgba(193, 58, 37, .17);
+  --grain-opacity: .5;
+  --stamp-blend: multiply;
+
+  /* —— 阴影：纸张的投影偏暖、偏软 —— */
+  --shadow-1: 0 1px 0 rgba(29, 27, 24, .04), 0 1px 3px rgba(60, 44, 20, .05);
+  --shadow-2: 0 1px 0 rgba(29, 27, 24, .04), 0 12px 28px -16px rgba(60, 44, 20, .28);
+  --shadow-3: 0 2px 0 rgba(29, 27, 24, .03), 0 30px 60px -28px rgba(60, 44, 20, .42);
+  --shadow-pop: 0 1px 0 rgba(29, 27, 24, .05), 0 18px 44px -14px rgba(40, 28, 10, .34);
+
+  /* —— 字体 —— */
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", "Source Han Serif SC", "SimSun", serif;
+  --font-latin: "Cormorant Garamond", "Didot", "Bodoni 72", "Baskerville", "Noto Serif SC", "Songti SC", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+               "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* —— 字号 —— */
+  --fs-micro: 11px;
+  --fs-xs: 12.5px;
+  --fs-sm: 13.5px;
+  --fs-base: 15px;
+  --fs-md: 17px;
+  --fs-lg: 20px;
+  --fs-xl: 26px;
+  --fs-2xl: clamp(30px, 3.6vw, 44px);
+  --fs-3xl: clamp(46px, 7.4vw, 104px);
+
+  /* —— 间距（4px 基线） —— */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px;
+  --s8: 32px; --s10: 40px; --s12: 48px; --s16: 64px; --s20: 80px; --s24: 96px;
+
+  /* —— 圆角：纸是方的，只留一点点手感 —— */
+  --r1: 2px;
+  --r2: 4px;
+  --r3: 8px;
+  --r-pill: 999px;
+
+  /* —— 动效 —— */
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --dur-1: 140ms;
+  --dur-2: 240ms;
+  --dur-3: 420ms;
+  --dur-4: 720ms;
+
+  --header-h: 64px;
+}
+
+/* ============================ 夜 ============================ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper:   #131210;   /* 墨色的夜 */
+  --paper-2: #1C1A17;
+  --paper-3: #0D0C0B;
+  --paper-4: #272420;
+
+  --ink:   #ECE5D6;     /* 灯下的纸色 */
+  --ink-2: #B9B1A1;
+  --ink-3: #8C8577;
+  --ink-4: #5C574D;
+  --rule:   rgba(236, 229, 214, .1);
+  --rule-2: rgba(236, 229, 214, .22);
+
+  --seal:      #E2573C;
+  --seal-deep: #C8452C;
+  --seal-ink:  #FFF6EA;
+  --seal-wash: rgba(226, 87, 60, .13);
+  --indigo:      #8FB6D1;
+  --indigo-wash: rgba(143, 182, 209, .12);
+  --gold:      #D6B36A;
+  --gold-wash: rgba(214, 179, 106, .13);
+  --pine:      #84C2A8;
+  --pine-wash: rgba(132, 194, 168, .12);
+
+  --inverse:    #ECE5D6;
+  --on-inverse: #171512;
+
+  --ruled: rgba(226, 87, 60, .2);
+  --grain-opacity: .55;
+  --stamp-blend: normal;
+
+  --shadow-1: 0 1px 0 rgba(0, 0, 0, .3), 0 1px 3px rgba(0, 0, 0, .3);
+  --shadow-2: 0 1px 0 rgba(0, 0, 0, .3), 0 14px 30px -16px rgba(0, 0, 0, .75);
+  --shadow-3: 0 2px 0 rgba(0, 0, 0, .3), 0 34px 64px -28px rgba(0, 0, 0, .9);
+  --shadow-pop: 0 1px 0 rgba(0, 0, 0, .4), 0 20px 48px -14px rgba(0, 0, 0, .85);
+}
