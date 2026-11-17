@@ -8,7 +8,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { fmt, pad2, reducedMotion } from "@/lib/fmt";
+import { fmt, pad2, reducedMotion, focusIfIdle } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { paletteOf } from "@/lib/palette";
 import { useAuth } from "@/stores/auth";
@@ -136,7 +136,7 @@ export function AmberCreatePage() {
   const span = f.openAt - now;
 
   useEffect(() => {
-    const t = setTimeout(() => titleEl.current?.focus({ preventScroll: true }), 380);
+    const t = setTimeout(() => focusIfIdle(titleEl.current), 380);
     return () => clearTimeout(t);
   }, []);
 

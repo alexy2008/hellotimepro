@@ -63,20 +63,6 @@ export function uniqueNickname(prefix = "ui"): string {
   return `${prefix}${rand(6)}`;
 }
 
-export function capsulePath(code: string): string {
-  return `/c/${code}`;
-}
-
-export function capsuleCard(page: Page, title: string) {
-  return page.locator("article.cy-capsule").filter({ hasText: title }).first();
-}
-
-export async function expectUserMenuTitle(page: Page, nickname: string) {
-  await expect(page.locator(".cy-user-chip--button")).toHaveAttribute("title", nickname, {
-    timeout: 8000,
-  });
-}
-
 export function authHeaders(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
@@ -140,6 +126,20 @@ export async function apiFavorite(
   expect(res.status(), await res.text()).toBe(200);
 }
 
+// ---------------------------------------------------------------- 只用测试钩子的 UI 操作
+// spec/ui/testids.md：不读类名、不依赖按钮文案；两套皮肤同一份写法
+
+export const tid = (page: Page, id: string) => page.getByTestId(id);
+
+export function capsulePath(code: string): string {
+  return `/capsules/${code}`;
+}
+
+/** 广场上某枚胶囊的卡片（按码定位） */
+export function cardOf(page: Page, code: string) {
+  return page.locator(`[data-testid="capsule-card"][data-code="${code}"]`);
+}
+
 export async function registerViaUi(
   page: Page,
   overrides: Partial<{ email: string; password: string; nickname: string }> = {},
@@ -149,76 +149,74 @@ export async function registerViaUi(
     password: overrides.password ?? PASSWORD,
     nickname: overrides.nickname ?? uniqueNickname("注册"),
   };
-
   await page.goto("/register");
-  await page.locator("#email").fill(user.email);
-  await page.locator("#nick").fill(user.nickname);
-  await page.locator("#pwd").fill(user.password);
-  await page.locator('[role="radiogroup"] button').first().waitFor({ timeout: 8000 });
-  await page.locator('[role="radiogroup"] button').first().click();
-  await page.getByRole("button", { name: /创建账号/ }).click();
+  await tid(page, "register-email").fill(user.email);
+  await tid(page, "register-nickname").fill(user.nickname);
+  await tid(page, "register-password").fill(user.password);
+  await expect(tid(page, "avatar-option")).toHaveCount(10, { timeout: 8000 });
+  await tid(page, "avatar-option").nth(2).click();
+  await tid(page, "register-submit").click();
   await expect(page).toHaveURL(/\/create$/, { timeout: 10_000 });
   return user;
 }
 
 export async function loginViaUi(page: Page, user: Pick<UiUser, "email" | "password">) {
   await page.goto("/login");
-  await page.locator("#email").fill(user.email);
-  await page.locator("#pwd").fill(user.password);
-  await page.getByRole("button", { name: /^登录$/ }).click();
+  await tid(page, "login-email").fill(user.email);
+  await tid(page, "login-password").fill(user.password);
+  await tid(page, "login-submit").click();
   await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 10_000 });
-  await expect(page.locator(".cy-user-chip--button")).toBeVisible({ timeout: 8000 });
+  await expect(tid(page, "user-menu")).toBeVisible({ timeout: 8000 });
 }
 
 export async function logoutViaUi(page: Page) {
-  await expect(page.locator(".cy-user-chip--button")).toBeVisible({ timeout: 8000 });
-  await page.locator(".cy-user-chip--button").click();
-  const logout = page.getByRole("menuitem", { name: /登出/ });
-  await logout.waitFor({ timeout: 5000 });
-  await logout.click();
-  await expect(page.getByRole("link", { name: "登录" })).toBeVisible({ timeout: 8000 });
+  await tid(page, "user-menu").click();
+  await tid(page, "logout").click();
+  await expect(tid(page, "nav-login")).toBeVisible({ timeout: 8000 });
 }
 
+/**
+ * 在创建页写一枚胶囊并封存，返回回执上的胶囊码。
+ * 提交控件可能是长按（时笺）也可能是按钮（琥珀）：契约 X2 统一用按住空格 1.5 秒触发。
+ */
 export async function createCapsuleViaUi(
   page: Page,
-  overrides: Partial<{ title: string; content: string }> = {},
+  overrides: Partial<{ title: string; content: string; preset: string; inPlaza: boolean }> = {},
 ): Promise<Capsule> {
   const title = overrides.title ?? `UI 创建 ${rand(6)}`;
   const content = overrides.content ?? `UI create content ${rand(8)}`;
-
-  if (!new URL(page.url()).pathname.endsWith("/create")) {
-    await page.goto("/create");
-  }
-  await page.locator("#title").fill(title);
-  await page.locator("#content").fill(content);
-  await page.getByRole("button", { name: "1 分钟后（测试）" }).click();
-  await page.getByRole("button", { name: /上锁封存/ }).click();
-  await page.waitForURL(
-    (url) => url.pathname.includes("/c/"),
-    { timeout: 10_000 },
-  );
-  const code = page.url().split("/").pop() ?? "";
+  if (!new URL(page.url()).pathname.endsWith("/create")) await page.goto("/create");
+  await tid(page, "create-title").fill(title);
+  await tid(page, "create-content").fill(content);
+  await page.locator(`[data-testid="openat-preset"][data-value="${overrides.preset ?? "tm"}"]`).click();
+  if (overrides.inPlaza === false) await tid(page, "create-in-plaza").setChecked(false, { force: true });
+  await tid(page, "create-submit").focus();
+  await tid(page, "create-submit").press("Space", { delay: 1500 });
+  const receipt = tid(page, "sealed-receipt");
+  await expect(receipt).toBeVisible({ timeout: 10_000 });
+  const code = (await receipt.getAttribute("data-code")) ?? "";
+  expect(code).toMatch(/^[A-Z0-9]{8}$/);
   return { id: "", code, title, content, openAt: "" };
 }
 
 export async function gotoPlaza(page: Page) {
-  const plazaLink = page.locator(".cy-nav").getByRole("link", { name: "广场", exact: true });
-  if (page.url() !== "about:blank" && (await plazaLink.count()) > 0) {
-    await plazaLink.click();
-  } else {
-    await page.goto("/");
-  }
-  await page.locator(".cy-search__input").waitFor({ timeout: 8000 });
+  await page.goto("/");
+  await expect(tid(page, "plaza-search")).toBeVisible({ timeout: 8000 });
 }
 
 export async function searchPlaza(page: Page, query: string) {
   await gotoPlaza(page);
-  await page.locator(".cy-search__input").fill(query);
+  await tid(page, "plaza-search").fill(query);
 }
 
-export async function enterCapsuleCode(page: Page, code: string) {
-  await page.goto("/open");
-  for (let i = 0; i < code.length; i += 1) {
-    await page.getByLabel(`第 ${i + 1} 位`).fill(code[i]);
-  }
+/** 排序：分段按钮（sort-option）或下拉框（plaza-sort），两者择一（契约 §3.2） */
+export async function setSort(page: Page, value: "new" | "hot") {
+  const select = tid(page, "plaza-sort");
+  if (await select.count()) await select.selectOption(value);
+  else await page.locator(`[data-testid="sort-option"][data-value="${value}"]`).click();
+}
+
+/** 输码：对 code-input 一次填入整码（契约 X3） */
+export async function enterCode(page: Page, code: string) {
+  await tid(page, "code-input").fill(code);
 }

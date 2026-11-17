@@ -4,6 +4,7 @@
 // 按当前皮肤出各自的标记，逻辑只写一份。
 // ============================================================
 
+import { focusIfIdle } from "@/lib/fmt";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useUi } from "@/stores/ui";
 import { Icon, type IconName } from "@/lib/icons";
@@ -55,7 +56,7 @@ export function Field(p: FieldProps) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!p.autoFocus) return;
-    const t = setTimeout(() => ref.current?.focus({ preventScroll: true }), 380);
+    const t = setTimeout(() => focusIfIdle(ref.current), 380);
     return () => clearTimeout(t);
   }, [p.autoFocus]);
 

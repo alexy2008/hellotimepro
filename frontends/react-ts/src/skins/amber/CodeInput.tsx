@@ -3,6 +3,7 @@
 // （键盘、粘贴、输入法都交给它）。size：'md' 首页 / 'lg' 开启页。
 // ============================================================
 
+import { focusIfIdle } from "@/lib/fmt";
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { CodeState } from "@/hooks/useCodeOpen";
 
@@ -39,7 +40,7 @@ export function AmberCodeInput({ size = "", state, shake, onChange, onComplete, 
 
   useEffect(() => {
     if (autoFocus) {
-      const t = setTimeout(() => input.current?.focus({ preventScroll: true }), 350);
+      const t = setTimeout(() => focusIfIdle(input.current), 350);
       return () => clearTimeout(t);
     }
   }, [autoFocus]);

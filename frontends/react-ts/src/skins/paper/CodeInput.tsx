@@ -4,6 +4,7 @@
 // size：'' 为开启页的大号，'sm' 为首页的小号。
 // ============================================================
 
+import { focusIfIdle } from "@/lib/fmt";
 import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties } from "react";
 import type { CodeState } from "@/hooks/useCodeOpen";
 
@@ -40,7 +41,7 @@ export function PaperCodeInput({ size = "", state, shake, onChange, onComplete, 
 
   useEffect(() => {
     if (autoFocus) {
-      const t = setTimeout(() => refs.current[0]?.focus({ preventScroll: true }), 350);
+      const t = setTimeout(() => focusIfIdle(refs.current[0]), 350);
       return () => clearTimeout(t);
     }
   }, [autoFocus]);

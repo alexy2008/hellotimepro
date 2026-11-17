@@ -3,20 +3,21 @@
 本文面向已经熟悉 HTML / CSS / JavaScript 基本语法，但还没系统接触过 React、TypeScript、Vite、单页应用（SPA）这套现代前端栈的读者。读完后，你应该能回答三件事：
 
 - 用户在浏览器输入 URL 后，代码按什么顺序执行。
-- React、TypeScript、Vite、React Router、Zustand、Tailwind 分别在做什么。
+- React、TypeScript、Vite、React Router、Zustand 与 spec/styles 分别在做什么。
 - 想新增一个页面、状态或接口调用时，应该改哪些文件。
 
 > 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 React 的几个核心概念（组件、JSX、Hooks、单向数据流）；第 6 节快速过 TypeScript；第 7～14 节按一次「打开页面」的生命周期分层细讲；第 15 节给出常见改动的步骤清单。
 
 ## 1. 技术选型与设计特色
 
-HelloTime Pro 的 React 前端实现基于 **React + TypeScript + Vite** 核心骨架，并选用 **React Router** 控制路由、**Zustand** 进行轻量级状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制视觉系统。其具体选型考量与设计特色如下：
+HelloTime Pro 的 React 前端实现基于 **React + TypeScript + Vite** 核心骨架，并选用 **React Router** 控制路由、**Zustand** 进行轻量级状态管理，样式原样引入 `spec/styles` 的两套皮肤（2.0）。其具体选型考量与设计特色如下：
 
 * **React 与 React Router（声明式 UI 与单页体验）**：利用 React 声明式 UI 和单向数据流的优势，配合 React Router 的嵌套路由与守卫机制。用户在切换页面时无需刷新浏览器，即可获得流畅、连贯的单页应用（SPA）体验。
 * **TypeScript（强类型约束与契约对齐）**：通过静态类型检查，使前端数据结构与后端的 OpenAPI 合约（`openapi.yaml`）保持高度一致。在编写代码阶段即可拦截绝大多数因字段拼写错误或未处理空值（null/undefined）导致的运行时异常。
 * **Vite 构建（极速的开发与编译体验）**：基于原生 ESM 的极速热更新（HMR）特性，能实现代码改动的即时响应，大幅提升开发效率，并在生产环境下输出高度优化的静态资源。
 * **Zustand（轻量且解耦的状态管理）**：避开繁重的 Redux 架构，选用极简的 Zustand 进行状态管理。其模块化单例与订阅机制既避免了 React Context 的无谓重渲染，又极易在 React 组件外部（例如 API 客户端中）同步读取和修改状态。
-* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：将颜色、字号等样式规范抽离为跨前端通用的设计令牌（CSS 变量）。配合 Tailwind v4 使得暗/亮主题切换和视觉一致性的维护变得十分高效。
+* **双皮肤与设计令牌（2.0）**：「时笺」「琥珀」两套皮肤 × 明暗，全部样式来自 `spec/styles`（每条规则按 `:root[data-skin]` 限定，两套同时加载）。本前端不写组件样式，只按 2.0 原型写出相同的 DOM 结构与类名；切换皮肤 / 明暗只改 `<html>` 上的两个属性。
+* **逻辑一份、视图按皮肤分**：业务逻辑写成自定义 Hook（`src/hooks/`），两套皮肤的页面（`src/skins/paper`、`src/skins/amber`）都调用同一批 Hook，只负责把数据画成各自的样子——这是本前端最值得看的组织方式。
 
 
 
@@ -24,66 +25,26 @@ HelloTime Pro 的 React 前端实现基于 **React + TypeScript + Vite** 核心�
 
 HelloTime Pro 是一个时间胶囊应用。React 前端的职责是：
 
-- 渲染所有 UI 页面（广场 / 开启 / 创建 / 我的 / 登录 / 注册 / 关于）。
-- 通过 HTTP 调用后端 `/api/v1/*` 接口，把 JSON 渲染成卡片、表单、详情。
-- 维护客户端状态：登录态、主题（暗/亮）、广场筛选条件、我创建的 / 收藏的列表。
-- 守卫需要登录的路由（`/create`、`/me/*`），自动用 refresh token 续期 access token。
-- 跑在浏览器里，是一个 **单页应用**（SPA）：所有跳转都不刷新页面，由 JS 重新渲染。
+- 渲染所有页面（首页广场 / 开启 / 详情 / 创建 / 我的 / 登录 / 注册 / 关于），每个页面都有「时笺」「琥珀」两套视图。
+- 调用后端 `/api/v1/*`（经 `:9080` 反代），把 JSON 画成卡片、表单、详情；2.0 新增 `/plaza/stats`、`/me/stats`。
+- 维护客户端状态：登录态、皮肤与明暗、广场查询条件、创建页草稿。
+- 守卫需要登录的路由（`/create`、`/me/*`），未登录跳 `/login?redirect=…`；access token 过期自动刷新并重放。
 
-核心目录：
-
-```text
-frontends/react-ts/
-├── index.html                  # SPA 唯一的 HTML 文件，里面只有一个 <div id="root"></div>
-├── vite.config.ts              # Vite 配置：dev server、API 代理、路径别名
-├── package.json                # 依赖与 npm 脚本
-├── tsconfig*.json              # TypeScript 编译配置
-├── run / build / test          # 三个 Bash 脚本，封装 npm 命令
-└── src/
-    ├── main.tsx                # 入口：createRoot(document.getElementById("root")) + 渲染 <App />
-    ├── App.tsx                 # 应用根：hydrate auth/theme + 注入路由
-    ├── router.tsx              # 路由表：URL → 页面组件 + 守卫
-    ├── styles/                 # 全局样式入口（导入 spec/styles 的设计令牌）
-    ├── types/index.ts          # 与后端 spec/api/openapi.yaml 对齐的 TypeScript 类型
-    ├── api/client.ts           # fetch 封装 + 解响应包装 + 自动 refresh
-    ├── stores/                 # Zustand：auth · theme · plaza · capsule（四个状态域）
-    ├── utils/                  # 倒计时 / 时间格式化 / 头像 URL（纯函数）
-    ├── components/             # 可复用的 UI 组件（AppHeader、CapsuleCard、Alert…）
-    └── pages/                  # 路由对应的页面组件（一个路由一个文件）
+```
+src/
+├── main.tsx / App.tsx   入口：首帧前恢复登录态，挂路由
+├── router.tsx           路由表（§7）
+├── app/Layout.tsx       总布局：按皮肤挑页头 / 页脚 / 底栏
+├── pages/               路由入口：读当前皮肤，渲染对应视图
+├── hooks/               业务逻辑（两套皮肤共用）
+├── stores/              Zustand：auth · ui · plaza · feedback
+├── api/ · types/        接口客户端与类型
+├── lib/                 纯工具：图标、时间说法、头像、专属色、回跳
+├── components/          结构相同只靠样式换肤的部件
+└── skins/paper|amber/   两套视图
 ```
 
-一次「打开广场页」的流向：
-
-```text
-浏览器
-  │ GET /
-  ▼
-Vite dev server (开发) / 静态文件 (生产)
-  │ 返回 index.html
-  ▼
-浏览器解析 HTML → 加载 /src/main.tsx
-  │ ESM 动态加载所有 import 的模块
-  ▼
-main.tsx: createRoot(...).render(<App />)
-  │ React 把虚拟 DOM 挂到 #root
-  ▼
-App.tsx
-  │ useEffect 调 useAuth.hydrate() / useTheme.hydrate()
-  │ 渲染 <RouterProvider router={router} />
-  ▼
-router.tsx 按 URL 匹配 → <MainLayout><PlazaPage /></MainLayout>
-  │
-  ▼
-PlazaPage 的 useEffect 调 usePlaza.fetch()
-  │
-  ▼
-api.plaza({...}) → fetch("/api/v1/plaza/capsules")
-  │ Vite dev server 反代到 :9080
-  ▼
-后端返回 JSON → Zustand store 更新 → React 重渲染卡片列表
-```
-
-返回方向上完全相反：用户点收藏按钮 → `FavoriteButton.onClick` → `api.favorite(id)` → 收到新计数 → `setActive / setCount / patchPlaza` → 触发 React 重渲染。**只有状态变更会触发渲染，没有人手动操作 DOM**——这是 React 和原生 JS 写法最大的差别。
+一次「打开首页」的数据流：`pages/PlazaPage` 读 `useUi().skin` → 渲染 `skins/amber/HomePage` → 它调用 `hooks/usePlazaHome()` → Hook 调 `stores/plaza.refreshAll()` → `api/client` 发请求 → store 更新 → 视图重渲染。换成时笺时，只有视图换成 `skins/paper/HomePage`，其余链路一模一样。
 
 ## 3. 如何运行和验证
 
@@ -138,7 +99,7 @@ vite build       # 把 src/ 打包到 dist/（HTML + 1 个 JS bundle + CSS + 静
 ```
 
 - 整个应用只有一个 `<div id="root"></div>`，所有页面都在它内部渲染。这就是 SPA 的「单页」含义。
-- 内联 `<script>` 在 React 启动前就同步读 localStorage 设置 `data-theme`——避免 React 渲染前看到 dark 闪到 light 的「主题闪白」。
+- 内联 `<script>` 在 React 启动前就同步读 localStorage，写好 `data-skin`（时笺 / 琥珀）与 `data-theme`（明 / 暗），并设置地址栏颜色——避免首帧闪出另一套皮肤或另一种明暗。
 - `<script type="module" src="/src/main.tsx">`：Vite 直接把 TSX 当成 ES Module 加载（开发模式按需编译，生产模式打包成 JS）。
 
 ### 3.2 `main.tsx`：把 React 装进 `#root`
@@ -147,7 +108,11 @@ vite build       # 把 src/ 打包到 dist/（HTML + 1 个 JS bundle + CSS + 静
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { useAuth } from "@/stores/auth";
 import "./styles/index.css";
+
+// 登录态在首次渲染之前从 localStorage 恢复：守卫第一帧就能拿到正确的 user
+useAuth.getState().hydrate();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -160,6 +125,7 @@ createRoot(document.getElementById("root")!).render(
 - `<App />`：JSX 语法，表示「实例化 App 组件」。等价于 `React.createElement(App)`。
 - `<StrictMode>`：开发时帮你检测潜在问题（双调用 effect、过期 API、副作用泄漏）。生产构建会自动去掉。
 - `import "./styles/index.css"`：在 JS 里 import CSS 文件——这是 Vite/Webpack 等打包工具的特性，**让 CSS 也走依赖图**，不再用 `<link>`。
+- `useAuth.getState().hydrate()`：在 React 之外直接读写 Zustand store。放在 `createRoot` 之前，是为了让「已登录访问 /register 就跳走」这类守卫在第一帧就判断正确。
 
 ### 3.3 `App.tsx`：根组件 + 启动副作用
 
@@ -169,12 +135,11 @@ export function App() {
   const refreshMe = useAuth((s) => s.refreshMe);
   const hydrated = useAuth((s) => s.hydrated);
   const refreshToken = useAuth((s) => s.refreshToken);
-  const hydrateTheme = useTheme((s) => s.hydrate);
 
+  // 皮肤与明暗在 index.html 的内联脚本里已经写好（首帧之前），这里只恢复登录态
   useEffect(() => {
-    hydrateTheme();
     hydrateAuth();
-  }, [hydrateAuth, hydrateTheme]);
+  }, [hydrateAuth]);
 
   useEffect(() => {
     if (hydrated && refreshToken) {
@@ -189,7 +154,7 @@ export function App() {
 做的事：
 
 1. 从 Zustand store 读出几个函数和状态（第 5 节会讲选择器）。
-2. **首次挂载时**（`useEffect` + 空依赖等效）调 `hydrate()` 把 localStorage 里持久化的主题和登录态读进内存。
+2. **首次挂载时**再调一次 `hydrate()`（幂等）；皮肤与明暗不需要在这里处理。
 3. 一旦 `hydrated && refreshToken` 都齐了，主动调一次 `/me` 验证登录态。
 4. 渲染路由提供者 `<RouterProvider router={router} />`，把 URL 控制权交给 React Router。
 
@@ -202,13 +167,13 @@ React 没有「魔法」，但有 **四个核心概念** 是 HTML/JS 老兵第�
 ### 4.1 组件 = 返回 JSX 的函数
 
 ```tsx
-export function AppFooter() {
+export function PaperFooter() {
   return <footer>© 2026 HelloTime</footer>;
 }
 ```
 
 - 一个组件就是一个**大写字母开头**的 JavaScript 函数，返回值是 JSX。
-- 「调用」组件用 `<AppFooter />` 而不是 `AppFooter()`——这是给 React 看的标记，让它把你的函数纳入虚拟 DOM 树。
+- 「调用」组件用 `<PaperFooter />` 而不是 `PaperFooter()`——这是给 React 看的标记，让它把你的函数纳入虚拟 DOM 树。
 - 大写开头很重要：`<div>` 是 HTML 标签，`<Div>` 是你定义的组件。
 
 ### 4.2 JSX = HTML-in-JS
@@ -228,9 +193,9 @@ JSX 必须**只有一个根节点**，多个并列时用 `<>...</>` Fragment 包
 ```tsx
 return (
   <>
-    <AppHeader />
+    <Header />
     <Outlet />
-    <AppFooter />
+    <Footer />
   </>
 );
 ```
@@ -240,7 +205,7 @@ return (
 ```tsx
 {user ? <UserChip /> : <LoginBtn />}              // 三元
 {user && <Welcome />}                              // 短路
-{items.map((c) => <CapsuleCard key={c.id} capsule={c} />)}  // map
+{items.map((c) => <PaperCard key={c.id} c={c} now={now} />)}  // map
 ```
 
 `key` prop 告诉 React 列表里每项的身份，diff 时知道哪些是同一个元素。**永远用稳定 ID，不要用 index**。
@@ -336,33 +301,27 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 
 export const router = createBrowserRouter([
   {
-    element: <MainLayout />,                       // 公共布局：Header + Outlet + Footer
+    element: <Layout />,                           // 总布局：按皮肤挑页头 / 页脚 / 底栏
     children: [
       { path: "/", element: <PlazaPage /> },
       { path: "/open", element: <OpenPage /> },
       { path: "/login", element: <LoginPage /> },
-      { path: "/create", element: <AuthGate><CreatePage /></AuthGate> },
-      { path: "/c/:code", element: <CapsuleByCodePage /> },
-    ],
-  },
-  {
-    element: <AuthGate><MeLayout /></AuthGate>,
-    children: [
+      { path: "/create", element: gated(<CreatePage />) },
+      { path: "/capsules/:code", element: <CapsuleByCodePage /> },
       { path: "/me", element: <Navigate to="/me/created" replace /> },
-      { path: "/me/created", element: <MeCreatedPage /> },
-      ...
+      { path: "/me/:tab", element: gated(<MePage />) },   // 三个页签共用一个页面组件
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
-  { path: "*", element: <NotFoundPage /> },
 ]);
 ```
 
 要点：
 
-- **嵌套路由 + Layout**：父对象只给 `element` 而没有 `path`，子路由的页面会渲染到父布局的 `<Outlet />` 占位里。`MainLayout` 就是「头 + Outlet + 尾」的壳。
-- **路径参数**：`/c/:code` 里 `:code` 在页面组件里用 `useParams<{ code: string }>()` 取出。
+- **嵌套路由 + Layout**：父对象只给 `element` 而没有 `path`，子路由的页面会渲染到父布局的 `<Outlet />` 占位里。`Layout` 就是「头 + Outlet + 尾」的壳。
+- **路径参数**：`/capsules/:code` 里 `:code` 在页面组件里用 `useParams()` 取出；`/me/:tab` 让三个页签共用一个组件，切页签时页头与统计不重新挂载。
 - **重定向**：`<Navigate to="/me/created" replace />` 渲染时立即换 URL；`replace` 表示不留下历史记录。
-- **路由守卫**：`<AuthGate>` 是普通组件，未登录就 `<Navigate to="/login" .../>`，否则渲染 `children`。详见 7.2。
+- **路由守卫**：`<AuthGate>` 是普通组件，未登录就 `<Navigate to="/login?redirect=…" />`，否则渲染 `children`。详见 7.2。
 - **404 兜底**：`path: "*"` 匹配任意 URL，放在数组末尾。
 
 页面之间的跳转用：
@@ -378,21 +337,9 @@ navigate("/me/created", { replace: true });
 
 ## 8. 关键模式：守卫与布局
 
-### 7.1 `MainLayout.tsx` / `MeLayout.tsx`：共享外壳
+### 7.1 `app/Layout.tsx`：按皮肤挑外壳
 
-```tsx
-export function MainLayout() {
-  return (
-    <>
-      <AppHeader />
-      <Outlet />          // 子路由的页面组件渲染在这里
-      <AppFooter />
-    </>
-  );
-}
-```
-
-`<Outlet />` 是 React Router 的占位组件，由当前匹配的子路由的 `element` 替换。这样所有顶层页面共享同一个头/尾，URL 切换时只重渲染 Outlet 内部，Header 状态保留。
+所有路由挂在同一个 `<Layout />` 下。它读 `useUi((s) => s.skin)`，从一张表里挑出这套皮肤的 `Header / Footer / TabBar`，中间是 `<main id="view"><Outlet /></main>`。`id="view"`、`body[data-route]` 都是 `spec/styles` 依赖的 DOM 约定，照原型写；「时笺」用到的 SVG 滤镜（`#f-rough`、`#f-ink`）与「琥珀」的星空背景也在这里挂一次。
 
 ### 7.2 `AuthGate.tsx`：路由守卫
 
@@ -536,20 +483,16 @@ useAuth.setState({ user: null })                  // 直接改
 
 | Store | 关心什么 | 持久化 |
 |---|---|---|
-| `useAuth` | user / accessToken / refreshToken / hydrated | refreshToken + user → localStorage |
-| `useTheme` | "dark" / "light" | localStorage `hellotime.theme` |
-| `usePlaza` | sort / filter / q / page + items / pagination / loading | 否（每次进页面重新拉） |
-| `useCapsule` | mine / favorites 两个分页列表 | 否 |
+| `useAuth` | user / accessToken / refreshToken / hydrated | refreshToken + user → localStorage（`main.tsx` 在首次渲染前恢复） |
+| `useUi` | skin（paper / amber）· theme（light / dark）及带转场的切换 | localStorage `hellotime.skin` / `hellotime.theme` |
+| `usePlaza` | sort / filter / q / page + 列表、筛选数量、年鉴、精选 | 否；但两套皮肤共用，切换皮肤后条件还在 |
+| `useFeedback` | Toast 队列与当前确认框 | 否；页面里直接调 `toast()`、`await confirmDialog()` |
+
+创建页草稿是 `hooks/useCreateCapsule.ts` 里的一个小 store（`useDraft`），只在内存里，切换皮肤、离开再回来都还在，封存成功后清空。
 
 ### 9.3 一致性：跨 store 联动
 
-`useCapsule.toggleFavorite` 收藏成功后，同时**直接调** `usePlaza.getState().patchFavorited(...)` 更新广场列表里这条胶囊的 `favoritedByMe / favoriteCount`。这样从「我收藏的」列表里取消，再切回广场，那一条不会显示成已收藏。
-
-```ts
-usePlaza.getState().patchFavorited(capsuleId, true, result.favoriteCount);
-```
-
-> Zustand store 是模块级单例，多个 store 互相 `import` 并不会破坏 React 渲染，因为 `.getState()` 是同步读，不通过 React 订阅。这是 Zustand 比 React Context 更灵活的地方之一。
+`FavButton` 收藏成功后直接调 `usePlaza.getState().patchFavorited(...)` 更新广场列表与精选里的这一枚；「我收藏的」里取消收藏则通过回调把它从列表移出、并刷新 `/me/stats`。
 
 ### 9.4 并发请求的「序列号」模式
 
@@ -566,144 +509,72 @@ fetch: async () => {
 
 用户快速切 sort/filter 时会连发好几个请求，网络响应顺序不一定和发起顺序一致。`fetchSeq` 保证「只有最后发起的那个请求才能写状态」，避免老结果覆盖新结果。
 
-## 11. 页面层与组件层
+## 11. 页面层、Hook 层与皮肤视图
 
-### 10.1 一个页面的典型骨架
+### 10.1 一个页面的三层
 
 ```tsx
-export function PlazaPage() {
-  const fetchPlaza = usePlaza((s) => s.fetch);
-  const items = usePlaza((s) => s.items);
-  const loading = usePlaza((s) => s.loading);
-  const hydrated = useAuth((s) => s.hydrated);
+// pages/CreatePage.tsx —— 路由入口：只决定画哪套皮肤
+export function CreatePage() {
+  const skin = useUi((s) => s.skin);
+  return skin === "paper" ? <PaperCreatePage /> : <AmberCreatePage />;
+}
 
-  useEffect(() => {
-    if (hydrated) void fetchPlaza();              // 等鉴权 ready 再拉，避免 favoritedByMe 不一致
-  }, [hydrated, fetchPlaza]);
+// hooks/useCreateCapsule.ts —— 业务逻辑：草稿、校验、AI、封存
+export function useCreateCapsule() { /* ... */ return { title, setTitle, aiWrite, submit, ... }; }
 
-  return (
-    <>
-      <section className="cy-hero-block">...</section>
-      <main className="cy-container">
-        <PlazaToolbar />
-        <CapsuleGrid items={items} loading={loading} ... />
-        <Pagination ... />
-      </main>
-    </>
-  );
+// skins/paper/CreatePage.tsx —— 视图：照原型写结构与类名，调用 Hook
+export function PaperCreatePage() {
+  const f = useCreateCapsule();
+  return <input data-testid="create-title" value={f.title} onChange={(e) => f.setTitle(e.target.value)} />;
 }
 ```
 
-模式：
-
-- 顶部从 store 取出需要的状态和动作。
-- `useEffect` 触发首次 fetch。
-- 返回的 JSX 直接消费状态，没有手动 DOM 操作。
-- 子组件只通过 props 传值，不直接读 store（让组件可复用）——但 `PlazaToolbar` 这种「天然只服务于一个 store」的组件会直接读，省去 prop drilling。
+两套皮肤的「创建页」长得完全不同——时笺是红格信笺 + 对数时间标尺 + 长按火漆，琥珀是表单卡 + 实时预览 + 按钮——但它们调用的是同一个 `useCreateCapsule()`。读代码时先看 Hook，再对照两份视图，就能看清「逻辑」与「表现」的分界。
 
 ### 10.2 表单：受控组件
 
-```tsx
-const [email, setEmail] = useState("");
-<input value={email} onChange={(e) => setEmail(e.target.value)} />
-```
-
-每个输入框的值都来自 state，每次按键都触发 state 更新与重渲染。这种「受控组件」让你能随时校验、格式化、清空，比直接读 DOM 更可预测。
-
-提交：
-
-```tsx
-async function submit(e: FormEvent) {
-  e.preventDefault();
-  setBusy(true);
-  try {
-    const tokens = await api.login({ email: email.trim(), password });
-    setTokens(tokens);
-    navigate(state?.from ?? "/me/created", { replace: true });
-  } catch (e) {
-    setErr(e instanceof ApiError ? e.message : "登录失败");
-  } finally {
-    setBusy(false);
-  }
-}
-```
-
-`e.preventDefault()` 阻止浏览器默认的「整页 POST」。
+所有输入都是受控组件：值放在 Hook / store 里，`onChange` 写回去。`components/forms.tsx` 的 `Field` 按当前皮肤出不同外框（时笺是下划线信笺栏，琥珀是带图标的输入框），出错时自带 `field-error` 测试钩子并抖一下。
 
 ### 10.3 组件分类
 
-| 类型 | 举例 | 特征 |
-|---|---|---|
-| **布局** | `MainLayout`、`MeLayout` | 套在路由外层，含 Header/Footer/`<Outlet />` |
-| **展示** | `CapsuleCard`、`Alert`、`Pagination` | 只接受 props，几乎无 state |
-| **交互** | `FavoriteButton`、`PlazaToolbar`、`AvatarPicker` | 有内部 state + 副作用 |
-| **守卫** | `AuthGate` | 包住 children，根据条件 render 或重定向 |
+| 位置 | 放什么 |
+|---|---|
+| `components/` | 结构两套相同的部件：`Seg`（分段控件）、`FavButton`、`Feedback`（Toast / 确认框）、`forms`、`shared`（头像、技术栈、皮肤开关）、`AuthGate` |
+| `skins/<skin>/parts.tsx` | 皮肤专属的小件：时笺的印章、火漆、信封、邮戳、翻页数字；琥珀的胶囊插画、徽标、翻牌倒计时 |
+| `skins/<skin>/*Page.tsx` | 页面视图与卡片、外壳 |
 
-## 12. 工具层：`utils/format.ts` 等
+### 10.4 测试钩子
 
-纯函数，没有 React 依赖，可以直接 import 用：
+每个关键元素都带 `spec/ui/testids.md` 规定的 `data-testid` 与状态属性（`data-state`、`data-code`、`aria-pressed`…）。UI 冒烟只靠它们定位，所以两套皮肤可以跑同一套用例。新增元素时先查契约。
 
-```ts
-countdownTo(iso)               // 返回 { days, hours, minutes, seconds, expired }
-fmtDateTime(iso)               // 本地化日期时间字符串
-localInputToIso(local)         // <input type="datetime-local"> 值 → ISO UTC
-isoToLocalInput(iso)           // 反向
-avatarUrl(avatarId)            // → "/static/avatars/<id>.svg"
-```
+## 12. 工具层：`lib/`
 
-`CapsuleCard` 里的倒计时模式值得记：
+| 文件 | 内容 |
+|---|---|
+| `fmt.ts` | 时间说法（`span`：「2 年 8 个月」）、倒计时拆分、等待进度、农历、`reducedMotion()`、`focusIfIdle()` |
+| `icons.tsx` | 24 网格线性图标 |
+| `avatars.ts` | 构建期内联 `spec/avatars/v2` 的单线徽记（`import.meta.glob(..., { query: "?raw" })`） |
+| `palette.ts` | 琥珀的胶囊专属色：FNV-1a + OKLCH（`docs/02-design.md §9.6`） |
+| `about.ts` | 关于页共用文字 |
+| `redirect.ts` | 登录回跳：只接受站内路径 |
 
-```tsx
-const [, setTick] = useState(0);
-useEffect(() => {
-  if (opened) return;
-  const t = window.setInterval(() => setTick((x) => x + 1), 1000);
-  return () => window.clearInterval(t);
-}, [opened]);
-const cd = countdownTo(capsule.openAt);            // 每次渲染重算
-```
+## 13. 样式层：spec/styles
 
-`setTick` 仅用于强制重渲染，**值本身不展示**。计算放在渲染期，`useEffect` 只管定时触发。已开启的胶囊提早 `return`，永不创建 interval——避免列表里几十个卡片都在跑无用定时器。
+`src/styles/index.css` 只做三件事：引入 `@fontsource` 自托管字体；按「base → 时笺 → 琥珀 → shell」的顺序引入 `spec/styles`；引入 `app.css`（一行：让 `#root` 不参与布局）。本前端不写组件样式，也不用 Tailwind。
 
-## 13. 样式层：Tailwind + 设计令牌
+想改长相：改 `spec/styles/<skin>/*.css`（所有实现一起受益），并在原型里两套皮肤、明暗都看一遍。想加只属于本前端的胶水样式：写进 `app.css`，只能用 `base.css` 刻度与语义令牌（`--color-*` 等）。
 
-```css
-/* src/styles/index.css */
-@import "tailwindcss";
-@import "../../../../spec/styles/palette.css";    /* 色阶变量 --brand-500 等 */
-@import "../../../../spec/styles/tokens.css";     /* 语义令牌 --color-text-primary 等 */
-@import "../../../../spec/styles/cyber.css";      /* 共享类 cy-btn / cy-card / cy-capsule */
-@import "./layout.css";
-```
+## 14. 测试
 
-- `spec/styles/tokens.css` 是 **设计系统的单一来源**。所有前端实现（React / Vue / Angular / Svelte / Solid）共用同一份。修改设计 token 一次，五个前端都生效。
-- 主题切换靠 `data-theme="dark" | "light"`：tokens.css 里用 `[data-theme="dark"] { --color-text-primary: ... }` 重写变量。这就是为什么 `index.html` 内联脚本要尽早设置这个属性。
-- 组件用 **`cy-*` 共享类**（如 `cy-btn cy-btn--primary`），底层是 CSS 变量。**不允许直接写 `color: #ff00aa` 或用色阶变量 `--brand-500`**——这是为了保证多前端实现的视觉一致和暗/亮主题正常切换。
-- Tailwind v4 通过 `@tailwindcss/vite` 插件接入，主要用 utility 类做微调（间距、对齐）。
-- 内联 `style={{ ... }}` 仅用于一次性、与 token 无关的微调（比如某个卡片的 max-width）。
-
-## 14. 测试：vitest
-
-```bash
-./test
-```
-
-跑的是 `*.test.ts(x)` 文件。本项目目前有 `api/client.test.ts` 和 `utils/format.test.ts`，验证 fetch 拦截、解包、倒计时计算。组件测试需要 jsdom + React Testing Library，本项目（教学版）没有引入。
+- 单元测试（vitest，`./test`）：`lib/lib.test.ts` 测时间说法、专属色确定性、登录回跳；`api/client.test.ts` 测 refresh 单飞与重放。
+- UI 冒烟（Playwright，`verification/ui`）：39 条用例 × 两套皮肤，靠测试钩子定位；`SKINS=paper` 可只跑一套。
 
 ## 15. 常见改动指南
 
-| 想做什么 | 改哪里 |
-|---|---|
-| 加一个新页面 | ① `src/pages/XxxPage.tsx` 导出组件；② `src/router.tsx` 加 `{ path, element }` |
-| 加一个登录后才能访问的页面 | 同上，但 `element` 包一层 `<AuthGate>...</AuthGate>` |
-| 加一个 API 端点 | ① `src/types/index.ts` 加请求/响应类型；② `src/api/client.ts` 在 `api` 对象里加方法 |
-| 加一个状态域 | `src/stores/xxx.ts` 用 `create` 定义一个新 store，并在用到的页面里 `useXxx(...)` |
-| 加一个可复用 UI | `src/components/Xxx.tsx` 写一个组件，接受 props |
-| 加一个全局样式 | 优先到 `spec/styles/cyber.css` 加 `cy-*` 类；只服务本前端的局部样式放 `src/styles/layout.css` |
-| 加一个表单字段 | 在页面组件里加 `useState` + `<input value onChange>` + 提交处理 |
-| 改 API 代理目标 | `BACKEND_PROXY=http://localhost:29010 ./run` |
-| 改主题色 / 间距 | 修改 `spec/styles/tokens.css` 的 CSS 变量，所有前端同步生效 |
-| 想在组件外读 store | `useStore.getState()` / `useStore.setState({...})` |
+- **新增一个页面**：在 `hooks/` 写逻辑 → 在 `skins/paper` 与 `skins/amber` 各写一份视图（照原型的结构与类名）→ 在 `pages/` 加一个按皮肤分发的入口 → 在 `router.tsx` 登记 → 按 `spec/ui/testids.md` 加测试钩子。
+- **新增一个接口**：先改 `spec/api/openapi.yaml` → 在 `types/` 加类型 → 在 `api/client.ts` 加方法 → 在 Hook 里调用。
+- **调整视觉**：改 `spec/styles`，不要在组件里写样式。
 
 ## 16. 学到这里之后
 

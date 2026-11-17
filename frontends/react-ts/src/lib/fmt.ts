@@ -122,3 +122,9 @@ export const reducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));
+
+/** 延迟自动聚焦：只在用户还没把焦点放到别处时生效，不抢已经聚焦的控件 */
+export function focusIfIdle(el: HTMLElement | null | undefined) {
+  const a = document.activeElement;
+  if (el && (!a || a === document.body)) el.focus({ preventScroll: true });
+}

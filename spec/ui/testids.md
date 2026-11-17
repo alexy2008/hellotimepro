@@ -139,7 +139,7 @@
 | `login-error` | 任意 | C | 登录失败的提示 |
 | `to-register` / `to-login` | a | M | 两页互相切换的链接（保留 `redirect`） |
 | `register-email` / `register-nickname` / `register-password` | input | M | 注册表单 |
-| `nickname-state` | 任意 | C | 昵称唯一性检查结果，带 `data-state="checking\|available\|taken"` |
+| `nickname-state` | 任意 | C | 昵称即时检查结果，带 `data-state="valid\|invalid\|taken"`：没有查重接口，前端只做格式检查（valid / invalid），重名在提交后由后端返回、显示为 taken |
 | `avatar-option` | button / `role="radio"` | M | 10 个头像选项，带 `data-value="<avatarId>"` 与 `data-selected`；注册页与资料页同名 |
 | `register-submit` | button | M | 注册 |
 

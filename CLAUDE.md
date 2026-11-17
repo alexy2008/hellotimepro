@@ -43,8 +43,8 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 
 ### Verification Notes
 
-- Backend/full-stack contract verification currently covers 104 black-box API cases, including AI capsule suggestion and recommendation endpoints.
-- UI smoke verification currently covers 25 Playwright cases across auth, capsule creation/opening, plaza search/favorites, profile, protected routes, public pages, and AI creation helpers.
+- **2.0 upgrade in progress**: contract suite is now 114 cases (2.0 rules: stats endpoints, favorites without status checks, delete cascades, `health.version = 2.0.0`); only `fastapi` passes it so far (PostgreSQL & SQLite 114/114, 2026-11-18). Other backends/full-stacks fail the 2.0 cases until upgraded.
+- UI smoke 2.0: 39 Playwright cases × 2 skins (`paper` / `amber` projects, skin preset via `localStorage['hellotime.skin']`, `reducedMotion: reduce`), located only through `spec/ui/testids.md` hooks (`SKINS=paper` to run one). Only `react` is upgraded so far: 78/78 on PostgreSQL & SQLite (2026-11-18). The 1.x numbers below (104 / 25) are historical.
 - `./verification/scripts/verify-contract.sh <target>` applies to backends and full-stacks as long as the target is registered in `hello list` and exposes `/api/v1/*` on its own port.
 - `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte|solid|next|nuxt|spring-mvc|rails|laravel>` explicitly runs `./scripts/db init` before starting the target; it does not reset or seed data. JVM full-stacks cold-start slowly, so the readiness wait is 120s (override with `UI_READY_TIMEOUT`).
 - Latest full-stack contract run on 2026-06-04 passed: next/nuxt PostgreSQL & SQLite 104/104, spring-mvc PostgreSQL 104/104, spring-mvc SQLite 104/104.

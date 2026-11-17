@@ -1,68 +1,88 @@
-import { expect, test } from "@playwright/test";
+// 胶囊：创建（含长按封缄 / 按钮）、开启页、就地输码、详情、AI 推荐与代笔
+import { expect, test, type Page } from "@playwright/test";
 import {
   apiCreateCapsule,
   apiRegister,
-  capsuleCard,
   capsulePath,
+  cardOf,
   createCapsuleViaUi,
-  enterCapsuleCode,
+  enterCode,
   loginViaUi,
   registerViaUi,
   searchPlaza,
+  tid,
   uniqueNickname,
 } from "./_helpers";
 
-test("UI 创建胶囊后可在广场按标题检索到", async ({ page }) => {
-  await registerViaUi(page, { nickname: uniqueNickname("作者") });
-  const capsule = await createCapsuleViaUi(page);
-
-  await searchPlaza(page, capsule.title);
-  await expect(capsuleCard(page, capsule.title)).toBeVisible({ timeout: 10_000 });
+test("UI 创建胶囊后出现回执，并可在广场按标题检索到", async ({ page }) => {
+  await registerViaUi(page, { nickname: uniqueNickname("创建") });
+  const cap = await createCapsuleViaUi(page);
+  await expect(tid(page, "receipt-view")).toHaveAttribute("href", capsulePath(cap.code));
+  await searchPlaza(page, cap.title);
+  await expect(cardOf(page, cap.code)).toBeVisible({ timeout: 10_000 });
 });
 
-test("开启页输入 8 位码跳转到胶囊详情", async ({ page, request }) => {
-  const user = await apiRegister(request, { nickname: uniqueNickname("码主") });
-  const capsule = await apiCreateCapsule(request, user.accessToken, {
-    title: `开码 ${Date.now()}`,
-    openAtSeconds: 3600,
-  });
-
-  await enterCapsuleCode(page, capsule.code);
-
-  await expect(page).toHaveURL(new RegExp(`${capsulePath(capsule.code)}$`), { timeout: 10_000 });
-  await expect(page.getByRole("heading", { name: capsule.title })).toBeVisible();
+test("创建页校验：标题为空时提示并不提交", async ({ page }) => {
+  await registerViaUi(page, { nickname: uniqueNickname("校验") });
+  await tid(page, "create-submit").focus();
+  await tid(page, "create-submit").press("Space", { delay: 1500 });
+  await expect(page.locator('[data-testid="field-error"][data-field="title"]')).toBeVisible();
+  await expect(tid(page, "sealed-receipt")).toHaveCount(0);
 });
 
-test("未开启详情页隐藏正文并显示未开启状态", async ({ page, request }) => {
+test("未公开的胶囊不出现在广场，但可凭码打开", async ({ page }) => {
+  await registerViaUi(page, { nickname: uniqueNickname("私密") });
+  const cap = await createCapsuleViaUi(page, { inPlaza: false });
+  await searchPlaza(page, cap.title);
+  await expect(tid(page, "list-empty")).toBeVisible({ timeout: 10_000 });
+  await page.goto(capsulePath(cap.code));
+  await expect(tid(page, "capsule-detail")).toHaveAttribute("data-in-plaza", "false", { timeout: 10_000 });
+});
+
+test("开启页一次填入 8 位码，自动跳转到胶囊详情", async ({ page, request }) => {
+  const user = await apiRegister(request, { nickname: uniqueNickname("开启") });
+  const cap = await apiCreateCapsule(request, user.accessToken);
+  await page.goto("/open");
+  await enterCode(page, cap.code.toLowerCase());
+  await expect(page).toHaveURL(new RegExp(`/capsules/${cap.code}$`), { timeout: 10_000 });
+});
+
+test("首页就地输码：错码就地提示，对的码跳到详情", async ({ page, request }) => {
+  const user = await apiRegister(request, { nickname: uniqueNickname("就地") });
+  const cap = await apiCreateCapsule(request, user.accessToken);
+  await page.goto("/");
+  await enterCode(page, "ZZZZ0000");
+  await expect(tid(page, "open-error")).toBeVisible({ timeout: 10_000 });
+  await enterCode(page, cap.code);
+  await expect(page).toHaveURL(new RegExp(`/capsules/${cap.code}$`), { timeout: 10_000 });
+});
+
+test("未开启详情页隐藏正文并显示倒计时", async ({ page, request }) => {
   const user = await apiRegister(request, { nickname: uniqueNickname("封存") });
-  const content = `不可提前看到 ${Date.now()}`;
-  const capsule = await apiCreateCapsule(request, user.accessToken, {
-    title: `未开启 ${Date.now()}`,
-    content,
-    openAtSeconds: 7200,
-  });
-
-  await page.goto(capsulePath(capsule.code));
-
-  await expect(page.getByRole("heading", { name: capsule.title })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("未开启").first()).toBeVisible();
-  await expect(page.getByText(content)).toHaveCount(0);
+  const cap = await apiCreateCapsule(request, user.accessToken, { openAtSeconds: 7200 });
+  await page.goto(capsulePath(cap.code));
+  const detail = tid(page, "capsule-detail");
+  await expect(detail).toHaveAttribute("data-state", "sealed", { timeout: 10_000 });
+  await expect(tid(page, "countdown")).toBeVisible();
+  await expect(tid(page, "detail-content")).toHaveCount(0);
+  await expect(tid(page, "detail-title")).toHaveText(cap.title);
 });
 
-test("我创建的列表包含当前用户创建的胶囊", async ({ page, request }) => {
-  const user = await apiRegister(request, { nickname: uniqueNickname("我的") });
-  const capsule = await apiCreateCapsule(request, user.accessToken, {
-    title: `我的胶囊 ${Date.now()}`,
-    openAtSeconds: 3600,
-  });
+test("不存在的码显示查无此胶囊", async ({ page }) => {
+  await page.goto(capsulePath("NOSUCH99"));
+  await expect(tid(page, "detail-not-found")).toBeVisible({ timeout: 10_000 });
+});
 
+test("「我封存过的胶囊」出现在开启页", async ({ page, request }) => {
+  const user = await apiRegister(request, { nickname: uniqueNickname("封过") });
+  const cap = await apiCreateCapsule(request, user.accessToken);
   await loginViaUi(page, user);
-
-  await expect(capsuleCard(page, capsule.title)).toBeVisible({ timeout: 10_000 });
+  await page.goto("/open");
+  await expect(page.locator(`[data-testid="my-sealed-item"][data-code="${cap.code}"]`)).toBeVisible({ timeout: 10_000 });
 });
 
-// 推荐区行为现在依赖 LLM（失败则静默不显示），为保证冒烟稳定，
-// 用路由 mock 固定推荐 / 建议接口的响应，专注验证前端的展示与交互。
+// ---------------------------------------------------------------- AI：路由 mock 保证确定性
+
 function envelope(data: unknown): string {
   return JSON.stringify({ success: true, data, message: null, errorCode: null });
 }
@@ -73,7 +93,7 @@ const MOCK_RECOS = [
   { title: "下个月想完成的小事", hint: "立个温柔的 flag", openInDays: 30 },
 ];
 
-async function mockRecommendations(page: import("@playwright/test").Page, items: typeof MOCK_RECOS) {
+async function mockRecommendations(page: Page, items: typeof MOCK_RECOS) {
   await page.route("**/api/v1/capsule-recommendations**", (route) =>
     route.fulfill({
       status: 200,
@@ -83,10 +103,7 @@ async function mockRecommendations(page: import("@playwright/test").Page, items:
   );
 }
 
-async function mockSuggestion(
-  page: import("@playwright/test").Page,
-  data: { title?: string; content: string },
-) {
+async function mockSuggestion(page: Page, data: { title?: string; content: string }) {
   await page.route("**/api/v1/capsule-suggestion", (route) =>
     route.fulfill({
       status: 200,
@@ -105,68 +122,44 @@ async function mockSuggestion(
 
 test("进入创建页后异步加载并显示 AI 推荐主题", async ({ page }) => {
   await mockRecommendations(page, MOCK_RECOS);
-  // registerViaUi 注册后会落在 /create，推荐区在 mount 时异步拉取
   await registerViaUi(page, { nickname: uniqueNickname("灵感") });
-
-  const chips = page.getByTestId("reco-chip");
-  await expect(chips.first()).toBeVisible({ timeout: 10_000 });
-  expect(await chips.count()).toBe(MOCK_RECOS.length);
+  await expect(tid(page, "ai-reco")).toBeVisible({ timeout: 10_000 });
+  await expect(tid(page, "reco-chip")).toHaveCount(MOCK_RECOS.length);
 });
 
 test("AI 推荐返回空时不显示推荐区（静默失败）", async ({ page }) => {
   await mockRecommendations(page, []);
   await registerViaUi(page, { nickname: uniqueNickname("空荐") });
-
-  // 标题字段渲染后，仍不应出现推荐标签或"换一批"
-  await expect(page.locator("#title")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId("reco-chip")).toHaveCount(0);
-  await expect(page.getByTestId("reco-refresh")).toHaveCount(0);
-  await expect(page.getByText("没有头绪？")).toHaveCount(0);
+  await expect(tid(page, "create-title")).toBeVisible();
+  await expect(tid(page, "ai-reco")).toHaveCount(0);
+  await expect(tid(page, "reco-chip")).toHaveCount(0);
 });
 
 test("点击推荐主题自动填入标题与正文", async ({ page }) => {
   await mockRecommendations(page, MOCK_RECOS);
   await mockSuggestion(page, { content: "这是为该主题生成的胶囊正文。" });
   await registerViaUi(page, { nickname: uniqueNickname("点选") });
-
-  const chips = page.getByTestId("reco-chip");
-  await expect(chips.first()).toBeVisible({ timeout: 10_000 });
-  const chipText = (await chips.first().innerText()).trim();
-
-  await chips.first().click();
-
-  // 正文被填入；标题等于被点击的推荐文字
-  await expect(page.locator("#content")).not.toHaveValue("", { timeout: 10_000 });
-  await expect(page.locator("#title")).toHaveValue(chipText);
+  await tid(page, "reco-chip").first().click();
+  await expect(tid(page, "create-title")).toHaveValue(MOCK_RECOS[0].title, { timeout: 10_000 });
+  await expect(tid(page, "create-content")).toHaveValue("这是为该主题生成的胶囊正文。", { timeout: 10_000 });
 });
 
-test("空标题直接 AI 生成会同时补全标题与正文并可提交", async ({ page }) => {
-  await mockRecommendations(page, []); // 不让推荐区干扰本用例
+test("空标题直接 AI 生成会同时补全标题与正文并可封存", async ({ page }) => {
+  await mockRecommendations(page, []);
   await mockSuggestion(page, { title: "AI 生成的标题", content: "AI 生成的正文内容。" });
   await registerViaUi(page, { nickname: uniqueNickname("起题") });
-
-  // 标题留空时按钮文案为"AI 生成"
-  await page.getByRole("button", { name: "✨ AI 生成" }).click();
-
-  await expect(page.locator("#title")).toHaveValue("AI 生成的标题", { timeout: 10_000 });
-  await expect(page.locator("#content")).not.toHaveValue("", { timeout: 10_000 });
-
-  // 生成后可继续封存并跳转到胶囊详情（创建走真实接口）
-  await page.getByRole("button", { name: "1 分钟后（测试）" }).click();
-  await page.getByRole("button", { name: /上锁封存/ }).click();
-  await page.waitForURL(
-    (url) => url.pathname.includes("/c/"),
-    { timeout: 10_000 },
-  );
+  await tid(page, "ai-generate").click();
+  await expect(tid(page, "create-title")).toHaveValue("AI 生成的标题", { timeout: 10_000 });
+  await expect(tid(page, "create-content")).toHaveValue("AI 生成的正文内容。", { timeout: 10_000 });
+  await tid(page, "create-submit").focus();
+  await tid(page, "create-submit").press("Space", { delay: 1500 });
+  await expect(tid(page, "sealed-receipt")).toBeVisible({ timeout: 10_000 });
 });
 
 test("推荐区换一批按钮可用且不报错", async ({ page }) => {
   await mockRecommendations(page, MOCK_RECOS);
   await registerViaUi(page, { nickname: uniqueNickname("换批") });
-
-  await expect(page.getByTestId("reco-chip").first()).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId("reco-refresh").click();
-
-  // 换一批后推荐仍然可见
-  await expect(page.getByTestId("reco-chip").first()).toBeVisible({ timeout: 10_000 });
+  await expect(tid(page, "reco-chip").first()).toBeVisible({ timeout: 10_000 });
+  await tid(page, "reco-refresh").click();
+  await expect(tid(page, "reco-chip").first()).toBeVisible({ timeout: 10_000 });
 });

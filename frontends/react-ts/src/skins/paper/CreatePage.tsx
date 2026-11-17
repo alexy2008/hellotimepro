@@ -9,7 +9,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { clamp, fmt, pad2, reducedMotion, sleep } from "@/lib/fmt";
+import { clamp, fmt, pad2, reducedMotion, sleep, focusIfIdle } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { useAuth } from "@/stores/auth";
 import { Avatar } from "@/components/shared";
@@ -331,7 +331,7 @@ export function PaperCreatePage() {
   const span = f.openAt - now;
 
   useEffect(() => {
-    const t = setTimeout(() => titleEl.current?.focus({ preventScroll: true }), 420);
+    const t = setTimeout(() => focusIfIdle(titleEl.current), 420);
     return () => clearTimeout(t);
   }, []);
 
