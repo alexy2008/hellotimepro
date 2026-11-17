@@ -18,8 +18,11 @@ const preview = (text: string | null | undefined, n = 80) => {
   return t.length > n ? t.slice(0, n) + "……" : t;
 };
 
-export function AmberCard({ c, i = 0, rank = 0, mine = false, now }: {
+export function AmberCard({ c, i = 0, rank = 0, mine = false, now, testId = "capsule-card", openTestId = "card-open", onFavChange }: {
   c: CapsuleListItem; i?: number; rank?: number; mine?: boolean; now: number;
+  /** 「我收藏的」里用 fav-item / row-open（spec/ui/testids.md §3.7） */
+  testId?: string; openTestId?: string;
+  onFavChange?: (favorited: boolean, count: number) => void;
 }) {
   const openAt = ms(c.openAt);
   const createdAt = ms(c.createdAt);
@@ -30,11 +33,12 @@ export function AmberCard({ c, i = 0, rank = 0, mine = false, now }: {
     <article
       className={`pc ${opened ? "is-opened" : "is-locked"}${flipping ? " is-flipping" : ""}`}
       style={{ "--glow": p.glow, "--i": i } as CSSProperties}
-      data-testid="capsule-card"
+      data-testid={testId}
       data-code={c.code}
       data-state={opened ? "opened" : "sealed"}
+      data-in-plaza={c.inPlaza}
     >
-      <Link className="pc__link" to={`/capsules/${c.code}`} aria-label={`${c.title}，${opened ? "已开启" : "封存中"}`} data-testid="card-open" />
+      <Link className="pc__link" to={`/capsules/${c.code}`} aria-label={`${c.title}，${opened ? "已开启" : "封存中"}`} data-testid={openTestId} />
       <div className="pc__top">
         <div className="pc__art">
           <CapsuleArt code={c.code} state={opened ? "opened" : "locked"} width={150} />
@@ -75,7 +79,7 @@ export function AmberCard({ c, i = 0, rank = 0, mine = false, now }: {
           <Icon name="calendar" />
           {fmt.dateTime(openAt)} {opened ? "已开启" : "开启"}
         </span>
-        <FavButton capsule={c} />
+        <FavButton capsule={c} onChange={onFavChange} />
       </div>
     </article>
   );

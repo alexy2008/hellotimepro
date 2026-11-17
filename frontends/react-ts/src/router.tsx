@@ -10,9 +10,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { CreatePage } from "@/pages/CreatePage";
 import { CapsuleByCodePage } from "@/pages/CapsuleByCodePage";
-import { MeCreatedPage } from "@/pages/MeCreatedPage";
-import { MeFavoritesPage } from "@/pages/MeFavoritesPage";
-import { MeProfilePage } from "@/pages/MeProfilePage";
+import { MePage } from "@/pages/MePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 // 路由表与 docs/01-requirements.md §4.9 一致；详情页统一按胶囊码打开
@@ -30,9 +28,7 @@ export const router = createBrowserRouter([
       { path: "/create", element: gated(<CreatePage />) },
       { path: "/capsules/:code", element: <CapsuleByCodePage /> },
       { path: "/me", element: <Navigate to="/me/created" replace /> },
-      { path: "/me/created", element: gated(<MeCreatedPage />) },
-      { path: "/me/favorites", element: gated(<MeFavoritesPage />) },
-      { path: "/me/profile", element: gated(<MeProfilePage />) },
+      { path: "/me/:tab", element: gated(<MePage />) },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

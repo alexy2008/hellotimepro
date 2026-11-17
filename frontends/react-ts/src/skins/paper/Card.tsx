@@ -39,8 +39,11 @@ export const preview = (text: string | null | undefined, n = 78) => {
   return t.length > n ? t.slice(0, n) + "……" : t;
 };
 
-export function PaperCard({ c, i = 0, rank = 0, mine = false, now }: {
+export function PaperCard({ c, i = 0, rank = 0, mine = false, now, testId = "capsule-card", openTestId = "card-open", onFavChange }: {
   c: CapsuleListItem; i?: number; rank?: number; mine?: boolean; now: number;
+  /** 「我收藏的」里用 fav-item / row-open（spec/ui/testids.md §3.7） */
+  testId?: string; openTestId?: string;
+  onFavChange?: (favorited: boolean, count: number) => void;
 }) {
   const openAt = ms(c.openAt);
   const createdAt = ms(c.createdAt);
@@ -49,9 +52,10 @@ export function PaperCard({ c, i = 0, rank = 0, mine = false, now }: {
     <article
       className={`cap cap--${opened ? "opened" : "sealed"}`}
       style={{ "--i": i } as CSSProperties}
-      data-testid="capsule-card"
+      data-testid={testId}
       data-code={c.code}
       data-state={opened ? "opened" : "sealed"}
+      data-in-plaza={c.inPlaza}
     >
       <div className="cap__bg" aria-hidden="true">
         {opened ? ENV_OPENED : ENV_SEALED}
@@ -60,7 +64,7 @@ export function PaperCard({ c, i = 0, rank = 0, mine = false, now }: {
         className="cap__link"
         to={`/capsules/${c.code}`}
         aria-label={`${c.title}，${opened ? "已开启" : "未开启"}`}
-        data-testid="card-open"
+        data-testid={openTestId}
       />
       <header className="cap__top">
         <Seal ch={opened ? "启" : "封"} variant={opened ? "line" : "solid"} />
@@ -115,7 +119,7 @@ export function PaperCard({ c, i = 0, rank = 0, mine = false, now }: {
           <span className="who__n">{c.creator.nickname}</span>
           {mine ? <em className="who__me">我</em> : null}
         </span>
-        <FavButton capsule={c} />
+        <FavButton capsule={c} onChange={onFavChange} />
       </footer>
     </article>
   );

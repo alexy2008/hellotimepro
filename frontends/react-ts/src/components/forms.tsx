@@ -39,6 +39,8 @@ interface FieldProps {
   /** 输入框右侧的小部件（眼睛、昵称状态、锁） */
   trail?: ReactNode;
   testId?: string;
+  /** 出错时提示上的 data-field（测试钩子 field-error 用），默认取 id */
+  errorKey?: string;
   autoComplete?: string;
   placeholder?: string;
   maxLength?: number;
@@ -77,7 +79,12 @@ export function Field(p: FieldProps) {
   );
   const cls = `field${p.error ? " is-error" : p.ok ? " is-ok" : ""}`;
   const hint = (
-    <div className="field__hint" id={`${p.id}-hint`}>
+    <div
+      className="field__hint"
+      id={`${p.id}-hint`}
+      data-testid={p.error ? "field-error" : undefined}
+      data-field={p.error ? p.errorKey ?? p.id : undefined}
+    >
       {p.error || p.ok || p.hint}
     </div>
   );
