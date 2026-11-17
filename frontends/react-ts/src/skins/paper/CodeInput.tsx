@@ -4,10 +4,14 @@
 // size：'' 为开启页的大号，'sm' 为首页的小号。
 // ============================================================
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties } from "react";
 import type { CodeState } from "@/hooks/useCodeOpen";
 
 const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+export interface CodeInputHandle {
+  set: (v: string) => void;
+}
 
 interface Props {
   size?: "" | "sm";
@@ -16,10 +20,12 @@ interface Props {
   onChange?: (v: string) => void;
   onComplete: (v: string) => void;
   autoFocus?: boolean;
+  /** 外部写入整码（粘贴识别用） */
+  handle?: React.Ref<CodeInputHandle>;
   id?: string;
 }
 
-export function PaperCodeInput({ size = "", state, shake, onChange, onComplete, autoFocus, id }: Props) {
+export function PaperCodeInput({ size = "", state, shake, onChange, onComplete, autoFocus, id, handle }: Props) {
   const [cells, setCells] = useState<string[]>(() => Array(8).fill(""));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const [shaking, setShaking] = useState(false);
@@ -46,6 +52,13 @@ export function PaperCodeInput({ size = "", state, shake, onChange, onComplete, 
     refs.current[Math.min(7, focusAt)]?.focus();
     if (completeNow && v.length === 8) onComplete(v);
   };
+
+  useImperativeHandle(handle, () => ({
+    set: (v: string) => {
+      const s = clean(v).slice(0, 8);
+      commit(Array.from({ length: 8 }, (_, k) => s[k] ?? ""), s.length, true);
+    },
+  }));
 
   /** 从第 from 格开始填入一串字符 */
   const fill = (str: string, from: number) => {

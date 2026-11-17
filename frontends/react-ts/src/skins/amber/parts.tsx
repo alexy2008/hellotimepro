@@ -3,7 +3,7 @@
 // 结构与类名照 2.0 原型 amber/ui.js；样式在 spec/styles/amber
 // ============================================================
 
-import { useId, type CSSProperties } from "react";
+import { Fragment, useId, type CSSProperties } from "react";
 import { fmt, pad2 } from "@/lib/fmt";
 import { Icon, type IconName } from "@/lib/icons";
 import { paletteOf } from "@/lib/palette";
@@ -72,4 +72,66 @@ export function cdShort(openAt: number, now: number) {
   const c = fmt.cd(openAt, now);
   const hms = `${pad2(c.h)}:${pad2(c.m)}:${pad2(c.s)}`;
   return c.d > 0 ? `${fmt.num(c.d)} 天 ${hms}` : hms;
+}
+
+/** 邮戳：外圈文字沿圆排布，略微歪斜，像用手盖上去的 */
+export function Stamp({ date, label = "已开启", className }: { date: number; label?: string; className?: string }) {
+  const id = `st${useId().replace(/:/g, "")}`;
+  return (
+    <svg className={className ? `stamp ${className}` : "stamp"} viewBox="0 0 140 140" aria-hidden="true">
+      <defs>
+        <path id={id} d="M18 70a52 52 0 1 1 104 0a52 52 0 1 1-104 0" />
+      </defs>
+      <circle className="stamp__ring" cx="70" cy="70" r="66" />
+      <circle className="stamp__ring stamp__ring--in" cx="70" cy="70" r="40" />
+      <text className="stamp__arc">
+        <textPath href={`#${id}`} textLength="316" lengthAdjust="spacing">
+          HELLOTIME PRO · 时间胶囊 · TIME CAPSULE ·
+        </textPath>
+      </text>
+      <text className="stamp__label" x="70" y="68" textAnchor="middle">
+        {label}
+      </text>
+      <text className="stamp__date" x="70" y="86" textAnchor="middle">
+        {fmt.date(date)}
+      </text>
+    </svg>
+  );
+}
+
+/**
+ * 翻牌倒计时：天 / 时 / 分 / 秒。每一位以「位置 + 数字」作 key，
+ * 某一位变了就重新挂载，从而重播「落下」的动画。
+ */
+export function Countdown({ openAt, now }: { openAt: number; now: number }) {
+  const c = fmt.cd(openAt, now);
+  const vals: Array<[string, string, string]> = [
+    ["d", "天", String(c.d).padStart(2, "0")],
+    ["h", "时", pad2(c.h)],
+    ["m", "分", pad2(c.m)],
+    ["s", "秒", pad2(c.s)],
+  ];
+  return (
+    <div className="cd" role="timer" aria-label={`距离开启还有 ${c.d} 天 ${c.h} 小时 ${c.m} 分 ${c.s} 秒`}>
+      {vals.map(([k, l, v], i) => (
+        <Fragment key={k}>
+          {i ? (
+            <div className="cd__sep" aria-hidden="true">
+              :
+            </div>
+          ) : null}
+          <div className={`cd__unit${k === "s" ? " cd__unit--accent" : ""}`}>
+            <div className="cd__digits">
+              {Array.from(v).map((d, j) => (
+                <span key={`${j}-${d}`} className="cd__digit">
+                  {d}
+                </span>
+              ))}
+            </div>
+            <div className="cd__label">{l}</div>
+          </div>
+        </Fragment>
+      ))}
+    </div>
+  );
 }

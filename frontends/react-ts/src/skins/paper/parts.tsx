@@ -3,7 +3,7 @@
 // 结构与类名照 2.0 原型 paper/ui.js；样式在 spec/styles/paper
 // ============================================================
 
-import { useId, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { fmt, pad2 } from "@/lib/fmt";
 
 /** 印章：solid = 白文（朱底白字，表示「封」）；line = 朱文（朱框朱字，表示「启」） */
@@ -72,8 +72,13 @@ export function Wax({ ch = "封", className }: { ch?: string; className?: string
   );
 }
 
-/** 信封（封口面）：back 内衬 → letter 信纸 → front 口袋 → flap 封舌 → seal 火漆 */
-export function Envelope({ className, letter, seal = true }: { className?: string; letter?: React.ReactNode; seal?: boolean }) {
+/**
+ * 信封（封口面）：back 内衬 → letter 信纸 → front 口袋 → flap 封舌 → seal 火漆
+ * crack：火漆的状态。split 先换成左右两半，cracked 再让两半裂开（分两步，过渡才会生效）
+ */
+export function Envelope({ className, letter, seal = true, crack = "whole" }: {
+  className?: string; letter?: React.ReactNode; seal?: boolean; crack?: "whole" | "split" | "cracked";
+}) {
   return (
     <div className={className ? `env ${className}` : "env"}>
       <div className="env__back" />
@@ -95,8 +100,19 @@ export function Envelope({ className, letter, seal = true }: { className?: strin
         <i className="env__flap-b" />
       </div>
       {seal ? (
-        <div className="env__seal">
-          <Wax />
+        <div className={`env__seal${crack === "cracked" ? " is-cracked" : ""}`}>
+          {crack === "whole" ? (
+            <Wax />
+          ) : (
+            <>
+              <span className="wax-half wax-half--l">
+                <Wax />
+              </span>
+              <span className="wax-half wax-half--r">
+                <Wax />
+              </span>
+            </>
+          )}
         </div>
       ) : null}
     </div>
@@ -157,5 +173,41 @@ export function CdShort({ openAt, now }: { openAt: number; now: number }) {
     </>
   ) : (
     <b className="mono cap__cd-hms">{hms}</b>
+  );
+}
+
+/** 翻页数字的一位：变化时旧数字向上退出、新数字从下方进入 */
+function Dg({ v }: { v: string }) {
+  const [prev, setPrev] = useState<string | null>(null);
+  const last = useRef(v);
+  useEffect(() => {
+    if (last.current === v) return;
+    setPrev(last.current);
+    last.current = v;
+    const t = setTimeout(() => setPrev(null), 520);
+    return () => clearTimeout(t);
+  }, [v]);
+  return (
+    <span className="dg" data-v={v}>
+      {prev !== null ? (
+        <span className="dg__out" key={`o${prev}`}>
+          {prev}
+        </span>
+      ) : null}
+      <span className={`dg__cur${prev !== null ? " dg__in" : ""}`} key={v}>
+        {v}
+      </span>
+    </span>
+  );
+}
+
+/** 逐位翻动的数字：只有变了的那一位会动 */
+export function FlipDigits({ value }: { value: string }) {
+  return (
+    <>
+      {Array.from(value).map((ch, i) => (
+        <Dg key={i} v={ch} />
+      ))}
+    </>
   );
 }

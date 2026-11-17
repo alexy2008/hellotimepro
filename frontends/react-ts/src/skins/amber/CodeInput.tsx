@@ -3,10 +3,14 @@
 // （键盘、粘贴、输入法都交给它）。size：'md' 首页 / 'lg' 开启页。
 // ============================================================
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { CodeState } from "@/hooks/useCodeOpen";
 
 const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+
+export interface CodeInputHandle {
+  set: (v: string) => void;
+}
 
 interface Props {
   size?: "" | "md" | "lg";
@@ -15,9 +19,11 @@ interface Props {
   onChange?: (v: string) => void;
   onComplete: (v: string) => void;
   autoFocus?: boolean;
+  /** 外部写入整码（粘贴识别用） */
+  handle?: React.Ref<CodeInputHandle>;
 }
 
-export function AmberCodeInput({ size = "", state, shake, onChange, onComplete, autoFocus }: Props) {
+export function AmberCodeInput({ size = "", state, shake, onChange, onComplete, autoFocus, handle }: Props) {
   const [value, setValue] = useState("");
   const [focused, setFocused] = useState(false);
   const [shaking, setShaking] = useState(false);
@@ -37,6 +43,15 @@ export function AmberCodeInput({ size = "", state, shake, onChange, onComplete, 
       return () => clearTimeout(t);
     }
   }, [autoFocus]);
+
+  useImperativeHandle(handle, () => ({
+    set: (v: string) => {
+      const s = clean(v);
+      setValue(s);
+      onChange?.(s);
+      if (s.length === 8) onComplete(s);
+    },
+  }));
 
   // 本次新敲进来的格子「弹」一下：prev 是上一次渲染时的值
   const grew = value.length > prev.current.length;
