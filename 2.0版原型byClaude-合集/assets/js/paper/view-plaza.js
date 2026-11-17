@@ -54,12 +54,10 @@
             <a class="btn btn--ghost btn--lg" href="#plaza" data-to-plaza><span>逛逛胶囊广场</span>${icon('arrow', 'ic--go')}</a>
           </div>
           <form class="hquick" id="quick" novalidate>
-            <label class="hquick__k" for="qcode">${icon('key')}已有胶囊码？</label>
-            <input class="hquick__in mono" id="qcode" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD EFGH" aria-label="8 位胶囊码，输满自动开启">
-            <span class="hquick__n mono" id="qn">0/8</span>
-            <button class="hquick__go" type="submit" aria-label="开启">${icon('arrow')}</button>
+            <div class="hquick__k">${icon('key')}已有胶囊码？在这里开启</div>
+            <div class="hquick__row">${HT.codeInput('sm')}<button class="hquick__go" type="submit" aria-label="开启">${icon('arrow')}</button></div>
+            <div class="hquick__err" id="quickErr" role="alert"></div>
           </form>
-          <div class="hquick__err" id="quickErr" role="alert"></div>
           <div class="hero__now" aria-live="off">
             <span class="hero__now-k">此刻</span>
             <span data-now-date>${fmt.cn(now)} ${fmt.week(now)}</span>
@@ -216,32 +214,27 @@
         if (e.target.closest('[data-to-plaza]')) { e.preventDefault(); $('#plaza', page).scrollIntoView({ behavior: HT.reduced() ? 'auto' : 'smooth', block: 'start' }); }
       });
 
-      /* 首页就地开启：像在单据上填码，输满 8 位自动查询 */
-      const qForm = $('#quick', page), qIn = $('#qcode', page), qErr = $('#quickErr', page);
+      /* 首页就地开启：与开启页同一套 8 格，输满自动查询 */
+      const qForm = $('#quick', page), qErr = $('#quickErr', page);
       let qBusy = false;
-      async function qGo() {
-        const v = qIn.value;
+      const ci = HT.bindCodeInput($('[data-code-input]', qForm), {
+        onChange: (v) => { qErr.textContent = ''; qForm.classList.toggle('is-full', v.length === 8); },
+        onComplete: (v) => qGo(v),
+        onEnter: (v) => qGo(v),
+      });
+      async function qGo(v) {
         if (qBusy) return;
-        if (v.length !== 8) { HT.shake(qForm); qErr.textContent = '胶囊码是 8 位大写字母与数字'; qIn.focus(); return; }
-        qBusy = true; qForm.classList.add('is-busy');
+        if (v.length !== 8) { ci.error(); qErr.textContent = '胶囊码是 8 位大写字母与数字'; ci.focus(); return; }
+        qBusy = true; ci.setState('checking');
         await HT.sleep(560);
-        qBusy = false; qForm.classList.remove('is-busy');
+        qBusy = false; ci.setState('');
         const c = HT.api.byCode(v);
-        if (!c) { HT.shake(qForm); qForm.classList.add('is-error'); qErr.textContent = '没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1'; return; }
-        qForm.classList.add('is-ok');
+        if (!c) { ci.error(); qErr.textContent = '没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1'; return; }
+        ci.setState('ok');
         await HT.sleep(260);
         HT.go('/capsules/' + c.code);
       }
-      qIn.addEventListener('input', () => {
-        const v = qIn.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-        if (v !== qIn.value) qIn.value = v;
-        qErr.textContent = '';
-        qForm.classList.remove('is-error');
-        qForm.classList.toggle('is-full', v.length === 8);
-        $('#qn', page).textContent = v.length + '/8';
-        if (v.length === 8) qGo();
-      });
-      qForm.addEventListener('submit', (e) => { e.preventDefault(); qGo(); });
+      qForm.addEventListener('submit', (e) => { e.preventDefault(); qGo(ci.value); });
 
       /* 倒计时：每秒更新所有 [data-cd]；有胶囊到点就重绘，让它当场「启封」 */
       const offTick = HT.tick.on((now) => {

@@ -203,7 +203,6 @@
       const me = HT.state.user;
       const mine = me ? HT.api.mine().slice(0, 3) : [];
       const row = (c) => `<li><a class="mylist__row" href="#/capsules/${c.code}">${HT.seal(c.isOpened ? '启' : '封', c.isOpened ? 'line' : 'solid')}<span class="mylist__info"><b class="serif">${esc(c.title)}</b><span class="mono">${c.code}</span></span><span class="mylist__st">${c.isOpened ? '已开启' : '距启封 ' + fmt.span(c.openAt - Date.now())}</span>${icon('chev-right')}</a></li>`;
-      const cell = (i) => `<input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 ${i + 1} 位" data-i="${i}" style="--k:${i}">`;
       return `<div class="page page--open">
         <div class="wrap openp">
           <div class="openp__poem" aria-hidden="true"><span>云中谁寄锦书来</span><i></i><small>李清照 ·《一剪梅》</small></div>
@@ -212,9 +211,7 @@
             <h1 class="h1">凭码开启</h1>
             <p class="lede">输入朋友分享给你的 8 位胶囊码。<br>如果还没到启封的时刻，你会看到它的倒计时。</p>
 
-            <div class="code" id="code" role="group" aria-label="8 位胶囊码">
-              ${[0, 1, 2, 3].map(cell).join('')}<span class="code__dash" aria-hidden="true"></span>${[4, 5, 6, 7].map(cell).join('')}
-            </div>
+            ${HT.codeInput().replace('<div class="code"', '<div class="code" id="code"')}
             <div class="openp__err" id="err" role="alert"></div>
 
             <div class="openp__act">
@@ -223,7 +220,7 @@
             </div>
 
             <ul class="openp__tips">
-              <li>${icon('link')}<span>也可以直接访问 <code class="mono">/c/&lt;胶囊码&gt;</code></span></li>
+              <li>${icon('link')}<span>也可以直接访问 <code class="mono">/capsules/&lt;胶囊码&gt;</code></span></li>
               <li>${icon('lock')}<span>没有发布到广场的胶囊，同样可以凭码开启</span></li>
             </ul>
 
@@ -236,91 +233,47 @@
     },
 
     mount(page) {
-      const cells = $$('.code__cell', page);
       const box = $('#code', page);
       const err = $('#err', page);
       const go = $('#go', page);
       let busy = false;
-
-      const value = () => cells.map((c) => c.value).join('');
       const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-      function sync() {
-        cells.forEach((c) => c.classList.toggle('is-filled', !!c.value));
-        go.disabled = value().length !== 8 || busy;
-        err.textContent = '';
-        box.classList.remove('is-error');
-      }
-      function fill(str, from) {
-        const s = clean(str).slice(0, 8 - (from || 0));
-        Array.from(s).forEach((ch, k) => { cells[(from || 0) + k].value = ch; });
-        sync();
-        const next = Math.min(7, (from || 0) + s.length);
-        cells[next].focus();
-      }
+      const ci = HT.bindCodeInput(box, {
+        onChange: (v) => { go.disabled = v.length !== 8 || busy; err.textContent = ''; },
+        onComplete: () => submit(),
+        onEnter: () => submit(),
+      });
 
       async function submit() {
         if (busy) return;
-        const code = value();
-        if (code.length !== 8) {
-          HT.shake(box);
-          (cells.find((c) => !c.value) || cells[0]).focus();
-          return;
-        }
-        busy = true; sync();
-        box.classList.add('is-checking');
+        const code = ci.value;
+        if (code.length !== 8) { HT.shake(box); ci.focus(); return; }
+        busy = true; go.disabled = true;
+        ci.setState('checking');
         go.classList.add('is-busy');
         await sleep(720);
         const c = HT.api.byCode(code);
-        box.classList.remove('is-checking');
+        ci.setState('');
         go.classList.remove('is-busy');
         busy = false;
         if (!c) {
-          sync();
-          box.classList.add('is-error');
-          HT.shake(box);
+          go.disabled = false;
+          ci.error();
           err.textContent = '没有找到这枚胶囊。请核对胶囊码——留意字母 O 与数字 0、字母 I 与数字 1。';
-          cells[7].focus();
+          ci.cells[7].focus();
           return;
         }
-        box.classList.add('is-ok');
+        ci.setState('ok');
         await sleep(360);
         HT.go('/capsules/' + c.code);
       }
-
-      cells.forEach((cell, i) => {
-        cell.addEventListener('input', (e) => {
-          if (e.isComposing) return;
-          const v = clean(cell.value);
-          cell.value = v.slice(-1);
-          sync();
-          if (cell.value && i < 7) cells[i + 1].focus();
-          if (value().length === 8 && i === 7) submit();
-        });
-        cell.addEventListener('compositionend', () => { cell.value = clean(cell.value).slice(-1); sync(); if (cell.value && i < 7) cells[i + 1].focus(); });
-        cell.addEventListener('keydown', (e) => {
-          if (e.key === 'Backspace' && !cell.value && i > 0) { e.preventDefault(); cells[i - 1].value = ''; cells[i - 1].focus(); sync(); }
-          else if (e.key === 'ArrowLeft' && i > 0) { e.preventDefault(); cells[i - 1].focus(); }
-          else if (e.key === 'ArrowRight' && i < 7) { e.preventDefault(); cells[i + 1].focus(); }
-          else if (e.key === 'Enter') { e.preventDefault(); submit(); }
-        });
-        cell.addEventListener('focus', () => cell.select());
-        cell.addEventListener('paste', (e) => {
-          e.preventDefault();
-          const t = clean((e.clipboardData || window.clipboardData).getData('text'));
-          if (!t) return;
-          fill(t, t.length >= 8 ? 0 : i);
-          if (value().length === 8) submit();
-        });
-      });
 
       go.addEventListener('click', submit);
       $('#paste', page).addEventListener('click', async () => {
         try {
           const t = clean(await navigator.clipboard.readText());
           if (!t) return HT.toast('剪贴板里没有胶囊码', { type: 'info' });
-          cells.forEach((c) => { c.value = ''; });
-          fill(t, 0);
-          if (value().length === 8) submit();
+          if (ci.set(t).length === 8) submit();
         } catch (e) { HT.toast('粘贴失败：请允许浏览器访问剪贴板', { type: 'err' }); }
       });
 
@@ -328,15 +281,13 @@
       page.addEventListener('click', async (e) => {
         const b = e.target.closest('[data-demo]');
         if (!b || busy) return;
-        cells.forEach((c) => { c.value = ''; });
-        sync();
+        ci.clear();
         const code = b.dataset.demo;
-        for (let k = 0; k < 8; k++) { cells[k].value = code[k]; cells[k].classList.add('is-filled'); await sleep(55); }
-        sync();
+        for (let k = 0; k < 8; k++) { ci.cells[k].value = code[k]; ci.cells[k].classList.add('is-filled'); await sleep(55); }
         submit();
       });
 
-      setTimeout(() => cells[0].focus({ preventScroll: true }), 350);
+      setTimeout(() => ci.cells[0].focus({ preventScroll: true }), 350);
     },
   };
 })(window.HT);

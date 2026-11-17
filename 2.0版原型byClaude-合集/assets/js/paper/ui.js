@@ -23,6 +23,74 @@
     return `<span class="av${cls ? ' ' + cls : ''}" style="--av:${a.color}" aria-hidden="true"><svg viewBox="0 0 24 24">${a.glyph}</svg></span>`;
   };
 
+  /* 8 格输码：开启页与首页共用。8 个真实输入框（四四分组），粘贴或一次填入整码会自动分发到各格。
+     size：'' 为开启页的大号，'sm' 为首页的小号 */
+  U.codeInput = (size) => {
+    const cell = (i) => `<input class="code__cell mono" type="text" inputmode="text" maxlength="${i === 0 ? 8 : 1}" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 ${i + 1} 位" data-i="${i}" style="--k:${i}">`;
+    return `<div class="code${size ? ' code--' + size : ''}" role="group" aria-label="8 位胶囊码" data-code-input>
+      ${[0, 1, 2, 3].map(cell).join('')}<span class="code__dash" aria-hidden="true"></span>${[4, 5, 6, 7].map(cell).join('')}
+    </div>`;
+  };
+  /* opt：onChange(v) 每次变化；onComplete(v) 填满 8 位（只在最后一格输入或整码填入时触发）；onEnter(v) 回车 */
+  U.bindCodeInput = (root, opt) => {
+    const o = opt || {};
+    const cells = $$('.code__cell', root);
+    const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const value = () => cells.map((c) => c.value).join('');
+    function sync() {
+      cells.forEach((c) => c.classList.toggle('is-filled', !!c.value));
+      root.classList.remove('is-error');
+      if (o.onChange) o.onChange(value());
+    }
+    function fill(str, from) {
+      const at = from || 0;
+      const s = clean(str).slice(0, 8 - at);
+      Array.from(s).forEach((ch, k) => { cells[at + k].value = ch; });
+      sync();
+      cells[Math.min(7, at + s.length)].focus();
+      return value();
+    }
+    const complete = () => { const v = value(); if (v.length === 8 && o.onComplete) o.onComplete(v); };
+
+    cells.forEach((cell, i) => {
+      cell.addEventListener('input', (e) => {
+        if (e.isComposing) return;
+        const v = clean(cell.value);
+        /* 一次进来不止一个字符（自动填充、测试里的 fill、输入法上屏）：当作从这一格开始粘贴 */
+        if (v.length > 1) { cell.value = ''; fill(v, v.length >= 8 ? 0 : i); complete(); return; }
+        cell.value = v;
+        sync();
+        if (cell.value && i < 7) cells[i + 1].focus();
+        if (cell.value && i === 7) complete();
+      });
+      cell.addEventListener('compositionend', () => { cell.dispatchEvent(new Event('input')); });
+      cell.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !cell.value && i > 0) { e.preventDefault(); cells[i - 1].value = ''; cells[i - 1].focus(); sync(); }
+        else if (e.key === 'ArrowLeft' && i > 0) { e.preventDefault(); cells[i - 1].focus(); }
+        else if (e.key === 'ArrowRight' && i < 7) { e.preventDefault(); cells[i + 1].focus(); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (o.onEnter) o.onEnter(value()); }
+      });
+      cell.addEventListener('focus', () => cell.select());
+      cell.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const t = clean((e.clipboardData || window.clipboardData).getData('text'));
+        if (!t) return;
+        fill(t, t.length >= 8 ? 0 : i);
+        complete();
+      });
+    });
+
+    return {
+      get value() { return value(); },
+      set(v) { cells.forEach((c) => { c.value = ''; }); return fill(v, 0); },
+      clear() { cells.forEach((c) => { c.value = ''; }); sync(); },
+      focus() { (cells.find((c) => !c.value) || cells[7]).focus({ preventScroll: true }); },
+      error() { root.classList.add('is-error'); HT.shake(root); },
+      setState(s) { root.classList.toggle('is-checking', s === 'checking'); root.classList.toggle('is-ok', s === 'ok'); },
+      cells,
+    };
+  };
+
   /* 邮票：头像 + 齿孔边 */
   U.stamp = (id, cls, label) => {
     const a = avatarOf(id);

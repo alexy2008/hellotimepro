@@ -35,7 +35,7 @@
 |---|---|
 | X1 | **减少动效时要快**：`prefers-reduced-motion: reduce` 下，封缄仪式、开启动画、皮肤 / 明暗转场 MUST 在 500ms 内结束，结束后元素即可交互。 |
 | X2 | **长按控件可用键盘完成**：`create-submit` 若做成长按，MUST 在获得焦点时响应「按下空格开始、松开空格结束」，所需时长 ≤ 1200ms；松开过早则不提交。测试统一用 `press('Space', { delay: 1500 })` 触发——普通按钮在空格松开时触发 click，天然满足。 |
-| X3 | **输码可整段填入**：对第一个 `code-cell` 一次性填入 8 位码（`fill`），MUST 自动分发到 8 格并自动查询；逐格输入同样可用。小写自动转大写，非 `[A-Z0-9]` 字符丢弃。`quick-open-input` 同理（它是单个输入框）。 |
+| X3 | **8 格输码**：首页就地输码与开启页是同一个部件，两套皮肤都呈现为 8 个格子（四四分组）。`code-input` 是接收输入的那个元素（逐格输入的实现取第一格，单输入框 + 8 个展示格的实现取那个输入框）；对它 `fill` 一次填入 8 位码，MUST 自动分发到 8 格并自动查询。逐格输入、粘贴同样可用；小写自动转大写，非 `[A-Z0-9]` 字符丢弃。 |
 | X4 | **搜索防抖 ≤ 400ms**：`plaza-search` 输入后 400ms 内发起请求，列表与 `filter-option` 的 `data-count` 一并更新。 |
 | X5 | **切换皮肤 / 明暗**：点击 `skin-option[data-value=…]` 切到指定皮肤，点击 `theme-toggle` 在明暗间切换；点击后 500ms 内 `<html>` 上的属性 MUST 已更新，且路由、表单内容、广场筛选不变。 |
 | X6 | **确认框**：`confirm-dialog` 为 `role="dialog"`、`aria-modal="true"`；`Esc` 等同于 `confirm-cancel`。 |
@@ -72,8 +72,9 @@
 | testid | 元素 | 必有 | 说明 |
 |---|---|---|---|
 | `home-create` | a / button | M | hero 区「创建胶囊」入口；未登录时点击跳登录（X7） |
-| `quick-open-input` | input | M | 就地输码（X3）；命中后进入 `/capsules/:code` |
-| `quick-open-error` | 任意 | C | 未命中时出现 |
+| `code-input` | input | M | 就地输码（X3），与开启页同一个部件；命中后进入 `/capsules/:code` |
+| `code-cell` | input / 任意 | M | 8 个展示格，按顺序；已填的格子带 `data-value` |
+| `open-error` | 任意 | C | 未命中时出现（与开启页同名） |
 | `plaza-stats` | 任意 | M | 广场概览容器 |
 | `stat` | 任意 | M | 概览里的每一项，带 `data-key="all\|unopened\|opened\|farthestYear"` 与 `data-value`；`farthestOpenAt` 为 null 时 `farthestYear` 不渲染 |
 | `plaza-search` | input | M | 搜索框（X4） |
@@ -91,7 +92,8 @@
 
 | testid | 元素 | 必有 | 说明 |
 |---|---|---|---|
-| `code-cell` | input | M | 8 个，按顺序（X3） |
+| `code-input` | input | M | 接收输入的元素（X3） |
+| `code-cell` | input / 任意 | M | 8 个展示格，按顺序；已填的格子带 `data-value` |
 | `open-error` | 任意 | C | 查不到时出现 |
 | `my-sealed` | 任意 | C | 已登录且创建过胶囊时出现 |
 | `my-sealed-item` | a | C | 每一项，带 `data-code`、`data-state`，至多 3 个 |
@@ -173,7 +175,7 @@
 | 登录 / 错误密码 / 登出 | `login-*`、`login-error`、`user-menu`、`logout` |
 | 登录回跳 | `fav-button`（匿名）→ `confirm-dialog` → `confirm-ok` → URL 上的 `redirect` → `login-submit` |
 | 创建胶囊并在广场检索到 | `create-*`、`openat-preset`、`create-submit`、`sealed-receipt`、`plaza-search`、`capsule-card` |
-| 就地输码 / 开启页输码 | `quick-open-input`、`code-cell`、`capsule-detail` |
+| 就地输码 / 开启页输码 | `code-input`、`code-cell`、`open-error`、`capsule-detail` |
 | 未开启隐藏正文 | `capsule-detail[data-state=sealed]`、`countdown`、无 `detail-content` |
 | 收藏后出现在「我收藏的」；收藏自己的 | `fav-button[aria-pressed]`、`fav-item` |
 | 删除确认 | `delete-capsule`、`confirm-dialog`、`confirm-ok` |

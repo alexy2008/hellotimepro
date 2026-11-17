@@ -535,7 +535,7 @@ spec/tokens/skins.json               ← { base, skins: { paper: { light, dark }
 
 **首页 / 广场**
 
-- `HomeHero` [分皮肤]：标题、创建入口、`QuickOpen`（就地输码）
+- `HomeHero` [分皮肤]：标题、创建入口、就地输码（直接复用 `CapsuleCodeInput` 的小号，两套皮肤都是 8 格）
 - `PlazaStats` [分皮肤]：广场概览（`/plaza/stats`）
 - `PlazaToolbar`：sort 分段 + filter 分段（带数量）+ `SearchInput`（300ms 防抖）
 - `CapsuleGrid`：列表、加载骨架、空态、出错重试、分页
@@ -544,7 +544,7 @@ spec/tokens/skins.json               ← { base, skins: { paper: { light, dark }
 
 **胶囊**
 
-- `CapsuleCodeInput`：8 格输码，粘贴整码、退格回跳、输满自动查询
+- `CapsuleCodeInput` [分皮肤]：8 格输码（四四分组，大小两号），粘贴整码、退格回跳、输满自动查询；首页与开启页共用
 - `MySealedList`：开启页的「我封存过的胶囊」（至多 3 枚）
 - `CapsuleDetail` [分皮肤]：未开启倒计时（归零自动开启）+ 已开启正文 + 开启动画 + 复制码 / 链接
 - `CreatePage` [分皮肤]：表单内联；`OpenAtPicker`（快捷时长 + 日历 + 时间）、`AiAssist`（推荐主题 chip、换一批、AI 生成）、`SealControl`（长按或按钮）、`SealedReceipt`（封存完成，展示码）

@@ -717,24 +717,22 @@
 /* ============================================================
    合并版新增（时笺）：首页就地输码 · 开启页「我封存过的胶囊」· 关于页「它能做什么」
    ============================================================ */
-/* 首页就地输码：像在单据上填一栏 */
-:root[data-skin="paper"] .hquick { display: flex; align-items: center; gap: 12px; max-width: 440px; margin-top: 28px; padding: 4px 0; border-bottom: 1px solid var(--rule-2); transition: border-color var(--dur-2); }
-:root[data-skin="paper"] .hquick:focus-within { border-color: var(--ink); }
-:root[data-skin="paper"] .hquick__k { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+/* 首页就地输码：与开启页同一套 8 格（小号），右侧一枚圆形的「开启」 */
+:root[data-skin="paper"] .hquick { margin-top: 28px; }
+:root[data-skin="paper"] .hquick__k { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 10px; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
 :root[data-skin="paper"] .hquick__k .ic { width: 15px; height: 15px; }
-:root[data-skin="paper"] .hquick__in { flex: 1; min-width: 0; height: 40px; padding: 0; border: 0; background: none; font-size: 18px; letter-spacing: .3em; text-transform: uppercase; color: var(--ink); }
-:root[data-skin="paper"] .hquick__in::placeholder { font-size: 15px; letter-spacing: .2em; color: var(--ink-4); }
-:root[data-skin="paper"] .hquick__n { font-size: 11px; color: var(--ink-4); }
-:root[data-skin="paper"] .hquick__go { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--inverse); color: var(--on-inverse); transition: background-color var(--dur-2), transform var(--dur-3) var(--ease-spring); }
+:root[data-skin="paper"] .hquick__row { display: flex; align-items: center; gap: 12px; }
+:root[data-skin="paper"] .code--sm { margin-top: 0; gap: clamp(3px, .6vw, 6px); }
+:root[data-skin="paper"] .code--sm .code__cell { width: clamp(28px, 7.4vw, 38px); height: clamp(38px, 9.6vw, 48px); font-size: clamp(16px, 4vw, 21px); box-shadow: none; }
+:root[data-skin="paper"] .code--sm .code__cell:focus { transform: translateY(-3px); box-shadow: var(--shadow-1); }
+:root[data-skin="paper"] .code--sm .code__dash { width: clamp(5px, 1vw, 10px); }
+:root[data-skin="paper"] .code--sm.is-checking .code__cell { animation-name: paper-cell-wave-sm; }
+@keyframes paper-cell-wave-sm { 40% { transform: translateY(-5px); border-color: var(--seal); } }
+:root[data-skin="paper"] .hquick__go { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--inverse); color: var(--on-inverse); transition: background-color var(--dur-2), transform var(--dur-3) var(--ease-spring); }
 :root[data-skin="paper"] .hquick__go:hover { transform: translateX(3px); }
-:root[data-skin="paper"] .hquick__go .ic { width: 15px; height: 15px; }
+:root[data-skin="paper"] .hquick__go .ic { width: 16px; height: 16px; }
 :root[data-skin="paper"] .hquick.is-full .hquick__go { background: var(--seal); color: var(--seal-ink); }
-:root[data-skin="paper"] .hquick.is-busy .hquick__go { animation: paper-pulse 1s ease-in-out infinite; }
-:root[data-skin="paper"] .hquick.is-error { border-color: var(--seal); }
-:root[data-skin="paper"] .hquick.is-error .hquick__in { color: var(--seal); }
-:root[data-skin="paper"] .hquick.is-ok { border-color: var(--pine); }
-:root[data-skin="paper"] .hquick.is-ok .hquick__in { color: var(--pine); }
-:root[data-skin="paper"] .hquick__err { min-height: 20px; margin-top: 8px; font-size: 12.5px; color: var(--seal); }
+:root[data-skin="paper"] .hquick__err { min-height: 20px; margin-top: 10px; font-size: 12.5px; color: var(--seal); }
 :root[data-skin="paper"] .hquick__err:empty { min-height: 0; margin: 0; }
 
 /* 开启页：我封存过的胶囊 */
@@ -761,10 +759,8 @@
 @media (max-width: 860px) {
   :root[data-skin="paper"] .feats { grid-template-columns: 1fr; }
   :root[data-skin="paper"] .feats li, :root[data-skin="paper"] .feats li:not(:nth-child(3n + 1)) { padding: 20px 0; border-left: 0; }
-  :root[data-skin="paper"] .hquick { max-width: none; }
   :root[data-skin="paper"] .mylist__st { display: none; }
 }
 
-/* 合并版修正：输码框有固有宽度，会把单列网格撑宽——让列与输入框都可压缩 */
-:root[data-skin="paper"] .hquick__in { width: 0; }
+/* 合并版修正：输码区有固有宽度，会把单列网格撑宽——让列可压缩 */
 @media (max-width: 860px) { :root[data-skin="paper"] .hero__in { grid-template-columns: minmax(0, 1fr); } }
