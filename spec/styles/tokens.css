@@ -2,6 +2,9 @@
  * HelloTime Pro · 语义化设计令牌（Tokens）
  * 版本：0.1 · 2026-04-20
  *
+ * 【1.x 遗留】2.0 的样式见 spec/styles/README.md。本文件仅供尚未升级的实现继续引用，
+ * Web 实现全部迁到 2.0 后删除；新代码不要再引用。
+ *
  * 本文件是 **设计令牌的事实源**。`spec/tokens/tokens.json`
  * 从本文件同步生成，供 Tailwind preset / 各栈 JS 消费。
  *

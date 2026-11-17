@@ -70,17 +70,18 @@ HelloTimeProByClaude/
 ├── spec/
 │   ├── api/openapi.yaml
 │   ├── styles/               ← 见 §9.3
-│   │   ├── base.css          ← 皮肤无关：间距、圆角刻度、字号阶梯、动效曲线、层级、断点
-│   │   ├── paper/            ← 「时笺」：tokens.css（明 / 暗语义令牌）+ components.css（共享组件类）
-│   │   └── amber/            ← 「琥珀」：同上
+│   │   ├── base.css          ← 皮肤无关：间距、字号阶梯、动效曲线与时长、层级、版心
+│   │   ├── paper/            ← 「时笺」：tokens.css + components.css + pages.css
+│   │   ├── amber/            ← 「琥珀」：同上
+│   │   ├── shell.css         ← 皮肤切换开关与转场
+│   │   └── build_tokens.py   ← 生成 / 校验 spec/tokens/skins.json
 │   ├── tokens/
-│   │   └── tokens.json       ← 由 spec/styles 生成，供 Tailwind / JS / 原生客户端消费
+│   │   └── skins.json        ← 2.0 语义令牌的 JSON 投影，供 JS / 原生客户端消费
 │   ├── ui/
 │   │   ├── testids.md        ← 界面测试钩子契约（UI 冒烟唯一依赖）
 │   │   └── copy.md           ← 两套皮肤共用的文案（校验提示、关于页、确认框）
 │   ├── avatars/
-│   │   ├── neo.svg ... void.svg   ← 10 个单线徽记，用 currentColor 着色
-│   │   └── catalog.json      ← id / 名称 / 题记 / 主色
+│   │   └── v2/               ← 2.0：neo.svg … void.svg 十个单线徽记（currentColor）+ catalog.json（id / 名称 / 题记 / 主色）
 │   └── icons/                ← 技术栈 SVG 图标（Simple Icons 来源，统一 24×24 viewBox）
 │       ├── python.svg
 │       ├── fastapi.svg
@@ -190,7 +191,7 @@ HelloTimeProByClaude/
 | `email` | varchar(254) | NOT NULL UNIQUE, 存小写 |
 | `password_hash` | varchar(100) | NOT NULL, bcrypt |
 | `nickname` | varchar(20) | NOT NULL UNIQUE |
-| `avatar_id` | varchar(20) | NOT NULL，外键到 `spec/avatars/catalog.json` 中的 id |
+| `avatar_id` | varchar(20) | NOT NULL，取值为 `spec/avatars/v2/catalog.json` 中的 id |
 | `created_at` | timestamptz | NOT NULL |
 | `updated_at` | timestamptz | NOT NULL |
 
@@ -484,26 +485,31 @@ DB_URL=sqlite://../../data/hellotime.db
 - 两个属性 MUST 在首帧之前由 `index.html` 里的内联脚本（或服务端模板）根据 `localStorage` 写好，否则会闪出另一套皮肤
 - 切换时 MAY 用 View Transitions 做转场（换皮肤：模糊淡入淡出；换明暗：从开关处圆形晕开），MUST 在 `prefers-reduced-motion` 或不支持时直接切换
 
-**令牌三层，全部位于 `spec/styles/`：**
+**样式分三层，全部位于 `spec/styles/`：**
 
 ```
-spec/styles/base.css              ← 第一层：皮肤无关的刻度
-                                     --space-*、--radius-*（刻度，不是取值）、--text-*（字号阶梯）、
-                                     --ease-*、--dur-*、--z-*、断点
-spec/styles/<skin>/tokens.css     ← 第二层：皮肤语义令牌，各含明 / 暗两套
-                                     --color-bg / --color-surface / --color-text / --color-accent / --color-danger …
-                                     --font-display / --font-body / --font-mono
-                                     --radius-card / --shadow-card …（同名令牌，不同皮肤取不同值）
-spec/styles/<skin>/components.css ← 第三层：皮肤组件类（ht-btn、ht-card、ht-seg、ht-field …）
-spec/tokens/tokens.json           ← 由以上生成：{ base, skins: { paper: { light, dark }, amber: { light, dark } } }
+spec/styles/base.css                 ← 第一层：皮肤无关的刻度，不含颜色
+                                        --space-*、--text-*（字号阶梯）、--ease-*、--dur-*、--z-*、版心
+spec/styles/<skin>/tokens.css        ← 第二层：皮肤令牌，明 / 暗两套
+                                        · 私有令牌：沿用原型的命名（时笺 --paper / --ink / --seal…，琥珀 --bg / --text / --amber…），
+                                          只给本皮肤的组件样式用
+                                        · 语义层：--color-* / --bg-primary / --font-* / --radius-* / --shadow-card / --shadow-pop / --header-h，
+                                          两套皮肤同名同集合（44 个），全部是对私有令牌的 var() 引用
+spec/styles/<skin>/components.css    ← 第三层：基础排版、外壳、可复用部件（按钮、字段、分段、卡片、对话框、Toast…）
+spec/styles/<skin>/pages.css         ←         各页面的版式与仪式性动画
+spec/styles/shell.css                ← 两套皮肤共用的外壳：皮肤切换开关、皮肤转场
+spec/styles/build_tokens.py          ← 生成 spec/tokens/skins.json；--check 校验语义层同名同集合、JSON 是否最新
+spec/tokens/skins.json               ← { base, skins: { paper: { light, dark }, amber: { light, dark } } }，只含语义层，值已展开
 ```
 
 规则：
 
-- 两套皮肤**语义令牌同名**：同一个组件引用 `--color-accent`，在时笺下是朱红，在琥珀下是琥珀金。组件代码不出现皮肤名
-- 选择器写法固定：`:root[data-skin="paper"]`、`:root[data-skin="paper"][data-theme="dark"]`，各实现原样 `@import` 两套 `tokens.css`，不做二次加工
-- **组件层禁止硬编码色值**，只能引用令牌。`verify-design-tokens.sh` 校验"引用的令牌必须已声明"与"组件样式里无十六进制 / rgb / oklch 字面量"
-- 1.x 的 `palette.css`、`tokens.css`、`cyber.css` 与 `cy-*` 类在 2.0 移除
+- **全部选择器按皮肤限定**：每条规则都以 `:root[data-skin="<skin>"]` 开头，`@keyframes` 加 `<skin>-` 前缀。两套皮肤的样式表因此可以同时加载、互不干扰，切换皮肤只改 `<html data-skin>`
+- **加载顺序固定**：`base.css` → 时笺三件 → 琥珀三件 → `shell.css`。各实现原样引入，不做二次加工
+- **类名就是原型的类名**（`.btn`、`.cap__title`、`.hquick__in`…，BEM 风格），组件的 DOM 结构以 2.0 原型为准：实现某个组件时，照原型里那套皮肤的模板写出同样的结构与类名，样式自然就对了。原型本身直接引用 `spec/styles`，它就是这套样式的活样本
+- **各实现自己写的样式**（布局胶水、框架特有的包装）只能引用 `base.css` 与语义层，不得引用私有令牌，不得写色值字面量。`spec/styles` 本身可以有字面量（插画、光效里的固定色）
+- 与 Tailwind 共存：皮肤类名带 `:root[data-skin]` 前缀，特异性高于 utility；实现里不要给同一元素同时套用同名含义冲突的 utility（如 `.container`、`.grid`）
+- **1.x 遗留**：`palette.css`、`tokens.css`、`cyber.css`（`cy-*` 类）与 `spec/tokens/tokens.json` 暂时保留，因为尚未升级的实现还在引用。20 个 Web 实现全部迁到 2.0 后删除前三个；`tokens.json` 等桌面端与移动端在下一轮升级后删除
 
 **结构差异怎么办**：两套皮肤不只是换色——时笺的卡片是信封，琥珀的卡片是胶囊；时笺用长按火漆封缄，琥珀用按钮。因此：
 
@@ -701,11 +707,12 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 
 ## 13. 内置头像
 
-- 10 个头像，存在 `spec/avatars/*.svg`；`id` 沿用 1.x（`neo`、`specter`、`glyph`、`pulse`、`circuit`、`nova`、`oracle`、`drift`、`echo`、`void`），**数据库与接口不变**
-- 2.0 重绘为**单线徽记**：24×24 视口、圆端点圆拐角，只用 `currentColor`，不内置底色与描边粗细（时笺 1.6、琥珀 1.8，由皮肤样式给）。由皮肤决定怎么上色：时笺是主色淡底 + 主色线，琥珀是主色渐变底 + 浅色线
-- `GET /avatars` 的返回形状不变（`id`、`name`、`primaryColor`、`svgUrl`）；`primaryColor` 换成新徽记的主色，`svgUrl` 指向新画法的文件
-- 每个头像有 `id`、中文名（如「新生」）、一句题记（如「破土的芽」）、主色；`spec/avatars/catalog.json` 为事实源，`GET /api/v1/avatars` 直接返回
-- 画法以 `2.0版原型byClaude-合集/assets/js/data.js` 的 `HT.AVATARS` 为准；本项目自制，不依赖外部资源
+- 10 个头像，2.0 版放在 `spec/avatars/v2/`：`<id>.svg` + `catalog.json`。`id` 沿用 1.x（`neo`、`specter`、`glyph`、`pulse`、`circuit`、`nova`、`oracle`、`drift`、`echo`、`void`），**数据库与接口不变**
+- 画法是**单线徽记**：24×24 视口、圆端点圆拐角，只用 `currentColor`，不含底色；文件里的描边 1.6 只是默认值。由皮肤决定怎么上色：时笺是主色淡底 + 主色线（描边 1.6），琥珀是主色渐变底 + 浅色线（描边 1.8）
+- 因为用 `currentColor`，前端 SHOULD 内联 SVG（或用 CSS `mask-image` 着色），直接 `<img>` 引用时线条是黑色
+- 每个头像有 `id`、中文名（如「新生」）、一句题记（如「破土的芽」）、主色。`spec/avatars/v2/catalog.json` 是 2.0 的事实源，`GET /api/v1/avatars` 直接返回其中的 `avatars`；返回形状不变（`id`、`name`、`primaryColor`、`svgUrl`），`svgUrl` 仍是 `/static/avatars/<id>.svg`，后端升级到 2.0 时把静态目录的来源换成 `spec/avatars/v2/`
+- `spec/avatars/` 根目录下的 1.x 赛博头像与 `catalog.json` 暂留给尚未升级的桌面端与移动端，下一轮升级后删除，`v2/` 再上移到根目录
+- 画法与原型 `2.0版原型byClaude-合集/assets/js/data.js` 的 `HT.AVATARS` 一致；本项目自制，不依赖外部资源
 
 ## 14. dev-manager v2（`scripts/hello`）
 
@@ -786,10 +793,10 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 
 `verification/scripts/verify-design-tokens.sh` 静态比对：
 
-- 读 `spec/styles/base.css` 与两套 `tokens.css`，提取所有已声明的变量
-- 扫描每个前端 / 全栈的样式源码：`var(--x)` 引用的变量必须已声明（实现内部以 `--_` 开头的私有变量除外）
+- 读 `spec/styles/base.css` 与两套 `tokens.css` 的语义层（命名规则见 `build_tokens.py` 的 `SEMANTIC`）
+- 扫描每个前端 / 全栈自己的样式源码：`var(--x)` 只能引用 `base.css` 刻度与语义层（实现内部以 `--_` 开头的局部变量除外），引用皮肤私有令牌即红灯
 - 组件样式里不得出现十六进制、`rgb()`、`hsl()`、`oklch()` 色值字面量（`spec/styles` 本身与胶囊专属色计算函数除外）
-- 两套皮肤的语义令牌必须同名同集合：一套有、另一套没有即红灯
+- 两套皮肤的语义令牌必须同名同集合、`spec/tokens/skins.json` 必须是最新的：直接调用 `python3 spec/styles/build_tokens.py --check`
 - 失败即红灯
 
 ## 16. 本地开发体验（Day-1 指标）

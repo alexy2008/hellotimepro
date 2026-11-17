@@ -4,67 +4,121 @@
     {
       "name": "icons-128",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "5601", "."],
+      "runtimeArgs": [
+        "serve",
+        "-p",
+        "5601",
+        "."
+      ],
       "port": 5601
     },
     {
       "name": "learning-guide",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "5599", "learning-guide"],
+      "runtimeArgs": [
+        "serve",
+        "-p",
+        "5599",
+        "learning-guide"
+      ],
       "port": 5599
     },
     {
       "name": "ui-prototype",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "5500", "ui-prototype"],
+      "runtimeArgs": [
+        "serve",
+        "-p",
+        "5500",
+        "ui-prototype"
+      ],
       "port": 5500
     },
     {
       "name": "prototype-v2-claude",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5510", "--directory", "2.0版原型byClaude"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5510",
+        "--directory",
+        "2.0版原型byClaude"
+      ],
       "port": 5510
     },
     {
       "name": "prototype-v2-amber",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5520", "--directory", "2.0版原型byClaude-琥珀"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5520",
+        "--directory",
+        "2.0版原型byClaude-琥珀"
+      ],
       "port": 5520
     },
     {
       "name": "prototype-v2-merged",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5530", "--directory", "2.0版原型byClaude-合集"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5530",
+        "--directory",
+        "."
+      ],
       "port": 5530
     },
     {
       "name": "react-ts",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontends/react-ts", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontends/react-ts",
+        "run",
+        "dev"
+      ],
       "port": 7174
     },
     {
       "name": "vue3-ts",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontends/vue3-ts", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontends/vue3-ts",
+        "run",
+        "dev"
+      ],
       "port": 7173
     },
     {
       "name": "hello-web",
       "runtimeExecutable": "./scripts/hello",
-      "runtimeArgs": ["web", "--no-open", "--port", "9090"],
+      "runtimeArgs": [
+        "web",
+        "--no-open",
+        "--port",
+        "9090"
+      ],
       "port": 9090
     },
     {
       "name": "electron-renderer",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "VITE_DESKTOP_SHELL=electron BACKEND_PROXY=http://localhost:9080 npm --prefix frontends/react-ts run dev -- --port 7190 --strictPort"],
+      "runtimeArgs": [
+        "-c",
+        "VITE_DESKTOP_SHELL=electron BACKEND_PROXY=http://localhost:9080 npm --prefix frontends/react-ts run dev -- --port 7190 --strictPort"
+      ],
       "port": 7190
     },
     {
       "name": "tauri-renderer",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "VITE_DESKTOP_SHELL=tauri BACKEND_PROXY=http://localhost:9080 npm --prefix frontends/svelte run dev -- --port 7191 --strictPort"],
+      "runtimeArgs": [
+        "-c",
+        "VITE_DESKTOP_SHELL=tauri BACKEND_PROXY=http://localhost:9080 npm --prefix frontends/svelte run dev -- --port 7191 --strictPort"
+      ],
       "port": 7191
     }
   ]

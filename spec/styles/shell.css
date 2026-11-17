@@ -1,14 +1,19 @@
 /* ============================================================
-   两套皮肤共用的少量样式：皮肤切换开关 · 皮肤转场 · 互斥的背景层
-   这里的颜色一律取自「当前皮肤」的令牌（另一套样式表此时处于停用状态）
+   HelloTime Pro 2.0 · spec/styles/shell.css
+   两套皮肤共用的外壳样式：皮肤切换开关 · 皮肤转场 · 互斥的背景层
+   ------------------------------------------------------------
+   这里的颜色一律取自「当前皮肤」的私有令牌（html[data-skin] 限定）。
+   皮肤切换开关的结构：.skinsw[role=radiogroup] > button[role=radio][data-skin]
    ============================================================ */
 
 /* 「琥珀」的星空背景只在琥珀下出现 */
 html[data-skin="paper"] .bg { display: none; }
 
-/* ---------------- 皮肤切换开关 ---------------- */
-.skinsw { display: inline-flex; flex: none; align-items: center; padding: 3px; }
-.skinsw button { height: 28px; padding: 0 11px; white-space: nowrap; transition: background-color .25s, color .25s, box-shadow .25s; }
+/* ---------------- 皮肤切换开关 ----------------
+   通用规则也加 :root[data-skin] 前缀：皮肤样式表里的元素重置（如 button 的 padding: 0）
+   同样带这个前缀，特异性相同时，后加载的 shell.css 才能覆盖它们 */
+:root[data-skin] .skinsw { display: inline-flex; flex: none; align-items: center; padding: 3px; }
+:root[data-skin] .skinsw button { height: 28px; padding: 0 11px; white-space: nowrap; transition: background-color .25s, color .25s, box-shadow .25s; }
 
 /* 「时笺」：一张小小的选择单，选中的那格像被墨涂实 */
 html[data-skin="paper"] .skinsw { gap: 2px; border: 1px solid var(--rule-2); border-radius: var(--r-pill); }
@@ -29,15 +34,10 @@ html.is-skinning::view-transition-new(root) { animation: skin-in .7s cubic-bezie
 @keyframes skin-in { from { opacity: 0; filter: blur(10px); transform: scale(.985); } }
 html.is-skinning *, html.is-skinning *::before, html.is-skinning *::after { transition: none !important; }
 
-/* ---------------- 原型导览里的下拉框：「时笺」没有封装样式，用原生的 ---------------- */
-html[data-skin="paper"] .guide__row .select { position: relative; display: flex; flex: 1; }
-html[data-skin="paper"] .guide__row .select select { flex: 1; }
-html[data-skin="paper"] .guide__row .select__arrow { display: none; }
-
 /* ---------------- 窄屏：顶栏放不下时，品牌只留标志 ---------------- */
 @media (max-width: 480px) {
-  .brand__name, .brand__pro { display: none; }
-  .skinsw button { padding: 0 9px; }
+  :root[data-skin] .brand__name, :root[data-skin] .brand__pro { display: none; }
+  :root[data-skin] .skinsw button { padding: 0 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

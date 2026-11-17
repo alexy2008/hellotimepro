@@ -1,0 +1,96 @@
+/* ============================================================
+   2.0 原型专用样式：原型导览、演示控件（「快进」「填入演示账号」等）
+   ------------------------------------------------------------
+   这些不是产品的一部分，所以不进 spec/styles；各实现不需要它们。
+   由 spec/styles 迁移时自动分离出来，选择器同样按皮肤限定。
+   ============================================================ */
+
+/* ---- 来自 app.css ---- */
+/* 原型专用控件：虚线 + 等宽字，明确告诉评审「这不是产品的一部分」 */
+:root[data-skin="paper"] .proto { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 28px; padding: 10px 14px; border: 1px dashed var(--rule-2); border-radius: var(--r2); font: 400 12px/1.6 var(--font-mono); color: var(--ink-3); }
+:root[data-skin="paper"] .proto--left { justify-content: flex-start; }
+:root[data-skin="paper"] .proto__btn { display: inline-flex; align-items: center; gap: 5px; color: var(--seal); font: inherit; font-weight: 500; }
+:root[data-skin="paper"] .proto__btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+:root[data-skin="paper"] .proto__btn .ic { width: 13px; height: 13px; }
+:root[data-skin="paper"] .proto__chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---------- 原型导览 ---------- */
+:root[data-skin="paper"] #guide { position: fixed; left: 20px; bottom: 20px; z-index: 250; font-family: var(--font-mono); }
+:root[data-skin="paper"] .guide__fab { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px 0 11px; background: var(--paper-2); border: 1px dashed var(--ink-3); border-radius: var(--r-pill); font-size: 12px; color: var(--ink-2); box-shadow: var(--shadow-2); transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-1), color var(--dur-1); }
+:root[data-skin="paper"] .guide__fab:hover { transform: translateY(-2px); border-color: var(--seal); color: var(--seal); }
+:root[data-skin="paper"] .guide__fab .ic { width: 17px; height: 17px; }
+:root[data-skin="paper"] .guide__panel { position: absolute; left: 0; bottom: 50px; width: 336px; max-height: min(76vh, 640px); overflow: auto; background: var(--paper-2); border: 1px dashed var(--ink-3); border-radius: var(--r3); box-shadow: var(--shadow-3); transform-origin: 0 100%; opacity: 0; transform: scale(.94) translateY(8px); pointer-events: none; transition: opacity var(--dur-2), transform var(--dur-3) var(--ease-out); }
+:root[data-skin="paper"] #guide.is-open .guide__panel { opacity: 1; transform: none; pointer-events: auto; }
+:root[data-skin="paper"] .guide__head { display: flex; justify-content: space-between; align-items: center; padding: 14px 10px 12px 18px; border-bottom: 1px dashed var(--rule-2); }
+:root[data-skin="paper"] .guide__head b { display: block; font: 700 15px/1.3 var(--font-serif); }
+:root[data-skin="paper"] .guide__head span { font-size: 10.5px; color: var(--ink-3); }
+:root[data-skin="paper"] .guide__sec { padding: 14px 18px 16px; border-bottom: 1px dashed var(--rule-2); }
+:root[data-skin="paper"] .guide__sec h4 { font: 500 10.5px/1 var(--font-mono); letter-spacing: .2em; color: var(--ink-3); margin-bottom: 12px; }
+:root[data-skin="paper"] .guide__links { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+:root[data-skin="paper"] .guide__links a { padding: 5px 8px; margin: 0 -8px; border-radius: 4px; font: 400 12.5px/1.5 var(--font-sans); color: var(--ink-2); transition: background-color var(--dur-1), color var(--dur-1); }
+:root[data-skin="paper"] .guide__links a:hover { background: var(--seal-wash); color: var(--seal); }
+:root[data-skin="paper"] .guide__row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+:root[data-skin="paper"] .guide__row > span { flex: none; width: 34px; font: 400 12px/1 var(--font-sans); color: var(--ink-3); }
+:root[data-skin="paper"] .gseg { display: inline-flex; padding: 2px; border: 1px solid var(--rule-2); border-radius: 6px; }
+:root[data-skin="paper"] .gseg button { height: 26px; padding: 0 10px; border-radius: 4px; font: 400 12px/1 var(--font-sans); color: var(--ink-3); transition: background-color var(--dur-1), color var(--dur-1); }
+:root[data-skin="paper"] .gseg button:hover { color: var(--ink); }
+:root[data-skin="paper"] .gseg button.is-active { background: var(--inverse); color: var(--on-inverse); }
+:root[data-skin="paper"] .guide__row select { flex: 1; height: 30px; padding: 0 8px; background: var(--paper); border: 1px solid var(--rule-2); border-radius: 6px; font: 400 12px/1 var(--font-sans); }
+:root[data-skin="paper"] .guide__foot { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font: 400 11px/1 var(--font-sans); color: var(--ink-4); }
+
+/* ============================================================
+   响应式（外壳部分）
+   ============================================================ */
+@media (max-width: 860px) {
+
+  :root[data-skin="paper"] #guide { left: 12px; bottom: calc(72px + env(safe-area-inset-bottom)); }
+  :root[data-skin="paper"] .guide__fab span { display: none; }
+  :root[data-skin="paper"] .guide__fab { padding: 0; width: 38px; justify-content: center; }
+  :root[data-skin="paper"] .guide__panel { width: min(336px, calc(100vw - 24px)); }}
+
+/* ---- 来自 pages.css ---- */
+:root[data-skin="paper"] .detail .note, :root[data-skin="paper"] .detail .proto { max-width: 560px; margin-inline: auto; }
+:root[data-skin="paper"] .detail .proto { margin-top: 16px; }
+
+/* ---- 来自 base.css ---- */
+/* 原型专用控件：虚线 + 等宽字，表明不是产品的一部分 */
+:root[data-skin="amber"] .proto { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 22px; padding: 10px 16px; border: 1px dashed var(--border-strong); border-radius: var(--r-pill); font: 400 12px/1.6 var(--font-mono); color: var(--text-3); }
+:root[data-skin="amber"] .proto__btn { display: inline-flex; align-items: center; gap: 5px; color: var(--amber-text); font: inherit; font-weight: 600; }
+:root[data-skin="amber"] .proto__btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+:root[data-skin="amber"] .proto__btn .ic { width: 13px; height: 13px; }
+
+/* 原型导览 */
+:root[data-skin="amber"] #guide { position: fixed; left: 20px; bottom: 20px; z-index: 250; }
+:root[data-skin="amber"] .guide__fab { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 12px; border: 1px dashed var(--border-strong); border-radius: var(--r-pill); background: var(--card-solid); font: 600 12.5px/1 var(--font-mono); color: var(--text-2); box-shadow: var(--shadow-card); transition: transform .35s var(--ease-spring), border-color .2s, color .2s; }
+:root[data-skin="amber"] .guide__fab:hover { transform: translateY(-2px); border-color: var(--amber); color: var(--amber-text); }
+:root[data-skin="amber"] .guide__fab .ic { width: 17px; height: 17px; }
+:root[data-skin="amber"] .guide__panel { position: absolute; left: 0; bottom: 52px; width: 344px; max-height: min(76vh, 640px); overflow: auto; background: var(--card-solid); border: 1px dashed var(--border-strong); border-radius: var(--r-md); box-shadow: var(--shadow-pop); transform-origin: 0 100%; opacity: 0; transform: scale(.94) translateY(8px); pointer-events: none; transition: opacity .25s, transform .45s var(--ease-out); }
+:root[data-skin="amber"] #guide.is-open .guide__panel { opacity: 1; transform: none; pointer-events: auto; }
+:root[data-skin="amber"] .guide__head { display: flex; justify-content: space-between; align-items: center; padding: 14px 10px 12px 18px; border-bottom: 1px dashed var(--border-strong); }
+:root[data-skin="amber"] .guide__head b { display: block; font: 900 16px/1.3 var(--font-serif); }
+:root[data-skin="amber"] .guide__head span { font: 400 11px/1.4 var(--font-mono); color: var(--text-3); }
+:root[data-skin="amber"] .guide__sec { padding: 14px 18px 16px; border-bottom: 1px dashed var(--border-strong); }
+:root[data-skin="amber"] .guide__sec h4 { margin-bottom: 10px; font: 700 10.5px/1 var(--font-mono); letter-spacing: .2em; color: var(--amber-text); }
+:root[data-skin="amber"] .guide__links { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+:root[data-skin="amber"] .guide__links a { padding: 5px 8px; margin: 0 -8px; border-radius: 8px; font-size: 13px; color: var(--text-2); transition: background-color .2s, color .2s; }
+:root[data-skin="amber"] .guide__links a:hover { background: var(--amber-soft); color: var(--amber-text); }
+:root[data-skin="amber"] .guide__row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+:root[data-skin="amber"] .guide__row > span { flex: none; width: 34px; font-size: 12.5px; color: var(--text-3); }
+:root[data-skin="amber"] .gseg { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--field); }
+:root[data-skin="amber"] .gseg button { height: 26px; padding: 0 11px; border-radius: var(--r-pill); font-size: 12.5px; color: var(--text-2); transition: background-color .2s, color .2s; }
+:root[data-skin="amber"] .gseg button.is-active { background: var(--grad-amber); color: var(--ink-on-amber); font-weight: 600; }
+:root[data-skin="amber"] .guide__row .select { flex: 1; }
+:root[data-skin="amber"] .guide__row .select select { width: 100%; }
+:root[data-skin="amber"] .guide__foot { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: 11.5px; color: var(--text-3); }
+:root[data-skin="amber"] .guide__foot .link-btn { font-size: 12.5px; }
+@media (max-width: 860px) {
+  :root[data-skin="amber"] #guide { left: 12px; bottom: calc(88px + env(safe-area-inset-bottom)); }
+  :root[data-skin="amber"] .guide__fab span { display: none; }
+  :root[data-skin="amber"] .guide__fab { width: 40px; padding: 0; justify-content: center; }
+  :root[data-skin="amber"] .guide__panel { width: min(344px, calc(100vw - 24px)); }}
+
+/* ---- 来自 shared.css ---- */
+/* ---------------- 原型导览里的下拉框：「时笺」没有封装样式，用原生的 ---------------- */
+html[data-skin="paper"] .guide__row .select { position: relative; display: flex; flex: 1; }
+html[data-skin="paper"] .guide__row .select select { flex: 1; }
+html[data-skin="paper"] .guide__row .select__arrow { display: none; }

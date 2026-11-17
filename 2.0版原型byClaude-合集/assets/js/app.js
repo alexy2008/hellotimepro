@@ -50,8 +50,7 @@
     HT.state.skin = name;
     root.dataset.skin = name;
     HT.LS.set('skin', name);
-    /* 只让当前皮肤的样式表生效；另一套用 media="not all" 停用（浏览器仍会预先下载，切换时不闪），类名重名也互不干扰 */
-    $$('link[data-skin-css]').forEach((l) => { l.media = l.dataset.skinCss === name ? 'all' : 'not all'; });
+    /* 样式不用切换：spec/styles 里两套皮肤的选择器都按 data-skin 限定，改了上面的属性就生效 */
     /* 视觉部件并入 HT：页面里的 HT.card、HT.avatar 等从此指向这套皮肤 */
     Object.assign(HT, HT.skins[name].ui);
     HT.skins[name].enter();

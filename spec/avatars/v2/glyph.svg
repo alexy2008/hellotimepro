@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <title>符文 · 未解的记号</title>
+  <circle cx="12" cy="12" r="8.5"/>
+  <path d="M12 6.5 17.5 12 12 17.5 6.5 12z"/>
+  <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+</svg>

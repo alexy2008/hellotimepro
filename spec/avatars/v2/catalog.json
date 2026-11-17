@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "name": "HelloTime Pro Built-in Avatars",
+    "version": "2.0.0",
+    "updated": "2026-11-17",
+    "viewBox": "0 0 24 24",
+    "style": "单线徽记 · 只用 currentColor，不含底色；文件里的描边 1.6 只是默认值，皮肤样式会覆盖",
+    "note": "id 与 1.x 相同，数据库与接口不变。上色由皮肤决定：时笺是主色淡底 + 主色线（描边 1.6），琥珀是主色渐变底 + 浅色线（描边 1.8）。直接用 <img> 引用时线条会是黑色，应内联 SVG 或用 CSS mask 着色。"
+  },
+  "avatars": [
+    {
+      "id": "neo",
+      "name": "新生",
+      "primaryColor": "#4a7c59",
+      "svgUrl": "/static/avatars/neo.svg",
+      "tagline": "破土的芽"
+    },
+    {
+      "id": "specter",
+      "name": "幽影",
+      "primaryColor": "#7a6a9c",
+      "svgUrl": "/static/avatars/specter.svg",
+      "tagline": "夜里的访客"
+    },
+    {
+      "id": "glyph",
+      "name": "符文",
+      "primaryColor": "#2f607f",
+      "svgUrl": "/static/avatars/glyph.svg",
+      "tagline": "未解的记号"
+    },
+    {
+      "id": "pulse",
+      "name": "心跳",
+      "primaryColor": "#b24a5c",
+      "svgUrl": "/static/avatars/pulse.svg",
+      "tagline": "此刻的证据"
+    },
+    {
+      "id": "circuit",
+      "name": "电路",
+      "primaryColor": "#3b7c76",
+      "svgUrl": "/static/avatars/circuit.svg",
+      "tagline": "有序的远方"
+    },
+    {
+      "id": "nova",
+      "name": "新星",
+      "primaryColor": "#b07f24",
+      "svgUrl": "/static/avatars/nova.svg",
+      "tagline": "迟到的光"
+    },
+    {
+      "id": "oracle",
+      "name": "神谕",
+      "primaryColor": "#444f92",
+      "svgUrl": "/static/avatars/oracle.svg",
+      "tagline": "看向以后"
+    },
+    {
+      "id": "drift",
+      "name": "漂流",
+      "primaryColor": "#66757f",
+      "svgUrl": "/static/avatars/drift.svg",
+      "tagline": "随水而去"
+    },
+    {
+      "id": "echo",
+      "name": "回声",
+      "primaryColor": "#a3613a",
+      "svgUrl": "/static/avatars/echo.svg",
+      "tagline": "山谷的答复"
+    },
+    {
+      "id": "void",
+      "name": "深渊",
+      "primaryColor": "#3a3944",
+      "svgUrl": "/static/avatars/void.svg",
+      "tagline": "安静的中心"
+    }
+  ]
+}

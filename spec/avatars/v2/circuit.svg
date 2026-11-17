@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <title>电路 · 有序的远方</title>
+  <rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/>
+  <path d="M10 3.5v4M14 3.5v4M10 16.5v4M14 16.5v4M3.5 10h4M3.5 14h4M16.5 10h4M16.5 14h4"/>
+  <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+</svg>

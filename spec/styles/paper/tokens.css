@@ -1,12 +1,13 @@
 /* ============================================================
-   HelloTime Pro · 2.0 原型 ·「时笺」设计令牌
+   HelloTime Pro 2.0 · spec/styles/paper/tokens.css
+   时笺 · 令牌（私有令牌 + 语义层）
    ------------------------------------------------------------
-   纸（surface）· 墨（text）· 印（accent）三组语义色，
-   昼 / 夜两套主题只改这一个文件里的变量。
-   组件层一律引用语义变量，不直接写色值。
+   所有选择器都限定在 :root[data-skin="paper"] 之下，两套皮肤可以同时加载；
+   @keyframes 统一加 paper- 前缀，避免与另一套皮肤重名。
+   视觉基准是 2.0 原型（2.0版原型byClaude-合集），原型直接引用本文件。
    ============================================================ */
 
-:root {
+:root[data-skin="paper"] {
   color-scheme: light;
 
   /* —— 纸 · surface —— */
@@ -73,30 +74,65 @@
   --fs-2xl: clamp(30px, 3.6vw, 44px);
   --fs-3xl: clamp(46px, 7.4vw, 104px);
 
-  /* —— 间距（4px 基线） —— */
-  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px;
-  --s8: 32px; --s10: 40px; --s12: 48px; --s16: 64px; --s20: 80px; --s24: 96px;
-
   /* —— 圆角：纸是方的，只留一点点手感 —— */
   --r1: 2px;
   --r2: 4px;
   --r3: 8px;
   --r-pill: 999px;
 
-  /* —— 动效 —— */
-  --ease-out: cubic-bezier(.16, 1, .3, 1);
-  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
-  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
-  --dur-1: 140ms;
-  --dur-2: 240ms;
-  --dur-3: 420ms;
-  --dur-4: 720ms;
+  /* 间距、动效曲线与时长是皮肤无关的刻度，见 base.css */
 
   --header-h: 64px;
+
+  /* ================= 语义层（两套皮肤同名同集合） =================
+     各实现自己写的样式只能引用这一层与 base.css；上面的私有令牌只给本目录的组件样式用。
+     这里全部是 var() 引用，暗色主题改了私有令牌，语义层自动跟着变。 */
+  --color-bg: var(--paper);
+  --color-surface: var(--paper-2);
+  --color-surface-hover: var(--paper-2);
+  --color-field: var(--paper-3);
+  --color-field-hover: var(--paper-4);
+  --color-header-bg: color-mix(in srgb, var(--paper) 84%, transparent);
+  --color-backdrop: color-mix(in srgb, var(--ink) 38%, transparent);
+  --color-border: var(--rule);
+  --color-border-strong: var(--rule-2);
+  --color-text: var(--ink);
+  --color-text-2: var(--ink-2);
+  --color-text-3: var(--ink-3);
+  --color-accent: var(--seal);
+  --color-accent-text: var(--seal);
+  --color-accent-soft: var(--seal-wash);
+  --color-on-accent: var(--seal-ink);
+  --bg-primary: var(--inverse);
+  --color-on-primary: var(--on-inverse);
+  --color-sealed: var(--seal);
+  --color-opened: var(--indigo);
+  --color-favorite: var(--seal);
+  --color-highlight: var(--gold);
+  --color-highlight-soft: var(--gold-wash);
+  --color-info: var(--indigo);
+  --color-info-soft: var(--indigo-wash);
+  --color-success: var(--pine);
+  --color-success-soft: var(--pine-wash);
+  --color-danger: var(--seal);
+  --color-danger-soft: var(--seal-wash);
+  --color-on-danger: var(--seal-ink);
+  --color-ring: var(--seal);
+  --color-skeleton: var(--paper-3);
+  --color-skeleton-shine: var(--paper-4);
+  --font-display: var(--font-serif);
+  --font-body: var(--font-sans);
+  /* --font-mono、--font-latin 与私有令牌同名，已在上面声明 */
+  --radius-sm: var(--r2);
+  --radius-md: var(--r3);
+  --radius-lg: var(--r3);
+  --radius-pill: var(--r-pill);
+  --shadow-card: var(--shadow-2);
+  /* --shadow-pop、--header-h 与私有令牌同名，已在上面声明 */
 }
 
 /* ============================ 夜 ============================ */
-:root[data-theme="dark"] {
+:root[data-skin="paper"][data-theme="dark"] {
   color-scheme: dark;
 
   --paper:   #131210;   /* 墨色的夜 */
