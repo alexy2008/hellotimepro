@@ -7,7 +7,7 @@ import string
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -117,5 +117,7 @@ def delete_own(db: Session, *, user: User, capsule_id: uuid.UUID) -> None:
         raise errors.not_found("胶囊不存在")
     if capsule.owner_id != user.id:
         raise errors.forbidden("无权删除他人胶囊")
+    # 收藏与胶囊同一事务删除：不依赖外键级联（SQLite 未开 foreign_keys 时级联不生效），显式先删收藏
+    db.execute(delete(Favorite).where(Favorite.capsule_id == capsule.id))
     db.delete(capsule)
     db.commit()

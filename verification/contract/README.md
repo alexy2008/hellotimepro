@@ -25,7 +25,7 @@ BASE_URL=http://127.0.0.1:9080 node --test verification/contract
 
 | 文件 | 覆盖 |
 |---|---|
-| `health.spec.ts` | `GET /health` — envelope + stack items |
+| `health.spec.ts` | `GET /health` — envelope + stack items；`version` 固定 `2.0.0` |
 | `avatars.spec.ts` | `GET /avatars` — ≥10 项、字段齐全 |
 | `auth.spec.ts` | register / login / refresh / logout + rotate |
 | `auth-errors.spec.ts` | 401 / 403 / 429 错误路径 |
@@ -34,9 +34,10 @@ BASE_URL=http://127.0.0.1:9080 node --test verification/contract
 | `capsules-sealed.spec.ts` | 未开启胶囊：content=null、isOpened=false、inPlaza 过滤 |
 | `capsules-opened.spec.ts` | isOpened 字段形态 + 删除语义（永远允许、非作者 403） |
 | `plaza.spec.ts` | sort / filter / q / pagination |
-| `favorites.spec.ts` | 幂等收藏 / 取消 / 我收藏的列表 |
+| `favorites.spec.ts` | 幂等收藏 / 取消 / 我收藏的列表；2.0：可收藏自己的与未公开的、非法 UUID → 422 |
 | `favorites-count.spec.ts` | favorite_count 与实际行数一致 |
-| `me-capsules.spec.ts` | 我创建的列表 + 删除级联 |
+| `me-capsules.spec.ts` | 我创建的列表 + 删除级联（删除后按码 404、收藏一并消失） |
+| `stats.spec.ts` | 2.0：`GET /plaza/stats`（与列表同口径、受 q 影响）、`GET /me/stats` |
 | `envelope.spec.ts` | 统一响应壳 + 204 无 body |
 | `error-codes.spec.ts` | errorCode ↔ HTTP 严格映射 |
 

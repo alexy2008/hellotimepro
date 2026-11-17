@@ -155,7 +155,7 @@ def test_plaza_list_and_favorite(client):
     assert items[0]["favoritedAt"] is not None
 
 
-def test_cannot_favorite_own_capsule(client):
+def test_can_favorite_own_capsule(client):
     alice = _register(client, "alice@hellotime.pro", "alice")
     h = {"Authorization": f"Bearer {alice['accessToken']}"}
     r = client.post(
@@ -170,8 +170,11 @@ def test_cannot_favorite_own_capsule(client):
     )
     cid = r.json()["data"]["id"]
     r = client.post("/api/v1/me/favorites", headers=h, json={"capsuleId": cid})
-    assert r.status_code == 400
-    assert r.json()["errorCode"] == "BAD_REQUEST"
+    assert r.status_code == 200
+    assert r.json()["data"]["favoriteCount"] == 1
+    # 「我创建的」里也能看出自己收藏过
+    r = client.get("/api/v1/me/capsules", headers=h)
+    assert r.json()["data"]["items"][0]["favoritedByMe"] is True
 
 
 def test_refresh_rotate_and_logout(client):

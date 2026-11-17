@@ -1,4 +1,4 @@
-"""favorite_service 单元测试：收藏 / 取消 / 幂等 / 约束。"""
+"""favorite_service 单元测试：收藏 / 取消 / 幂等 / 2.0 不校验状态。"""
 
 from __future__ import annotations
 
@@ -64,21 +64,42 @@ def test_add_favorite_idempotent(db):
     assert r1.favoriteCount == r2.favoriteCount == 1
 
 
-def test_add_favorite_own_capsule_raises(db):
+def test_add_favorite_own_capsule_allowed(db):
+    """2.0：可以收藏自己的胶囊，计数照常 +1。"""
     owner = _make_user(db, "own_fav")
     cid = _make_capsule(db, owner)
-    with pytest.raises(APIError) as exc:
-        favorite_service.add_favorite(db, user=owner, capsule_id=cid)
-    assert exc.value.code == ErrorCode.BAD_REQUEST
+    result = favorite_service.add_favorite(db, user=owner, capsule_id=cid)
+    assert result.favoriteCount == 1
 
 
-def test_add_favorite_not_in_plaza_raises(db):
+def test_add_favorite_not_in_plaza_allowed(db):
+    """2.0：未发布到广场的胶囊（凭码可见）也可以收藏。"""
     owner = _make_user(db, "nplaza_owner")
     fan = _make_user(db, "nplaza_fan")
     cid = _make_capsule(db, owner, in_plaza=False)
+    result = favorite_service.add_favorite(db, user=fan, capsule_id=cid)
+    assert result.favoriteCount == 1
+
+
+def test_add_favorite_missing_capsule_raises(db):
+    import uuid
+    fan = _make_user(db, "missing_fan")
     with pytest.raises(APIError) as exc:
-        favorite_service.add_favorite(db, user=fan, capsule_id=cid)
+        favorite_service.add_favorite(db, user=fan, capsule_id=uuid.uuid4())
     assert exc.value.code == ErrorCode.NOT_FOUND
+
+
+def test_delete_capsule_removes_favorites(db):
+    """删除胶囊连带删除所有收藏，它从收藏者的列表里消失。"""
+    from app.services import plaza_service
+    owner = _make_user(db, "del_owner")
+    fan = _make_user(db, "del_fan")
+    cid = _make_capsule(db, owner)
+    favorite_service.add_favorite(db, user=fan, capsule_id=cid)
+    favorite_service.add_favorite(db, user=owner, capsule_id=cid)
+    capsule_service.delete_own(db, user=owner, capsule_id=cid)
+    assert plaza_service.my_favorites(db, user=fan, page=1, page_size=10).pagination.total == 0
+    assert plaza_service.my_favorites(db, user=owner, page=1, page_size=10).pagination.total == 0
 
 
 # ── 取消收藏 ─────────────────────────────────────────────────────────────────

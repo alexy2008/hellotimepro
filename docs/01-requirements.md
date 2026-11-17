@@ -206,7 +206,7 @@ HelloTime Pro 是一个**多技术栈对比学习 / 教学项目**，业务载�
 
 - MUST 登录用户可收藏**任何**胶囊，不校验状态：自己创建的、`inPlaza = false` 的、未开启或已开启的都可以
 - MUST `POST /api/v1/me/favorites` body `{ capsuleId }`；`DELETE /api/v1/me/favorites/{capsuleId}`
-- MUST 胶囊不存在返回 `404`；`capsuleId` 不是合法 UUID 返回 `400 VALIDATION_ERROR`；重复收藏、取消未收藏的胶囊均幂等成功
+- MUST 胶囊不存在返回 `404`；`capsuleId` 不是合法 UUID 返回 `422 VALIDATION_ERROR`；重复收藏、取消未收藏的胶囊均幂等成功
 - MUST 收藏按钮出现在广场卡片与详情页（含未公开胶囊的详情页），显示当前收藏数与是否已收藏
 - MUST 匿名用户点击收藏时，先弹出确认框提示登录，确认后跳转登录并携带 `redirect`（§4.1.7）
 - SHOULD 乐观更新：点击后立即切换状态，请求失败时回滚并提示

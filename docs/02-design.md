@@ -293,7 +293,7 @@ HelloTimeProByClaude/
 | GET | `/api/v1/me/stats` | **2.0 新增**：我的统计（创建 / 已开启 / 未开启 / 在广场 / 被收藏 / 收藏了） |
 | DELETE | `/api/v1/me/capsules/{id}` | 删除我创建的（不限状态；连带删除所有收藏；不可恢复） |
 | GET | `/api/v1/me/favorites` | 我收藏的（可能含 `inPlaza = false` 的胶囊） |
-| POST | `/api/v1/me/favorites` | 收藏（2.0 起不校验状态；不存在 404，非法 UUID 400，重复幂等） |
+| POST | `/api/v1/me/favorites` | 收藏（2.0 起不校验状态；不存在 404，非法 UUID 422，重复幂等） |
 | DELETE | `/api/v1/me/favorites/{capsuleId}` | 取消收藏（幂等） |
 
 > 2.0 是破坏性升级：所有实现一起升，不做能力协商。`/api/v1/health` 的 `version` 固定返回 `"2.0.0"`，验证脚本据此确认目标已升级。
@@ -772,7 +772,7 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 3. 跑 [`verification/contract/*.spec.ts`](../verification/contract/)（fetch + 断言）
 4. 验证未到期 `content = null`
 5. 验证广场只返回 `in_plaza = true`
-6. 验证收藏：收藏自己的成功；凭码收藏 `inPlaza = false` 的成功并出现在「我收藏的」；不存在 404；非法 UUID 400；重复收藏与重复取消幂等
+6. 验证收藏：收藏自己的成功；凭码收藏 `inPlaza = false` 的成功并出现在「我收藏的」；不存在 404；非法 UUID 422；重复收藏与重复取消幂等
 7. 验证删除：删除后按码查询 404，并从收藏者的「我收藏的」里消失；不能删除别人的
 8. 验证统计：`/plaza/stats` 的 `counts` 与三种 `filter` 下列表的 `total` 一致、随 `q` 变化、`all = opened + unopened`；`/me/stats` 与「我创建的 / 我收藏的」的 `total` 一致、未登录 401
 9. 验证热度排序正确

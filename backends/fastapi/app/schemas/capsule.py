@@ -61,3 +61,27 @@ class FavoriteResult(BaseModel):
     capsuleId: uuid.UUID
     favoriteCount: int
     favoritedAt: datetime
+
+
+# ---------------------------------------------------------------- 统计（2.0）
+
+
+class PlazaCounts(BaseModel):
+    all: int
+    opened: int
+    unopened: int
+
+
+class PlazaStats(BaseModel):
+    counts: PlazaCounts
+    farthestOpenAt: datetime | None
+    nextOpenAt: datetime | None
+
+
+class MyStats(BaseModel):
+    created: int
+    opened: int
+    unopened: int
+    inPlaza: int
+    favoritesReceived: int
+    favoritesGiven: int

@@ -218,3 +218,61 @@ def test_my_favorites_empty_for_unfavorited(db):
     fan = _make_user(db, "myfav_empty")
     result = plaza_service.my_favorites(db, user=fan, page=1, page_size=10)
     assert result.pagination.total == 0
+
+
+# ── 统计（2.0） ──────────────────────────────────────────────────────────────
+
+
+def _open_now(db, capsule_id):
+    """把一枚胶囊的开启时间拨到过去（创建接口不允许直接建已开启的）。"""
+    from sqlalchemy import update
+    from app.models import Capsule
+    db.execute(update(Capsule).where(Capsule.id == capsule_id).values(created_at=_dt(-7200), open_at=_dt(-60)))
+    db.commit()
+
+
+def test_plaza_stats_counts_match_list_totals(db):
+    owner = _make_user(db, "st_owner")
+    a = _make_capsule(db, owner, title="星河 alpha", open_at_seconds=3600)
+    _make_capsule(db, owner, title="星河 beta", open_at_seconds=7200)
+    c = _make_capsule(db, owner, title="other", open_at_seconds=86400 * 400)
+    _make_capsule(db, owner, title="private", in_plaza=False)
+    _open_now(db, a.id)
+
+    s = plaza_service.plaza_stats(db, q=None)
+    assert (s.counts.all, s.counts.opened, s.counts.unopened) == (3, 1, 2)
+    for f, n in (("all", 3), ("opened", 1), ("unopened", 2)):
+        lst = plaza_service.plaza_list(db, sort="new", filter_val=f, q=None, page=1, page_size=20, viewer_id=None)
+        assert lst.pagination.total == n
+    assert s.farthestOpenAt is not None and abs((s.farthestOpenAt - c.openAt).total_seconds()) < 1
+    assert s.nextOpenAt is not None and s.nextOpenAt > datetime.now(timezone.utc)
+
+    sq = plaza_service.plaza_stats(db, q="星河")
+    assert (sq.counts.all, sq.counts.opened, sq.counts.unopened) == (2, 1, 1)
+    # 两个时刻不受 q 影响
+    assert sq.farthestOpenAt == s.farthestOpenAt
+
+
+def test_plaza_stats_empty_and_validation(db):
+    s = plaza_service.plaza_stats(db, q=None)
+    assert s.counts.all == 0 and s.farthestOpenAt is None and s.nextOpenAt is None
+    with pytest.raises(APIError) as exc:
+        plaza_service.plaza_stats(db, q="x" * 51)
+    assert exc.value.code == ErrorCode.VALIDATION_ERROR
+
+
+def test_my_stats(db):
+    me = _make_user(db, "ms_me")
+    fan = _make_user(db, "ms_fan")
+    a = _make_capsule(db, me, title="a")
+    b = _make_capsule(db, me, title="b", in_plaza=False)
+    other = _make_capsule(db, fan, title="theirs")
+    _open_now(db, a.id)
+    favorite_service.add_favorite(db, user=fan, capsule_id=a.id)
+    favorite_service.add_favorite(db, user=me, capsule_id=b.id)
+    favorite_service.add_favorite(db, user=me, capsule_id=other.id)
+
+    s = plaza_service.my_stats(db, user=me)
+    assert (s.created, s.opened, s.unopened, s.inPlaza) == (2, 1, 1, 1)
+    assert s.favoritesReceived == 2  # a 被 fan 收藏一次，b 被自己收藏一次
+    assert s.favoritesGiven == 2

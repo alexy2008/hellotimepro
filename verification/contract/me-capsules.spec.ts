@@ -70,3 +70,21 @@ test("DELETE /api/v1/me/capsules/{id} 成功 204 + 级联删除收藏关系", as
   );
   assert.ok(!list.body.data!.items.some((i) => i.id === cap.id));
 });
+
+test("DELETE /api/v1/me/capsules/{id} 后按码查询 → 404，作者自己的收藏也一并消失", async () => {
+  const owner = await register();
+  const cap = await createCapsule(owner.accessToken, { inPlaza: false });
+  await api("POST", "/api/v1/me/favorites", {
+    token: owner.accessToken,
+    json: { capsuleId: cap.id },
+  });
+  const del = await api("DELETE", `/api/v1/me/capsules/${cap.id}`, { token: owner.accessToken });
+  assert.equal(del.status, 204);
+
+  const byCode = await api("GET", `/api/v1/capsules/${cap.code}`);
+  assert.equal(byCode.status, 404);
+  const favs = await api<{ pagination: { total: number } }>("GET", "/api/v1/me/favorites", {
+    token: owner.accessToken,
+  });
+  assert.equal(favs.body.data!.pagination.total, 0);
+});

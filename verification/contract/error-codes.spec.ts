@@ -70,17 +70,6 @@ test("CONFLICT → 409（重复邮箱）", async () => {
   assert.equal(r.body.errorCode, "CONFLICT");
 });
 
-test("BAD_REQUEST → 400（收藏自己）", async () => {
-  const u = await register();
-  const cap = await createCapsule(u.accessToken);
-  const r = await api("POST", "/api/v1/me/favorites", {
-    token: u.accessToken,
-    json: { capsuleId: cap.id },
-  });
-  assert.equal(r.status, 400);
-  assert.equal(r.body.errorCode, "BAD_REQUEST");
-});
-
 test("RATE_LIMITED → 429（登录高频失败）", async () => {
   const email = uniqueEmail();
   await register({ email });

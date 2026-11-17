@@ -1,4 +1,4 @@
-"""头像目录 —— 直接读 spec/avatars/catalog.json，内存缓存。"""
+"""头像目录 —— 直接读 spec/avatars/v2/catalog.json（2.0 单线徽记），内存缓存。"""
 
 from __future__ import annotations
 

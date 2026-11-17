@@ -19,7 +19,7 @@ test("GET /api/v1/health 返回 envelope + HealthData", async () => {
   const d = r.body.data!;
   assert.equal(d.status, "ok");
   assert.equal(d.service, "hellotime-pro");
-  assert.ok(typeof d.version === "string" && d.version.length > 0);
+  assert.equal(d.version, "2.0.0", "2.0 起所有实现的 health.version 固定为 2.0.0");
   assert.ok(Number.isInteger(d.uptimeSeconds) && d.uptimeSeconds >= 0);
   assert.ok(["backend", "fullstack"].includes(d.stack.kind));
   assert.ok(Array.isArray(d.stack.items) && d.stack.items.length >= 1);

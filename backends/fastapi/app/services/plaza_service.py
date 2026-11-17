@@ -1,4 +1,4 @@
-"""广场列表 + "我创建的" / "我收藏的" 列表。"""
+"""广场列表与统计 + "我创建的" / "我收藏的" 列表与统计。"""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ import uuid
 from datetime import datetime, timezone
 from math import ceil
 
-from sqlalchemy import Select, and_, desc, func, or_, select
+from sqlalchemy import Select, case, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core import errors
 from app.models import Capsule, Favorite, User
-from app.schemas.capsule import CapsuleListItem
+from app.schemas.capsule import CapsuleListItem, MyStats, PlazaCounts, PlazaStats
 from app.schemas.common import Paginated, Pagination
 from app.schemas.user import UserBrief
 
@@ -153,8 +153,9 @@ def my_capsules(
         select(func.count()).select_from(Capsule).where(Capsule.owner_id == user.id)
     ).scalar_one()
     rows = db.execute(base.offset((page - 1) * page_size).limit(page_size)).all()
-    # 自己的胶囊：favoritedByMe 恒 false（业务约束不允许收藏自己）
-    items = [_to_item(c, u, favorited_by_me=False) for c, u in rows]
+    # 2.0 起可以收藏自己的胶囊，favoritedByMe 照常计算
+    faved = _favored_ids(db, viewer_id=user.id, capsule_ids=[c.id for c, _ in rows])
+    items = [_to_item(c, u, favorited_by_me=(c.id in faved)) for c, u in rows]
     return Paginated[CapsuleListItem](items=items, pagination=_paginate(total, page, page_size))
 
 
@@ -181,3 +182,74 @@ def my_favorites(
         _to_item(c, u, favorited_by_me=True, favorited_at=fav_at) for c, u, fav_at in rows
     ]
     return Paginated[CapsuleListItem](items=items, pagination=_paginate(total, page, page_size))
+
+
+# ---------------------------------------------------------------- 统计（2.0）
+
+
+def _count_if(cond):
+    """条件计数：sum(CASE WHEN cond THEN 1 ELSE 0 END)，PostgreSQL 与 SQLite 写法一致。"""
+    return func.coalesce(func.sum(case((cond, 1), else_=0)), 0)
+
+
+def plaza_stats(db: Session, *, q: str | None) -> PlazaStats:
+    """counts 与列表共用同一套 where（in_plaza + q），保证与三种 filter 下的 total 一致；
+    两个时刻不受 q 影响。"现在"只取一次，避免边界上 opened + unopened != all。"""
+    now = _now()
+    counted = _apply_query(
+        select(
+            func.count(),
+            _count_if(Capsule.open_at <= now),
+            _count_if(Capsule.open_at > now),
+        )
+        .select_from(Capsule)
+        .join(User, Capsule.owner_id == User.id)
+        .where(Capsule.in_plaza.is_(True)),
+        q,
+    )
+    all_, opened, unopened = db.execute(counted).one()
+
+    farthest = db.execute(
+        select(func.max(Capsule.open_at)).where(Capsule.in_plaza.is_(True))
+    ).scalar_one()
+    nxt = db.execute(
+        select(func.min(Capsule.open_at)).where(Capsule.in_plaza.is_(True), Capsule.open_at > now)
+    ).scalar_one()
+    return PlazaStats(
+        counts=PlazaCounts(all=all_, opened=opened, unopened=unopened),
+        farthestOpenAt=_as_utc(farthest),
+        nextOpenAt=_as_utc(nxt),
+    )
+
+
+def my_stats(db: Session, *, user: User) -> MyStats:
+    now = _now()
+    created, opened, unopened, in_plaza, received = db.execute(
+        select(
+            func.count(),
+            _count_if(Capsule.open_at <= now),
+            _count_if(Capsule.open_at > now),
+            _count_if(Capsule.in_plaza.is_(True)),
+            func.coalesce(func.sum(Capsule.favorite_count), 0),
+        ).where(Capsule.owner_id == user.id)
+    ).one()
+    given = db.execute(
+        select(func.count()).select_from(Favorite).where(Favorite.user_id == user.id)
+    ).scalar_one()
+    return MyStats(
+        created=created,
+        opened=opened,
+        unopened=unopened,
+        inPlaza=in_plaza,
+        favoritesReceived=received,
+        favoritesGiven=given,
+    )
+
+
+def _as_utc(v: datetime | None) -> datetime | None:
+    """聚合函数绕过了列类型：SQLite 下 max/min 拿到的是 ISO 字符串，PG 下是 aware datetime。"""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v)
+    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)

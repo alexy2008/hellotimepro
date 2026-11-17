@@ -1,4 +1,4 @@
-"""GET /plaza/capsules · GET /plaza/capsules/{id}"""
+"""GET /plaza/capsules · GET /plaza/stats · GET /plaza/capsules/{id}"""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import current_user_optional, get_db
 from app.models import User
-from app.schemas.capsule import CapsuleDetail, CapsuleListItem
+from app.schemas.capsule import CapsuleDetail, CapsuleListItem, PlazaStats
 from app.schemas.common import Envelope, Paginated
 from app.services import capsule_service, plaza_service
 
@@ -36,6 +36,14 @@ def plaza_list(
         viewer_id=(viewer.id if viewer else None),
     )
     return Envelope(success=True, data=data)
+
+
+@router.get("/stats", response_model=Envelope[PlazaStats])
+def plaza_stats(
+    q: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> Envelope[PlazaStats]:
+    return Envelope(success=True, data=plaza_service.plaza_stats(db, q=q))
 
 
 @router.get("/capsules/{capsule_id}", response_model=Envelope[CapsuleDetail])

@@ -5,6 +5,8 @@
   - 并发安全：favorite_count 用 SQL 原子表达式（`favorite_count + 1`）避免读-改-写竞态
   - PG 额外用 SELECT ... FOR UPDATE；SQLite 依赖原子 UPDATE + WAL 写串行
   - 重复收藏：幂等（不报错，返回当前状态）
+  - 2.0 起不校验胶囊状态：自己的、inPlaza = false 的、未开启 / 已开启的都可以收藏，
+    只要求胶囊存在（作者给自己 +1 也计入「最热」，这是有意接受的结果）
 """
 
 from __future__ import annotations
@@ -30,10 +32,8 @@ def _load_capsule(db: Session, capsule_id: uuid.UUID, *, lock: bool) -> Capsule 
 
 def add_favorite(db: Session, *, user: User, capsule_id: uuid.UUID) -> FavoriteResult:
     capsule = _load_capsule(db, capsule_id, lock=True)
-    if not capsule or not capsule.in_plaza:
+    if not capsule:
         raise errors.not_found("胶囊不存在")
-    if capsule.owner_id == user.id:
-        raise errors.bad_request("不能收藏自己创建的胶囊")
 
     existing = db.execute(
         select(Favorite).where(Favorite.user_id == user.id, Favorite.capsule_id == capsule.id)

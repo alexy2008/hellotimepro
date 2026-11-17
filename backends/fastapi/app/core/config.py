@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # --- 服务元数据 ---
     service_name: str = "hellotime-pro"
-    service_version: str = "0.1.0"
+    service_version: str = "2.0.0"
     host: str = "0.0.0.0"
     port: int = 29010
 
@@ -42,8 +42,8 @@ class Settings(BaseSettings):
 
     # --- 静态资源 ---
     # 头像 / 图标来源于 spec/，backend 启动时在内存里映射
-    avatars_catalog_path: Path = REPO_ROOT / "spec" / "avatars" / "catalog.json"
-    avatars_source_dir: Path = REPO_ROOT / "spec" / "avatars"
+    avatars_catalog_path: Path = REPO_ROOT / "spec" / "avatars" / "v2" / "catalog.json"
+    avatars_source_dir: Path = REPO_ROOT / "spec" / "avatars" / "v2"
     icons_source_dir: Path = REPO_ROOT / "spec" / "icons"
 
     # --- 限流 ---

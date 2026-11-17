@@ -1,4 +1,4 @@
-"""GET/PATCH /me · POST /me/password · GET /me/capsules · DELETE /me/capsules/{id}"""
+"""GET/PATCH /me · POST /me/password · GET /me/stats · GET /me/capsules · DELETE /me/capsules/{id}"""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import current_user_required, get_db
 from app.models import User
-from app.schemas.capsule import CapsuleListItem
+from app.schemas.capsule import CapsuleListItem, MyStats
 from app.schemas.common import Envelope, Paginated
 from app.schemas.user import ChangePasswordRequest, UpdateProfileRequest, UserOut
 from app.services import auth_service, capsule_service, plaza_service, user_service
@@ -42,6 +42,14 @@ def post_password(
         db, user=user, current_password=req.currentPassword, new_password=req.newPassword
     )
     return Response(status_code=204)
+
+
+@router.get("/stats", response_model=Envelope[MyStats])
+def get_my_stats(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user_required),
+) -> Envelope[MyStats]:
+    return Envelope(success=True, data=plaza_service.my_stats(db, user=user))
 
 
 @router.get("/capsules", response_model=Envelope[Paginated[CapsuleListItem]])
