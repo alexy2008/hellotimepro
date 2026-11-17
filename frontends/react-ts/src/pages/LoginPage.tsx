@@ -1,3 +1,4 @@
+import { safeRedirect } from "@/lib/redirect";
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
@@ -22,8 +23,7 @@ export function LoginPage() {
     try {
       const tokens = await api.login({ email: email.trim(), password });
       setTokens(tokens);
-      const state = location.state as { from?: string } | null;
-      navigate(state?.from ?? "/me/created", { replace: true });
+      navigate(safeRedirect(new URLSearchParams(location.search).get("redirect"), "/"), { replace: true });
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "登录失败");
     } finally {

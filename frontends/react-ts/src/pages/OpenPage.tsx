@@ -17,7 +17,7 @@ export function OpenPage() {
     setBusy(true);
     try {
       const cap = await api.capsuleByCode(c);
-      navigate(`/c/${cap.code}`);
+      navigate(`/capsules/${cap.code}`);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "找不到这条胶囊");
     } finally {

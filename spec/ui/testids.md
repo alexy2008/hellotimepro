@@ -53,10 +53,10 @@
 | `nav-plaza` | a | M | 头部导航：广场（`/`） |
 | `nav-open` | a | M | 头部导航：开启（`/open`） |
 | `nav-create` | a | M | 头部导航：创建（`/create`） |
-| `nav-me` | a | C | 已登录：我的（`/me/created`） |
 | `nav-about` | a | M | 头部或页脚：关于（`/about`） |
-| `nav-login` | a | C | 未登录：登录 |
+| `nav-login` / `nav-register` | a | C | 未登录：登录 / 注册 |
 | `user-menu` | button | C | 已登录：用户菜单开关，带 `data-nickname="<昵称>"`；点击后展开菜单 |
+| `menu-created` / `menu-favorites` / `menu-profile` | a | C | 用户菜单展开后可见：我创建的 / 我收藏的 / 账号设置 |
 | `logout` | button | C | 用户菜单展开后可见：登出 |
 | `skin-option` | button / `role="radio"` | M | 皮肤单选组里的两个选项，`data-value="paper\|amber"`，带 `data-selected`（见 X5） |
 | `theme-toggle` | button / `role="switch"` | M | 明暗开关（见 X5） |

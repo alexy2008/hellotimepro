@@ -38,7 +38,7 @@ export function CapsuleCard({
           {opened ? "已开启" : "未开启"}
         </span>
         <Link
-          to={`/c/${capsule.code}`}
+          to={`/capsules/${capsule.code}`}
           className="cy-capsule__code"
           style={{ textDecoration: "none" }}
         >
@@ -47,7 +47,7 @@ export function CapsuleCard({
       </div>
 
       <Link
-        to={`/c/${capsule.code}`}
+        to={`/capsules/${capsule.code}`}
         style={{ textDecoration: "none", color: "inherit" }}
       >
         <h3 className="cy-capsule__title">{capsule.title}</h3>

@@ -121,7 +121,7 @@ export function CreatePage() {
         openAt: localInputToIso(openLocal),
         inPlaza,
       });
-      navigate(`/c/${created.code}`, { replace: true });
+      navigate(`/capsules/${created.code}`, { replace: true });
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "创建失败");
     } finally {

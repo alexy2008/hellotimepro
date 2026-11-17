@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
 // 反向代理目标：默认指向 :9080（hello switch 切换的反代）
@@ -8,7 +7,7 @@ import path from "node:path";
 const BACKEND_PROXY = process.env.BACKEND_PROXY ?? "http://localhost:9080";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

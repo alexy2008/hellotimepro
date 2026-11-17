@@ -1,8 +1,9 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/stores/auth";
+import { loginPath } from "@/lib/redirect";
 import type { ReactNode } from "react";
 
-// 路由守卫：未登录跳到 /login，并把当前 URL 放到 state 里以便登录后回跳
+// 路由守卫：未登录跳到 /login?redirect=<当前路径含查询串>，登录后回跳
 export function AuthGate({ children }: { children: ReactNode }) {
   const user = useAuth((s) => s.user);
   const hydrated = useAuth((s) => s.hydrated);
@@ -15,5 +16,5 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // 接口调用会自动 refresh
   if (user || refreshToken) return <>{children}</>;
 
-  return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  return <Navigate to={loginPath(location.pathname + location.search)} replace />;
 }
