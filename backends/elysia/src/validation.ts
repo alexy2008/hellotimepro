@@ -43,7 +43,9 @@ export const createCapsuleSchema = z.object({
   inPlaza: z.boolean().optional(),
 });
 
-export const favoriteSchema = z.object({ capsuleId: z.string().min(1) });
+const capsuleIdPattern = /^(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9a-f]{32})$/i;
+export const capsuleIdSchema = z.string().regex(capsuleIdPattern, "必须提供合法的胶囊 UUID");
+export const favoriteSchema = z.object({ capsuleId: capsuleIdSchema });
 export const suggestionSchema = z.object({
   // 可选：留空表示由 AI 同时生成标题（空标题模式）。
   title: z.string().max(60).optional(),

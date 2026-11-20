@@ -26,7 +26,7 @@ HelloTime Pro 是一个时间胶囊应用。Elysia 后端的职责是：
 - 处理用户注册、登录、JWT access token、refresh token 轮转（含令牌族追踪）。
 - 读写用户、胶囊、收藏、refresh token 等数据，并维护反规范化字段 `favorite_count`。
 - 在 PostgreSQL 和 SQLite 之间切换（通过环境变量），同一套业务逻辑两边都跑得动。
-- 暴露 `spec/avatars/*`、`spec/icons/*` 作为静态资源，并提供胶囊建议接口。
+- 暴露 `spec/avatars/v2/*.svg`、`spec/icons/*` 作为静态资源，并提供胶囊建议接口。
 
 核心目录：
 
@@ -43,14 +43,14 @@ backends/elysia/
     ├── services/
     │   ├── auth.ts      # 注册、登录、refresh、profile、改密
     │   ├── capsules.ts  # 胶囊创建 / 查询 / 删除
-    │   ├── plaza.ts     # 广场列表、我的胶囊、我的收藏
+    │   ├── plaza.ts     # 广场与个人列表、广场与个人统计
     │   ├── favorites.ts # 收藏 / 取消收藏
     │   └── ai.ts        # 胶囊建议与推荐
     ├── security.ts    # JWT、密码哈希、refresh token 原语
     ├── validation.ts  # Zod 请求 schema
     ├── envelope.ts    # 统一成功 / 错误响应壳
     ├── errors.ts      # ApiError 与 spec errorCode 映射
-    ├── avatars.ts     # 读取 spec/avatars/catalog.json
+    ├── avatars.ts     # 读取 spec/avatars/v2/catalog.json
     └── types.ts       # 数据库行 → 响应 DTO 的映射工具
 ```
 
@@ -104,12 +104,7 @@ DB_DRIVER=sqlite ./run      # SQLite，零外部服务依赖
 ./build
 ```
 
-契约验证需要从仓库根目录运行：
-
-```bash
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh elysia
-./verification/scripts/verify-contract.sh elysia
-```
+双库契约验证从仓库根目录运行，必须指定独立库，见 [README](README.md#20-验证)。
 
 三个脚本做的事：
 
@@ -443,7 +438,7 @@ requireClaims(headers)
 
 - email 入库前统一 `trim().toLowerCase()`。
 - email 与 nickname 唯一冲突返回 `409 CONFLICT`。
-- avatarId 必须存在于 `spec/avatars/catalog.json`。
+- avatarId 必须存在于 `spec/avatars/v2/catalog.json`。
 - 登录失败有内存级限流，超过阈值返回 `429 RATE_LIMITED`。
 
 ### 9.2 胶囊
@@ -457,7 +452,7 @@ requireClaims(headers)
 
 关键规则：
 
-- `openAt` 必须大于当前时间 60 秒，且不超过 10 年。
+- `openAt` 必须晚于当前时间 60 秒以上，且不超过 UTC 的十个日历年（目标年没有 2 月 29 日时取 2 月末）。
 - 胶囊 code 是 8 位大写字母数字，生成冲突时最多重试 5 次。
 - 未开启胶囊的 `content` 永远返回 `null`，作者也没有特权预览。
 - `inPlaza=false` 不出现在广场，也不能通过广场详情访问，但可以按 code 查询。
@@ -488,7 +483,8 @@ requireClaims(headers)
 - `filter=opened`
 - `filter=unopened`
 
-搜索 `q` 会 trim，空字符串视为未传；非空时匹配 `title` 或 `creator.nickname`。
+搜索 `q` 会 trim，空字符串视为未传；非空时对 `title` 或 `creator.nickname` 做大小写不敏感的字面子串匹配。
+`plazaStats` 与列表共用搜索条件；两个开启时刻不受 `q` 影响。`myStats` 计入未公开胶囊和收、送两类收藏。
 
 ### 9.4 收藏与 favorite_count
 
@@ -499,19 +495,18 @@ requireClaims(headers)
 
 关键规则：
 
-- 只能收藏 `in_plaza=true` 的胶囊。
-- 不能收藏自己创建的胶囊，返回 `400 BAD_REQUEST`。
+- 只要胶囊存在且 UUID 合法，就能收藏；自己的、未公开或未开启的都可以。
 - 重复收藏幂等，返回 200 且计数不增加。
 - 取消收藏幂等，未收藏也返回 204。
 - favorites 行和 `capsules.favorite_count` 在同一事务里更新。
 
-PostgreSQL 下 `addFavorite` 会对胶囊行加 `FOR UPDATE`：
+PostgreSQL 下收藏、取消和删除共用 `lockCapsule`，都先对胶囊行加 `FOR UPDATE`：
 
 ```sql
 SELECT ... FROM capsules WHERE id = ? FOR UPDATE
 ```
 
-这样并发收藏时，多个事务会排队更新同一行，避免计数漂移。
+这样多个事务会按同一顺序操作胶囊和收藏，避免计数漂移及死锁。删除胶囊时在同一事务内显式先删收藏。
 
 ### 9.5 胶囊建议
 
@@ -549,7 +544,7 @@ pagination(...)
 头像列表来自：
 
 ```text
-spec/avatars/catalog.json
+spec/avatars/v2/catalog.json
 ```
 
 `avatars.ts` 会在首次调用时读取并缓存：
@@ -616,12 +611,7 @@ favorite_count AS "favoriteCount"
 1. 以 `spec/db/schema.sql` 为事实源。
 2. 同步修改仓库级数据库维护脚本。
 3. 确认 SQLite 方言差异：UUID/TIMESTAMPTZ/BOOLEAN/CHECK/索引。
-4. 跑：
-
-```bash
-DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh elysia
-../../verification/scripts/verify-contract.sh elysia
-```
+4. 用独立库运行双库契约验证（见 [README](README.md#20-验证)）。
 
 ### 13.5 改收藏逻辑
 
@@ -643,12 +633,7 @@ DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh elysia
 - `favorite_count` 与 favorites 实际行数保持一致。
 - 未开启胶囊不泄露 content。
 
-推荐每次较大修改后从仓库根目录跑：
-
-```bash
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh elysia
-./verification/scripts/verify-contract.sh elysia
-```
+推荐每次较大修改后从仓库根目录按 [README](README.md#20-验证) 运行独立双库契约。
 
 如果只改 TypeScript 类型或文档，可以先跑：
 

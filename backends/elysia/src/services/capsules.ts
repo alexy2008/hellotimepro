@@ -1,10 +1,45 @@
-import { one, query } from "../db";
+import { dbKind, one, query, tx } from "../db";
 import { ERR } from "../errors";
 import { randomUUID } from "../security";
-import { bool, capsuleDetail, CapsuleRow, dbTimestamp, OwnerBrief } from "../types";
+import { canonicalCapsuleId, capsuleDetail, CapsuleRow, dbTimestamp, OwnerBrief } from "../types";
+import { capsuleIdSchema, favoriteSchema, parse } from "../validation";
+import { z } from "zod";
 import { findUserById } from "./auth";
 
 const CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const capsulePathSchema = z.object({ id: capsuleIdSchema });
+
+function capsuleLookup(capsuleId: string, sqlite: boolean) {
+  const id = canonicalCapsuleId(capsuleId);
+  return sqlite
+    ? { marks: "?, ?", ids: [id, id.replace(/-/g, "")] }
+    : { marks: "?", ids: [id] };
+}
+
+export async function lockCapsule(transactionQuery: typeof query, rawId: string, field: "id" | "capsuleId" = "capsuleId") {
+  const capsuleId = field === "id"
+    ? parse(capsulePathSchema, { id: rawId }).id
+    : parse(favoriteSchema, { capsuleId: rawId }).capsuleId;
+  const sqlite = (await dbKind()) === "sqlite";
+  const { marks, ids } = capsuleLookup(capsuleId, sqlite);
+  const [capsule] = await transactionQuery<{ id: string; ownerId: string; favoriteCount: number }>(
+    `SELECT id, owner_id AS "ownerId", favorite_count AS "favoriteCount"
+       FROM capsules WHERE id IN (${marks})${sqlite ? "" : " FOR UPDATE"}`,
+    ids,
+  );
+  return capsule;
+}
+
+export function validateOpenAt(value: string, now: Date) {
+  const openAt = new Date(value);
+  if (!Number.isFinite(openAt.getTime())) throw ERR.validation("openAt 不是合法时间", "openAt");
+  if (openAt.getTime() <= now.getTime() + 60_000) throw ERR.validation("开启时间至少需 60 秒后", "openAt");
+  const limit = new Date(now);
+  limit.setUTCFullYear(now.getUTCFullYear() + 10);
+  if (limit.getUTCMonth() !== now.getUTCMonth()) limit.setUTCDate(0);
+  if (openAt > limit) throw ERR.validation("开启时间不能超过 10 年", "openAt");
+  return openAt;
+}
 
 function code() {
   let s = "";
@@ -46,26 +81,21 @@ export async function createCapsule(ownerId: string, req: {
   openAt: string;
   inPlaza?: boolean;
 }) {
-  const openAt = new Date(req.openAt);
-  if (Number.isNaN(openAt.getTime())) throw ERR.validation("openAt 不是合法时间", "openAt");
-  if (openAt.getTime() <= Date.now() + 60_000) throw ERR.validation("开启时间至少需 60 秒后", "openAt");
-  if (openAt.getTime() > Date.now() + 10 * 365 * 24 * 3600 * 1000) {
-    throw ERR.validation("开启时间不能超过 10 年", "openAt");
-  }
+  const now = new Date();
+  const openAtStored = dbTimestamp(validateOpenAt(req.openAt, now));
+  const createdAt = dbTimestamp(now);
   const owner = await findUserById(ownerId);
   if (!owner) throw ERR.unauthorized();
   let lastErr: unknown;
   for (let i = 0; i < 5; i++) {
     const id = randomUUID();
-    const now = dbTimestamp(new Date());
-    const openAtStored = dbTimestamp(openAt);
     const capsuleCode = code();
     try {
       await query(
         `INSERT INTO capsules
           (id, owner_id, code, title, content, open_at, in_plaza, favorite_count, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, ownerId, capsuleCode, req.title, req.content, openAtStored, req.inPlaza ?? true, 0, now, now],
+        [id, ownerId, capsuleCode, req.title, req.content, openAtStored, req.inPlaza ?? true, 0, createdAt, createdAt],
       );
       return capsuleDetail(
         {
@@ -77,8 +107,8 @@ export async function createCapsule(ownerId: string, req: {
           openAt: openAtStored,
           inPlaza: req.inPlaza ?? true,
           favoriteCount: 0,
-          createdAt: now,
-          updatedAt: now,
+          createdAt,
+          updatedAt: createdAt,
         },
         { id: owner.id, nickname: owner.nickname, avatarId: owner.avatarId },
         false,
@@ -105,17 +135,19 @@ export async function getCapsuleByCode(codeParam: string, viewerId: string | nul
 }
 
 export async function getPlazaCapsuleById(id: string, viewerId: string | null) {
-  const row = await capsuleWithOwnerBy("c.id = ? AND c.in_plaza = ?", [id, true]);
+  const parsed = parse(capsulePathSchema, { id }).id;
+  const { marks, ids } = capsuleLookup(parsed, (await dbKind()) === "sqlite");
+  const row = await capsuleWithOwnerBy(`c.id IN (${marks}) AND c.in_plaza = ?`, [...ids, true]);
   if (!row) throw ERR.notFound("胶囊不存在");
   return capsuleDetail(row, rowOwner(row), await favorited(viewerId, row.id));
 }
 
 export async function deleteOwnCapsule(userId: string, capsuleId: string) {
-  const c = await one<{ id: string; ownerId: string }>(
-    `SELECT id, owner_id AS "ownerId" FROM capsules WHERE id = ? LIMIT 1`,
-    [capsuleId],
-  );
-  if (!c) throw ERR.notFound("胶囊不存在");
-  if (c.ownerId !== userId) throw ERR.forbidden("无权删除他人胶囊");
-  await query(`DELETE FROM capsules WHERE id = ?`, [capsuleId]);
+  await tx(async (q) => {
+    const capsule = await lockCapsule(q, capsuleId, "id");
+    if (!capsule) throw ERR.notFound("胶囊不存在");
+    if (capsule.ownerId !== userId) throw ERR.forbidden("无权删除他人胶囊");
+    await q("DELETE FROM favorites WHERE capsule_id = ?", [capsule.id]);
+    await q("DELETE FROM capsules WHERE id = ?", [capsule.id]);
+  });
 }

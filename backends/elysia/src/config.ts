@@ -1,3 +1,7 @@
+import { resolve } from "node:path";
+
+export const specRoot = resolve(import.meta.dir, "../../../spec");
+
 const num = (v: string | undefined, fallback: number) => {
   const n = v ? Number(v) : NaN;
   return Number.isFinite(n) ? n : fallback;
@@ -8,7 +12,7 @@ const bool = (v: string | undefined) => ["1", "true", "yes", "on"].includes((v ?
 export const env = {
   port: num(process.env.PORT, 29030),
   serviceName: process.env.SERVICE_NAME ?? "hellotime-pro",
-  serviceVersion: process.env.SERVICE_VERSION ?? "0.1.0",
+  serviceVersion: "2.0.0",
   dbDriver: (process.env.DB_DRIVER ?? "postgres").toLowerCase() as "postgres" | "sqlite",
   dbUrl:
     process.env.DB_URL ??

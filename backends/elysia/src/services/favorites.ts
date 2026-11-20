@@ -1,20 +1,13 @@
-import { dbKind, tx } from "../db";
+import { tx } from "../db";
 import { ERR } from "../errors";
-import { bool, CapsuleRow, dbTimestamp, iso } from "../types";
+import { canonicalCapsuleId, dbTimestamp, iso } from "../types";
+import { lockCapsule } from "./capsules";
 
-export async function addFavorite(userId: string, capsuleId: string) {
+export async function addFavorite(userId: string, requestedId: string) {
   return tx(async (q) => {
-    const locking = (await dbKind()) === "postgres" ? " FOR UPDATE" : "";
-    const capsules = await q<CapsuleRow>(
-      `SELECT id, owner_id AS "ownerId", code, title, content, open_at AS "openAt",
-              in_plaza AS "inPlaza", favorite_count AS "favoriteCount",
-              created_at AS "createdAt", updated_at AS "updatedAt"
-         FROM capsules WHERE id = ?${locking}`,
-      [capsuleId],
-    );
-    const capsule = capsules[0];
-    if (!capsule || !bool(capsule.inPlaza)) throw ERR.notFound("胶囊不存在");
-    if (capsule.ownerId === userId) throw ERR.badRequest("不能收藏自己创建的胶囊");
+    const capsule = await lockCapsule(q, requestedId);
+    if (!capsule) throw ERR.notFound("胶囊不存在");
+    const capsuleId = capsule.id;
 
     const existing = await q<{ createdAt: string }>(
       `SELECT created_at AS "createdAt" FROM favorites WHERE user_id = ? AND capsule_id = ? LIMIT 1`,
@@ -22,7 +15,7 @@ export async function addFavorite(userId: string, capsuleId: string) {
     );
     if (existing[0]) {
       return {
-        capsuleId,
+        capsuleId: canonicalCapsuleId(capsuleId),
         favoriteCount: Number(capsule.favoriteCount),
         favoritedAt: iso(existing[0].createdAt),
       };
@@ -38,12 +31,19 @@ export async function addFavorite(userId: string, capsuleId: string) {
       `SELECT favorite_count AS "favoriteCount" FROM capsules WHERE id = ?`,
       [capsuleId],
     );
-    return { capsuleId, favoriteCount: Number(updated[0]?.favoriteCount ?? 1), favoritedAt: now };
+    return {
+      capsuleId: canonicalCapsuleId(capsuleId),
+      favoriteCount: Number(updated[0]?.favoriteCount ?? 1),
+      favoritedAt: iso(now),
+    };
   });
 }
 
-export async function removeFavorite(userId: string, capsuleId: string) {
+export async function removeFavorite(userId: string, requestedId: string) {
   await tx(async (q) => {
+    const capsule = await lockCapsule(q, requestedId);
+    if (!capsule) return;
+    const capsuleId = capsule.id;
     const deleted = await q<{ deleted: number }>(
       `DELETE FROM favorites WHERE user_id = ? AND capsule_id = ? RETURNING 1 AS deleted`,
       [userId, capsuleId],

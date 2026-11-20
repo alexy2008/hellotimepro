@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { specRoot } from "./config";
+
+export const avatarsDir = join(specRoot, "avatars", "v2");
 
 export interface Avatar {
   id: string;
@@ -12,7 +15,7 @@ let cached: Avatar[] | null = null;
 
 export function listAvatars() {
   if (cached) return cached;
-  const raw = readFileSync(join(process.cwd(), "..", "..", "spec", "avatars", "catalog.json"), "utf8");
+  const raw = readFileSync(join(avatarsDir, "catalog.json"), "utf8");
   const json = JSON.parse(raw) as { avatars: Avatar[] };
   cached = json.avatars;
   return cached;

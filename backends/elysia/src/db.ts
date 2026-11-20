@@ -49,6 +49,13 @@ export async function dbKind() {
   return (await getHandle()).kind;
 }
 
+export async function closeDb() {
+  const current = handle;
+  handle = null;
+  if (current?.kind === "sqlite") current.sqlite.close();
+  else if (current?.kind === "postgres") await current.pool.end();
+}
+
 async function queryOn(target: DbHandle | PgClient, sql: string, params: unknown[] = []) {
   if ("query" in target) {
     const res = await target.query(pgSql(sql), params);

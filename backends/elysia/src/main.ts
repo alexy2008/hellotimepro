@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Elysia } from "elysia";
-import { listAvatars } from "./avatars";
-import { env } from "./config";
+import { avatarsDir, listAvatars } from "./avatars";
+import { env, specRoot } from "./config";
 import { dbKind } from "./db";
 import { ok, route, routeEmpty, errorResponse } from "./envelope";
 import { ERR } from "./errors";
@@ -31,7 +31,9 @@ import {
   logout,
   myCapsules,
   myFavorites,
+  myStats,
   plazaList,
+  plazaStats,
   refresh,
   register,
   removeFavorite,
@@ -99,7 +101,7 @@ async function stackInfo() {
 
 function staticFile(kind: "avatars" | "icons", file: string) {
   if (!/^[a-z0-9_.-]+\.svg$/i.test(file)) return new Response("not found", { status: 404 });
-  const path = join(process.cwd(), "..", "..", "spec", kind, file);
+  const path = join(kind === "avatars" ? avatarsDir : join(specRoot, "icons"), file);
   if (!existsSync(path)) return new Response("not found", { status: 404 });
   return new Response(Bun.file(path), {
     headers: { "content-type": "image/svg+xml; charset=utf-8" },
@@ -188,6 +190,9 @@ const app = new Elysia()
       return getCapsuleByCode(params.code, claims?.id ?? null);
     }),
   )
+  .get("/api/v1/plaza/stats", ({ set, request }) =>
+    route(set, () => plazaStats(new URL(request.url).searchParams.get("q"))),
+  )
   .get("/api/v1/plaza/capsules", ({ set, request }) =>
     route(set, async () => {
       const claims = await readClaims(request.headers);
@@ -207,6 +212,12 @@ const app = new Elysia()
     route(set, async () => {
       const claims = await readClaims(request.headers);
       return getPlazaCapsuleById(params.id, claims?.id ?? null);
+    }),
+  )
+  .get("/api/v1/me/stats", ({ set, request }) =>
+    route(set, async () => {
+      const claims = await requireClaims(request.headers);
+      return myStats(claims.id);
     }),
   )
   .get("/api/v1/me/capsules", ({ set, request }) =>

@@ -41,6 +41,12 @@ export function iso(value: string | Date) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+export function canonicalCapsuleId(storedId: string) {
+  return storedId
+    .toLowerCase()
+    .replace(/^([a-f0-9]{8})([a-f0-9]{4})([a-f0-9]{4})([a-f0-9]{4})([a-f0-9]{12})$/, "$1-$2-$3-$4-$5");
+}
+
 /** SQLite 存储/比较专用：与 spec seed 的 T + UTC offset 格式逐字符一致。 */
 export function dbTimestamp(value: Date) {
   return value.toISOString().replace(/\.(\d{3})Z$/, (_match, fraction: string) => {
@@ -60,7 +66,7 @@ export function capsuleDetail(
 ) {
   const opened = new Date(c.openAt) <= new Date();
   return {
-    id: c.id,
+    id: canonicalCapsuleId(c.id),
     code: c.code,
     title: c.title,
     creator: { nickname: owner.nickname, avatarId: owner.avatarId },
@@ -83,7 +89,7 @@ export function capsuleListItem(
   const opened = new Date(c.openAt) <= new Date();
   const trimmed = c.content.trim();
   return {
-    id: c.id,
+    id: canonicalCapsuleId(c.id),
     code: c.code,
     title: c.title,
     creator: { nickname: owner.nickname, avatarId: owner.avatarId },
