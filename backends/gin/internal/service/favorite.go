@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,71 +14,57 @@ import (
 
 // AddFavorite 收藏胶囊（幂等）。
 func AddFavorite(db *gorm.DB, user *model.User, capsuleID string) (*dto.FavoriteResult, error) {
-	var c model.Capsule
-	if err := db.First(&c, "id = ? AND in_plaza = ?", capsuleID, true).Error; err != nil {
-		return nil, core.NotFoundErr("胶囊不存在")
-	}
-	if c.OwnerID == user.ID {
-		return nil, core.BadRequestErr("不能收藏自己创建的胶囊")
-	}
-
-	// 幂等：已收藏直接返回
-	var existing model.Favorite
-	if err := db.Where("user_id = ? AND capsule_id = ?", user.ID, capsuleID).First(&existing).Error; err == nil {
-		return &dto.FavoriteResult{
-			CapsuleID:     c.ID,
-			FavoriteCount: c.FavoriteCount,
-			FavoritedAt:   existing.CreatedAt,
-		}, nil
-	}
-
-	now := time.Now().UTC()
-	fav := model.Favorite{UserID: user.ID, CapsuleID: capsuleID, CreatedAt: now}
-	inserted := false
-
+	var result dto.FavoriteResult
 	err := db.Transaction(func(tx *gorm.DB) error {
-		res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&fav)
-		if res.Error != nil {
-			return res.Error
+		capsule, err := lockCapsule(tx, capsuleID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return core.NotFoundErr("胶囊不存在")
 		}
-		if res.RowsAffected == 0 {
-			return nil
+		if err != nil {
+			return err
 		}
-		inserted = true
-		return tx.Model(&model.Capsule{}).
-			Where("id = ?", capsuleID).
-			UpdateColumn("favorite_count", gorm.Expr("favorite_count + 1")).Error
+		favorite := model.Favorite{UserID: user.ID, CapsuleID: capsule.ID, CreatedAt: time.Now().UTC().Truncate(time.Microsecond)}
+		insert := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "user_id"}, {Name: "capsule_id"}},
+			DoNothing: true,
+		}).Create(&favorite)
+		if insert.Error != nil {
+			return insert.Error
+		}
+		if insert.RowsAffected == 0 {
+			if err := tx.Select("created_at").Take(&favorite).Error; err != nil {
+				return err
+			}
+		} else {
+			if err := tx.Model(&capsule).UpdateColumn("favorite_count", gorm.Expr("favorite_count + 1")).Error; err != nil {
+				return err
+			}
+			capsule.FavoriteCount++
+		}
+		result = dto.FavoriteResult{
+			CapsuleID:     canonicalCapsuleID(capsule.ID),
+			FavoriteCount: capsule.FavoriteCount,
+			FavoritedAt:   favorite.CreatedAt,
+		}
+		return nil
 	})
 	if err != nil {
-		return nil, core.InternalErr("收藏失败")
+		return nil, err
 	}
-
-	if !inserted {
-		var existing model.Favorite
-		if err := db.Where("user_id = ? AND capsule_id = ?", user.ID, capsuleID).First(&existing).Error; err != nil {
-			return nil, core.InternalErr("读取收藏状态失败")
-		}
-		db.First(&c, "id = ?", capsuleID)
-		return &dto.FavoriteResult{
-			CapsuleID:     c.ID,
-			FavoriteCount: c.FavoriteCount,
-			FavoritedAt:   existing.CreatedAt,
-		}, nil
-	}
-
-	// 刷新 favorite_count
-	db.First(&c, "id = ?", capsuleID)
-	return &dto.FavoriteResult{
-		CapsuleID:     c.ID,
-		FavoriteCount: c.FavoriteCount,
-		FavoritedAt:   now,
-	}, nil
+	return &result, nil
 }
 
 // RemoveFavorite 取消收藏（幂等）。
 func RemoveFavorite(db *gorm.DB, user *model.User, capsuleID string) error {
 	return db.Transaction(func(tx *gorm.DB) error {
-		deleted := tx.Where("user_id = ? AND capsule_id = ?", user.ID, capsuleID).
+		capsule, err := lockCapsule(tx, capsuleID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		deleted := tx.Where("user_id = ? AND capsule_id = ?", user.ID, capsule.ID).
 			Delete(&model.Favorite{})
 		if deleted.Error != nil {
 			return deleted.Error
@@ -85,8 +72,8 @@ func RemoveFavorite(db *gorm.DB, user *model.User, capsuleID string) error {
 		if deleted.RowsAffected == 0 {
 			return nil
 		}
-		return tx.Model(&model.Capsule{}).
-			Where("id = ? AND favorite_count > 0", capsuleID).
+		return tx.Model(&capsule).
+			Where("favorite_count > 0").
 			UpdateColumn("favorite_count", gorm.Expr("favorite_count - 1")).Error
 	})
 }

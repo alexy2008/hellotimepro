@@ -37,7 +37,7 @@ func Open() (*gorm.DB, error) {
 		// 第一写出格式是空格分隔，同日字符串排序/过滤会因此失真。
 		sqlite3.SQLiteTimestampFormats[0] = "2006-01-02T15:04:05.999999999-07:00"
 		path := sqliteFilePath(rawURL)
-		db, err = gorm.Open(sqlite.Open(path+"?_foreign_keys=on&_journal_mode=WAL"), cfg)
+		db, err = gorm.Open(sqlite.Open(path+"?_foreign_keys=on&_journal_mode=WAL&_txlock=immediate"), cfg)
 	default:
 		return nil, fmt.Errorf("unknown db driver: %s", driver)
 	}

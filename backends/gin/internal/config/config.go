@@ -13,10 +13,9 @@ import (
 // Settings 保存应用全局配置。
 type Settings struct {
 	// 服务
-	ServiceName    string
-	ServiceVersion string
-	Host           string
-	Port           int
+	ServiceName string
+	Host        string
+	Port        int
 
 	// 数据库
 	DBDriver string // "postgres" | "sqlite"
@@ -55,6 +54,8 @@ type Settings struct {
 }
 
 var App Settings
+
+const ServiceVersion = "2.0.0"
 
 // repoRoot 从本文件位置向上找 repo 根（包含 spec/ 目录）。
 func repoRoot() string {
@@ -107,10 +108,9 @@ func init() {
 	}
 
 	App = Settings{
-		ServiceName:    getEnv("SERVICE_NAME", "hellotime-pro"),
-		ServiceVersion: getEnv("SERVICE_VERSION", "0.1.0"),
-		Host:           getEnv("HOST", "0.0.0.0"),
-		Port:           getEnvInt("PORT", 29020),
+		ServiceName: getEnv("SERVICE_NAME", "hellotime-pro"),
+		Host:        getEnv("HOST", "0.0.0.0"),
+		Port:        getEnvInt("PORT", 29020),
 
 		DBDriver: driver,
 		DBUrl:    getEnv("DB_URL", defaultDBUrl),
@@ -121,8 +121,8 @@ func init() {
 		RefreshTokenTTLSeconds: getEnvInt("REFRESH_TOKEN_TTL_SECONDS", 7*24*3600),
 		BcryptRounds:           getEnvInt("BCRYPT_ROUNDS", 10),
 
-		AvatarsCatalogPath: filepath.Join(root, "spec", "avatars", "catalog.json"),
-		AvatarsSourceDir:   filepath.Join(root, "spec", "avatars"),
+		AvatarsCatalogPath: filepath.Join(root, "spec", "avatars", "v2", "catalog.json"),
+		AvatarsSourceDir:   filepath.Join(root, "spec", "avatars", "v2"),
 		IconsSourceDir:     filepath.Join(root, "spec", "icons"),
 
 		LoginRateLimitPerMinute: getEnvInt("LOGIN_RATE_LIMIT_PER_MINUTE", 10),

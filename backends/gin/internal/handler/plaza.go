@@ -53,12 +53,23 @@ func GetPlazaCapsules(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+func GetPlazaStats(db *gorm.DB) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		stats, err := service.PlazaStats(db, ctx.Query("q"))
+		if err != nil {
+			middleware.RespondErr(ctx, err)
+			return
+		}
+		ctx.JSON(http.StatusOK, dto.OK(stats))
+	}
+}
+
 // GetPlazaCapsuleDetail GET /api/v1/plaza/capsules/:id
 func GetPlazaCapsuleDetail(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		capsuleID := c.Param("id")
-		if capsuleID == "" {
-			middleware.RespondErr(c, core.ValidationErr("缺少 capsuleId", "id"))
+		capsuleID, err := parseCapsuleID(c.Param("id"), "id")
+		if err != nil {
+			middleware.RespondErr(c, err)
 			return
 		}
 		viewerID := middleware.ViewerID(c)

@@ -26,7 +26,7 @@ type CapsuleDetail struct {
 type CapsuleListItem struct {
 	CapsuleBase
 	FavoritedByMe  bool       `json:"favoritedByMe"`
-	FavoritedAt    *time.Time `json:"favoritedAt,omitempty"`
+	FavoritedAt    *time.Time `json:"favoritedAt"`
 	ContentPreview *string    `json:"contentPreview"`
 }
 

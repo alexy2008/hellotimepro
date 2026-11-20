@@ -44,7 +44,12 @@ func PostFavorite(db *gorm.DB) gin.HandlerFunc {
 			middleware.RespondErr(c, core.ValidationErr(err.Error(), "capsuleId"))
 			return
 		}
-		result, err := service.AddFavorite(db, user, req.CapsuleID)
+		capsuleID, err := parseCapsuleID(req.CapsuleID, "capsuleId")
+		if err != nil {
+			middleware.RespondErr(c, err)
+			return
+		}
+		result, err := service.AddFavorite(db, user, capsuleID)
 		if err != nil {
 			middleware.RespondErr(c, err)
 			return
@@ -57,9 +62,9 @@ func PostFavorite(db *gorm.DB) gin.HandlerFunc {
 func DeleteFavorite(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := middleware.CurrentUser(c)
-		capsuleID := c.Param("capsuleId")
-		if capsuleID == "" {
-			middleware.RespondErr(c, core.ValidationErr("缺少 capsuleId", "capsuleId"))
+		capsuleID, err := parseCapsuleID(c.Param("capsuleId"), "capsuleId")
+		if err != nil {
+			middleware.RespondErr(c, err)
 			return
 		}
 		if err := service.RemoveFavorite(db, user, capsuleID); err != nil {

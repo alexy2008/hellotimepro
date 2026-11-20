@@ -139,7 +139,7 @@ func main() {
     v1.GET("/health", handler.GetHealth)
     auth    := v1.Group("/auth")     { ... }
     capsules := v1.Group("/capsules") { ... }
-    plaza   := v1.Group("/plaza").Use(middleware.OptionalAuth(gormDB)) { ... }
+    plaza   := v1.Group("/plaza")   { ... } // stats 公开；列表和详情可选鉴权
     me      := v1.Group("/me").Use(middleware.RequireAuth(gormDB))     { ... }
 
     r.Run(addr)                           // 阻塞，监听 :29020
@@ -151,7 +151,7 @@ func main() {
 - **`gin.Engine` 就是 `http.Handler`**：`r.Run(addr)` 等价于 `http.ListenAndServe(addr, r)`，Gin 没有自己的 server，只是个路由器 + 中间件框架。
 - **`gin.SetMode(gin.ReleaseMode)`**：关闭调试日志和颜色输出。开发期可以去掉，看 banner。
 - **`gin.Logger()` 与 `gin.Recovery()`**：Gin 自带的两个中间件。Recovery 把每个请求里的 panic 捕获成 500，避免一个请求挂掉整个 server。
-- **静态资源同步**：每个后端实现需要展示同样的头像/图标，所以启动时把仓库的 `spec/{avatars,icons}/*.svg` 拷贝到 `static/`，再用 `r.Static` 暴露出去。
+- **静态资源同步**：启动时把 `spec/avatars/v2/*.svg` 与 `spec/icons/*.svg` 拷贝到 `static/`，再用 `r.Static` 暴露出去。头像目录接口读取 `spec/avatars/v2/catalog.json`。
 
 ## 5. Gin 的几个关键思想
 
@@ -271,7 +271,7 @@ func init() {
 `Open()` 的核心步骤：
 
 ```go
-db, err = gorm.Open(postgres.Open(dsn), cfg)         // 或 sqlite.Open(path+"?_foreign_keys=on&_journal_mode=WAL")
+db, err = gorm.Open(postgres.Open(dsn), cfg)         // 或 sqlite.Open(path+"?_foreign_keys=on&_journal_mode=WAL&_txlock=immediate")
 return db, nil
 ```
 
@@ -479,11 +479,12 @@ err := db.Transaction(func(tx *gorm.DB) error {
 - **乐观并发**：`UPDATE ... WHERE id = ? AND revoked_at IS NULL` 加 `RowsAffected != 1` 检查，比读-修改-写更可靠，PostgreSQL/SQLite 通用。
 - **`uuid.NewString()`** 来自 `google/uuid`，UUID v4，对应 `varchar(36)`。
 
-### 9.2 `capsule.go` / `favorite.go` / `plaza.go`
+### 9.2 `capsule.go` / `favorite.go` / `plaza.go` / `stats.go`
 
-- `CreateCapsule`：校验 openAt → 重试 5 次生成 8 位随机码（避免冲突）→ `db.Create`。
-- `AddFavorite`：先非事务幂等检查 → 进事务 `OnConflict{DoNothing: true}` + 原子 UPDATE 计数 → `RowsAffected` 判断是否真的插入了。
-- `PlazaList`：用 `Table().Select().Joins().Where()` 链式构造，按 sort/filter/q 动态加条件，先 `Count`，再 `Offset/Limit/Scan`。批量取 viewer 的收藏集合（`isFavoritedByViewer`）避免 N+1 查询。
+- `CreateCapsule`：按 UTC 校验 `openAt`（超过 60 秒、至多十个日历年）→ 重试 5 次生成 8 位随机码（避免冲突）→ `db.Create`。
+- `AddFavorite`、`RemoveFavorite`、`DeleteOwnCapsule`：都在 GORM 事务中先定位胶囊；PostgreSQL 用 `clause.Locking` 先锁胶囊行，SQLite 用 `BEGIN IMMEDIATE` 在首次读取前取得写事务。收藏以 `OnConflict.DoNothing` 和 `RowsAffected` 保证幂等，取消收藏与计数同步；删除胶囊显式先删关联的收藏。
+- `PlazaList` 与 `PlazaStats` 复用 `plazaQuery` 的公开范围和字面搜索条件。列表追加筛选、排序与分页，并批量查询收藏状态；统计用 `COUNT(CASE WHEN … THEN 1 END)` 分类计数，开启时刻另查，不受 `q` 影响。
+- `MyStats`：汇总当前用户所有胶囊（含未公开）与收到的收藏数，并从 `favorites` 计出自己收藏的数量。
 
 ### 9.3 限流：`sync.Map` + `sync.Mutex`
 

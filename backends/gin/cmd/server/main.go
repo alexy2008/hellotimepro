@@ -65,10 +65,10 @@ func main() {
 	}
 
 	plaza := v1.Group("/plaza")
-	plaza.Use(middleware.OptionalAuth(gormDB))
 	{
-		plaza.GET("/capsules", handler.GetPlazaCapsules(gormDB))
-		plaza.GET("/capsules/:id", handler.GetPlazaCapsuleDetail(gormDB))
+		plaza.GET("/stats", handler.GetPlazaStats(gormDB))
+		plaza.GET("/capsules", middleware.OptionalAuth(gormDB), handler.GetPlazaCapsules(gormDB))
+		plaza.GET("/capsules/:id", middleware.OptionalAuth(gormDB), handler.GetPlazaCapsuleDetail(gormDB))
 	}
 
 	me := v1.Group("/me")
@@ -77,6 +77,7 @@ func main() {
 		me.GET("", handler.GetMe)
 		me.PATCH("", handler.PatchMe(gormDB))
 		me.POST("/password", handler.PostPassword(gormDB))
+		me.GET("/stats", handler.GetMyStats(gormDB))
 		me.GET("/capsules", handler.GetMyCapsules(gormDB))
 		me.DELETE("/capsules/:id", handler.DeleteMyCapsule(gormDB))
 		me.GET("/favorites", handler.GetMyFavorites(gormDB))

@@ -2,12 +2,14 @@ package service
 
 import (
 	"crypto/rand"
+	"errors"
 	"math/big"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"hellotime/gin/internal/core"
 	"hellotime/gin/internal/dto"
@@ -46,6 +48,20 @@ func contentPreview(content string, opened bool) *string {
 	return &preview
 }
 
+func canonicalCapsuleID(storedID string) string {
+	if parsed, err := uuid.Parse(storedID); err == nil {
+		return parsed.String()
+	}
+	return storedID
+}
+
+func byCapsuleID(query *gorm.DB, capsuleID string) *gorm.DB {
+	if query.Dialector.Name() == "sqlite" {
+		return query.Where("capsules.id IN ?", []string{capsuleID, strings.ReplaceAll(capsuleID, "-", "")})
+	}
+	return query.Where("capsules.id = ?", capsuleID)
+}
+
 func capsuleToDetail(c *model.Capsule, owner *model.User, viewerID string, favoritedByMe bool) dto.CapsuleDetail {
 	opened := isOpened(c.OpenAt)
 	var content *string
@@ -54,7 +70,7 @@ func capsuleToDetail(c *model.Capsule, owner *model.User, viewerID string, favor
 	}
 	return dto.CapsuleDetail{
 		CapsuleBase: dto.CapsuleBase{
-			ID:            c.ID,
+			ID:            canonicalCapsuleID(c.ID),
 			Code:          c.Code,
 			Title:         c.Title,
 			Creator:       dto.UserBrief{Nickname: owner.Nickname, AvatarID: owner.AvatarID},
@@ -73,7 +89,7 @@ func capsuleToListItem(c *model.Capsule, owner *model.User, favoritedByMe bool, 
 	opened := isOpened(c.OpenAt)
 	return dto.CapsuleListItem{
 		CapsuleBase: dto.CapsuleBase{
-			ID:            c.ID,
+			ID:            canonicalCapsuleID(c.ID),
 			Code:          c.Code,
 			Title:         c.Title,
 			Creator:       dto.UserBrief{Nickname: owner.Nickname, AvatarID: owner.AvatarID},
@@ -103,14 +119,29 @@ func isFavoritedByViewer(db *gorm.DB, viewerID string, capsuleIDs []string) map[
 	return result
 }
 
+func addCalendarYears(at time.Time, years int) time.Time {
+	at = at.UTC()
+	year, month, day := at.Date()
+	year += years
+	lastDay := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	return time.Date(year, month, min(day, lastDay), at.Hour(), at.Minute(), at.Second(), at.Nanosecond(), time.UTC)
+}
+
+func validateOpenAt(openAt, now time.Time) error {
+	if !openAt.After(now.Add(time.Minute)) {
+		return core.ValidationErr("openAt 必须晚于当前时间 60 秒以上", "openAt")
+	}
+	if openAt.After(addCalendarYears(now, 10)) {
+		return core.ValidationErr("openAt 不得超出当前时间 10 年", "openAt")
+	}
+	return nil
+}
+
 // CreateCapsule 创建胶囊，最多 5 次重试码冲突。
 func CreateCapsule(db *gorm.DB, owner *model.User, req dto.CreateCapsuleRequest) (*dto.CapsuleDetail, error) {
 	openAt := req.OpenAt.UTC()
-	if openAt.Before(time.Now().UTC().Add(60 * time.Second)) {
-		return nil, core.ValidationErr("openAt 必须晚于当前时间 60 秒以上", "openAt")
-	}
-	if openAt.After(time.Now().UTC().Add(365 * 24 * time.Hour * 10)) {
-		return nil, core.ValidationErr("openAt 不得超出当前时间 10 年", "openAt")
+	if err := validateOpenAt(openAt, time.Now()); err != nil {
+		return nil, err
 	}
 	inPlaza := true
 	if req.InPlaza != nil {
@@ -180,10 +211,10 @@ func GetPlazaDetail(db *gorm.DB, capsuleID, viewerID string) (*dto.CapsuleDetail
 		OwnerAvatarID string
 	}
 	var r row
-	if err := db.Table("capsules").
+	if err := byCapsuleID(db.Table("capsules"), capsuleID).
 		Select("capsules.*, users.nickname as owner_nickname, users.avatar_id as owner_avatar_id").
 		Joins("JOIN users ON users.id = capsules.owner_id").
-		Where("capsules.id = ? AND capsules.in_plaza = ?", capsuleID, true).
+		Where("capsules.in_plaza = ?", true).
 		Scan(&r).Error; err != nil || r.ID == "" {
 		return nil, core.NotFoundErr("胶囊不存在")
 	}
@@ -198,14 +229,31 @@ func GetPlazaDetail(db *gorm.DB, capsuleID, viewerID string) (*dto.CapsuleDetail
 	return &detail, nil
 }
 
+func lockCapsule(tx *gorm.DB, capsuleID string) (model.Capsule, error) {
+	if tx.Dialector.Name() == "postgres" {
+		tx = tx.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	var capsule model.Capsule
+	err := byCapsuleID(tx, capsuleID).Take(&capsule).Error
+	return capsule, err
+}
+
 // DeleteOwnCapsule 删除自己创建的胶囊。
 func DeleteOwnCapsule(db *gorm.DB, user *model.User, capsuleID string) error {
-	var c model.Capsule
-	if err := db.First(&c, "id = ?", capsuleID).Error; err != nil {
-		return core.NotFoundErr("胶囊不存在")
-	}
-	if c.OwnerID != user.ID {
-		return core.ForbiddenErr("无权删除他人胶囊")
-	}
-	return db.Delete(&c).Error
+	return db.Transaction(func(tx *gorm.DB) error {
+		capsule, err := lockCapsule(tx, capsuleID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return core.NotFoundErr("胶囊不存在")
+		}
+		if err != nil {
+			return err
+		}
+		if capsule.OwnerID != user.ID {
+			return core.ForbiddenErr("无权删除他人胶囊")
+		}
+		if err := tx.Where("capsule_id = ?", capsule.ID).Delete(&model.Favorite{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&capsule).Error
+	})
 }

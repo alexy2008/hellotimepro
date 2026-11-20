@@ -1,18 +1,8 @@
 #!/usr/bin/env bash
-# 跑单元测试。默认用 SQLite，无需外部 PG。
+# 跑单元测试。涉及数据库的用例使用独立的临时 SQLite 文件。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
 cd "$HERE"
 
-export GIN_ROOT="$HERE"
-export DB_DRIVER="${DB_DRIVER:-sqlite}"
-
-if [[ "$DB_DRIVER" == "sqlite" ]]; then
-  mkdir -p "$REPO_ROOT/data/sqlite"
-  export DB_URL="${DB_URL:-sqlite:///$REPO_ROOT/data/sqlite/hellotime_test.db}"
-  rm -f "$REPO_ROOT/data/sqlite/hellotime_test.db"
-fi
-
-go test ./... "$@"
+exec go test ./... "$@"

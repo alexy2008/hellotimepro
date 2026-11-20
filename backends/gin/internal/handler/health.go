@@ -74,7 +74,7 @@ func GetHealth(c *gin.Context) {
 	data := dto.HealthData{
 		Status:        "ok",
 		Service:       config.App.ServiceName,
-		Version:       config.App.ServiceVersion,
+		Version:       config.ServiceVersion,
 		UptimeSeconds: int(time.Since(startedAt).Seconds()),
 		Stack:         buildStack(),
 	}

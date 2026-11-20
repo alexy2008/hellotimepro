@@ -57,6 +57,17 @@ func PostPassword(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+func GetMyStats(db *gorm.DB) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		stats, err := service.MyStats(db, middleware.CurrentUser(ctx))
+		if err != nil {
+			middleware.RespondErr(ctx, err)
+			return
+		}
+		ctx.JSON(http.StatusOK, dto.OK(stats))
+	}
+}
+
 // GetMyCapsules GET /api/v1/me/capsules
 func GetMyCapsules(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -84,7 +95,11 @@ func GetMyCapsules(db *gorm.DB) gin.HandlerFunc {
 func DeleteMyCapsule(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := middleware.CurrentUser(c)
-		capsuleID := c.Param("id")
+		capsuleID, err := parseCapsuleID(c.Param("id"), "id")
+		if err != nil {
+			middleware.RespondErr(c, err)
+			return
+		}
 		if err := service.DeleteOwnCapsule(db, user, capsuleID); err != nil {
 			middleware.RespondErr(c, err)
 			return

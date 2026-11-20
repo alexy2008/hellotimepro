@@ -3,6 +3,7 @@ package service
 import (
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 
@@ -18,37 +19,38 @@ type PlazaRow struct {
 	OwnerAvatarID string
 }
 
-func buildPlazaQuery(db *gorm.DB) *gorm.DB {
-	return db.Table("capsules").
-		Select("capsules.*, users.nickname as owner_nickname, users.avatar_id as owner_avatar_id").
-		Joins("JOIN users ON users.id = capsules.owner_id").
-		Where("capsules.in_plaza = ?", true)
+const ownerProjection = "capsules.*, users.nickname as owner_nickname, users.avatar_id as owner_avatar_id"
+
+func plazaCapsules(db *gorm.DB) *gorm.DB {
+	return db.Model(&model.Capsule{}).Where("capsules.in_plaza = ?", true)
 }
 
-func applyFilter(q *gorm.DB, filter string) (*gorm.DB, error) {
-	now := time.Now().UTC()
+func applyFilter(q *gorm.DB, filter string, now time.Time) (*gorm.DB, error) {
 	switch filter {
 	case "opened":
 		return q.Where("capsules.open_at <= ?", now), nil
 	case "unopened":
 		return q.Where("capsules.open_at > ?", now), nil
-	case "all", "":
+	case "all":
 		return q, nil
 	default:
 		return nil, core.ValidationErr("filter 仅支持 all/opened/unopened", "filter")
 	}
 }
 
-func applySearch(q *gorm.DB, search string) (*gorm.DB, error) {
-	s := strings.TrimSpace(search)
-	if s == "" {
-		return q, nil
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+func plazaQuery(db *gorm.DB, search string) (*gorm.DB, error) {
+	query := plazaCapsules(db).Joins("JOIN users ON users.id = capsules.owner_id")
+	search = strings.TrimSpace(search)
+	if search == "" {
+		return query, nil
 	}
-	if len([]rune(s)) > 50 {
+	if utf8.RuneCountInString(search) > 50 {
 		return nil, core.ValidationErr("q 长度不得超过 50", "q")
 	}
-	pattern := "%" + strings.ToLower(s) + "%"
-	return q.Where("LOWER(capsules.title) LIKE ? OR LOWER(users.nickname) LIKE ?", pattern, pattern), nil
+	pattern := "%" + likeEscaper.Replace(strings.ToLower(search)) + "%"
+	return query.Where(`(LOWER(capsules.title) LIKE ? ESCAPE '\' OR LOWER(users.nickname) LIKE ? ESCAPE '\')`, pattern, pattern), nil
 }
 
 // PlazaList 广场列表（分页 + 排序 + 筛选 + 搜索）。
@@ -63,12 +65,11 @@ func PlazaList(db *gorm.DB, sort, filter, q string, page, pageSize int, viewerID
 		return nil, core.ValidationErr("pageSize 范围 1-50", "pageSize")
 	}
 
-	base := buildPlazaQuery(db)
-	var err error
-	if base, err = applyFilter(base, filter); err != nil {
+	base, err := plazaQuery(db, q)
+	if err != nil {
 		return nil, err
 	}
-	if base, err = applySearch(base, q); err != nil {
+	if base, err = applyFilter(base, filter, time.Now().UTC()); err != nil {
 		return nil, err
 	}
 
@@ -84,24 +85,12 @@ func PlazaList(db *gorm.DB, sort, filter, q string, page, pageSize int, viewerID
 	}
 
 	var rows []PlazaRow
-	if err := base.Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
+	if err := base.Select(ownerProjection).Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
 		return nil, core.InternalErr("查询失败")
 	}
 
-	capsuleIDs := make([]string, len(rows))
-	for i, r := range rows {
-		capsuleIDs[i] = r.ID
-	}
-	favMap := isFavoritedByViewer(db, viewerID, capsuleIDs)
-
-	items := make([]dto.CapsuleListItem, len(rows))
-	for i, r := range rows {
-		owner := model.User{Nickname: r.OwnerNickname, AvatarID: r.OwnerAvatarID}
-		items[i] = capsuleToListItem(&r.Capsule, &owner, favMap[r.ID], nil)
-	}
-
 	return &dto.Paginated[dto.CapsuleListItem]{
-		Items: items,
+		Items: capsuleListItems(db, rows, viewerID),
 		Pagination: dto.Pagination{
 			Page:       page,
 			PageSize:   pageSize,
@@ -109,6 +98,21 @@ func PlazaList(db *gorm.DB, sort, filter, q string, page, pageSize int, viewerID
 			TotalPages: dto.CalcTotalPages(int(total), pageSize),
 		},
 	}, nil
+}
+
+func capsuleListItems(db *gorm.DB, rows []PlazaRow, viewerID string) []dto.CapsuleListItem {
+	capsuleIDs := make([]string, len(rows))
+	for index, row := range rows {
+		capsuleIDs[index] = row.ID
+	}
+	favMap := isFavoritedByViewer(db, viewerID, capsuleIDs)
+
+	items := make([]dto.CapsuleListItem, len(rows))
+	for index, row := range rows {
+		owner := model.User{Nickname: row.OwnerNickname, AvatarID: row.OwnerAvatarID}
+		items[index] = capsuleToListItem(&row.Capsule, &owner, favMap[row.ID], nil)
+	}
+	return items
 }
 
 // MyCapsules 返回当前用户创建的胶囊列表（分页）。
@@ -125,21 +129,15 @@ func MyCapsules(db *gorm.DB, user *model.User, page, pageSize int) (*dto.Paginat
 
 	var rows []PlazaRow
 	db.Table("capsules").
-		Select("capsules.*, users.nickname as owner_nickname, users.avatar_id as owner_avatar_id").
+		Select(ownerProjection).
 		Joins("JOIN users ON users.id = capsules.owner_id").
 		Where("capsules.owner_id = ?", user.ID).
 		Order("capsules.created_at DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Scan(&rows)
 
-	items := make([]dto.CapsuleListItem, len(rows))
-	for i, r := range rows {
-		owner := model.User{Nickname: r.OwnerNickname, AvatarID: r.OwnerAvatarID}
-		items[i] = capsuleToListItem(&r.Capsule, &owner, false, nil)
-	}
-
 	return &dto.Paginated[dto.CapsuleListItem]{
-		Items: items,
+		Items: capsuleListItems(db, rows, user.ID),
 		Pagination: dto.Pagination{
 			Page:       page,
 			PageSize:   pageSize,

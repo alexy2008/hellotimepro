@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"hellotime/gin/internal/core"
@@ -12,6 +13,13 @@ import (
 	"hellotime/gin/internal/middleware"
 	"hellotime/gin/internal/service"
 )
+
+func parseCapsuleID(rawID, field string) (string, error) {
+	if err := uuid.Validate(rawID); err != nil {
+		return "", core.ValidationErr(field+" 必须是有效的 UUID", field)
+	}
+	return uuid.MustParse(rawID).String(), nil
+}
 
 // PostCapsule POST /api/v1/capsules
 func PostCapsule(db *gorm.DB) gin.HandlerFunc {
