@@ -5,7 +5,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app")
 public class AppProperties {
   private String serviceName = "hellotime-pro";
-  private String serviceVersion = "0.1.0";
   private String dbDriver = "postgres";
   private String jwtSecret = "dev-secret-change-me";
   private int accessTokenTtlSeconds = 3600;
@@ -16,8 +15,6 @@ public class AppProperties {
 
   public String getServiceName() { return serviceName; }
   public void setServiceName(String serviceName) { this.serviceName = serviceName; }
-  public String getServiceVersion() { return serviceVersion; }
-  public void setServiceVersion(String serviceVersion) { this.serviceVersion = serviceVersion; }
   public String getDbDriver() { return dbDriver; }
   public void setDbDriver(String dbDriver) { this.dbDriver = dbDriver; }
   public String getJwtSecret() { return jwtSecret; }

@@ -1,6 +1,6 @@
 # HelloTime Pro · Spring Boot 后端
 
-Java 21 + Spring Boot 3 + Spring Data JPA 实现的 HelloTime Pro 后端，满足 `spec/` 定义的统一 API 契约，支持 PostgreSQL / SQLite 双驱动；保留 Flyway 迁移文件作为本栈 schema 表达样例。端口 **29000**（见根 `CLAUDE.md` 端口分配）。
+Java 21 + Spring Boot 3 + Spring Data JPA 实现的 HelloTime Pro 2.0.0 后端，支持 PostgreSQL / SQLite 双驱动；保留 Flyway 迁移文件作为本栈 schema 表达样例。服务端口 **29000**，管理器登记名为 `spring`。
 
 ## 技术栈
 
@@ -13,7 +13,7 @@ Java 21 + Spring Boot 3 + Spring Data JPA 实现的 HelloTime Pro 后端，满�
 | 数据库 | PostgreSQL 16 / SQLite 3 双驱动 |
 | 鉴权 | java-jwt（auth0，HS256）+ spring-security-crypto（BCrypt） |
 | 入参校验 | Bean Validation + 业务层手写校验 |
-| 构建 | Gradle → 胖 JAR（JVM） |
+| 构建 | Maven → 胖 JAR（JVM） |
 
 ## 目录结构（经典分层 MVC）
 
@@ -38,11 +38,11 @@ src/main/resources/            ← application.yml、Flyway 参考迁移
 ```bash
 # 通过仓库级 dev-manager（推荐，会注入 DB/LLM 配置）
 ./scripts/db reset --seed          # 显式准备数据库（后端不自己建表/迁移/seed）
-./scripts/hello start spring-boot
-./scripts/hello logs spring-boot
+./scripts/hello start spring
+./scripts/hello logs spring
 
 # 或直接在本目录
-./build        # Gradle 打包（预构建，缩短冷启动）
+./build        # Maven 打包（预构建，缩短冷启动）
 ./run          # 启动（默认 postgres；DB_DRIVER=sqlite 切 SQLite）
 ./test         # 切片/集成测试（SQLite，纯逻辑无需外部数据库）
 ```
@@ -80,18 +80,29 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
   `@Transactional(noRollbackFor = ApiException.class)`——重放检测命中时先提交同 family 的吊销、再抛 401，靠 `noRollbackFor`
   保证"要提交的失败"不被回滚。**其余手写事务的后端（Ktor/ASP.NET/Vapor/Axum/Drogon）用 outcome 枚举模拟的，正是这一行声明式语义。**
 - **行锁并发一致性**：Postgres 路径对 `refresh_tokens` 用 `SELECT ... FOR UPDATE`（`findByTokenHashForUpdate`）线性化轮转，
-  对胶囊行加锁保证 `favorite_count` 与 favorites 行变更同事务、并发不重复计数；SQLite 依赖单写事务。
+  收藏、取消收藏和作者删除统一先锁胶囊行；计数与收藏变更同事务，删除时先显式清理收藏。SQLite 使用单写事务。
 - **统一错误外壳**：`GlobalExceptionHandler`（`@RestControllerAdvice`）把业务 `ApiException`、Bean Validation 失败、
   反序列化错误统一转为契约约定的 `{ success, data, message, errorCode }`，业务层不感知 HTTP 细节。
 - **LLM 客户端**（`LlmClientService`）：实现日志规范 / 网关重试 / CF-1010 UA / chat 风格等坑（见 `docs/dev-notes.md`）。
   未配置时建议端点本地兜底、推荐端点返回空列表。
-- 静态头像与技术栈图标直接从仓库 `spec/` 暴露为 `/static/avatars/*`、`/static/icons/*`。
-
-## 验证
-
-```bash
-./verification/scripts/verify-contract.sh spring-boot              # PostgreSQL，104/104
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh spring-boot   # SQLite，104/104
-```
+- 静态头像和技术栈图标直接读取 `spec/avatars/v2/`、`spec/icons/`，对外 URL 不变。
 
 本实现对齐 `spec/api/openapi.yaml` 与 `spec/db/schema.sql`。详细代码导读见 [TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)。
+
+## 2.0 验证
+
+2026-11-21 直接验证 `:29000`，未使用共享反代或默认数据库。
+
+| 检查 | 数据库 | 结果 |
+|---|---|---|
+| `./test`（单元与本栈冒烟） | 临时 SQLite | 5/5 |
+| 仓库契约 | 专用 PostgreSQL 库 `hellotime_contract_spring_*` | 117/117 |
+| 同一仓库契约 | 临时 SQLite 文件 | 117/117 |
+
+另验证 `./build` 通过，10 个头像 URL 的 SVG 均与 v2 规范一致。UI 冒烟、设计令牌检查不适用于纯后端。
+
+## 2.0 迁移笔记
+
+- 无 schema 迁移。广场列表与统计复用 JPQL 谓词；时间极值使用 Spring Data 单列投影和 `findFirst…OrderBy…`，保留 Hibernate 自定义 JDBC 时间类型映射，且不受搜索词影响。
+- PostgreSQL 继续用 `PESSIMISTIC_WRITE`；收藏、取消收藏、删除按同一顺序操作。SQLite 使用单连接池及 `transaction_mode=IMMEDIATE`，避免读事务升级为写事务时遇到锁冲突。删除时用 JPQL 批量删除收藏，不依赖外键级联。
+- PostgreSQL 复测须显式设置 `DB_DRIVER=postgres` 和专用 `DB_URL`，再执行 `./verification/scripts/verify-contract.sh spring`。SQLite 包装脚本的清理路径不一定采用 `DB_URL`，因此显式指定临时库并通过 `scripts/db` 初始化、`scripts/hello` 启停，直接用 `BASE_URL=http://127.0.0.1:29000 node --test verification/contract/*.spec.ts` 运行同一套用例。

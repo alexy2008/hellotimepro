@@ -31,9 +31,8 @@ public class FavoriteService {
   public FavoriteResult addFavorite(UserEntity user, String capsuleId) {
     // favorite_count 是冗余计数器，必须和 favorites 行变更处在同一事务。
     // Postgres 路径会拿胶囊行写锁；SQLite 依赖单写事务和原子 UPDATE。
-    CapsuleEntity capsule = lockCapsule(capsuleId);
-    if (!capsule.isInPlaza()) throw ApiException.notFound("胶囊不存在");
-    if (capsule.getOwnerId().equals(user.getId())) throw ApiException.badRequest("不能收藏自己创建的胶囊");
+    CapsuleEntity capsule = capsules.findForMutation(UUID.fromString(capsuleId), "postgres".equals(props.getDbDriver()))
+        .orElseThrow(() -> ApiException.notFound("胶囊不存在"));
 
     FavoriteId id = new FavoriteId(user.getId(), capsule.getId());
     FavoriteEntity existing = favorites.findById(id).orElse(null);
@@ -63,9 +62,7 @@ public class FavoriteService {
     } catch (IllegalArgumentException ex) {
       return;
     }
-    CapsuleEntity capsule = "postgres".equals(props.getDbDriver())
-        ? capsules.findByIdForUpdate(uuid).orElse(null)
-        : capsules.findById(uuid).orElse(null);
+    CapsuleEntity capsule = capsules.findForMutation(uuid, "postgres".equals(props.getDbDriver())).orElse(null);
     if (capsule == null) return;
     FavoriteId id = new FavoriteId(user.getId(), capsule.getId());
     if (favorites.existsById(id)) {
@@ -74,12 +71,4 @@ public class FavoriteService {
     }
   }
 
-  private CapsuleEntity lockCapsule(String id) {
-    UUID uuid = UUID.fromString(id);
-    if ("postgres".equals(props.getDbDriver())) {
-      // JPA 的 PESSIMISTIC_WRITE 对应 SELECT ... FOR UPDATE，避免并发收藏时计数漂移。
-      return capsules.findByIdForUpdate(uuid).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
-    }
-    return capsules.findById(uuid).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
-  }
 }

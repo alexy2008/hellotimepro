@@ -26,7 +26,7 @@ HelloTime Pro 是一个时间胶囊应用。Spring Boot 后端的职责是：
 - 处理用户注册、登录、JWT access token、refresh token 轮转（含令牌族追踪）。
 - 读写用户、胶囊、收藏、refresh token 等数据，并维护反规范化字段 `favorite_count`。
 - 在 PostgreSQL 和 SQLite 之间无缝切换（通过环境变量），同一份业务代码两边都跑得动。
-- 暴露 `spec/avatars/*`、`spec/icons/*` 作为静态资源，并提供 LLM 胶囊建议接口。
+- 暴露 `spec/avatars/v2/*.svg`、`spec/icons/*` 作为静态资源，并提供 LLM 胶囊建议接口。
 
 核心目录：
 
@@ -102,7 +102,7 @@ DB_DRIVER=sqlite ./run      # 用 SQLite，零依赖
 
 ```bash
 ./build
-# 产物在 target/spring-boot-backend-0.1.0.jar
+# 产物在 target/spring-boot-backend-2.0.0.jar
 ```
 
 三个脚本做的事：
@@ -347,7 +347,7 @@ public class WebConfig implements WebMvcConfigurer {
 ```
 
 - `addCorsMappings`：允许所有来源跨域访问（教学项目）。
-- `addResourceHandlers`：把 `/static/avatars/**` 和 `/static/icons/**` 映射到仓库根目录下的 `spec/avatars`、`spec/icons` 文件夹，前端可以直接 `<img src="/static/icons/java.svg">`。
+- `addResourceHandlers`：把 `/static/avatars/**` 和 `/static/icons/**` 映射到仓库根目录下的 `spec/avatars/v2`、`spec/icons` 文件夹，前端可以直接 `<img src="/static/icons/java.svg">`。
 
 `WebMvcConfigurer` 是 Spring MVC 提供的扩展点接口，里面有十几个可选方法（拦截器、参数解析器、消息转换器等）。
 
@@ -495,7 +495,7 @@ int incrementFavoriteCount(@Param("id") UUID id);
 Optional<CapsuleEntity> findByIdForUpdate(@Param("id") UUID id);
 ```
 
-对应 SQL 的 `SELECT ... FOR UPDATE`。`FavoriteService.addFavorite` 在 Postgres 路径上调用它，确保两个并发收藏请求会串行化访问同一行胶囊，`favorite_count` 不会漂移。SQLite 没有行锁，但其单写事务模型本身就足够。
+对应 SQL 的 `SELECT ... FOR UPDATE`。PostgreSQL 在收藏、取消收藏和删除三个事务中都先锁胶囊行，再改收藏表。SQLite 不发出行锁语句，使用单连接池和 `BEGIN IMMEDIATE`。
 
 ## 11. 服务层：业务逻辑都在这里
 
@@ -532,13 +532,14 @@ public AuthTokens register(RegisterRequest req) {
 ### 10.2 `CapsuleService`、`FavoriteService`、`PlazaService`
 
 - `CapsuleService.create`：校验 openAt → 重试 5 次生成 8 位随机码（避免冲突）→ 插入。
-- `FavoriteService.addFavorite`：拿胶囊行锁 → 检查不能收藏自己 → 已收藏则幂等 → 插 favorites 行 + 原子 UPDATE 计数。
+- `FavoriteService.addFavorite`：定位胶囊（PostgreSQL 加行锁）→ 已收藏则幂等 → 插入收藏并原子更新计数；允许收藏未公开、未开启或自己创建的胶囊。
 - `PlazaService.plazaList`：参数校验 → 查询胶囊页 → 批量加载 owner / 当前用户的收藏集合 → 用 `MapperService` 拼成 DTO。批量加载避免「N+1 查询」。
+- `PlazaService.plazaStats` / `myStats`：使用 JPA 聚合投影；广场按列表的公开范围与字面搜索条件计数，个人统计包含未公开胶囊。
 
 ### 10.3 `SecurityService`、`AvatarService`、`MapperService`
 
 - `SecurityService`：包装 BCrypt 密码哈希、JWT 签发与解码、refresh token 的 SHA-256 哈希。`@Service` 注入，单例。
-- `AvatarService`：`@PostConstruct` 在 bean 初始化后立刻执行，读取 `spec/avatars/catalog.json` 缓存到内存，避免每次请求都读文件。
+- `AvatarService`：`@PostConstruct` 在 bean 初始化后立刻执行，读取 `spec/avatars/v2/catalog.json` 缓存到内存，避免每次请求都读文件。
 - `MapperService`：实体 → DTO 的纯函数。集中放在这里，避免 service 里重复拼装。
 
 > `@PostConstruct` 是 Jakarta 标准注解，Spring 会在依赖注入完成后调用该方法。

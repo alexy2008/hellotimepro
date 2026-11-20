@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -45,10 +46,85 @@ class SmokeTest {
     JsonNode health = get("/api/v1/health");
     assertThat(health.path("success").asBoolean()).isTrue();
     assertThat(health.path("data").path("service").asText()).isEqualTo("hellotime-pro");
+    assertThat(health.path("data").path("version").asText()).isEqualTo("2.0.0");
     assertThat(health.path("data").path("stack").path("kind").asText()).isEqualTo("backend");
 
     JsonNode avatars = get("/api/v1/avatars");
     assertThat(avatars.path("data")).hasSize(10);
+  }
+
+  @Test
+  void plazaStatsAndListShareLiteralSearch() throws Exception {
+    JsonNode empty = get("/api/v1/plaza/stats").path("data");
+    assertThat(empty.path("farthestOpenAt").isNull()).isTrue();
+    assertThat(empty.path("nextOpenAt").isNull()).isTrue();
+
+    String alice = register("alice@hellotime.pro", "Writer_One", "neo").path("accessToken").asText();
+    String bob = register("bob@hellotime.pro", "WriterXOne", "nova").path("accessToken").asText();
+    OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC).withNano(0);
+    createCapsule(alice, "Report%_\\", now.plusHours(1), true);
+    createCapsule(bob, "ReportXYZ", now.plusHours(2), true);
+    createCapsule(alice, "Report%_\\", now.plusHours(3), false);
+
+    for (String search : List.of("  REPORT%_\\  ", "\\", "%", "_", "WRITER_ONE")) {
+      JsonNode stats = get("/api/v1/plaza/stats?q={search}", search).path("data");
+      assertThat(stats.path("counts").path("all").asInt()).isEqualTo(1);
+      assertThat(stats.path("counts").path("opened").asInt()).isZero();
+      assertThat(stats.path("counts").path("unopened").asInt()).isEqualTo(1);
+      assertThat(OffsetDateTime.parse(stats.path("nextOpenAt").asText())).isEqualTo(now.plusHours(1));
+      assertThat(OffsetDateTime.parse(stats.path("farthestOpenAt").asText())).isEqualTo(now.plusHours(2));
+      for (String filter : List.of("all", "opened", "unopened")) {
+        JsonNode pagination = get("/api/v1/plaza/capsules?filter={filter}&q={search}", filter, search)
+            .path("data").path("pagination");
+        assertThat(pagination.path("total").asInt()).isEqualTo(stats.path("counts")
+            .path(filter).asInt());
+      }
+    }
+  }
+
+  @Test
+  void favoritePrivateCapsuleAndDeleteUpdatesBothUsersStats() throws Exception {
+    String alice = register("alice@hellotime.pro", "alice", "neo").path("accessToken").asText();
+    String bob = register("bob@hellotime.pro", "bob", "nova").path("accessToken").asText();
+    String id = createCapsule(alice, "Private", OffsetDateTime.now(ZoneOffset.UTC).plusHours(1), false)
+        .path("id").asText();
+    assertThat(post("/api/v1/me/favorites", Map.of("capsuleId", "invalid"), alice,
+        HttpStatus.UNPROCESSABLE_ENTITY).path("errorCode").asText()).isEqualTo("VALIDATION_ERROR");
+    for (String token : List.of(alice, alice, bob)) {
+      post("/api/v1/me/favorites", Map.of("capsuleId", id), token, HttpStatus.OK);
+    }
+    JsonNode owned = authenticatedGet("/api/v1/me/capsules", alice).path("items").get(0);
+    assertThat(owned.path("favoritedByMe").asBoolean()).isTrue();
+    assertThat(owned.path("favoritedAt").isNull()).isTrue();
+    JsonNode stats = authenticatedGet("/api/v1/me/stats", alice);
+    assertThat(stats.path("created").asInt()).isEqualTo(1);
+    assertThat(stats.path("unopened").asInt()).isEqualTo(1);
+    assertThat(stats.path("inPlaza").asInt()).isZero();
+    assertThat(stats.path("favoritesReceived").asInt()).isEqualTo(2);
+    assertThat(stats.path("favoritesGiven").asInt()).isEqualTo(1);
+    assertThat(authenticatedGet("/api/v1/me/favorites", bob).path("items").get(0).path("inPlaza").asBoolean())
+        .isFalse();
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(alice);
+    assertThat(http.exchange("/api/v1/me/capsules/{id}", HttpMethod.DELETE,
+        new HttpEntity<>(headers), Void.class, id).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    assertThat(authenticatedGet("/api/v1/me/stats", alice).path("favoritesReceived").asInt()).isZero();
+    assertThat(authenticatedGet("/api/v1/me/stats", bob).path("favoritesGiven").asInt()).isZero();
+    assertThat(authenticatedGet("/api/v1/me/favorites", bob).path("items")).isEmpty();
+  }
+
+  private JsonNode createCapsule(String token, String title, OffsetDateTime openAt, boolean inPlaza) throws Exception {
+    return post("/api/v1/capsules", Map.of("title", title, "content", "Test note",
+        "openAt", openAt.toString(), "inPlaza", inPlaza), token, HttpStatus.CREATED).path("data");
+  }
+
+  private JsonNode authenticatedGet(String path, String token) throws Exception {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(token);
+    ResponseEntity<String> response = http.exchange(path, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    return mapper.readTree(response.getBody()).path("data");
   }
 
   @Test
@@ -93,8 +169,8 @@ class SmokeTest {
         "avatarId", avatar), null, HttpStatus.CREATED).path("data");
   }
 
-  private JsonNode get(String path) throws Exception {
-    ResponseEntity<String> response = http.getForEntity(path, String.class);
+  private JsonNode get(String path, Object... params) throws Exception {
+    ResponseEntity<String> response = http.getForEntity(path, String.class, params);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     return mapper.readTree(response.getBody());
   }

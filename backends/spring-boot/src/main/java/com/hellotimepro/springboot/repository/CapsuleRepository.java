@@ -15,6 +15,34 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface CapsuleRepository extends JpaRepository<CapsuleEntity, UUID> {
+  String PLAZA_CONDITION = """
+      c.inPlaza = true
+      and ( :q is null
+            or lower(c.title) like :q escape '\\'
+            or exists (
+                 select 1 from UserEntity u
+                  where u.id = c.ownerId and lower(u.nickname) like :q escape '\\'
+               ) )
+      """;
+
+  interface PlazaCounts {
+    long getTotal();
+    long getOpened();
+    long getUnopened();
+  }
+
+  interface OwnedCounts {
+    long getCreated();
+    long getOpened();
+    long getUnopened();
+    long getInPlaza();
+    long getFavoritesReceived();
+  }
+
+  interface OpenTime {
+    OffsetDateTime getOpenAt();
+  }
+
   Optional<CapsuleEntity> findByCode(String code);
   boolean existsByCode(String code);
   List<CapsuleEntity> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId);
@@ -23,6 +51,13 @@ public interface CapsuleRepository extends JpaRepository<CapsuleEntity, UUID> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select c from CapsuleEntity c where c.id = :id")
   Optional<CapsuleEntity> findByIdForUpdate(@Param("id") UUID id);
+
+  default Optional<CapsuleEntity> findForMutation(UUID id, boolean lockRow) {
+    return lockRow ? findByIdForUpdate(id) : findById(id);
+  }
+
+  Optional<OpenTime> findFirstByInPlazaTrueOrderByOpenAtDesc();
+  Optional<OpenTime> findFirstByInPlazaTrueAndOpenAtGreaterThanOrderByOpenAtAsc(OffsetDateTime now);
 
   @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query("update CapsuleEntity c set c.favoriteCount = c.favoriteCount + 1 where c.id = :id")
@@ -34,20 +69,33 @@ public interface CapsuleRepository extends JpaRepository<CapsuleEntity, UUID> {
 
   @Query("""
       select c from CapsuleEntity c
-      where c.inPlaza = true
+      where
+      """ + PLAZA_CONDITION + """
         and ( :filter = 'all'
               or ( :filter = 'opened'   and c.openAt <= :now )
               or ( :filter = 'unopened' and c.openAt >  :now ) )
-        and ( :q is null
-              or lower(c.title) like :q
-              or exists (
-                   select 1 from UserEntity u
-                    where u.id = c.ownerId and lower(u.nickname) like :q
-                 ) )
       """)
   Page<CapsuleEntity> findPlazaPage(
       @Param("filter") String filter,
       @Param("now") OffsetDateTime now,
       @Param("q") String qPattern,
       Pageable pageable);
+
+  @Query("""
+      select count(c) as total,
+             count(case when c.openAt <= :now then 1 else null end) as opened,
+             count(case when c.openAt > :now then 1 else null end) as unopened
+      from CapsuleEntity c where
+      """ + PLAZA_CONDITION)
+  PlazaCounts countPlaza(@Param("now") OffsetDateTime now, @Param("q") String qPattern);
+
+  @Query("""
+      select count(c) as created,
+             count(case when c.openAt <= :now then 1 else null end) as opened,
+             count(case when c.openAt > :now then 1 else null end) as unopened,
+             count(case when c.inPlaza = true then 1 else null end) as inPlaza,
+             coalesce(sum(c.favoriteCount), 0) as favoritesReceived
+      from CapsuleEntity c where c.ownerId = :ownerId
+      """)
+  OwnedCounts countOwned(@Param("ownerId") UUID ownerId, @Param("now") OffsetDateTime now);
 }

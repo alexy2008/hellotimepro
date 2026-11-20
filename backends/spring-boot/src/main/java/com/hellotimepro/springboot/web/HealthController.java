@@ -55,7 +55,7 @@ public class HealthController {
     );
 
     long uptime = ManagementFactory.getRuntimeMXBean().getUptime() / 1000;
-    HealthData data = new HealthData("ok", props.getServiceName(), props.getServiceVersion(),
+    HealthData data = new HealthData("ok", props.getServiceName(), "2.0.0",
         uptime, new StackInfo("backend", summary, items));
     return Envelope.ok(data);
   }

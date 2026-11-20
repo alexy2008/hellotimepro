@@ -5,6 +5,7 @@ import com.hellotimepro.springboot.dto.Dtos.CapsuleDetail;
 import com.hellotimepro.springboot.dto.Dtos.CapsuleListItem;
 import com.hellotimepro.springboot.dto.Dtos.Envelope;
 import com.hellotimepro.springboot.dto.Dtos.Paginated;
+import com.hellotimepro.springboot.dto.Dtos.PlazaStats;
 import com.hellotimepro.springboot.service.AuthContext;
 import com.hellotimepro.springboot.service.CapsuleService;
 import com.hellotimepro.springboot.service.PlazaService;
@@ -38,6 +39,11 @@ public class PlazaController {
       @RequestParam(defaultValue = "20") int pageSize) {
     String viewerId = auth.optional(authorization).map(u -> u.getId().toString()).orElse(null);
     return Envelope.ok(plaza.plazaList(sort, filter, q, page, pageSize, viewerId));
+  }
+
+  @GetMapping("/stats")
+  public Envelope<PlazaStats> stats(@RequestParam(required = false) String q) {
+    return Envelope.ok(plaza.plazaStats(q));
   }
 
   @GetMapping("/capsules/{id}")

@@ -4,8 +4,11 @@ import com.hellotimepro.springboot.domain.CapsuleEntity;
 import com.hellotimepro.springboot.domain.FavoriteEntity;
 import com.hellotimepro.springboot.domain.UserEntity;
 import com.hellotimepro.springboot.dto.Dtos.CapsuleListItem;
+import com.hellotimepro.springboot.dto.Dtos.MyStats;
 import com.hellotimepro.springboot.dto.Dtos.Paginated;
 import com.hellotimepro.springboot.dto.Dtos.Pagination;
+import com.hellotimepro.springboot.dto.Dtos.PlazaCounts;
+import com.hellotimepro.springboot.dto.Dtos.PlazaStats;
 import com.hellotimepro.springboot.repository.CapsuleRepository;
 import com.hellotimepro.springboot.repository.FavoriteRepository;
 import com.hellotimepro.springboot.repository.UserRepository;
@@ -49,15 +52,8 @@ public class PlazaService {
     if (!filter.equals("all") && !filter.equals("opened") && !filter.equals("unopened")) {
       throw ApiException.validation("filter 仅支持 all/opened/unopened", "filter");
     }
-    String normalizedQuery = q == null ? null : q.trim().toLowerCase(Locale.ROOT);
-    if (normalizedQuery != null && normalizedQuery.isEmpty()) normalizedQuery = null;
-    if (normalizedQuery != null && normalizedQuery.length() > 50) {
-      throw ApiException.validation("q 长度不得超过 50", "q");
-    }
-    String qPattern = normalizedQuery == null ? null : "%" + normalizedQuery + "%";
-
     Pageable pageable = PageRequest.of(page - 1, pageSize, sortOf(sort));
-    Page<CapsuleEntity> pageResult = capsules.findPlazaPage(filter, now(), qPattern, pageable);
+    Page<CapsuleEntity> pageResult = capsules.findPlazaPage(filter, now(), searchPattern(q), pageable);
 
     List<CapsuleEntity> items = pageResult.getContent();
     Map<UUID, UserEntity> ownerMap = loadOwners(items.stream().map(CapsuleEntity::getOwnerId).toList());
@@ -69,12 +65,30 @@ public class PlazaService {
     return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
   }
 
+  public PlazaStats plazaStats(String q) {
+    OffsetDateTime now = now();
+    var counts = capsules.countPlaza(now, searchPattern(q));
+    return new PlazaStats(
+        new PlazaCounts(counts.getTotal(), counts.getOpened(), counts.getUnopened()),
+        capsules.findFirstByInPlazaTrueOrderByOpenAtDesc().map(CapsuleRepository.OpenTime::getOpenAt).orElse(null),
+        capsules.findFirstByInPlazaTrueAndOpenAtGreaterThanOrderByOpenAtAsc(now)
+            .map(CapsuleRepository.OpenTime::getOpenAt).orElse(null));
+  }
+
+  public MyStats myStats(UserEntity user) {
+    var counts = capsules.countOwned(user.getId(), now());
+    return new MyStats(counts.getCreated(), counts.getOpened(), counts.getUnopened(), counts.getInPlaza(),
+        counts.getFavoritesReceived(), favorites.countByIdUserId(user.getId()));
+  }
+
   public Paginated<CapsuleListItem> myCapsules(UserEntity user, int page, int pageSize) {
     validatePage(page, pageSize);
     Pageable pageable = PageRequest.of(page - 1, pageSize);
     Page<CapsuleEntity> pageResult = capsules.findByOwnerIdOrderByCreatedAtDesc(user.getId(), pageable);
+    Set<UUID> faved = loadFavoriteSet(user.getId().toString(),
+        pageResult.getContent().stream().map(CapsuleEntity::getId).toList());
     List<CapsuleListItem> dto = pageResult.getContent().stream()
-        .map(c -> mapper.listItem(c, user, false, null))
+        .map(c -> mapper.listItem(c, user, faved.contains(c.getId()), null))
         .toList();
     return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
   }
@@ -100,6 +114,16 @@ public class PlazaService {
       dto.add(mapper.listItem(c, ownerMap.get(c.getOwnerId()), true, f.getCreatedAt()));
     }
     return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
+  }
+
+  private String searchPattern(String q) {
+    if (q == null || q.isBlank()) return null;
+    String trimmed = q.strip();
+    if (trimmed.codePointCount(0, trimmed.length()) > 50) {
+      throw ApiException.validation("q 长度不得超过 50", "q");
+    }
+    return "%" + trimmed.toLowerCase(Locale.ROOT)
+        .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
   }
 
   private Sort sortOf(String sort) {

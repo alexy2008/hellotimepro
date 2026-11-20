@@ -78,7 +78,8 @@ public final class Dtos {
       Boolean inPlaza
   ) {}
 
-  public record FavoriteRequest(@NotBlank String capsuleId) {}
+  public record FavoriteRequest(@NotBlank @Pattern(regexp = "[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+      String capsuleId) {}
 
   public record CapsuleBase(
       String id,
@@ -122,6 +123,13 @@ public final class Dtos {
   ) {}
 
   public record FavoriteResult(String capsuleId, int favoriteCount, OffsetDateTime favoritedAt) {}
+
+  public record PlazaCounts(long all, long opened, long unopened) {}
+
+  public record PlazaStats(PlazaCounts counts, OffsetDateTime farthestOpenAt, OffsetDateTime nextOpenAt) {}
+
+  public record MyStats(long created, long opened, long unopened, long inPlaza,
+      long favoritesReceived, long favoritesGiven) {}
 
   public record StackItem(String role, String name, String version, String iconUrl) {}
 

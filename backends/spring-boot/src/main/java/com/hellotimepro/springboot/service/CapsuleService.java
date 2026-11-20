@@ -1,5 +1,6 @@
 package com.hellotimepro.springboot.service;
 
+import com.hellotimepro.springboot.config.AppProperties;
 import com.hellotimepro.springboot.domain.CapsuleEntity;
 import com.hellotimepro.springboot.domain.UserEntity;
 import com.hellotimepro.springboot.dto.Dtos.CapsuleDetail;
@@ -23,25 +24,22 @@ public class CapsuleService {
   private final UserRepository users;
   private final FavoriteRepository favorites;
   private final MapperService mapper;
+  private final AppProperties props;
 
   public CapsuleService(CapsuleRepository capsules, UserRepository users, FavoriteRepository favorites,
-      MapperService mapper) {
+      MapperService mapper, AppProperties props) {
     this.capsules = capsules;
     this.users = users;
     this.favorites = favorites;
     this.mapper = mapper;
+    this.props = props;
   }
 
   @Transactional
   public CapsuleDetail create(UserEntity owner, CreateCapsuleRequest req) {
     OffsetDateTime now = now();
     OffsetDateTime openAt = req.openAt().withOffsetSameInstant(ZoneOffset.UTC);
-    if (openAt.isBefore(now.plusSeconds(60))) {
-      throw ApiException.validation("openAt 必须晚于当前时间 60 秒以上", "openAt");
-    }
-    if (openAt.isAfter(now.plusYears(10))) {
-      throw ApiException.validation("openAt 不得超出当前时间 10 年", "openAt");
-    }
+    validateOpenAt(openAt, now);
     for (int i = 0; i < 5; i++) {
       String code = generateCode();
       if (capsules.existsByCode(code)) continue;
@@ -59,6 +57,15 @@ public class CapsuleService {
       return mapper.detail(capsules.saveAndFlush(capsule), owner, owner.getId().toString(), true);
     }
     throw new IllegalStateException("生成唯一码失败");
+  }
+
+  static void validateOpenAt(OffsetDateTime openAt, OffsetDateTime now) {
+    if (!openAt.isAfter(now.plusSeconds(60))) {
+      throw ApiException.validation("openAt 必须晚于当前时间 60 秒以上", "openAt");
+    }
+    if (openAt.isAfter(now.withOffsetSameInstant(ZoneOffset.UTC).plusYears(10))) {
+      throw ApiException.validation("openAt 不得超出当前时间 10 年", "openAt");
+    }
   }
 
   public CapsuleDetail getByCode(String code, String viewerId) {
@@ -83,7 +90,8 @@ public class CapsuleService {
   @Transactional
   public void deleteOwn(UserEntity user, String id) {
     UUID uuid = UUID.fromString(id);
-    CapsuleEntity capsule = capsules.findById(uuid).orElseThrow(() -> ApiException.notFound("胶囊不存在"));
+    CapsuleEntity capsule = capsules.findForMutation(uuid, "postgres".equals(props.getDbDriver()))
+        .orElseThrow(() -> ApiException.notFound("胶囊不存在"));
     if (!capsule.getOwnerId().equals(user.getId())) throw ApiException.forbidden("无权删除他人胶囊");
     favorites.deleteByIdCapsuleId(uuid);
     capsules.delete(capsule);

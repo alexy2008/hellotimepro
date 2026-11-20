@@ -9,10 +9,9 @@ cd "$HERE"
 export REPO_ROOT
 export DB_DRIVER="${DB_DRIVER:-sqlite}"
 if [[ "$DB_DRIVER" == "sqlite" ]]; then
-  mkdir -p "$REPO_ROOT/data/sqlite"
-  TEST_DB="$REPO_ROOT/data/sqlite/hellotime_spring_test.db"
-  rm -f "$TEST_DB"
-  export SPRING_DATASOURCE_URL="jdbc:sqlite:$TEST_DB?date_class=TEXT"
+  TEST_DB="$(mktemp "${TMPDIR:-/tmp}/hellotime-spring-test.XXXXXXXX")"
+  trap 'unlink "$TEST_DB"' EXIT
+  export SPRING_DATASOURCE_URL="jdbc:sqlite:$TEST_DB?transaction_mode=IMMEDIATE"
   export SPRING_DATASOURCE_DRIVER="org.sqlite.JDBC"
   export SPRING_JPA_DATABASE_PLATFORM="org.hibernate.community.dialect.SQLiteDialect"
   export SPRING_DATASOURCE_MAX_POOL_SIZE="${SPRING_DATASOURCE_MAX_POOL_SIZE:-1}"

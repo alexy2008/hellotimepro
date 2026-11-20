@@ -4,6 +4,7 @@ import com.hellotimepro.springboot.domain.UserEntity;
 import com.hellotimepro.springboot.dto.Dtos.CapsuleListItem;
 import com.hellotimepro.springboot.dto.Dtos.ChangePasswordRequest;
 import com.hellotimepro.springboot.dto.Dtos.Envelope;
+import com.hellotimepro.springboot.dto.Dtos.MyStats;
 import com.hellotimepro.springboot.dto.Dtos.Paginated;
 import com.hellotimepro.springboot.dto.Dtos.UpdateProfileRequest;
 import com.hellotimepro.springboot.dto.Dtos.UserOut;
@@ -59,6 +60,12 @@ public class MeController {
       @Valid @RequestBody ChangePasswordRequest req) {
     auth.changePassword(authContext.required(authorization), req);
     return ResponseEntity.noContent().build();
+  }
+
+  @GetMapping("/stats")
+  public Envelope<MyStats> stats(
+      @RequestHeader(value = "Authorization", required = false) String authorization) {
+    return Envelope.ok(plaza.myStats(authContext.required(authorization)));
   }
 
   @GetMapping("/capsules")

@@ -28,7 +28,7 @@ public class AvatarService {
   @PostConstruct
   void load() throws IOException {
     Path catalog = Path.of(props.getRepoRoot()).toAbsolutePath().normalize()
-        .resolve("spec/avatars/catalog.json");
+        .resolve("spec/avatars/v2/catalog.json");
     JsonNode root = mapper.readTree(catalog.toFile()).path("avatars");
     List<Avatar> loaded = new ArrayList<>();
     for (JsonNode item : root) {
