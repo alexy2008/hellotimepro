@@ -2,7 +2,9 @@ package com.hellotimepro.ktor.service
 
 import com.hellotimepro.ktor.web.ApiException
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.time.format.DateTimeParseException
+import java.util.UUID
 
 /**
  * 手写字段校验（Ktor 无 Bean Validation）。失败统一抛 VALIDATION_ERROR → 422，
@@ -14,6 +16,7 @@ object Validation {
     private val NICKNAME = Regex("^[\\p{L}\\p{N}_-]{2,20}$")
     private val AVATAR = Regex("^[a-z0-9-]{2,20}$")
     private val CODE = Regex("^[A-Za-z0-9]{8}$")
+    private val UUID_FORMAT = Regex("[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 
     fun email(value: String?): String {
         val e = value?.trim().orEmpty()
@@ -63,13 +66,27 @@ object Validation {
         return value
     }
 
-    fun openAt(value: String?): OffsetDateTime {
+    fun openAt(value: String?, now: OffsetDateTime = nowUtc()): OffsetDateTime {
         if (value.isNullOrBlank()) throw ApiException.validation("openAt 不能为空", "openAt")
-        return try {
-            OffsetDateTime.parse(value)
+        val parsed = try {
+            OffsetDateTime.parse(value).withOffsetSameInstant(ZoneOffset.UTC)
         } catch (_: DateTimeParseException) {
             throw ApiException.validation("openAt 必须是 ISO-8601 时间", "openAt")
         }
+        if (!parsed.isAfter(now.plusSeconds(60))) {
+            throw ApiException.validation("openAt 必须晚于当前时间 60 秒以上", "openAt")
+        }
+        if (parsed.isAfter(now.withOffsetSameInstant(ZoneOffset.UTC).plusYears(10))) {
+            throw ApiException.validation("openAt 不得超出当前时间 10 年", "openAt")
+        }
+        return parsed
+    }
+
+    fun capsuleId(value: String?, field: String = "capsuleId"): UUID {
+        if (value == null || !UUID_FORMAT.matches(value)) {
+            throw ApiException.validation("$field 必须是有效的 UUID", field)
+        }
+        return UUID.fromString(value)
     }
 
     fun code(value: String): String {

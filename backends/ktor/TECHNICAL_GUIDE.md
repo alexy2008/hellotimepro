@@ -229,19 +229,22 @@ Repository 层只做数据库读写（`UserRepository` / `CapsuleRepository` / `
 `favorite_count` 是冗余计数字段，必须和 `favorites` 表同事务更新（`FavoriteService`）：
 
 ```kotlin
-suspend fun addFavorite(user: User, capsuleIdRaw: String?): FavoriteResult = dbQuery {
-    val capsule = capsules.findByIdForUpdate(capsuleId) ?: throw ApiException.notFound("胶囊不存在")  // PG 行锁
-    if (!capsule.inPlaza) throw ApiException.notFound("胶囊不存在")
-    if (capsule.ownerId == user.id) throw ApiException.badRequest("不能收藏自己创建的胶囊")
-    val existing = favorites.find(user.id, capsule.id)
-    if (existing != null) return@dbQuery FavoriteResult(...)        // 幂等：已收藏返回原状态
-    favorites.insert(Favorite(user.id, capsule.id, now))
-    capsules.incrementFavoriteCount(capsule.id)                    // 原子 +1（§5.4）
-    FavoriteResult(capsule.id.toString(), capsules.findById(capsule.id)?.favoriteCount ?: ..., isoInstant(now))
+suspend fun addFavorite(user: User, capsuleIdRaw: String?): FavoriteResult {
+    val capsuleId = Validation.capsuleId(capsuleIdRaw)
+    return dbQuery {
+        val capsule = capsules.findByIdForUpdate(capsuleId) ?: throw ApiException.notFound("胶囊不存在")
+        val existing = favorites.find(user.id, capsule.id)
+        if (existing != null) return@dbQuery FavoriteResult(...)    // 幂等：已收藏返回原状态
+        val now = nowUtc()
+        favorites.insert(Favorite(user.id, capsule.id, now))
+        capsules.incrementFavoriteCount(capsule.id)                // 原子 +1（§5.4）
+        FavoriteResult(capsule.id.toString(), capsules.findById(capsule.id)?.favoriteCount ?: ..., isoInstant(now))
+    }
 }
 ```
 
-- PostgreSQL 路径用 `SELECT ... FOR UPDATE` 锁胶囊行；SQLite 依赖单写事务和连接池大小 1。
+- PostgreSQL 的收藏、取消收藏和删除统一先用 `SELECT ... FOR UPDATE` 锁胶囊行，再操作收藏；SQLite 使用单连接池。
+- 收藏仅要求 UUID 合法且胶囊存在，自己的、未公开或未开启的都允许；删除胶囊时在同一事务内显式先删收藏。
 - 重复收藏返回当前计数不重复 +1；重复取消返回 204 不重复 -1（`decrementFavoriteCount` 带 `favoriteCount > 0` 护栏）。
 
 refresh token 轮转用 outcome 模式（`RefreshOutcome` sealed interface）：事务内不抛业务错，旧 token 被重放时
@@ -327,14 +330,14 @@ suspend fun register(req: RegisterRequest): AuthTokens {
 
 ## 14. 测试与契约验证
 
-本后端有轻量 `SmokeTest`，重点仍是仓库级黑盒契约（104 用例 × 双驱动）。黑盒契约不读取实现细节，只从 HTTP 行为
-验证状态码、响应壳、错误码、鉴权、胶囊开放规则、收藏计数、AI 辅助接口等。
+本后端通过 `SmokeTest` 和 `StatsTest` 验证认证原语、字段校验、统计与收藏规则；仓库级黑盒契约（117 用例 × 双驱动）
+不读取实现细节，只从 HTTP 行为验证状态码、响应壳、错误码、鉴权、胶囊开启规则、收藏计数和 AI 辅助接口等。
 
 ```bash
 ./test
-../../verification/scripts/verify-contract.sh ktor
-DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh ktor
 ```
+
+双库黑盒契约的隔离运行方式见 [README](README.md#20-验证)。
 
 ## 15. 常见改动应该改哪里
 

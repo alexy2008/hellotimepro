@@ -10,6 +10,16 @@ import java.util.UUID
 
 enum class PlazaSort { HOT, NEW }
 
+data class CapsuleOpenCounts(val all: Long, val opened: Long, val unopened: Long)
+
+data class OwnedCapsuleCounts(
+    val created: Long,
+    val opened: Long,
+    val unopened: Long,
+    val inPlaza: Long,
+    val favoritesReceived: Long,
+)
+
 class CapsuleRepository {
     fun findById(id: UUID): Capsule? =
         Capsules.select { Capsules.id eq id }.firstOrNull()?.toCapsule()
@@ -76,7 +86,7 @@ class CapsuleRepository {
     fun findPlazaPaged(
         filter: String,
         now: OffsetDateTime,
-        qPattern: String?,
+        qPattern: LikePattern?,
         sort: PlazaSort,
         offset: Long,
         limit: Int,
@@ -88,19 +98,51 @@ class CapsuleRepository {
             )
             PlazaSort.NEW -> arrayOf(Capsules.createdAt to SortOrder.DESC)
         }
-        return Capsules.select { plazaCondition(filter, now, qPattern) }
+        return Capsules.selectAll().where { plazaCondition(filter, now, qPattern) }
             .orderBy(*order)
             .limit(limit, offset)
             .map { it.toCapsule() }
     }
 
-    fun countPlaza(filter: String, now: OffsetDateTime, qPattern: String?): Long =
-        Capsules.select { plazaCondition(filter, now, qPattern) }.count()
+    fun countPlaza(filter: String, now: OffsetDateTime, qPattern: LikePattern?): Long =
+        Capsules.selectAll().where { plazaCondition(filter, now, qPattern) }.count()
+
+    fun plazaCounts(now: OffsetDateTime, qPattern: LikePattern?): CapsuleOpenCounts {
+        val total = Capsules.id.count()
+        val opened = countWhen(Op.build { Capsules.openAt lessEq now })
+        val unopened = countWhen(Op.build { Capsules.openAt greater now })
+        val row = Capsules.select(total, opened, unopened).where { plazaCondition("all", now, qPattern) }.single()
+        return CapsuleOpenCounts(row[total], row[opened] ?: 0L, row[unopened] ?: 0L)
+    }
+
+    fun farthestOpenAt(): OffsetDateTime? =
+        Capsules.select(Capsules.openAt).where { Capsules.inPlaza eq true }
+            .orderBy(Capsules.openAt to SortOrder.DESC).limit(1).firstOrNull()?.get(Capsules.openAt)
+
+    fun nextOpenAt(now: OffsetDateTime): OffsetDateTime? =
+        Capsules.select(Capsules.openAt).where { (Capsules.inPlaza eq true) and (Capsules.openAt greater now) }
+            .orderBy(Capsules.openAt to SortOrder.ASC).limit(1).firstOrNull()?.get(Capsules.openAt)
+
+    fun ownedCounts(ownerId: UUID, now: OffsetDateTime): OwnedCapsuleCounts {
+        val total = Capsules.id.count()
+        val opened = countWhen(Op.build { Capsules.openAt lessEq now })
+        val unopened = countWhen(Op.build { Capsules.openAt greater now })
+        val inPlaza = countWhen(Op.build { Capsules.inPlaza eq true })
+        val received = Capsules.favoriteCount.castTo<Long>(LongColumnType()).sum()
+        val row = Capsules.select(total, opened, unopened, inPlaza, received)
+            .where { Capsules.ownerId eq ownerId }.single()
+        return OwnedCapsuleCounts(
+            row[total], row[opened] ?: 0L, row[unopened] ?: 0L, row[inPlaza] ?: 0L, row[received] ?: 0L,
+        )
+    }
+
+    private fun countWhen(condition: Op<Boolean>): Sum<Long> =
+        Case().When(condition, LiteralOp(LongColumnType(), 1L)).Else(LiteralOp(LongColumnType(), 0L)).sum()
 
     private fun SqlExpressionBuilder.plazaCondition(
         filter: String,
         now: OffsetDateTime,
-        qPattern: String?,
+        qPattern: LikePattern?,
     ): Op<Boolean> {
         var cond: Op<Boolean> = Capsules.inPlaza eq true
         when (filter) {
@@ -110,7 +152,7 @@ class CapsuleRepository {
         if (qPattern != null) {
             val titleMatch = Capsules.title.lowerCase() like qPattern
             val nickMatch = exists(
-                Users.select {
+                Users.select(Users.id).where {
                     (Users.id eq Capsules.ownerId) and (Users.nickname.lowerCase() like qPattern)
                 },
             )

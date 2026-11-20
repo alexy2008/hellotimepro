@@ -20,7 +20,7 @@ object Db {
     lateinit var database: Database
         private set
 
-    fun init(config: AppConfig) {
+    fun init(config: AppConfig): HikariDataSource {
         val settings = resolve(config)
         val hikari = HikariConfig().apply {
             jdbcUrl = settings.jdbcUrl
@@ -30,7 +30,7 @@ object Db {
             // SQLite 单写：连接池大小为 1，避免 "database is locked"。
             maximumPoolSize = if (config.isSqlite) 1 else 10
         }
-        database = Database.connect(HikariDataSource(hikari))
+        return HikariDataSource(hikari).also { database = Database.connect(it) }
     }
 
     private fun resolve(config: AppConfig): JdbcSettings {

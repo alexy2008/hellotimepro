@@ -141,6 +141,22 @@ data class CapsuleListItem(
 @Serializable
 data class FavoriteResult(val capsuleId: String, val favoriteCount: Int, val favoritedAt: String)
 
+@Serializable
+data class PlazaCounts(val all: Long, val opened: Long, val unopened: Long)
+
+@Serializable
+data class PlazaStats(val counts: PlazaCounts, val farthestOpenAt: String?, val nextOpenAt: String?)
+
+@Serializable
+data class MyStats(
+    val created: Long,
+    val opened: Long,
+    val unopened: Long,
+    val inPlaza: Long,
+    val favoritesReceived: Long,
+    val favoritesGiven: Long,
+)
+
 // ── 健康检查 ───────────────────────────────────────────────────────────────
 
 @Serializable

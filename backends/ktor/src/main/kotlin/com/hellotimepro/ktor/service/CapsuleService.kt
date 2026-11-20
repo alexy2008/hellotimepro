@@ -10,7 +10,6 @@ import com.hellotimepro.ktor.repository.FavoriteRepository
 import com.hellotimepro.ktor.repository.UserRepository
 import com.hellotimepro.ktor.web.ApiException
 import java.security.SecureRandom
-import java.time.ZoneOffset
 import java.util.UUID
 
 class CapsuleService(
@@ -24,14 +23,8 @@ class CapsuleService(
     suspend fun create(owner: User, req: CreateCapsuleRequest): CapsuleDetail {
         val title = Validation.title(req.title)
         val content = Validation.content(req.content)
-        val openAt = Validation.openAt(req.openAt).withOffsetSameInstant(ZoneOffset.UTC)
         val now = nowUtc()
-        if (openAt.isBefore(now.plusSeconds(60))) {
-            throw ApiException.validation("openAt 必须晚于当前时间 60 秒以上", "openAt")
-        }
-        if (openAt.isAfter(now.plusYears(10))) {
-            throw ApiException.validation("openAt 不得超出当前时间 10 年", "openAt")
-        }
+        val openAt = Validation.openAt(req.openAt, now)
         val inPlaza = req.inPlaza ?: true
 
         return dbQuery {
@@ -70,7 +63,7 @@ class CapsuleService(
     }
 
     suspend fun getPlazaDetail(idRaw: String, viewerId: UUID?): CapsuleDetail {
-        val id = parseUuidOrNull(idRaw) ?: throw ApiException.notFound("胶囊不存在")
+        val id = Validation.capsuleId(idRaw, "id")
         return dbQuery {
             val capsule = capsules.findById(id)?.takeIf { it.inPlaza } ?: throw ApiException.notFound("胶囊不存在")
             val owner = users.findById(capsule.ownerId) ?: throw ApiException.notFound("胶囊不存在")
@@ -80,9 +73,9 @@ class CapsuleService(
     }
 
     suspend fun deleteOwn(user: User, idRaw: String) {
-        val id = parseUuidOrNull(idRaw) ?: throw ApiException.notFound("胶囊不存在")
+        val id = Validation.capsuleId(idRaw, "id")
         dbQuery {
-            val capsule = capsules.findById(id) ?: throw ApiException.notFound("胶囊不存在")
+            val capsule = capsules.findByIdForUpdate(id) ?: throw ApiException.notFound("胶囊不存在")
             if (capsule.ownerId != user.id) throw ApiException.forbidden("无权删除他人胶囊")
             favorites.deleteByCapsule(id)
             capsules.deleteById(id)

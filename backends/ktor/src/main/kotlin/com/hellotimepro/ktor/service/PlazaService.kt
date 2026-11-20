@@ -3,13 +3,17 @@ package com.hellotimepro.ktor.service
 import com.hellotimepro.ktor.db.dbQuery
 import com.hellotimepro.ktor.domain.User
 import com.hellotimepro.ktor.dto.CapsuleListItem
+import com.hellotimepro.ktor.dto.MyStats
 import com.hellotimepro.ktor.dto.Paginated
 import com.hellotimepro.ktor.dto.Pagination
+import com.hellotimepro.ktor.dto.PlazaCounts
+import com.hellotimepro.ktor.dto.PlazaStats
 import com.hellotimepro.ktor.repository.CapsuleRepository
 import com.hellotimepro.ktor.repository.FavoriteRepository
 import com.hellotimepro.ktor.repository.PlazaSort
 import com.hellotimepro.ktor.repository.UserRepository
 import com.hellotimepro.ktor.web.ApiException
+import org.jetbrains.exposed.sql.LikePattern
 import java.util.UUID
 import kotlin.math.ceil
 
@@ -32,10 +36,7 @@ class PlazaService(
         if (filter != "all" && filter != "opened" && filter != "unopened") {
             throw ApiException.validation("filter 仅支持 all/opened/unopened", "filter")
         }
-        var normalized = q?.trim()?.lowercase()
-        if (normalized != null && normalized.isEmpty()) normalized = null
-        if (normalized != null && normalized.length > 50) throw ApiException.validation("q 长度不得超过 50", "q")
-        val qPattern = normalized?.let { "%$it%" }
+        val qPattern = searchPattern(q)
         val sortEnum = if (sort == "hot") PlazaSort.HOT else PlazaSort.NEW
         val now = nowUtc()
 
@@ -51,12 +52,34 @@ class PlazaService(
         }
     }
 
+    suspend fun plazaStats(q: String?): PlazaStats {
+        val qPattern = searchPattern(q)
+        val now = nowUtc()
+        return dbQuery {
+            val counts = capsules.plazaCounts(now, qPattern)
+            PlazaStats(
+                PlazaCounts(counts.all, counts.opened, counts.unopened),
+                capsules.farthestOpenAt()?.let(::isoInstant),
+                capsules.nextOpenAt(now)?.let(::isoInstant),
+            )
+        }
+    }
+
+    suspend fun myStats(user: User): MyStats = dbQuery {
+        val counts = capsules.ownedCounts(user.id, nowUtc())
+        MyStats(
+            counts.created, counts.opened, counts.unopened, counts.inPlaza, counts.favoritesReceived,
+            favorites.countByUser(user.id),
+        )
+    }
+
     suspend fun myCapsules(user: User, page: Int, pageSize: Int): Paginated<CapsuleListItem> {
         Validation.page(page, pageSize)
         return dbQuery {
             val total = capsules.countByOwner(user.id)
             val rows = capsules.findByOwnerPaged(user.id, offset(page, pageSize), pageSize)
-            val items = rows.map { mapper.listItem(it, user, favoritedByMe = false, favoritedAt = null) }
+            val faved = loadFavoriteSet(user.id, rows.map { it.id })
+            val items = rows.map { mapper.listItem(it, user, favoritedByMe = it.id in faved, favoritedAt = null) }
             Paginated(items, pagination(total, page, pageSize))
         }
     }
@@ -77,6 +100,15 @@ class PlazaService(
             }
             Paginated(items, pagination(total, page, pageSize))
         }
+    }
+
+    private fun searchPattern(value: String?): LikePattern? {
+        val trimmed = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        if (trimmed.codePointCount(0, trimmed.length) > 50) {
+            throw ApiException.validation("q 长度不得超过 50", "q")
+        }
+        val literal = trimmed.lowercase().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return LikePattern("%$literal%", '\\')
     }
 
     private fun loadFavoriteSet(viewerId: UUID?, capsuleIds: List<UUID>): Set<UUID> {

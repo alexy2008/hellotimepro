@@ -6,14 +6,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 
-/** 从 spec/avatars/catalog.json 加载内置头像目录（启动时一次）。 */
+/** 从 spec/avatars/v2/catalog.json 加载内置头像目录（启动时一次）。 */
 class AvatarService(config: AppConfig) {
     private val avatars: List<AvatarDto>
     private val ids: Set<String>
 
     init {
         val file = File(config.repoRoot).absoluteFile.normalize()
-            .resolve("spec/avatars/catalog.json")
+            .resolve("spec/avatars/v2/catalog.json")
         val parsed = Json { ignoreUnknownKeys = true }
             .decodeFromString<Catalog>(file.readText())
         avatars = parsed.avatars

@@ -114,7 +114,7 @@ fun Application.module(components: AppComponents) {
 
     routing {
         // 静态资源：头像 / 技术栈图标（相对仓库根的 spec/ 目录）。
-        staticFiles("/static/avatars", repoRoot.resolve("spec/avatars"))
+        staticFiles("/static/avatars", repoRoot.resolve("spec/avatars/v2"))
         staticFiles("/static/icons", repoRoot.resolve("spec/icons"))
 
         registerRoutes(components)
@@ -163,7 +163,7 @@ fun io.ktor.server.routing.Route.registerRoutes(c: AppComponents) {
         )
         val uptime = (System.currentTimeMillis() - c.startTime) / 1000
         call.ok(
-            HealthData("ok", c.config.serviceName, c.config.serviceVersion, uptime, StackInfo("backend", summary, items)),
+            HealthData("ok", c.config.serviceName, "2.0.0", uptime, StackInfo("backend", summary, items)),
         )
     }
 
@@ -199,6 +199,10 @@ fun io.ktor.server.routing.Route.registerRoutes(c: AppComponents) {
         c.authService.changePassword(user, call.receive<ChangePasswordRequest>())
         call.respond(HttpStatusCode.NoContent)
     }
+    get("/api/v1/me/stats") {
+        val user = c.authContext.required(authHeader(call))
+        call.ok(c.plazaService.myStats(user))
+    }
     get("/api/v1/me/capsules") {
         val user = c.authContext.required(authHeader(call))
         call.ok(c.plazaService.myCapsules(user, pageOf(call), pageSizeOf(call)))
@@ -220,6 +224,9 @@ fun io.ktor.server.routing.Route.registerRoutes(c: AppComponents) {
     }
 
     // ── Plaza ──────────────────────────────────────────────────────────
+    get("/api/v1/plaza/stats") {
+        call.ok(c.plazaService.plazaStats(call.request.queryParameters["q"]))
+    }
     get("/api/v1/plaza/capsules") {
         val viewer = c.authContext.optional(authHeader(call))
         val sort = call.request.queryParameters["sort"] ?: "new"

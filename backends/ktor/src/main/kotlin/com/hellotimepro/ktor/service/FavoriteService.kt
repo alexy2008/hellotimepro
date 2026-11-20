@@ -13,13 +13,11 @@ class FavoriteService(
     private val favorites: FavoriteRepository,
 ) {
     suspend fun addFavorite(user: User, capsuleIdRaw: String?): FavoriteResult {
-        val capsuleId = capsuleIdRaw?.let { parseUuidOrNull(it) } ?: throw ApiException.notFound("胶囊不存在")
+        val capsuleId = Validation.capsuleId(capsuleIdRaw)
         return dbQuery {
             // favorite_count 是冗余计数器，必须和 favorites 行变更同处一个事务。
             // Postgres 路径取胶囊行写锁；SQLite 依赖单写事务和原子 UPDATE。
             val capsule = capsules.findByIdForUpdate(capsuleId) ?: throw ApiException.notFound("胶囊不存在")
-            if (!capsule.inPlaza) throw ApiException.notFound("胶囊不存在")
-            if (capsule.ownerId == user.id) throw ApiException.badRequest("不能收藏自己创建的胶囊")
 
             val existing = favorites.find(user.id, capsule.id)
             if (existing != null) {
@@ -34,10 +32,9 @@ class FavoriteService(
     }
 
     suspend fun removeFavorite(user: User, capsuleIdRaw: String) {
-        // 取消收藏幂等：胶囊不存在/格式非法/原本未收藏都返回成功（204）。
-        val capsuleId = parseUuidOrNull(capsuleIdRaw) ?: return
+        val capsuleId = Validation.capsuleId(capsuleIdRaw)
         dbQuery {
-            val capsule = capsules.findById(capsuleId) ?: return@dbQuery
+            val capsule = capsules.findByIdForUpdate(capsuleId) ?: return@dbQuery
             if (favorites.delete(user.id, capsule.id) == 1) {
                 capsules.decrementFavoriteCount(capsule.id)
             }

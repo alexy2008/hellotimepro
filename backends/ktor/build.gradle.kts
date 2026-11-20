@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.hellotimepro"
-version = "0.1.0"
+version = "2.0.0"
 
 // 项目根下已有可执行脚本 `build`，与 Gradle 默认输出目录 `build/` 冲突，改用 `build-out/`。
 layout.buildDirectory.set(layout.projectDirectory.dir("build-out"))

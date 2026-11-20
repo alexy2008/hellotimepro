@@ -7,7 +7,6 @@ package com.hellotimepro.ktor.config
  */
 data class AppConfig(
     val serviceName: String = "hellotime-pro",
-    val serviceVersion: String = "0.1.0",
     val host: String = env("HOST", "0.0.0.0"),
     // hello CLI 不注入 PORT，默认端口必须直接是登记端口 29090（见 docs/dev-notes.md §6.5）。
     val port: Int = env("PORT", "29090").toInt(),
