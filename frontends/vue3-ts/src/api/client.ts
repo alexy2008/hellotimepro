@@ -148,9 +148,11 @@ import type {
   AuthTokens,
   Avatar,
   CapsuleDetail,
+  CapsuleRecommendationList,
   CapsuleSuggestion,
   CapsuleSuggestionRequest,
-  CapsuleRecommendationList,
+  MyStats,
+  PlazaStats,
   CreateCapsuleRequest,
   HealthData,
   LoginRequest,
@@ -234,6 +236,11 @@ export const api = {
       { auth: true },
     );
   },
+
+  plazaStats: (q?: string) =>
+    request<PlazaStats>(`/api/v1/plaza/stats${q ? `?q=${encodeURIComponent(q)}` : ""}`, { auth: false }),
+
+  myStats: () => request<MyStats>("/api/v1/me/stats"),
 
   // ---- 我创建的
   myCapsules: (page = 1, pageSize = 20) =>

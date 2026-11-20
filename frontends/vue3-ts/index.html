@@ -1,24 +1,33 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-skin="amber" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#080b1a" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HelloTime Pro · Vue 3</title>
+    <title>HelloTime Pro · 把此刻寄给未来</title>
     <script>
-      // 提早注入主题，避免首屏闪白
+      // 首帧之前定好皮肤与明暗，避免闪出另一套（docs/02-design.md §9.3）
       (function () {
+        var root = document.documentElement;
         try {
-          var t = localStorage.getItem("hellotime.theme");
-          if (t === "dark" || t === "light") {
-            document.documentElement.setAttribute("data-theme", t);
+          var skin = localStorage.getItem("hellotime.skin");
+          var theme = localStorage.getItem("hellotime.theme");
+          if (skin !== "paper" && skin !== "amber") skin = "amber";
+          if (theme !== "dark" && theme !== "light") {
+            theme = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
           }
+          root.setAttribute("data-skin", skin);
+          root.setAttribute("data-theme", theme);
+          var colors = { paper: { light: "#F3EFE5", dark: "#131210" }, amber: { light: "#faf5ea", dark: "#080b1a" } };
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", colors[skin][theme]);
         } catch (e) {}
       })();
     </script>
   </head>
   <body>
     <div id="app"></div>
+    <noscript><p style="padding: 48px">请启用 JavaScript 后再访问。</p></noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
