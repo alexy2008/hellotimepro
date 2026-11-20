@@ -1,81 +1,45 @@
-import { type Routes } from '@angular/router';
-import { authGuard } from '@/guards/auth.guard';
+// ============================================================
+// 路由表（与 docs/01-requirements.md §4.9 一致）。每条路由懒加载一个「宿主页」组件：
+// 它提供本页的 Facade（页面逻辑），再按当前皮肤渲染时笺或琥珀的视图。
+// data.auth：受保护页面（登录态在页面上丢了时，AppComponent 据此跳登录）
+// ============================================================
+
+import type { Routes } from '@angular/router';
+import { authGuard, guestGuard, meTabGuard } from '@/core/guards';
 
 export const routes: Routes = [
+  { path: '', title: '把此刻寄给未来', loadComponent: () => import('@/pages/home/home.page').then((m) => m.HomePage) },
+  { path: 'open', title: '开启胶囊', loadComponent: () => import('@/pages/open/open.page').then((m) => m.OpenPage) },
+  { path: 'about', title: '关于', loadComponent: () => import('@/pages/about/about.page').then((m) => m.AboutPage) },
   {
-    path: '',
-    loadComponent: () =>
-      import('@/components/main-layout/main-layout.component').then((m) => m.MainLayoutComponent),
-    children: [
-      {
-        path: '',
-        loadComponent: () =>
-          import('@/pages/plaza/plaza.component').then((m) => m.PlazaComponent),
-      },
-      {
-        path: 'open',
-        loadComponent: () =>
-          import('@/pages/open/open.component').then((m) => m.OpenComponent),
-      },
-      {
-        path: 'about',
-        loadComponent: () =>
-          import('@/pages/about/about.component').then((m) => m.AboutComponent),
-      },
-      {
-        path: 'login',
-        loadComponent: () =>
-          import('@/pages/login/login.component').then((m) => m.LoginComponent),
-      },
-      {
-        path: 'register',
-        loadComponent: () =>
-          import('@/pages/register/register.component').then((m) => m.RegisterComponent),
-      },
-      {
-        path: 'create',
-        canActivate: [authGuard],
-        loadComponent: () =>
-          import('@/pages/create/create.component').then((m) => m.CreateComponent),
-      },
-      {
-        path: 'c/:code',
-        loadComponent: () =>
-          import('@/pages/capsule-by-code/capsule-by-code.component').then(
-            (m) => m.CapsuleByCodeComponent,
-          ),
-      },
-    ],
+    path: 'login',
+    title: '登录',
+    canActivate: [guestGuard],
+    loadComponent: () => import('@/pages/login/login.page').then((m) => m.LoginPage),
   },
   {
-    path: 'me',
+    path: 'register',
+    title: '注册',
+    canActivate: [guestGuard],
+    loadComponent: () => import('@/pages/register/register.page').then((m) => m.RegisterPage),
+  },
+  {
+    path: 'create',
+    title: '写给未来',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('@/components/me-layout/me-layout.component').then((m) => m.MeLayoutComponent),
-    children: [
-      { path: '', redirectTo: 'created', pathMatch: 'full' },
-      {
-        path: 'created',
-        loadComponent: () =>
-          import('@/pages/me-created/me-created.component').then((m) => m.MeCreatedComponent),
-      },
-      {
-        path: 'favorites',
-        loadComponent: () =>
-          import('@/pages/me-favorites/me-favorites.component').then(
-            (m) => m.MeFavoritesComponent,
-          ),
-      },
-      {
-        path: 'profile',
-        loadComponent: () =>
-          import('@/pages/me-profile/me-profile.component').then((m) => m.MeProfileComponent),
-      },
-    ],
+    data: { auth: true },
+    loadComponent: () => import('@/pages/create/create.page').then((m) => m.CreatePage),
   },
+  // 详情页的标题等胶囊取回来后由 CapsuleFacade 写
+  { path: 'capsules/:code', loadComponent: () => import('@/pages/capsule/capsule.page').then((m) => m.CapsulePage) },
+  { path: 'me', pathMatch: 'full', redirectTo: 'me/created' },
   {
-    path: '**',
-    loadComponent: () =>
-      import('@/pages/not-found/not-found.component').then((m) => m.NotFoundComponent),
+    // 三个页签共用一条路由：切页签只是参数变化，宿主组件与页头统计不重新创建
+    path: 'me/:tab',
+    title: '我的',
+    canActivate: [authGuard, meTabGuard],
+    data: { auth: true },
+    loadComponent: () => import('@/pages/me/me.page').then((m) => m.MePage),
   },
+  { path: '**', title: '查无此页', loadComponent: () => import('@/pages/not-found/not-found.page').then((m) => m.NotFoundPage) },
 ];

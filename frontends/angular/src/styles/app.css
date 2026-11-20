@@ -1,0 +1,17 @@
+/* ============================================================
+ * 本前端自己的样式胶水：只用 base.css 刻度与语义令牌，不写色值
+ * ============================================================ */
+
+/* Angular 的根组件与 <router-outlet> 不参与布局：皮肤样式里 body 是纵向 flex，
+   页头 / #view / 页脚是它的直接子项。其余组件的宿主元素在组件元数据里设成 display: contents */
+app-root,
+router-outlet {
+  display: contents;
+}
+
+/* 「我的」列表底部的「加载更多」 */
+.list-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-8);
+}

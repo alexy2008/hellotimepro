@@ -3,14 +3,14 @@
 // ============================================================
 
 export type ErrorCode =
-  | 'VALIDATION_ERROR'
-  | 'UNAUTHORIZED'
-  | 'FORBIDDEN'
-  | 'NOT_FOUND'
-  | 'CONFLICT'
-  | 'RATE_LIMITED'
-  | 'BAD_REQUEST'
-  | 'INTERNAL_ERROR';
+  | "VALIDATION_ERROR"
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "RATE_LIMITED"
+  | "BAD_REQUEST"
+  | "INTERNAL_ERROR";
 
 export interface Envelope<T> {
   success: boolean;
@@ -70,6 +70,23 @@ export interface CapsuleDetail extends CapsuleBase {
   favoritedByMe: boolean;
 }
 
+/** 2.0：GET /plaza/stats。counts 与列表同口径（受 q 影响），两个时刻不受 q 影响 */
+export interface PlazaStats {
+  counts: { all: number; opened: number; unopened: number };
+  farthestOpenAt: string | null;
+  nextOpenAt: string | null;
+}
+
+/** 2.0：GET /me/stats */
+export interface MyStats {
+  created: number;
+  opened: number;
+  unopened: number;
+  inPlaza: number;
+  favoritesReceived: number;
+  favoritesGiven: number;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -86,19 +103,22 @@ export interface StackItem {
 }
 
 export interface HealthData {
-  status: 'ok';
-  service: 'hellotime-pro';
+  status: "ok";
+  service: "hellotime-pro";
   version: string;
   uptimeSeconds: number;
-  stack: { kind: 'backend' | 'fullstack'; summary: string; items: StackItem[] };
+  stack: { kind: "backend" | "fullstack"; summary: string; items: StackItem[] };
 }
 
+
 export interface CapsuleSuggestionRequest {
+  // 留空（或不传）时由 AI 同时生成标题
   title?: string;
   locale?: string;
 }
 
 export interface CapsuleSuggestion {
+  // 仅当请求未传 title 时返回
   title?: string;
   content: string;
   openInDays: number;
@@ -119,8 +139,8 @@ export interface CapsuleRecommendationList {
   cached: boolean;
 }
 
-export type PlazaSort = 'hot' | 'new';
-export type PlazaFilter = 'all' | 'opened' | 'unopened';
+export type PlazaSort = "hot" | "new";
+export type PlazaFilter = "all" | "opened" | "unopened";
 
 export interface PlazaQuery {
   sort?: PlazaSort;
@@ -164,6 +184,7 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
+// 把响应包装失败的情况映射成异常，便于上层 try/catch
 export class ApiError extends Error {
   status: number;
   errorCode: ErrorCode | null;
@@ -175,7 +196,7 @@ export class ApiError extends Error {
     details?: Array<{ field: string; message: string }>,
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
     this.status = status;
     this.errorCode = errorCode;
     this.details = details;

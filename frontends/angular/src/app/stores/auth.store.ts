@@ -1,5 +1,7 @@
 // ============================================================
-// 鉴权 Store（NgRx Signal Store）
+// 鉴权状态（NgRx Signal Store）：access token 在内存，refresh token + user 持久化到 localStorage。
+// store 创建时（withHooks.onInit）把自己注册进 ApiService（避免循环依赖），并从 localStorage 恢复；
+// app.config.ts 用 provideAppInitializer 在第一次导航之前就创建它——守卫第一帧就有登录态。
 // ============================================================
 
 import { inject } from '@angular/core';

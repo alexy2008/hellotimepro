@@ -19,6 +19,8 @@ import {
   type Envelope,
   type HealthData,
   type LoginRequest,
+  type MyStats,
+  type PlazaStats,
   type PaginatedCapsules,
   type PlazaQuery,
   type RegisterRequest,
@@ -211,6 +213,11 @@ export class ApiService {
       { auth: true },
     );
   };
+
+  plazaStats = (q?: string) =>
+    this.request<PlazaStats>(`/api/v1/plaza/stats${q ? `?q=${encodeURIComponent(q)}` : ''}`, { auth: false });
+
+  myStats = () => this.request<MyStats>('/api/v1/me/stats');
 
   myCapsules = (page = 1, pageSize = 20) =>
     this.request<PaginatedCapsules>(`/api/v1/me/capsules?page=${page}&pageSize=${pageSize}`);

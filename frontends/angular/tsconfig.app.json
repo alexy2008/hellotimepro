@@ -5,10 +5,21 @@
     "types": [],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/app/*"],
-      "@spec/*": ["../../spec/*"]
+      "@/*": [
+        "src/app/*"
+      ],
+      "@spec/*": [
+        "../../spec/*"
+      ]
     }
   },
-  "files": ["src/main.ts"],
-  "include": ["src/**/*.ts"]
+  "files": [
+    "src/main.ts"
+  ],
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ]
 }
