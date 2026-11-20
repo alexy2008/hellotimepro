@@ -1,4 +1,6 @@
-# 2.0 升级指南（给每个实现的升级会话）
+# 2.0 升级指南（每个实现的升级任务都从这里开始）
+
+> 面向所有编码 agent（Codex、OpenCode、Antigravity / Gemini、Claude Code…）。通用工作约定见根目录 `AGENTS.md`，本文件只讲 2.0 升级本身。
 
 > 适用范围：其余 9 个后端、4 个前端、5 个全栈。桌面端 / 移动端不在本轮。
 > 参考实现已完成：**后端 FastAPI**（`backends/fastapi`）、**前端 React**（`frontends/react-ts`）。
@@ -68,7 +70,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 验证（**两套皮肤 × PostgreSQL / SQLite 都要 88/88**；后端用 fastapi）：
 
 ```bash
-./scripts/hello switch fastapi
+./scripts/hello status          # 确认 :9080 指向 fastapi；不是的话先问用户，不要自己 switch
 ./verification/scripts/verify-ui-smoke.sh <frontend>
 ./verification/scripts/verify-design-tokens.sh <frontend>
 # SQLite：DB_DRIVER=sqlite 重启 fastapi 后再跑一遍，跑完恢复 PostgreSQL
@@ -78,20 +80,28 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 
 全栈 = 第 1 节 + 第 2 节：`/api/v1/*` 跑契约 117/117（双库），页面跑 UI 冒烟 88/88（双库）与令牌检查。服务端渲染 / MPA 的实现照样要满足 X5（切皮肤保留表单与筛选）与 X7。样式若把 `spec/styles` 复制进静态目录，必须是原样拷贝（令牌检查会识别并跳过）。
 
-## 4. 多会话并行时的注意事项（重要）
+## 4. 多个 agent 并行时的规矩（重要）
 
-- **契约测试会重置数据库**：`verify-contract.sh` 先对 `DB_URL`（否则 `data/.hello-state.json`）执行 `db reset --seed`。多个会话同时跑时，**后端会话请用独立的库**：
+几个 agent 可能同时在**同一个工作目录、同一个 `main` 分支**上工作，共用同一个 PostgreSQL、同一个 `:9080` 反代和同一个 fastapi。
+
+- **契约测试会重置数据库**：`verify-contract.sh` 会先对 `DB_URL`（没设时用 `data/.hello-state.json` 的库）执行 `db reset --seed`。后端任务**必须用独立的库**，不要碰默认库：
   ```bash
-  DB_URL=postgresql+psycopg://<user>:<pwd>@127.0.0.1:5432/hellotime_contract ./verification/scripts/verify-contract.sh <backend>
+  DB_URL=postgresql+psycopg://<user>:<pwd>@127.0.0.1:5432/hellotime_contract_<backend> ./verification/scripts/verify-contract.sh <backend>
   DB_DRIVER=sqlite DB_URL=sqlite:////tmp/hellotime-contract-<backend>.db ./verification/scripts/verify-contract.sh <backend>
   ```
-  （用户名密码从 `data/.hello-state.json` 读，不要写进文档或提交；独立的库要先建好，例如 `createdb hellotime_contract`）
-- **`:9080` 反代是共享的**：前端会话依赖它指向 fastapi。后端会话**不要** `hello switch`，契约测试直接打后端自己的端口即可。
-- **fastapi 换 SQLite 会影响所有前端会话**：前端会话的 SQLite 冒烟请错开跑，跑完立即恢复 PostgreSQL。
-- 各会话只改自己目录下的文件；`spec/`、`verification/`、`docs/` 的改动先停下来问。发现 spec 本身有问题时，先改 spec 再改实现。
-- 都在 `main` 分支上直接提交（不用 worktree），提交前 `git status` 只加自己目录的文件。
+  用户名密码从 `data/.hello-state.json` 读，不要写进文档或提交；库要先建好（如 `createdb hellotime_contract_gin`），每个后端各用一个，互不干扰。
+- **`:9080` 反代是共享的**：前端任务依赖它指向 fastapi。后端任务**不要** `hello switch`，契约测试直接打后端自己的端口。
+- **fastapi 换 SQLite 会影响所有前端任务**：前端任务跑 SQLite 冒烟前先确认没有别的前端任务在跑冒烟，跑完立即用 PostgreSQL 重启 fastapi。
+- **只改自己的目录**：`backends/<x>/`、`frontends/<x>/` 或 `fullstacks/<x>/`。`spec/`、`verification/`、`docs/`（包括本文件）、`scripts/`、`AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 一律不改；需要改时停下来问用户。
+- **只提交自己的目录**：工作区是共享的，别人暂存的文件可能混进来。用限定路径的提交：
+  ```bash
+  git add backends/<x>
+  git commit -m "<中文提交信息>" -- backends/<x>
+  ```
+  不要 `git add -A` / `git commit -a`，不要 `git stash`、`git reset`、`git checkout -- .` 这类会动到别人改动的命令；不要 push。
+- **结果与新发现写在自己的 README 里**：在该实现的 `README.md` 末尾写「2.0 验证」（契约 / 冒烟 / 令牌的通过数、数据库、日期）和「2.0 迁移笔记」（这次踩到、清单里没写的坑）。下面的进度表和 `CLAUDE.md` 由统筹的人汇总更新。
 
-## 5. 进度
+## 5. 进度（统筹的人维护）
 
 | 类别 | 实现 | 状态 |
 |---|---|---|
@@ -101,4 +111,47 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 | 前端 | vue3-ts · angular · svelte · solid | ⬜ |
 | 全栈 | next · nuxt · spring-mvc · rails · laravel | ⬜ |
 
-每完成一个，更新本表、`CLAUDE.md` 的 Verification Notes，并在该实现的 README 里写明验证结果与日期。
+## 6. 任务提示词模板
+
+任何 agent 都可以直接用；把 `<…>` 换掉即可。提示词只指向仓库里的文件，不依赖某个 agent 的记忆或专有功能。
+
+**后端**（建议一次 1–3 个）：
+
+```text
+你在 HelloTime Pro 仓库里工作。先读 AGENTS.md，再读 docs/05-upgrade-2.0.md 的第 0、1、4 节。
+任务：把 backends/<gin> 升级到 2.0.0（若有多个，逐个完成）。
+做法：先通读参考实现 backends/fastapi（可用 git show 0c60082 与 68d22d0 看 2.0 的改动），把第 1 节清单逐条对齐到本栈的惯用写法，不自由发挥。
+验证：本实现的单元测试通过；契约测试用你自己的独立库（第 4 节），PostgreSQL 与 SQLite 都要 117/117。
+收尾：在 backends/<gin>/README.md 末尾写「2.0 验证」和「2.0 迁移笔记」，然后只提交 backends/<gin>（git commit -- backends/<gin>），中文提交信息。
+限制：只改 backends/<gin>；不要 hello switch，不要动默认数据库，不要 push。spec 有疑问或必须改其他目录时，停下来问我。其余情况不用找我确认，一口气做完。
+```
+
+**前端**（一次 1 个，可以分几轮提交）：
+
+```text
+你在 HelloTime Pro 仓库里工作。先读 AGENTS.md，再读 docs/05-upgrade-2.0.md 的第 0、2、4 节。
+任务：把 frontends/<vue3-ts> 升级到 2.0（两套皮肤「时笺 / 琥珀」× 明暗）。
+做法：先通读参考实现 frontends/react-ts（README、TECHNICAL_GUIDE 与全部源码），以及 spec/ui/testids.md、spec/ui/copy.md、spec/styles/README.md、2.0版原型byClaude-合集/；列出功能与交互清单，用 <Vue 3 Composition API + Pinia> 的惯用写法逐项对齐，第 2 节第 6 条的坑必须一次做对。不使用 Tailwind。
+后端用已运行的 fastapi（:9080 已指向它，不要 switch）。
+验证：两套皮肤的 UI 冒烟在 PostgreSQL 与 SQLite 下都 88/88（SQLite 那轮按第 4 节错开、跑完恢复）；verify-design-tokens.sh <vue3-ts> 通过；./build 与 ./test 通过。
+收尾：重写 README.md 与 TECHNICAL_GUIDE.md（参照 React 的两份），README 末尾写「2.0 验证」和「2.0 迁移笔记」；只提交 frontends/<vue3-ts>（git commit -- frontends/<vue3-ts>），中文提交信息。
+限制：只改 frontends/<vue3-ts>；不要 push。spec 或测试有疑问时停下来问我，其余情况不用找我确认。
+```
+
+**全栈**：
+
+```text
+你在 HelloTime Pro 仓库里工作。先读 AGENTS.md，再读 docs/05-upgrade-2.0.md 全文。
+任务：把 fullstacks/<next> 升级到 2.0（第 3 节）：接口对齐 backends/fastapi，页面对齐 frontends/react-ts。
+验证：契约用独立库，PostgreSQL 与 SQLite 都 117/117；UI 冒烟 88/88（双库）；令牌检查通过。
+收尾：更新 README（含「2.0 验证」「2.0 迁移笔记」），只提交 fullstacks/<next>，不要 push。
+限制同上：只改自己的目录，有疑问停下来问我。
+```
+
+**统筹**（每完成一批后，让任意一个 agent 汇总）：
+
+```text
+先读 AGENTS.md 与 docs/05-upgrade-2.0.md。检查 git log 和各实现 README 里的「2.0 验证」「2.0 迁移笔记」：
+1) 更新 docs/05-upgrade-2.0.md 的进度表；2) 把值得共享的新坑提炼进第 1 或第 2 节清单；3) 同步 CLAUDE.md 的 Verification Notes 与 AGENTS.md §1 的阶段描述。
+不要改任何实现代码。改完把改动摘要给我看，经我同意后再提交。
+```
