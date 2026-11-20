@@ -16,7 +16,7 @@ function loadAvatars(): Avatar[] {
   _loaded = true;
   const catalogPath = path.resolve(
     process.env.REPO_ROOT || path.join(__dirname, '../../../../'),
-    'spec/avatars/catalog.json',
+    'spec/avatars/v2/catalog.json',
   );
   try {
     const raw = fs.readFileSync(catalogPath, 'utf-8');

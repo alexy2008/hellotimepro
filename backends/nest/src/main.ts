@@ -15,7 +15,8 @@ async function bootstrap() {
 
   // Serve spec static assets (avatars, icons)
   const repoRoot = process.env.REPO_ROOT || path.resolve(__dirname, '../../..');
-  app.useStaticAssets(path.join(repoRoot, 'spec'), { prefix: '/static' });
+  app.useStaticAssets(path.join(repoRoot, 'spec/avatars/v2'), { prefix: '/static/avatars' });
+  app.useStaticAssets(path.join(repoRoot, 'spec/icons'), { prefix: '/static/icons' });
 
   app.useGlobalFilters(new ApiExceptionFilter());
   app.useGlobalInterceptors(new EnvelopeInterceptor());

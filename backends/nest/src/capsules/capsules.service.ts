@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { badRequest, forbidden, notFound, validationError } from '../common/api.exception';
-import { AppConfig } from '../config/configuration';
 import { Capsule } from '../entities/capsule.entity';
 import { Favorite } from '../entities/favorite.entity';
 import { User } from '../entities/user.entity';
+import { findLockedCapsule } from './capsule-queries';
+import { canonicalCapsuleId, validateOpenAt } from './capsule-rules';
 
 const CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -38,7 +38,6 @@ export class CapsulesService {
     private readonly favoriteRepo: Repository<Favorite>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    private readonly config: ConfigService<AppConfig>,
   ) {}
 
   private async isFavoritedByMe(capsuleId: string, viewerId: string | null): Promise<boolean> {
@@ -57,7 +56,7 @@ export class CapsulesService {
   ) {
     const opened = isOpened(capsule.openAt);
     return {
-      id: capsule.id,
+      id: canonicalCapsuleId(capsule.id),
       code: capsule.code,
       title: capsule.title,
       creator: { nickname: owner.nickname, avatarId: owner.avatarId },
@@ -77,19 +76,8 @@ export class CapsulesService {
     openAt: string;
     inPlaza?: boolean;
   }) {
-    const openAt = new Date(dto.openAt);
-    if (isNaN(openAt.getTime())) {
-      throw validationError('openAt 格式无效', 'openAt');
-    }
     const now = new Date();
-    const minOpenAt = new Date(now.getTime() + 60 * 1000);
-    if (openAt <= minOpenAt) {
-      throw validationError('开启时间必须在当前时间 60 秒后', 'openAt');
-    }
-    const maxOpenAt = new Date(now.getTime() + 10 * 365.25 * 24 * 3600 * 1000);
-    if (openAt > maxOpenAt) {
-      throw validationError('开启时间不能超过当前时间 10 年', 'openAt');
-    }
+    const openAt = validateOpenAt(dto.openAt, now);
 
     const inPlaza = dto.inPlaza ?? true;
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -132,9 +120,12 @@ export class CapsulesService {
   }
 
   async deleteOwn(owner: User, capsuleId: string) {
-    const capsule = await this.capsuleRepo.findOne({ where: { id: capsuleId } });
-    if (!capsule) throw notFound('胶囊不存在');
-    if (capsule.ownerId !== owner.id) throw forbidden('无权删除他人胶囊');
-    await this.capsuleRepo.remove(capsule);
+    await this.capsuleRepo.manager.transaction(async (manager) => {
+      const capsule = await findLockedCapsule(manager, capsuleId, 'id');
+      if (!capsule) throw notFound('胶囊不存在');
+      if (capsule.ownerId !== owner.id) throw forbidden('无权删除他人胶囊');
+      await manager.delete(Favorite, { capsuleId: capsule.id });
+      await manager.delete(Capsule, capsule.id);
+    });
   }
 }

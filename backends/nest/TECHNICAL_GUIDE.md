@@ -26,7 +26,7 @@ HelloTime Pro 是一个时间胶囊应用。NestJS 后端的职责是：
 - 处理用户注册、登录、JWT access token、refresh token 轮转（含令牌族追踪）。
 - 读写用户、胶囊、收藏、refresh token 等数据，并维护反规范化字段 `favorite_count`。
 - 在 PostgreSQL 和 SQLite 之间无缝切换（通过环境变量），同一份业务代码两边都跑得动。
-- 暴露 `spec/avatars/*`、`spec/icons/*` 作为静态资源，并提供 LLM 胶囊建议接口。
+- 暴露 `spec/avatars/v2/*.svg`、`spec/icons/*` 作为静态资源，并提供 LLM 胶囊建议接口。
 
 核心目录：
 
@@ -691,6 +691,9 @@ async addFavorite(userId: string, capsuleId: string) {
 ```
 
 `set({ favoriteCount: () => 'favorite_count + 1' })` 这里的箭头函数是 TypeORM 的「原始 SQL 片段」语法——括号里的字符串会直接插入 SQL，实现原子自增而不是读-改-写。
+
+2.0 中，只要胶囊存在且 UUID 合法就能收藏（包括自己的、未公开或未开启的胶囊）。PostgreSQL 下收藏、取消收藏与删除复用同一加锁查询；删除在事务内先显式清理收藏，再删胶囊。
+广场统计复用列表的公开范围与字面搜索条件，开启时间另查；个人统计包含未公开胶囊。
 
 ### 11.4 限流
 

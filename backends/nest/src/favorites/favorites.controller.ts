@@ -1,11 +1,12 @@
 import { Body, Controller, Delete, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
-import { IsUUID } from 'class-validator';
+import { Matches } from 'class-validator';
+import { CAPSULE_ID } from '../capsules/capsule-rules';
 import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { FavoritesService } from './favorites.service';
 
 class AddFavoriteDto {
-  @IsUUID()
+  @Matches(CAPSULE_ID)
   capsuleId: string;
 }
 

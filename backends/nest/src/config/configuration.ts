@@ -67,6 +67,6 @@ export default (): AppConfig => {
     seedDemo: process.env.SEED_DEMO !== 'false',
     repoRoot,
     serviceName: 'hellotime-pro',
-    serviceVersion: '0.1.0',
+    serviceVersion: '2.0.0',
   };
 };

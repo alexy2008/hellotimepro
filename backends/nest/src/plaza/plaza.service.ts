@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { canonicalCapsuleId, capsuleLookupIds } from '../capsules/capsule-rules';
 import { notFound, validationError } from '../common/api.exception';
+import { formatSqliteTimestamp } from '../database/column-helpers';
 import { Capsule } from '../entities/capsule.entity';
 import { Favorite } from '../entities/favorite.entity';
 import { User } from '../entities/user.entity';
@@ -16,6 +18,8 @@ function contentPreview(content: string, opened: boolean): string | null {
   return raw.length > 80 ? raw.slice(0, 80) + '…' : raw;
 }
 
+type Counter = number | string;
+
 @Injectable()
 export class PlazaService {
   constructor(
@@ -24,6 +28,33 @@ export class PlazaService {
     @InjectRepository(Favorite)
     private readonly favoriteRepo: Repository<Favorite>,
   ) {}
+
+  private get isSqlite() {
+    return this.capsuleRepo.manager.connection.options.type === 'better-sqlite3';
+  }
+
+  private timestampParam(now: Date) {
+    return this.isSqlite ? formatSqliteTimestamp(now) : now;
+  }
+
+  private publicCapsules() {
+    return this.capsuleRepo.createQueryBuilder('c').where('c.inPlaza = :plaza', { plaza: true });
+  }
+
+  private plazaQuery(q: string | undefined) {
+    if (q !== undefined && typeof q !== 'string') throw validationError('q 必须是字符串', 'q');
+    const trimmed = q?.trim() ?? '';
+    if ([...trimmed].length > 50) throw validationError('q 长度不得超过 50', 'q');
+
+    const query = this.publicCapsules().innerJoinAndSelect('c.owner', 'u');
+    if (!trimmed) return query;
+
+    const literal = trimmed.toLowerCase().replace(/[\\%_]/g, '\\$&');
+    return query.andWhere(
+      "(LOWER(c.title) LIKE :pattern ESCAPE '\\' OR LOWER(u.nickname) LIKE :pattern ESCAPE '\\')",
+      { pattern: '%' + literal + '%' },
+    );
+  }
 
   private async getFavoriteIds(capsuleIds: string[], viewerId: string | null): Promise<Set<string>> {
     if (!viewerId || capsuleIds.length === 0) return new Set();
@@ -39,7 +70,7 @@ export class PlazaService {
   private toListItem(c: Capsule, owner: User, favoritedByMe: boolean, favoritedAt?: Date) {
     const opened = isOpened(c.openAt);
     return {
-      id: c.id,
+      id: canonicalCapsuleId(c.id),
       code: c.code,
       title: c.title,
       creator: { nickname: owner.nickname, avatarId: owner.avatarId },
@@ -72,25 +103,10 @@ export class PlazaService {
     }
     if (page < 1) throw validationError('page 必须 >= 1', 'page');
     if (pageSize < 1 || pageSize > 50) throw validationError('pageSize 范围 1-50', 'pageSize');
-    if (q && q.trim().length > 50) throw validationError('q 长度不得超过 50', 'q');
-
-    const now = new Date();
-
-    let qb = this.capsuleRepo
-      .createQueryBuilder('c')
-      .innerJoinAndSelect('c.owner', 'u')
-      .where('c.inPlaza = :plaza', { plaza: true });
-
+    const now = this.timestampParam(new Date());
+    let qb = this.plazaQuery(q);
     if (filter === 'opened') qb = qb.andWhere('c.openAt <= :now', { now });
     else if (filter === 'unopened') qb = qb.andWhere('c.openAt > :now', { now });
-
-    if (q?.trim()) {
-      const pattern = `%${q.trim().toLowerCase()}%`;
-      qb = qb.andWhere(
-        '(LOWER(c.title) LIKE :pattern OR LOWER(u.nickname) LIKE :pattern)',
-        { pattern },
-      );
-    }
 
     const total = await qb.getCount();
 
@@ -113,9 +129,53 @@ export class PlazaService {
     };
   }
 
+  async plazaStats(q: string | undefined) {
+    const now = this.timestampParam(new Date());
+    const counts = await this.plazaQuery(q)
+      .select('COUNT(*)', 'total')
+      .addSelect('COUNT(CASE WHEN c.openAt <= :now THEN 1 END)', 'opened')
+      .addSelect('COUNT(CASE WHEN c.openAt > :now THEN 1 END)', 'unopened')
+      .setParameter('now', now)
+      .getRawOne<{ total: Counter; opened: Counter; unopened: Counter }>();
+
+    const farthest = await this.publicCapsules().select('c.openAt').orderBy('c.openAt', 'DESC').limit(1).getOne();
+    const next = await this.publicCapsules().select('c.openAt').andWhere('c.openAt > :now', { now })
+      .orderBy('c.openAt', 'ASC').limit(1).getOne();
+    return {
+      counts: {
+        all: Number(counts?.total ?? 0),
+        opened: Number(counts?.opened ?? 0),
+        unopened: Number(counts?.unopened ?? 0),
+      },
+      farthestOpenAt: farthest?.openAt ?? null,
+      nextOpenAt: next?.openAt ?? null,
+    };
+  }
+
+  async myStats(userId: string) {
+    const now = this.timestampParam(new Date());
+    const counts = await this.capsuleRepo.createQueryBuilder('c')
+      .select('COUNT(*)', 'created')
+      .addSelect('COUNT(CASE WHEN c.openAt <= :now THEN 1 END)', 'opened')
+      .addSelect('COUNT(CASE WHEN c.openAt > :now THEN 1 END)', 'unopened')
+      .addSelect('COUNT(CASE WHEN c.inPlaza THEN 1 END)', 'inPlaza')
+      .addSelect('COALESCE(SUM(c.favoriteCount), 0)', 'favoritesReceived')
+      .where('c.ownerId = :userId', { userId })
+      .setParameter('now', now)
+      .getRawOne<{ created: Counter; opened: Counter; unopened: Counter; inPlaza: Counter; favoritesReceived: Counter }>();
+    return {
+      created: Number(counts?.created ?? 0),
+      opened: Number(counts?.opened ?? 0),
+      unopened: Number(counts?.unopened ?? 0),
+      inPlaza: Number(counts?.inPlaza ?? 0),
+      favoritesReceived: Number(counts?.favoritesReceived ?? 0),
+      favoritesGiven: await this.favoriteRepo.countBy({ userId }),
+    };
+  }
+
   async plazaDetail(capsuleId: string, viewerId: string | null) {
     const capsule = await this.capsuleRepo.findOne({
-      where: { id: capsuleId, inPlaza: true },
+      where: { id: In(capsuleLookupIds(capsuleId, this.isSqlite, 'id')), inPlaza: true },
       relations: ['owner'],
     });
     if (!capsule) throw notFound('胶囊不存在');
@@ -123,7 +183,7 @@ export class PlazaService {
     const faved = await this.getFavoriteIds([capsule.id], viewerId);
     const opened = isOpened(capsule.openAt);
     return {
-      id: capsule.id,
+      id: canonicalCapsuleId(capsule.id),
       code: capsule.code,
       title: capsule.title,
       creator: { nickname: capsule.owner.nickname, avatarId: capsule.owner.avatarId },
@@ -149,7 +209,8 @@ export class PlazaService {
       take: pageSize,
     });
 
-    const items = rows.map((c) => this.toListItem(c, c.owner, false));
+    const faved = await this.getFavoriteIds(rows.map((c) => c.id), userId);
+    const items = rows.map((c) => this.toListItem(c, c.owner, faved.has(c.id)));
     return {
       items,
       pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },

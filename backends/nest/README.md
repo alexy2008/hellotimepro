@@ -1,6 +1,6 @@
 # HelloTime Pro — NestJS 后端
 
-NestJS 11 + TypeORM + Passport JWT 实现，Node.js 生态企业级框架的标准范式。端口 **29040**。
+HelloTime Pro 2.0.0 的 NestJS 11 + TypeORM + Passport JWT 实现。端口 **29040**。
 
 ## 快速开始
 
@@ -30,7 +30,7 @@ DB_DRIVER=sqlite ./run
 src/
 ├── auth/            # 注册/登录/refresh/logout/改密
 ├── capsules/        # 胶囊创建、按 code 查询
-├── plaza/           # 广场列表、广场详情、我的胶囊、我的收藏
+├── plaza/           # 广场列表与详情、个人列表、广场与个人统计
 ├── favorites/       # 收藏/取消收藏
 ├── me/              # 个人信息、改密、删除胶囊
 ├── health/          # /health、/avatars
@@ -71,16 +71,24 @@ DB_URL=postgresql://user:pass@localhost:5432/mydb ./run
 - **Passport JWT 鉴权链**：`@nestjs/passport` + `passport-jwt` 解析 Bearer，`common/guards` 守卫受保护端点；公开端点忽略无效 token 按匿名处理。
 - **跨库列适配**：`database/column-helpers.ts` 用 TypeORM `ValueTransformer` 处理 SQLite 字符串 ↔ `Date`、UUID 文本互转，PG 走原生类型。
 - **refresh token rotate + family**：每次 `/auth/refresh` 发新撤旧、family 延续；重放已撤销 token 整族作废；改密吊销该用户全部 refresh token。
-- **收藏计数事务一致**：收藏 / 取消在事务内原子更新 `favorite_count`；幂等约束（重复收藏 200、取消不存在 204）。
-
-## 验证
-
-```bash
-# 契约验证
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh nest
-./verification/scripts/verify-contract.sh nest  # postgres
-```
-
-通过记录：PostgreSQL & SQLite 各 **104/104**。
+- **收藏计数事务一致**：收藏 / 取消在事务内原子更新 `favorite_count`；PostgreSQL 的收藏、取消和删除统一先锁胶囊行，删除再显式清理关联收藏。
 
 更完整的代码导读见 [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md)。
+
+## 2.0 验证
+
+2026-11-21 直接验证 `:29040`，未切换共享反代或使用默认数据库。
+
+| 检查 | 数据库 | 结果 |
+|---|---|---|
+| `./test`（含类型检查） | 涉及数据库的用例使用内存 SQLite | 5/5 |
+| 仓库契约 | 专用 PostgreSQL 库 `hellotime_contract_nest_*` | 117/117 |
+| 同一仓库契约 | 临时 SQLite 文件 | 117/117 |
+
+另验证 `./build` 通过，10 个头像 URL 的 SVG 均与 v2 规范一致。UI 冒烟、设计令牌检查不适用于纯后端。
+
+## 2.0 迁移笔记
+
+- 无 schema 迁移。TypeORM 的 QueryBuilder 手写条件参数不经实体时间列转换器；SQLite 按 seed 的 ISO 文本格式显式绑定 `now`。聚合计数将 PostgreSQL 字符串与 SQLite 数值统一为 JSON 数字。
+- SQLite 演示胶囊主键用无连字符的十六进制，而本栈已有数据可能带连字符。API 返回规范 UUID，查询匹配两种存储形态；收藏外键和删除均使用查到的原始主键。
+- PostgreSQL 复测显式设置 `DB_DRIVER=postgres` 和专用 `DB_URL` 后执行 `./verification/scripts/verify-contract.sh nest`。SQLite 包装脚本的清理路径不一定采用 `DB_URL`，因此显式指定临时库，通过 `scripts/db` 初始化和 `scripts/hello` 启停，再执行 `BASE_URL=http://127.0.0.1:29040 node --test verification/contract/*.spec.ts`。

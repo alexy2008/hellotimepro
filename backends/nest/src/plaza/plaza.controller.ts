@@ -8,6 +8,17 @@ import { PlazaService } from './plaza.service';
 export class PlazaController {
   constructor(private readonly plazaService: PlazaService) {}
 
+  @Get('plaza/stats')
+  plazaStats(@Query('q') q?: string) {
+    return this.plazaService.plazaStats(q);
+  }
+
+  @Get('me/stats')
+  @UseGuards(JwtAuthGuard)
+  myStats(@CurrentUser() jwtUser: JwtPayload) {
+    return this.plazaService.myStats(jwtUser.sub);
+  }
+
   @Get('plaza/capsules')
   @UseGuards(OptionalJwtGuard)
   plazaList(

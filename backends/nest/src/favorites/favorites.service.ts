@@ -1,40 +1,27 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { DataSource, EntityManager } from 'typeorm';
-import { badRequest, notFound } from '../common/api.exception';
-import { AppConfig } from '../config/configuration';
+import { DataSource } from 'typeorm';
+import { findLockedCapsule } from '../capsules/capsule-queries';
+import { canonicalCapsuleId } from '../capsules/capsule-rules';
+import { notFound } from '../common/api.exception';
 import { Capsule } from '../entities/capsule.entity';
 import { Favorite } from '../entities/favorite.entity';
 
 @Injectable()
 export class FavoritesService {
-  constructor(
-    private readonly dataSource: DataSource,
-    private readonly config: ConfigService<AppConfig>,
-  ) {}
+  constructor(private readonly dataSource: DataSource) {}
 
-  private async lockedCapsule(manager: EntityManager, capsuleId: string): Promise<Capsule | null> {
-    const query = manager.getRepository(Capsule).createQueryBuilder('c').where('c.id = :id', {
-      id: capsuleId,
-    });
-    if ((this.config.get('dbDriver', { infer: true }) ?? 'postgres') === 'postgres') {
-      query.setLock('pessimistic_write');
-    }
-    return query.getOne();
-  }
-
-  async addFavorite(userId: string, capsuleId: string) {
+  async addFavorite(userId: string, requestedId: string) {
     return this.dataSource.transaction(async (manager) => {
       const capsules = manager.getRepository(Capsule);
       const favorites = manager.getRepository(Favorite);
-      const capsule = await this.lockedCapsule(manager, capsuleId);
-      if (!capsule || !capsule.inPlaza) throw notFound('胶囊不存在');
-      if (capsule.ownerId === userId) throw badRequest('不能收藏自己创建的胶囊');
+      const capsule = await findLockedCapsule(manager, requestedId);
+      if (!capsule) throw notFound('胶囊不存在');
+      const capsuleId = capsule.id;
 
       const existing = await favorites.findOne({ where: { userId, capsuleId } });
       if (existing) {
         return {
-          capsuleId: capsule.id,
+          capsuleId: canonicalCapsuleId(capsuleId),
           favoriteCount: capsule.favoriteCount,
           favoritedAt: existing.createdAt,
         };
@@ -51,19 +38,20 @@ export class FavoritesService {
       const updated = await capsules.findOne({ where: { id: capsuleId } });
 
       return {
-        capsuleId: capsule.id,
+        capsuleId: canonicalCapsuleId(capsuleId),
         favoriteCount: updated?.favoriteCount ?? capsule.favoriteCount + 1,
         favoritedAt: now,
       };
     });
   }
 
-  async removeFavorite(userId: string, capsuleId: string): Promise<void> {
+  async removeFavorite(userId: string, requestedId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const capsules = manager.getRepository(Capsule);
       const favorites = manager.getRepository(Favorite);
-      const capsule = await this.lockedCapsule(manager, capsuleId);
+      const capsule = await findLockedCapsule(manager, requestedId);
       if (!capsule) return;
+      const capsuleId = capsule.id;
 
       const existing = await favorites.findOne({ where: { userId, capsuleId } });
       if (!existing) return;
