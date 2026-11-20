@@ -7,6 +7,10 @@ namespace HelloTimePro.Aspnet.Repositories;
 
 public enum PlazaSort { Hot, New }
 
+internal readonly record struct OpenCounts(long All, long Opened, long Unopened);
+
+internal readonly record struct OwnerCounts(long Created, long Opened, long Unopened, long InPlaza, long FavoritesReceived);
+
 public sealed class CapsuleRepository
 {
     private readonly AppDbContext _db;
@@ -71,6 +75,38 @@ public sealed class CapsuleRepository
     public Task<int> CountPlaza(string filter, DateTimeOffset now, string? q) =>
         PlazaQuery(filter, now, q).CountAsync();
 
+    internal Task<OpenCounts> CountPlazaStates(DateTimeOffset now, string? q) =>
+        PlazaQuery("all", now, q)
+            .GroupBy(_ => 1)
+            .Select(group => new OpenCounts(
+                group.LongCount(),
+                group.LongCount(c => c.OpenAt <= now),
+                group.LongCount(c => c.OpenAt > now)))
+            .SingleOrDefaultAsync();
+
+    internal Task<OwnerCounts> CountOwnerStates(Guid ownerId, DateTimeOffset now) =>
+        _db.Capsules.Where(c => c.OwnerId == ownerId)
+            .GroupBy(_ => 1)
+            .Select(group => new OwnerCounts(
+                group.LongCount(),
+                group.LongCount(c => c.OpenAt <= now),
+                group.LongCount(c => c.OpenAt > now),
+                group.LongCount(c => c.InPlaza),
+                group.Sum(c => (long)c.FavoriteCount)))
+            .SingleOrDefaultAsync();
+
+    public Task<DateTimeOffset?> FarthestPlazaOpenAt() =>
+        _db.Capsules.Where(c => c.InPlaza)
+            .OrderByDescending(c => c.OpenAt)
+            .Select(c => (DateTimeOffset?)c.OpenAt)
+            .FirstOrDefaultAsync();
+
+    public Task<DateTimeOffset?> NextPlazaOpenAt(DateTimeOffset now) =>
+        _db.Capsules.Where(c => c.InPlaza && c.OpenAt > now)
+            .OrderBy(c => c.OpenAt)
+            .Select(c => (DateTimeOffset?)c.OpenAt)
+            .FirstOrDefaultAsync();
+
     private IQueryable<Capsule> PlazaQuery(string filter, DateTimeOffset now, string? q)
     {
         var query = _db.Capsules.Where(c => c.InPlaza);
@@ -82,10 +118,9 @@ public sealed class CapsuleRepository
         };
         if (q != null)
         {
-            // 标题 OR 创建者昵称，大小写不敏感子串匹配（q 已 trim+小写）。
             query = query.Where(c =>
-                c.Title.ToLower().Contains(q) ||
-                _db.Users.Any(u => u.Id == c.OwnerId && u.Nickname.ToLower().Contains(q)));
+                EF.Functions.Like(c.Title.ToLower(), q, "\\") ||
+                _db.Users.Any(u => u.Id == c.OwnerId && EF.Functions.Like(u.Nickname.ToLower(), q, "\\")));
         }
         return query;
     }

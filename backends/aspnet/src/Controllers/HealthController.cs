@@ -37,7 +37,7 @@ public sealed class HealthController : ApiControllerBase
         };
 
         var uptime = (long)(DateTimeOffset.UtcNow - _config.StartedAt).TotalSeconds;
-        var data = new HealthData("ok", _config.ServiceName, _config.ServiceVersion, uptime,
+        var data = new HealthData("ok", _config.ServiceName, AppConfig.ServiceVersion, uptime,
             new StackInfo("backend", summary, items));
         return Wrapped(data);
     }

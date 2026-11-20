@@ -8,14 +8,14 @@ namespace HelloTimePro.Aspnet.Config;
 public sealed class AppConfig
 {
     public string ServiceName { get; } = "hellotime-pro";
-    public string ServiceVersion { get; } = "0.1.0";
+    public const string ServiceVersion = "2.0.0";
     public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
     public string Host { get; } = Env("HOST", "0.0.0.0");
 
     // hello CLI 不注入 PORT，默认端口必须直接是登记端口 29050（见 docs/dev-notes.md §6.5）。
     public int Port { get; } = int.Parse(Env("PORT", "29050"));
 
-    public string DbDriver { get; } = Env("DB_DRIVER", "postgres");
+    public string DbDriver { get; init; } = Env("DB_DRIVER", "postgres");
     public string? DbUrl { get; } = Environment.GetEnvironmentVariable("DB_URL");
 
     // hello 不注入 REPO_ROOT；由 run 脚本导出，默认相对本目录上溯两级到仓库根。

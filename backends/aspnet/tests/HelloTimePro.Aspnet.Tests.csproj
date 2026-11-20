@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../HelloTimePro.Aspnet.csproj" />
+    <None Include="../../../spec/db/schema.sqlite.sql" Link="schema.sqlite.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 单元/冒烟测试：固定跨库存储格式等纯逻辑不变式（无需外部数据库）。
+# 单元与服务测试：涉及数据库的用例使用独立的内存 SQLite。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

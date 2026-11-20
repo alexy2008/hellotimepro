@@ -80,7 +80,16 @@ public class CrossDbTests
     [InlineData("postgres", "postgresql://u:p@h:5432/db", false)]
     public void ResolveIsSqlite_MatchesDbUrlResolve(string driver, string? url, bool expected)
     {
-        Assert.Equal(expected, AppConfig.ResolveIsSqlite(driver, url));
-        Assert.Equal(expected, DbUrl.Resolve(driver, url, ".").IsSqlite);
+        var temp = Directory.CreateTempSubdirectory("hellotime-aspnet-test-");
+        try
+        {
+            var resolvedUrl = url == "sqlite:///abs/path.db" ? $"sqlite:///{Path.Combine(temp.FullName, "path.db")}" : url;
+            Assert.Equal(expected, AppConfig.ResolveIsSqlite(driver, resolvedUrl));
+            Assert.Equal(expected, DbUrl.Resolve(driver, resolvedUrl, temp.FullName).IsSqlite);
+        }
+        finally
+        {
+            temp.Delete(recursive: true);
+        }
     }
 }

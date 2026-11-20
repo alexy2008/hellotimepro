@@ -92,6 +92,13 @@ public sealed record CapsuleListItem(
 
 public sealed record FavoriteResult(string CapsuleId, int FavoriteCount, string FavoritedAt);
 
+public sealed record PlazaCounts(long All, long Opened, long Unopened);
+
+public sealed record PlazaStats(PlazaCounts Counts, string? FarthestOpenAt, string? NextOpenAt);
+
+public sealed record MyStats(
+    long Created, long Opened, long Unopened, long InPlaza, long FavoritesReceived, long FavoritesGiven);
+
 // ── 健康检查 ───────────────────────────────────────────────────────────────
 
 public sealed record StackItem(string Role, string Name, string Version, string? IconUrl);

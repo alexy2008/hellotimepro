@@ -4,7 +4,7 @@ using HelloTimePro.Aspnet.Dto;
 
 namespace HelloTimePro.Aspnet.Services;
 
-/// <summary>从 spec/avatars/catalog.json 加载内置头像目录（启动时一次）。单例。</summary>
+/// <summary>从 spec/avatars/v2/catalog.json 加载内置头像目录（启动时一次）。单例。</summary>
 public sealed class AvatarService
 {
     private readonly IReadOnlyList<AvatarDto> _avatars;
@@ -12,7 +12,7 @@ public sealed class AvatarService
 
     public AvatarService(AppConfig config)
     {
-        var path = Path.GetFullPath(Path.Combine(config.RepoRoot, "spec", "avatars", "catalog.json"));
+        var path = Path.GetFullPath(Path.Combine(config.RepoRoot, "spec", "avatars", "v2", "catalog.json"));
         var text = File.ReadAllText(path);
         var options = new JsonSerializerOptions
         {

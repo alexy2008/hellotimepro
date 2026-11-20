@@ -21,14 +21,12 @@ public sealed class FavoriteService
 
     public async Task<FavoriteResult> AddFavorite(User user, string? capsuleIdRaw)
     {
-        var capsuleId = Times.ParseUuidOrNull(capsuleIdRaw) ?? throw ApiException.NotFound("胶囊不存在");
+        var capsuleId = Validation.CapsuleId(capsuleIdRaw);
 
         // favorite_count 是冗余计数器，必须与 favorites 行变更同处一个事务。
         // Postgres 路径取胶囊行写锁；SQLite 依赖单写事务与原子提交。
         await using var tx = await _db.Database.BeginTransactionAsync();
         var capsule = await _capsules.FindByIdForUpdate(capsuleId) ?? throw ApiException.NotFound("胶囊不存在");
-        if (!capsule.InPlaza) throw ApiException.NotFound("胶囊不存在");
-        if (capsule.OwnerId == user.Id) throw ApiException.BadRequest("不能收藏自己创建的胶囊");
 
         var existing = await _favorites.Find(user.Id, capsule.Id);
         if (existing is not null)
@@ -47,12 +45,10 @@ public sealed class FavoriteService
 
     public async Task RemoveFavorite(User user, string capsuleIdRaw)
     {
-        // 取消收藏幂等：胶囊不存在 / 格式非法 / 原本未收藏都返回成功（204）。
-        var capsuleId = Times.ParseUuidOrNull(capsuleIdRaw);
-        if (capsuleId is null) return;
+        var capsuleId = Validation.CapsuleId(capsuleIdRaw);
 
         await using var tx = await _db.Database.BeginTransactionAsync();
-        var capsule = await _capsules.FindByIdForUpdate(capsuleId.Value);
+        var capsule = await _capsules.FindByIdForUpdate(capsuleId);
         if (capsule is null)
         {
             await tx.CommitAsync();

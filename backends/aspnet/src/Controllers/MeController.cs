@@ -50,6 +50,13 @@ public sealed class MeController : ApiControllerBase
         return StatusCode(StatusCodes.Status204NoContent);
     }
 
+    [HttpGet("stats")]
+    public async Task<IActionResult> MyStats()
+    {
+        var user = await _authContext.Required(AuthHeader);
+        return Wrapped(await _plaza.MyStats(user));
+    }
+
     [HttpGet("capsules")]
     public async Task<IActionResult> MyCapsules()
     {

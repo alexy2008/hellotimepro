@@ -1,6 +1,6 @@
 # HelloTime Pro · ASP.NET Core 后端
 
-C# + ASP.NET Core + EF Core 实现的 HelloTime Pro 后端，满足 `spec/` 定义的统一 API 契约，支持 PostgreSQL / SQLite 双驱动。
+C# + ASP.NET Core + EF Core 实现的 HelloTime Pro 2.0.0 后端，满足 `spec/` 定义的统一 API 契约，支持 PostgreSQL / SQLite 双驱动。
 端口 **29050**（见根 `CLAUDE.md` 端口分配）。
 
 ## 技术栈
@@ -27,7 +27,7 @@ src/Repositories/              ← EF 仓库（infrastructure）
 src/Infrastructure/            ← DbContext、跨库值转换器、DB_URL 解析
 src/Domain/Entities.cs         ← 领域模型（兼 EF 实体）
 src/Dto/Dtos.cs                ← 请求/响应 DTO + 统一响应外壳
-tests/                         ← xUnit 单元测试（固定跨库格式不变式）
+tests/                         ← xUnit 单元与服务测试
 ```
 
 ## 安装与运行
@@ -43,7 +43,7 @@ tests/                         ← xUnit 单元测试（固定跨库格式不变
 # 或直接在本目录
 ./build        # dotnet build -c Release（预构建，缩短冷启动）
 ./run          # 启动（默认 postgres；DB_DRIVER=sqlite 切 SQLite）
-./test         # xUnit 单元测试（纯逻辑，无需外部数据库）
+./test         # xUnit 单元与服务测试（使用内存 SQLite，无需外部数据库）
 ```
 
 > `run` 优先执行预构建的 `bin/Release` DLL；未构建时回退 `dotnet run -c Release`，仍落在契约就绪窗口内。
@@ -67,8 +67,9 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
   零小数不输出，保证字符串比较的 `open_at <= now` / `ORDER BY created_at` 正确）；Postgres 走 Npgsql 原生
   `uuid` / `timestamptz`，不挂转换器。EF Core SQLite 默认把 DateTimeOffset 存成空格分隔 + 7 位小数的 TEXT，
   会破坏字符串比较，故必须接管。这是对 Ktor `CrossDbColumns` / Spring `CrossDb*JdbcType` 的 EF Core 等价实现。
-- **并发一致性**：Postgres 路径用 `SELECT ... FOR UPDATE`（`FromSqlRaw`）序列化收藏计数与 refresh token 轮转；
-  SQLite 依赖单写事务。收藏计数与 favorites 行变更同处一个事务。
+- **并发一致性**：PostgreSQL 用 `SELECT ... FOR UPDATE`（`FromSqlRaw`）序列化 refresh token 轮转；
+  收藏、取消收藏和删除统一先锁胶囊行，再操作收藏。SQLite 依赖单写事务。
+- **统计**：广场列表与统计共用 LINQ 搜索谓词；个人统计包含未公开的胶囊，以及收到和给出的收藏。
 - **refresh token 轮转 + 家族吊销**：重用检测分支先在事务内提交家族吊销，再到事务外抛 401（用 outcome 区分，
   不在事务内抛异常），等价 Spring 的 `noRollbackFor`。
 - **手写字段校验**（`src/Services/Validation.cs`）：禁用 `[ApiController]` 自动 400，按 `spec/openapi.yaml`
@@ -76,15 +77,6 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
 - **统一响应外壳**：`ErrorHandlingMiddleware` 把业务/反序列化/未捕获异常转为契约约定的 `{ success, data, message, errorCode }`。
 - **LLM 客户端**：基于 `HttpClient`，实现日志规范 / 网关重试 / CF-1010 UA / chat 风格等坑（见 `docs/dev-notes.md §3`）。
   未配置时建议端点本地兜底、推荐端点返回空列表。
-
-## 验证
-
-```bash
-./verification/scripts/verify-contract.sh aspnet              # PostgreSQL，104/104
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh aspnet   # SQLite，104/104
-```
-
-最新验收：2026-06-06，PostgreSQL & SQLite 各 **104/104**。
 
 ## 注意事项
 
@@ -96,3 +88,22 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh aspnet   # SQLite，1
 - `tests/` 在子目录，已用 `DefaultItemExcludes` 从主工程默认 glob 排除，避免被一并编译。
 - `hello start` 不注入 `PORT` / `REPO_ROOT`：默认端口直接是登记端口 29050；`REPO_ROOT` 由 `run` 脚本导出绝对路径。
 - 详细代码导读见 [TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)。
+
+## 2.0 验证
+
+2026-11-21 直接验证 `:29050`，未使用共享反代或默认数据库。
+
+| 检查 | 数据库 | 结果 |
+|---|---|---|
+| `./test`（xUnit 单元与服务测试） | 涉及数据库的用例使用内存 SQLite | 15/15 |
+| 仓库契约 | 专用 PostgreSQL 库 `hellotime_contract_aspnet_*` | 117/117 |
+| 同一仓库契约 | 临时 SQLite 文件 | 117/117 |
+
+另验证 `./build` 通过，10 个头像 URL 的 SVG 均与 v2 规范一致。UI 冒烟、设计令牌检查不适用于纯后端。
+
+## 2.0 迁移笔记
+
+- 无 schema 迁移。EF Core 用 LINQ 常量分组聚合胶囊状态，空集合映射为零计数；最远和最近时刻直接排序投影 `open_at`，保留 SQLite 的时间值转换器，查不到则返回 `null`。
+- 字面搜索用 `EF.Functions.Like` 的转义字符重载，先转义反斜杠、下划线和百分号，再拼接子串通配符；列表和统计共用相同条件。
+- 删除胶囊先取 PostgreSQL 行锁，再用 `ExecuteDeleteAsync` 在同一事务中显式删除收藏。回归测试关闭了 SQLite 外键，确保删除不靠级联。头像目录和静态文件改读 `spec/avatars/v2/`，对外 URL 不变。
+- PostgreSQL 复测须显式设置 `DB_DRIVER=postgres` 和专用 `DB_URL`，再执行 `./verification/scripts/verify-contract.sh aspnet`。SQLite 包装脚本的清理路径不一定采用 `DB_URL`，因此显式指定临时库并通过 `scripts/db` 初始化、`scripts/hello` 启停，直接用 `BASE_URL=http://127.0.0.1:29050 node --test verification/contract/*.spec.ts` 运行同一套用例。

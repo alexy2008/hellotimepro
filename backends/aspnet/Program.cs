@@ -79,7 +79,7 @@ app.UseMiddleware<ErrorHandlingMiddleware>();
 var repoRoot = Path.GetFullPath(config.RepoRoot);
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new PhysicalFileProvider(Path.Combine(repoRoot, "spec", "avatars")),
+    FileProvider = new PhysicalFileProvider(Path.Combine(repoRoot, "spec", "avatars", "v2")),
     RequestPath = "/static/avatars",
 });
 app.UseStaticFiles(new StaticFileOptions

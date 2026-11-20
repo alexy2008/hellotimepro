@@ -75,15 +75,24 @@ public static partial class Validation
         return value;
     }
 
-    public static DateTimeOffset OpenAt(string? value)
+    public static DateTimeOffset OpenAt(string? value, DateTimeOffset now)
     {
         if (string.IsNullOrWhiteSpace(value))
             throw ApiException.Validation("openAt 不能为空", "openAt");
         if (!DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.RoundtripKind, out var dto))
             throw ApiException.Validation("openAt 必须是 ISO-8601 时间", "openAt");
-        return dto;
+        if (dto <= now.AddSeconds(60))
+            throw ApiException.Validation("openAt 必须晚于当前时间 60 秒以上", "openAt");
+        if (dto > now.ToUniversalTime().AddYears(10))
+            throw ApiException.Validation("openAt 不得超出当前时间 10 年", "openAt");
+        return dto.ToUniversalTime();
     }
+
+    public static Guid CapsuleId(string? value, string field = "capsuleId") =>
+        Guid.TryParseExact(value, "D", out var id)
+            ? id
+            : throw ApiException.Validation($"{field} 必须是有效的 UUID", field);
 
     public static string Code(string value)
     {

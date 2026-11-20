@@ -220,8 +220,12 @@ await _db.SaveChangesAsync();
 await tx.CommitAsync();
 ```
 
-- favorites 行变化和 capsule 计数更新同处一个事务；PG 用 `SELECT ... FOR UPDATE` 锁住胶囊行，SQLite 依赖单写事务。
+- 收藏、取消收藏和删除在 PostgreSQL 上都先用 `SELECT ... FOR UPDATE` 锁住胶囊行，再操作收藏表；SQLite 依赖单写事务。删除使用 `ExecuteDeleteAsync` 显式清理关联收藏。
+- 只要胶囊存在且 UUID 合法，就能收藏；包括未公开、未开启和自己创建的胶囊。
 - 重复收藏/取消保持幂等（已收藏直接 commit 返回原状态）。
+
+`PlazaService` 的列表与统计共用 `CapsuleRepository` 的搜索条件；统计用 LINQ 聚合，不加载胶囊正文。
+个人统计覆盖所有自建胶囊（包括未公开），并分别汇总收到的收藏与自己收藏的数量。
 
 **refresh token 轮转**（`AuthService.Refresh`）：重放 revoked token 时，必须先提交 family 吊销、再在事务外返回 401，
 避免异常回滚掉吊销结果。实现用 `Outcome { Success, Invalid, Reused }` 枚举：事务内只设 outcome、`CommitAsync()`，
@@ -247,7 +251,7 @@ _validation = new TokenValidationParameters {
 
 ## 11. 校验与错误处理
 
-`Validation.cs` 集中表达契约规则（邮箱/密码强度/昵称/头像 id、标题/正文长度、`openAt` 晚于当前 60 秒且不超 10 年、
+`Validation.cs` 集中表达契约规则（邮箱/密码强度/昵称/头像 id、标题/正文长度、`openAt` 晚于当前 60 秒且不超 UTC 的十个日历年、
 更新资料至少一个字段、推荐 count 在 3-8）。失败抛 `ApiException.Validation(...)`，最终由中间件返回 422。
 
 `ErrorHandlingMiddleware`（管线最外层，§5.2）按异常类型分流：
@@ -304,15 +308,13 @@ public async Task<AuthTokens> Register(RegisterRequest req) {
 
 ## 15. 测试与契约验证
 
-xUnit 测试集中验证纯逻辑不变式，尤其是 SQLite UUID/时间戳格式（`tests/CrossDbTests.cs`）：
+xUnit 验证跨库 UUID/时间戳格式，并使用独立内存 SQLite 回归统计、字面搜索、收藏和删除规则：
 
 ```bash
 ./test
-../../verification/scripts/verify-contract.sh aspnet
-DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh aspnet
 ```
 
-黑盒契约从 HTTP 外部验证，不读取 EF Core 或 service 内部实现。
+黑盒契约从 HTTP 外部验证，不读取 EF Core 或 service 内部实现。双库隔离运行方法见 [README](README.md#20-验证)。
 
 ## 16. 常见改动应该改哪里
 

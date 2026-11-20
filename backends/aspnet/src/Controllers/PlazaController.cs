@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HelloTimePro.Aspnet.Controllers;
 
-[Route("api/v1/plaza/capsules")]
+[Route("api/v1/plaza")]
 public sealed class PlazaController : ApiControllerBase
 {
     private readonly AuthContext _authContext;
@@ -18,7 +18,11 @@ public sealed class PlazaController : ApiControllerBase
         _capsules = capsules;
     }
 
-    [HttpGet]
+    [HttpGet("stats")]
+    public async Task<IActionResult> Stats() =>
+        Wrapped(await _plaza.PlazaStats(StringParam("q")));
+
+    [HttpGet("capsules")]
     public async Task<IActionResult> List()
     {
         var viewer = await _authContext.Optional(AuthHeader);
@@ -28,7 +32,7 @@ public sealed class PlazaController : ApiControllerBase
         return Wrapped(await _plaza.PlazaList(sort, filter, q, Page, PageSize, viewer?.Id));
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("capsules/{id}")]
     public async Task<IActionResult> Detail(string id)
     {
         var viewer = await _authContext.Optional(AuthHeader);

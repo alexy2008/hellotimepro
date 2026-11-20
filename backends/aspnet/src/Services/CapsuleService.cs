@@ -32,12 +32,8 @@ public sealed class CapsuleService
     {
         var title = Validation.Title(req.Title);
         var content = Validation.Content(req.Content);
-        var openAt = Validation.OpenAt(req.OpenAt).ToUniversalTime();
         var now = Times.NowUtc();
-        if (openAt < now.AddSeconds(60))
-            throw ApiException.Validation("openAt 必须晚于当前时间 60 秒以上", "openAt");
-        if (openAt > now.AddYears(10))
-            throw ApiException.Validation("openAt 不得超出当前时间 10 年", "openAt");
+        var openAt = Validation.OpenAt(req.OpenAt, now);
         var inPlaza = req.InPlaza ?? true;
 
         var code = await GenerateUniqueCode();
@@ -71,7 +67,7 @@ public sealed class CapsuleService
 
     public async Task<CapsuleDetail> GetPlazaDetail(string idRaw, Guid? viewerId)
     {
-        var id = Times.ParseUuidOrNull(idRaw) ?? throw ApiException.NotFound("胶囊不存在");
+        var id = Validation.CapsuleId(idRaw, "id");
         var capsule = await _capsules.FindById(id);
         if (capsule is null || !capsule.InPlaza) throw ApiException.NotFound("胶囊不存在");
         var owner = await _users.FindById(capsule.OwnerId) ?? throw ApiException.NotFound("胶囊不存在");
@@ -81,9 +77,9 @@ public sealed class CapsuleService
 
     public async Task DeleteOwn(User user, string idRaw)
     {
-        var id = Times.ParseUuidOrNull(idRaw) ?? throw ApiException.NotFound("胶囊不存在");
+        var id = Validation.CapsuleId(idRaw, "id");
         await using var tx = await _db.Database.BeginTransactionAsync();
-        var capsule = await _capsules.FindById(id) ?? throw ApiException.NotFound("胶囊不存在");
+        var capsule = await _capsules.FindByIdForUpdate(id) ?? throw ApiException.NotFound("胶囊不存在");
         if (capsule.OwnerId != user.Id) throw ApiException.Forbidden("无权删除他人胶囊");
         await _favorites.DeleteByCapsule(id);
         _capsules.Remove(capsule);
