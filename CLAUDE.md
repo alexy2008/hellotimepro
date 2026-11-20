@@ -43,6 +43,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 
 ### Verification Notes
 
+- **2.0 upgrade guide**: `docs/05-upgrade-2.0.md` — per-implementation checklists (backend / frontend / full-stack), verification targets, rules for parallel sessions (contract resets the DB; don't `hello switch`), progress table. Read it first when upgrading any implementation.
 - **2.0 upgrade in progress**: contract suite is now 117 cases (2.0 rules: stats endpoints, favorites without status checks, delete cascades, `health.version = 2.0.0`, openAt ≤ now + 10 calendar years, literal `q` matching with escaped LIKE); only `fastapi` passes it so far (PostgreSQL & SQLite 117/117, 2026-11-20). ⚠️ `verify-contract.sh` resets + seeds the DB pointed to by `DB_URL` (else `data/.hello-state.json`) before running. Other backends/full-stacks fail the 2.0 cases until upgraded.
 - UI smoke 2.0: 44 Playwright cases × 2 skins (`paper` / `amber` projects, skin preset via `localStorage['hellotime.skin']`, `reducedMotion: reduce`), located only through `spec/ui/testids.md` hooks (`SKINS=paper` to run one). Only `react` is upgraded so far: 88/88 on PostgreSQL & SQLite (2026-11-20). Design tokens: `./verification/scripts/verify-design-tokens.sh react` (no args = spec only). The 1.x numbers below (104 / 25) are historical.
 - `./verification/scripts/verify-contract.sh <target>` applies to backends and full-stacks as long as the target is registered in `hello list` and exposes `/api/v1/*` on its own port.
