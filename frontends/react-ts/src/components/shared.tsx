@@ -115,3 +115,15 @@ export function useThemeToggle() {
   };
   return { theme, onClick };
 }
+
+/** 「我的」列表底部的「加载更多」：还有下一页时才出现（测试钩子 list-next） */
+export function ListMore({ show, busy, left, onMore }: { show: boolean; busy: boolean; left: number; onMore: () => void }) {
+  if (!show) return null;
+  return (
+    <div className="list-more">
+      <button className={`btn btn--ghost${busy ? " is-busy" : ""}`} type="button" disabled={busy} onClick={onMore} data-testid="list-next">
+        {busy ? "加载中…" : `加载更多（还有 ${left} 枚）`}
+      </button>
+    </div>
+  );
+}

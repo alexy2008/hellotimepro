@@ -40,7 +40,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 ## Critical Constraints
 - **Spec-driven**: All API, schema, and styling rules live in `spec/`. Never override spec in implementations.
 - **Black-box verification only**: No implementation-aware test shortcuts.
-- **Styling**: Tailwind CSS v4 + semantic tokens from `spec/styles/tokens.css`. Hardcoded color/spacing values prohibited.
+- **Styling**: 2.0: two skins `paper` / `amber` × light/dark, all styles in `spec/styles/` (see `spec/styles/README.md`); **Tailwind is no longer used** (removed from the React reference). Implementation-owned CSS may only use `base.css` scales and the semantic layer (`--color-*`, `--bg-primary`, `--font-*`, `--radius-*`, `--shadow-card|pop`, `--header-h`); hardcoded colors prohibited. 1.x legacy `spec/styles/{palette,tokens,cyber}.css` remains only for not-yet-upgraded implementations.
 - **Database**: Default Postgres, SQLite via `DB_DRIVER=sqlite` env var. All backends/fullstacks must support both.
 - **Local PostgreSQL**: The service is already managed locally and its connection settings are configured through the Web UI / `data/.hello-state.json`; use those settings for Postgres work and do not attempt Docker startup/probing by default.
 - **DB lifecycle separation**: Backend `run` scripts only start services. They must not create/reset schema, run migrations, import demo data, or call repo-level maintenance scripts. Use `./scripts/db` for schema init/reset/seed.

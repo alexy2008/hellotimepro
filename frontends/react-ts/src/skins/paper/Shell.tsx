@@ -9,6 +9,7 @@ import { useAuth } from "@/stores/auth";
 import { Avatar, FRONTEND_STACK, ROLE_LABEL, SkinSwitch, TechIcon, useHealth, useThemeToggle } from "@/components/shared";
 import { UserMenu, navProps, useNavKey, useScrolled } from "@/components/shellParts";
 import type { StackItem } from "@/types";
+import { CreateLink } from "@/components/LoginPrompt";
 
 /** 品牌标：一枚印，印文是信封的折口——也像指向十点十分的表针 */
 export function PaperLogo({ className }: { className?: string }) {
@@ -52,10 +53,10 @@ export function PaperHeader() {
           </Link>
         </nav>
         <div className="hdr__act">
-          <Link to="/create" data-testid="nav-create" {...navProps("create", cur, "btn btn--ghost btn--sm hdr__write")}>
+          <CreateLink data-testid="nav-create" {...navProps("create", cur, "btn btn--ghost btn--sm hdr__write")}>
             <Icon name="pen" />
             写一枚
-          </Link>
+          </CreateLink>
           <SkinSwitch />
           <button
             className="iconbtn theme"
@@ -155,12 +156,12 @@ export function PaperTabBar() {
         <Icon name="key" />
         <span>开启</span>
       </Link>
-      <Link to="/create" data-testid="tab-create" {...navProps("create", cur, "tabbar__main")}>
+      <CreateLink data-testid="tab-create" {...navProps("create", cur, "tabbar__main")}>
         <i>
           <Icon name="pen" />
         </i>
         <span>写信</span>
-      </Link>
+      </CreateLink>
       <Link to={user ? "/me/created" : "/login"} data-testid="tab-me" {...navProps("me", cur)}>
         {user ? <Avatar id={user.avatarId} /> : <Icon name="user" />}
         <span>{user ? "我的" : "登录"}</span>

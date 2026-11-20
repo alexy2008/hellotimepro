@@ -160,4 +160,4 @@ FRONTEND_TARGET=<target> FRONTEND_URL=<frontend-url> \
 
 ## 3. 不属于当前两套主验证的脚本
 
-`verification/scripts/verify-design-tokens.sh` 目前是 M0 占位脚本，只输出设计令牌一致性提示并 `exit 0`。它不检查后端契约，也不运行前端 UI 冒烟用例。
+`verification/scripts/verify-design-tokens.sh [实现…]`（2.0 起正式实现）做静态的设计令牌检查：spec 两套皮肤语义令牌同名同集合、`spec/tokens/skins.json` 最新；给出实现时再查它是否引入 spec/styles 2.0、自己的样式是否只用 `base.css` 刻度与语义令牌、有没有色值字面量。规则见 `docs/02-design.md §15.4`。它不检查后端契约，也不运行 UI 冒烟。

@@ -4,6 +4,7 @@ import {
   apiCreateCapsule,
   apiFavorite,
   apiRegister,
+  capsulePath,
   cardOf,
   gotoPlaza,
   loginViaUi,
@@ -28,11 +29,32 @@ test("广场搜索标题会过滤列表，筛选标签上的数量跟着变", as
   await expect(page.locator('[data-testid="filter-option"][data-value="opened"]')).toHaveAttribute("data-count", "0");
 });
 
-test("筛选「已开启」后只剩已开启的卡片", async ({ page }) => {
-  await gotoPlaza(page);
-  await page.locator('[data-testid="filter-option"][data-value="opened"]').click();
-  await expect(page.locator('[data-testid="filter-option"][data-value="opened"]')).toHaveAttribute("data-selected", "true");
-  await expect(tid(page, "capsule-card").first()).toBeVisible({ timeout: 10_000 });
+test("到点的胶囊：详情页倒数归零自动开启，之后出现在「已开启」筛选里", async ({ page, request }) => {
+  // 自己造一枚 1 分钟后开启的胶囊，不依赖库里已有数据；最长要等 ~70 秒
+  test.setTimeout(150_000);
+  const user = await apiRegister(request, { nickname: uniqueNickname("到点") });
+  const tag = `启${rand(6)}`;
+  const cap = await apiCreateCapsule(request, user.accessToken, { title: `${tag} 一分钟后`, openAtSeconds: 62 });
+  const opened = page.locator('[data-testid="filter-option"][data-value="opened"]');
+
+  await searchPlaza(page, tag);
+  await expect(cardOf(page, cap.code)).toHaveAttribute("data-state", "sealed", { timeout: 10_000 });
+  await opened.click();
+  await expect(opened).toHaveAttribute("data-selected", "true");
+  await expect(tid(page, "list-empty")).toBeVisible({ timeout: 10_000 });
+  await expect(cardOf(page, cap.code)).toHaveCount(0);
+
+  await page.goto(capsulePath(cap.code));
+  const detail = tid(page, "capsule-detail");
+  await expect(detail).toHaveAttribute("data-state", "sealed", { timeout: 10_000 });
+  await expect(tid(page, "detail-content")).toHaveCount(0);
+  await expect(detail).toHaveAttribute("data-state", "opened", { timeout: 110_000 });
+  await expect(tid(page, "detail-content")).toContainText(cap.content);
+
+  await searchPlaza(page, tag);
+  await opened.click();
+  await expect(opened).toHaveAttribute("data-count", "1", { timeout: 10_000 });
+  await expect(cardOf(page, cap.code)).toHaveAttribute("data-state", "opened", { timeout: 10_000 });
   await expect(page.locator('[data-testid="capsule-card"][data-state="sealed"]')).toHaveCount(0);
 });
 

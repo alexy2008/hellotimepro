@@ -52,7 +52,7 @@
 |---|---|---|---|
 | `nav-plaza` | a | M | 头部导航：广场（`/`） |
 | `nav-open` | a | M | 头部导航：开启（`/open`） |
-| `nav-create` | a | M | 头部导航：创建（`/create`） |
+| `nav-create` | a | M | 头部导航：创建（`/create`）；未登录时同 `home-create`（X7） |
 | `nav-about` | a | M | 头部或页脚：关于（`/about`） |
 | `nav-login` / `nav-register` | a | C | 未登录：登录 / 注册 |
 | `user-menu` | button | C | 已登录：用户菜单开关，带 `data-nickname="<昵称>"`；点击后展开菜单 |
@@ -71,7 +71,7 @@
 
 | testid | 元素 | 必有 | 说明 |
 |---|---|---|---|
-| `home-create` | a / button | M | hero 区「创建胶囊」入口；未登录时点击跳登录（X7） |
+| `home-create` | a / button | M | hero 区「创建胶囊」入口；未登录时点击先弹 `confirm-dialog`，确认后跳登录（X7） |
 | `code-input` | input | M | 就地输码（X3），与开启页同一个部件；命中后进入 `/capsules/:code` |
 | `[data-code-cell]` | input / 任意 | M | 8 个展示格（属性，不是 testid），按顺序，带 `data-value` |
 | `open-error` | 任意 | C | 未命中时出现（与开启页同名） |
@@ -154,6 +154,7 @@
 | `fav-item` | 任意 | C | 「我收藏的」每一行，带 `data-code`、`data-state`、`data-in-plaza`；内含 `row-open` 与 `fav-button` |
 | `row-open` | a | C | 行内进入详情的链接，`href` 指向 `/capsules/<code>` |
 | `list-empty` | 任意 | C | 列表为空 |
+| `list-next` | button | C | 还有下一页时出现（「加载更多」）；点击后把下一页接在列表末尾。每页条数由实现决定，测试只要求反复点击后能看到全部条目 |
 | `profile-nickname` | input | M | 资料页昵称 |
 | `profile-save` | button | M | 保存资料；无改动时保存给出 `toast`（`data-tone="info"`） |
 | `pwd-current` / `pwd-new` / `pwd-confirm` | input | M | 修改密码 |

@@ -8,6 +8,7 @@ import {
   createCapsuleViaUi,
   enterCode,
   loginViaUi,
+  logoutViaUi,
   registerViaUi,
   searchPlaza,
   tid,
@@ -162,4 +163,42 @@ test("推荐区换一批按钮可用且不报错", async ({ page }) => {
   await expect(tid(page, "reco-chip").first()).toBeVisible({ timeout: 10_000 });
   await tid(page, "reco-refresh").click();
   await expect(tid(page, "reco-chip").first()).toBeVisible({ timeout: 10_000 });
+});
+
+test("AI 代笔失败时，已经写好的正文原样保留", async ({ page }) => {
+  await mockRecommendations(page, []);
+  await page.route("**/api/v1/capsule-suggestion", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ success: false, data: null, message: "AI 暂时没有回应", errorCode: "SERVICE_UNAVAILABLE" }),
+    }),
+  );
+  await registerViaUi(page, { nickname: uniqueNickname("留稿") });
+  await tid(page, "create-title").fill("写给明年的自己");
+  await tid(page, "create-content").fill("这段是我自己写的，不能丢");
+  await tid(page, "ai-generate").click();
+  await expect(page.locator('[data-testid="toast"][data-tone="error"]')).toBeVisible({ timeout: 10_000 });
+  await expect(tid(page, "create-content")).toHaveValue("这段是我自己写的，不能丢");
+  await expect(tid(page, "create-title")).toHaveValue("写给明年的自己");
+});
+
+test("草稿属于写它的人：登出再换账号登录（不刷新页面），创建页是空的", async ({ page, request }) => {
+  await registerViaUi(page, { nickname: uniqueNickname("前任") });
+  await tid(page, "create-title").fill("上一位用户的草稿标题");
+  await tid(page, "create-content").fill("上一位用户的草稿正文");
+  await logoutViaUi(page);
+
+  const next = await apiRegister(request, { nickname: uniqueNickname("后来") });
+  // 全程站内导航：内存里的草稿若没清空，这里一定还在
+  await tid(page, "nav-login").click();
+  await expect(tid(page, "login-email")).toBeVisible({ timeout: 8000 });
+  await tid(page, "login-email").fill(next.email);
+  await tid(page, "login-password").fill(next.password);
+  await tid(page, "login-submit").click();
+  await expect(tid(page, "user-menu")).toHaveAttribute("data-nickname", next.nickname, { timeout: 10_000 });
+  if (!new URL(page.url()).pathname.endsWith("/create")) await tid(page, "nav-create").click();
+  await expect(page).toHaveURL(/\/create$/, { timeout: 8000 });
+  await expect(tid(page, "create-title")).toHaveValue("");
+  await expect(tid(page, "create-content")).toHaveValue("");
 });

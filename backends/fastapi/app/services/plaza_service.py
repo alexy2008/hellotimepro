@@ -39,9 +39,14 @@ def _apply_query(stmt: Select, q: str | None) -> Select:
         return stmt
     if len(q_trim) > 50:
         raise errors.validation_error("q 长度不得超过 50", field="q")
-    pattern = f"%{q_trim.lower()}%"
+    # 字面子串匹配：先转义 LIKE 的通配符，否则搜 "_" 会匹配所有标题、"a_b" 会匹配 "axb"
+    literal = q_trim.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{literal}%"
     return stmt.where(
-        or_(func.lower(Capsule.title).like(pattern), func.lower(User.nickname).like(pattern))
+        or_(
+            func.lower(Capsule.title).like(pattern, escape="\\"),
+            func.lower(User.nickname).like(pattern, escape="\\"),
+        )
     )
 
 

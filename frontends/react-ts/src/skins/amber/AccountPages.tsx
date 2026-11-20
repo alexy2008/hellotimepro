@@ -13,9 +13,10 @@ import { copyText, toast } from "@/stores/feedback";
 import { useNow } from "@/hooks/useNow";
 import { nickState, useAvatarIds, useLogin, useMyList, useMyStats, useProfile, useRegister } from "@/hooks/useAccount";
 import { AvatarPicker, Field, NickState, PasswordField, PwdRules } from "@/components/forms";
-import { Avatar } from "@/components/shared";
+import { Avatar, ListMore } from "@/components/shared";
 import { Badge, CapsuleArt, cdShort } from "./parts";
 import { AmberCard } from "./Card";
+import { CreateLink } from "@/components/LoginPrompt";
 
 /** 登录 / 注册卡片顶上的小景：一枚在轨道上缓缓转动的胶囊 */
 const AuthArt = ({ state }: { state: "locked" | "opened" }) => (
@@ -29,9 +30,7 @@ const AuthArt = ({ state }: { state: "locked" | "opened" }) => (
 const withRedirect = (path: string, redirect: string | null) => (redirect ? `${path}?redirect=${encodeURIComponent(redirect)}` : path);
 
 export function AmberLoginPage() {
-  const { errors, setErrors, busy, submit, redirect } = useLogin();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { email, setEmail, password, setPassword, errors, setErrors, busy, submit, redirect } = useLogin();
   return (
     <div className="page page--auth">
       <div className="container auth">
@@ -50,7 +49,7 @@ export function AmberLoginPage() {
             noValidate
             onSubmit={(e) => {
               e.preventDefault();
-              void submit(email, password);
+              void submit();
             }}
             onInput={() => errors.form && setErrors({})}
           >
@@ -88,12 +87,8 @@ export function AmberLoginPage() {
 }
 
 export function AmberRegisterPage() {
-  const { errors, busy, submit, redirect } = useRegister();
+  const { email, setEmail, nickname, setNickname, password, setPassword, avatarId, setAvatarId, errors, busy, submit, redirect } = useRegister();
   const ids = useAvatarIds();
-  const [email, setEmail] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [password, setPassword] = useState("");
-  const [avatarId, setAvatarId] = useState("neo");
   const ns = nickState(nickname);
   return (
     <div className="page page--auth">
@@ -107,7 +102,7 @@ export function AmberRegisterPage() {
             noValidate
             onSubmit={(e) => {
               e.preventDefault();
-              void submit({ email, nickname, password, avatarId });
+              void submit();
             }}
           >
             <div className="form__row">
@@ -186,7 +181,7 @@ const Empty = ({ state, title, text, action }: { state: "locked" | "opened"; tit
 );
 
 function Created({ now, onChange }: { now: number; onChange: () => void }) {
-  const { items, remove } = useMyList("created", onChange);
+  const { items, total, hasMore, moreBusy, loadMore, remove } = useMyList("created", onChange);
   if (!items) return null;
   if (!items.length) {
     return (
@@ -195,10 +190,10 @@ function Created({ now, onChange }: { now: number; onChange: () => void }) {
         title="还没有写下任何胶囊"
         text="第一枚，写给一年后的自己怎么样？"
         action={
-          <Link className="btn btn--primary" to="/create">
+          <CreateLink className="btn btn--primary">
             <Icon name="pen" />
             写一枚胶囊
-          </Link>
+          </CreateLink>
         }
       />
     );
@@ -206,11 +201,11 @@ function Created({ now, onChange }: { now: number; onChange: () => void }) {
   return (
     <>
       <div className="me__sub">
-        <span>按创建时间倒序 · 共 {items.length} 枚</span>
-        <Link className="btn btn--primary btn--sm" to="/create">
+        <span>按创建时间倒序 · 共 {total} 枚</span>
+        <CreateLink className="btn btn--primary btn--sm">
           <Icon name="plus" />
           写一枚
-        </Link>
+        </CreateLink>
       </div>
       <ul className="ledger">
         {items.map((c, i) => {
@@ -290,6 +285,7 @@ function Created({ now, onChange }: { now: number; onChange: () => void }) {
           );
         })}
       </ul>
+      <ListMore show={hasMore} busy={moreBusy} left={total - items.length} onMore={() => void loadMore()} />
       <p className="tip tip--quiet">
         <Icon name="info" />
         <span>胶囊的内容与开启时间封存后不可修改；你可以随时删除自己写的胶囊，无论它是否已经开启。</span>
@@ -299,7 +295,7 @@ function Created({ now, onChange }: { now: number; onChange: () => void }) {
 }
 
 function Favorites({ now, onChange }: { now: number; onChange: () => void }) {
-  const { items, onFavChange } = useMyList("favorites", onChange);
+  const { items, total, hasMore, moreBusy, loadMore, onFavChange } = useMyList("favorites", onChange);
   const me = useAuth((s) => s.user);
   if (!items) return null;
   if (!items.length) {
@@ -320,7 +316,7 @@ function Favorites({ now, onChange }: { now: number; onChange: () => void }) {
   return (
     <>
       <div className="me__sub">
-        <span>按收藏时间倒序 · 共 {items.length} 枚</span>
+        <span>按收藏时间倒序 · 共 {total} 枚</span>
         <Link className="btn btn--ghost btn--sm" to="/">
           去广场逛逛
         </Link>
@@ -339,6 +335,7 @@ function Favorites({ now, onChange }: { now: number; onChange: () => void }) {
           />
         ))}
       </div>
+      <ListMore show={hasMore} busy={moreBusy} left={total - items.length} onMore={() => void loadMore()} />
     </>
   );
 }

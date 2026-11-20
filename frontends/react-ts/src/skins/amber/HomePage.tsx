@@ -16,6 +16,7 @@ import type { PlazaFilter, PlazaSort } from "@/types";
 import { CapsuleArt, cdShort } from "./parts";
 import { AmberCard, AmberCardSkeleton } from "./Card";
 import { AmberCodeInput } from "./CodeInput";
+import { CreateLink } from "@/components/LoginPrompt";
 
 /** 四角星芒 */
 function sparkle(cx: number, cy: number, r: number) {
@@ -224,10 +225,10 @@ export function AmberHomePage() {
             在那之前，谁也读不到——包括你自己。
           </p>
           <div className="hero__cta">
-            <Link className="btn btn--primary btn--lg" to="/create" data-testid="home-create">
+            <CreateLink className="btn btn--primary btn--lg" data-testid="home-create">
               <Icon name="pen" />
               写一枚胶囊
-            </Link>
+            </CreateLink>
             <a className="btn btn--ghost btn--lg" href="#plaza" onClick={scrollToPlaza}>
               逛逛胶囊广场
               <Icon name="arrow" className="ic--go" />
@@ -283,10 +284,10 @@ export function AmberHomePage() {
             <h2 className="page-title">胶囊广场</h2>
             <p className="page-lead">这里陈列着愿意被看见的胶囊。封存中的只露出标题与倒计时；时间到了，才会交出里面的话。</p>
           </div>
-          <Link className="btn btn--primary" to="/create">
+          <CreateLink className="btn btn--primary">
             <Icon name="pen" />
             我也放一枚
-          </Link>
+          </CreateLink>
         </header>
 
         <div className="toolbar card">
@@ -376,10 +377,10 @@ export function AmberHomePage() {
                 title="广场上还没有胶囊"
                 text="来当第一个写信给未来的人？"
                 action={
-                  <Link className="btn btn--primary" to="/create">
+                  <CreateLink className="btn btn--primary">
                     <Icon name="pen" />
                     写一枚胶囊
-                  </Link>
+                  </CreateLink>
                 }
               />
             )

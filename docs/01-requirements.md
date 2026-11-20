@@ -130,7 +130,7 @@ HelloTime Pro 是一个**多技术栈对比学习 / 教学项目**，业务载�
 - MUST 字段：`title`（1–60 字符）、`content`（1–5000 字符）、`openAt`（ISO 8601 UTC，必须晚于当前时间 + 1 分钟）、`inPlaza`（布尔，默认 `true`）
 - MUST 创建者是当前登录用户，不再需要 `creator` 字段
 - MUST 服务端生成 8 位 `[A-Z0-9]` 唯一码
-- MUST `openAt` 接受的最大范围：当前时间 + 10 年；超出返回 `VALIDATION_ERROR`
+- MUST `openAt` 接受的最大范围：此刻往后 10 个**日历年**的同一时刻（按 UTC 计算；目标年没有该日期时取当月最后一天，即 2 月 29 日 → 2 月 28 日）；超出返回 `VALIDATION_ERROR`
 - MUST 返回完整胶囊对象（含 `code`）
 - MUST 前端校验文案两套皮肤相同，以 `spec/ui/copy.md` 为准（标题为空、正文为空、开启时间过早 / 过晚四条）
 - MUST 封存前明确告知：内容与开启时间封存后不可修改；可以在「我创建的」里删除
@@ -182,6 +182,7 @@ HelloTime Pro 是一个**多技术栈对比学习 / 教学项目**，业务载�
     - `unopened` = `openAt > now`
   - `q`：可选，模糊搜索关键词；**大小写不敏感**子串匹配
     - 匹配范围：胶囊 `title` **或** 创建者 `nickname`（OR 关系）
+    - 按字面匹配：`%`、`_` 等字符不是通配符（用 SQL `LIKE` 实现时必须转义）
     - 前后自动 `trim`；`trim` 后为空视为未传
     - 长度约束：trim 后 1–50 字符；超出返回 `VALIDATION_ERROR`
     - 与 `sort` / `filter` 可叠加（先过滤，再排序、分页）

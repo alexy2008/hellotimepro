@@ -18,6 +18,7 @@ import { useCodeOpen } from "@/hooks/useCodeOpen";
 import type { CapsuleDetail } from "@/types";
 import { Badge, CapsuleArt, Countdown, Stamp, cdShort } from "./parts";
 import { AmberCodeInput } from "./CodeInput";
+import { CreateLink } from "@/components/LoginPrompt";
 
 const RING_C = 2 * Math.PI * 150;
 const dash = (iso: number) => fmt.dateTime(iso).replace(/\./g, "-");
@@ -46,10 +47,10 @@ function Actions({ c, letter }: { c: CapsuleDetail; letter?: boolean }) {
         分享链接
       </button>
       {letter ? (
-        <Link className="btn btn--primary" to="/create">
+        <CreateLink className="btn btn--primary">
           <Icon name="pen" />
           我也写一枚
-        </Link>
+        </CreateLink>
       ) : null}
     </div>
   );
@@ -194,10 +195,13 @@ function Letter({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
 
 export function AmberCapsulePage() {
   const { code = "" } = useParams();
-  const { c, setC, status, now, expired, reload } = useCapsuleByCode(code);
+  const { c, status, now, expired, awaitOpened } = useCapsuleByCode(code);
   const [phase, setPhase] = useState<"" | "shaking" | "open">("");
   const [reveal, setReveal] = useState(false);
   const started = useRef(false);
+  useEffect(() => {
+    started.current = false; // 换了一枚胶囊，重新等它到点
+  }, [code]);
 
   // 开启：胶囊抖动 → 两半分开、迸出一团光 → 信纸自上而下展开，邮戳「啪」地盖上
   useEffect(() => {
@@ -211,13 +215,13 @@ export function AmberCapsulePage() {
         setPhase("open");
         await sleep(1150);
       }
-      const d = await reload();
-      if (d) setC(d);
+      // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
+      if (!(await awaitOpened())) return; // 离开了页面，或胶囊已被删除
       setPhase("");
       setReveal(true);
       toast("胶囊已开启");
     })();
-  }, [expired, reload, setC]);
+  }, [expired, awaitOpened]);
 
   const opened = !!c && c.isOpened && !phase;
   return (

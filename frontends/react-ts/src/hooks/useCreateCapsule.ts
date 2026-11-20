@@ -1,7 +1,7 @@
 // ============================================================
 // 创建页的共享逻辑（两套皮肤共用）
 // - 草稿：标题 / 正文 / 开启时刻 / 是否公开，放在内存 store 里，
-//   切换皮肤、离开再回来都接着写；封存成功后清空
+//   切换皮肤、离开再回来都接着写；封存成功、登出、换了账号时清空（草稿属于写它的那个人）
 // - 校验：文案以 spec/ui/copy.md 为准
 // - AI：推荐主题（序号守卫防乱序、空列表不覆盖已有推荐）、代笔（打字机效果，可被打断）
 // - 封存：调接口，返回胶囊给皮肤展示回执
@@ -11,19 +11,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { api } from "@/api/client";
 import { ApiError, type CapsuleDetail, type CapsuleRecommendation } from "@/types";
-import { fmt, reducedMotion, sleep } from "@/lib/fmt";
+import { addCalendarYears, fmt, reducedMotion, sleep } from "@/lib/fmt";
 import { toast } from "@/stores/feedback";
+import { useAuth } from "@/stores/auth";
 
 export const DAY = 86400000;
 
-/** 开启时间上下限：晚于此刻 + 61 秒，不超过 10 年（契约是 +60 秒与 10 年，留一点余量） */
+/**
+ * 开启时间上下限：晚于此刻 + 61 秒；不晚于「此刻往后 10 个日历年」（openapi 2.0.0，与服务端同一算法），
+ * 两头各留一点余量，避免与服务端的时钟、时区差撞线
+ */
 export const LIMITS = {
   minOpen: () => Date.now() + 61 * 1000,
-  maxOpen: () => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() + 10);
-    return d.getTime() - 5 * 60 * 1000;
-  },
+  maxOpen: () => addCalendarYears(Date.now(), 10) - 5 * 60 * 1000,
 };
 
 export const MSG = {
@@ -98,6 +98,12 @@ export const useDraft = create<Draft & { patch: (p: Partial<Draft>) => void; res
   patch: (p) => set(p),
   reset: () => set(freshDraft()),
 }));
+
+// 草稿属于写它的人：登出、登录态失效、换了另一个账号时一律清空，
+// 免得同一标签页里下一位用户读到（甚至以自己的身份封存）上一位的草稿
+useAuth.subscribe((s, prev) => {
+  if (s.user?.id !== prev.user?.id && prev.user) useDraft.getState().reset();
+});
 
 // ---------------------------------------------------------------- 主逻辑
 
@@ -204,13 +210,14 @@ export function useCreateCapsule() {
     setAiNote("");
     clearErr();
     if (forcedTitle != null) d.patch({ title: forcedTitle });
-    d.patch({ content: "" });
+    // 请求成功之前不动用户已写的正文：失败时原文还在；等待期间用户改了正文（setContent 会让 token 失效），结果就不再覆盖
     try {
       const s = await api.suggestCapsule({ title: typed || undefined });
       if (token !== typeToken.current) return;
       setAiThinking(false);
       const title = s.title ?? typed;
       if (auto && !(await typeInto("title", title, token))) return;
+      useDraft.getState().patch({ content: "" });
       const openAt = Math.min(Math.max(new Date(s.openAt).getTime(), LIMITS.minOpen() + 30000), LIMITS.maxOpen());
       useDraft.getState().patch({ openAt, preset: null });
       if (!(await typeInto("content", s.content, token))) return;

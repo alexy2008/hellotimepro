@@ -167,3 +167,32 @@ test("GET /api/v1/me/stats 删除胶囊后同步减少（含被收藏数）", as
   const theirs = await api<MyStats>("GET", "/api/v1/me/stats", { token: fan.accessToken });
   assert.equal(theirs.body.data!.favoritesGiven, 0);
 });
+
+test("GET /api/v1/plaza/stats?q= 不影响 nextOpenAt：更早开启但不匹配的胶囊仍是「最近一枚」", async () => {
+  const u = await register();
+  const tag = `nx${rand(8)}`;
+  const matched = await createCapsule(u.accessToken, { title: `${tag} 很晚才开`, openAtSeconds: 3600 * 24 * 30 });
+  const sooner = await createCapsule(u.accessToken, { title: `早一点 ${rand(6)}`, openAtSeconds: 90 });
+
+  const scoped = (await api<PlazaStats>("GET", `/api/v1/plaza/stats?q=${tag}`)).body.data!;
+  assert.equal(scoped.counts.all, 1);
+  assert.ok(scoped.nextOpenAt !== null);
+  // 若实现错误地按 q 过滤，nextOpenAt 会等于 matched 的开启时间
+  assert.ok(new Date(scoped.nextOpenAt!).getTime() <= new Date(sooner.openAt).getTime() + 1000, "nextOpenAt 不应受 q 影响");
+  assert.ok(new Date(scoped.nextOpenAt!).getTime() < new Date(matched.openAt).getTime());
+});
+
+test("q 按字面匹配：% 与 _ 不是通配符（列表与统计一致）", async () => {
+  const u = await register();
+  const tag = `lt${rand(8)}`;
+  await createCapsule(u.accessToken, { title: `${tag}x_y` });
+  await createCapsule(u.accessToken, { title: `${tag}xzy` });
+
+  const under = (await api<PlazaStats>("GET", `/api/v1/plaza/stats?q=${encodeURIComponent(`${tag}x_y`)}`)).body.data!;
+  assert.equal(under.counts.all, 1, "_ 只匹配字面下划线，不匹配 xzy");
+  assert.equal(await plazaTotal(`${tag}x_y`, "all"), 1);
+
+  const pct = (await api<PlazaStats>("GET", `/api/v1/plaza/stats?q=${encodeURIComponent(`${tag}%`)}`)).body.data!;
+  assert.equal(pct.counts.all, 0, "% 只匹配字面百分号");
+  assert.equal(await plazaTotal(`${tag}%`, "all"), 0);
+});

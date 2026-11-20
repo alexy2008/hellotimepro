@@ -276,3 +276,23 @@ def test_my_stats(db):
     assert (s.created, s.opened, s.unopened, s.inPlaza) == (2, 1, 1, 1)
     assert s.favoritesReceived == 2  # a 被 fan 收藏一次，b 被自己收藏一次
     assert s.favoritesGiven == 2
+
+
+# ── 2.0 复审修复 ──────────────────────────────────────────────────────────────
+
+
+def test_query_is_literal_not_wildcard(db):
+    """q 按字面子串匹配：% 与 _ 不是通配符。"""
+    owner = _make_user(db, "lit_owner")
+    _make_capsule(db, owner, title="axb 普通标题")
+    _make_capsule(db, owner, title="a_b 带下划线")
+    _make_capsule(db, owner, title="百分之百 100%")
+
+    def titles(q):
+        r = plaza_service.plaza_list(db, sort="new", filter_val="all", q=q, page=1, page_size=20, viewer_id=None)
+        return sorted(i.title for i in r.items)
+
+    # 注意：测试用户昵称形如 plznick_xxx，本身含 "_"，所以不单独搜 "_"
+    assert titles("a_b") == ["a_b 带下划线"]  # 不会匹配 axb
+    assert titles("%") == ["百分之百 100%"]  # 不会匹配全部
+    assert plaza_service.plaza_stats(db, q="a_b").counts.all == 1

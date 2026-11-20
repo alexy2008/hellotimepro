@@ -10,6 +10,7 @@ import { useAuth } from "@/stores/auth";
 import { Avatar, FRONTEND_STACK, ROLE_LABEL, SkinSwitch, TechIcon, useHealth, useThemeToggle } from "@/components/shared";
 import { UserMenu, navProps, useNavKey, useScrolled, type NavKey } from "@/components/shellParts";
 import type { StackItem } from "@/types";
+import { CreateLink } from "@/components/LoginPrompt";
 
 /** 标志：一枚被时间轨道环绕的倾斜胶囊（插画固定配色，不随主题变） */
 export function AmberLogo({ size = 34, className }: { size?: number; className?: string }) {
@@ -102,11 +103,17 @@ export function AmberHeader() {
         </Link>
         <nav className="nav" ref={nav} aria-label="主导航">
           <span className="nav__ink" aria-hidden="true" style={ink} />
-          {NAV.map(([k, to, label]) => (
-            <Link key={k} to={to} data-testid={`nav-${k}`} {...navProps(k, cur, "nav__link")}>
-              {label}
-            </Link>
-          ))}
+          {NAV.map(([k, to, label]) =>
+            k === "create" ? (
+              <CreateLink key={k} data-testid="nav-create" {...navProps(k, cur, "nav__link")}>
+                {label}
+              </CreateLink>
+            ) : (
+              <Link key={k} to={to} data-testid={`nav-${k}`} {...navProps(k, cur, "nav__link")}>
+                {label}
+              </Link>
+            ),
+          )}
         </nav>
         <div className="hdr__tools">
           <SkinSwitch />
@@ -197,12 +204,12 @@ export function AmberTabBar() {
         <Icon name="key" />
         <span>开启</span>
       </Link>
-      <Link to="/create" data-testid="tab-create" {...navProps("create", cur, "tabbar__main")}>
+      <CreateLink data-testid="tab-create" {...navProps("create", cur, "tabbar__main")}>
         <i>
           <Icon name="pen" />
         </i>
         <span>写一枚</span>
-      </Link>
+      </CreateLink>
       <Link to={user ? "/me/created" : "/login"} data-testid="tab-me" {...navProps("me", cur)}>
         {user ? <Avatar id={user.avatarId} /> : <Icon name="user" />}
         <span>{user ? "我的" : "登录"}</span>

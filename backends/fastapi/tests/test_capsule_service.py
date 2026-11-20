@@ -125,3 +125,27 @@ def test_delete_nonexistent_raises_not_found(db):
     with pytest.raises(APIError) as exc:
         capsule_service.delete_own(db, user=owner, capsule_id=uuid.uuid4())
     assert exc.value.code == ErrorCode.NOT_FOUND
+
+
+# ── 2.0：openAt 上限是「此刻往后 10 个日历年」 ──────────────────────────────
+
+
+def test_add_calendar_years_handles_leap_day():
+    from datetime import datetime, timezone
+    from app.schemas.capsule import add_calendar_years
+
+    assert add_calendar_years(datetime(2026, 11, 20, 8, tzinfo=timezone.utc), 10) == datetime(2036, 11, 20, 8, tzinfo=timezone.utc)
+    assert add_calendar_years(datetime(2028, 2, 29, 8, tzinfo=timezone.utc), 10) == datetime(2038, 2, 28, 8, tzinfo=timezone.utc)
+
+
+def test_open_at_upper_bound_is_ten_calendar_years():
+    from datetime import datetime, timedelta, timezone
+    import pytest
+    from pydantic import ValidationError
+    from app.schemas.capsule import CreateCapsuleRequest, add_calendar_years
+
+    now = datetime.now(timezone.utc)
+    ok = add_calendar_years(now, 10) - timedelta(minutes=1)
+    CreateCapsuleRequest(title="t", content="c", openAt=ok)  # 不抛异常
+    with pytest.raises(ValidationError):
+        CreateCapsuleRequest(title="t", content="c", openAt=add_calendar_years(now, 10) + timedelta(minutes=1))

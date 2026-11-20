@@ -225,11 +225,14 @@ function Opened({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
 
 export function PaperCapsulePage() {
   const { code = "" } = useParams();
-  const { c, setC, status, now, expired, reload } = useCapsuleByCode(code);
+  const { c, status, now, expired, awaitOpened } = useCapsuleByCode(code);
   const [opening, setOpening] = useState<{ crack: "whole" | "split" | "cracked"; open: boolean; rising: boolean } | null>(null);
   const [host, setHost] = useState("");
   const [reveal, setReveal] = useState(false);
   const started = useRef(false);
+  useEffect(() => {
+    started.current = false; // 换了一枚胶囊，重新等它到点
+  }, [code]);
 
   // 启封：火漆裂开 → 封舌掀起露出朱红内衬 → 信纸升起 → 换成信纸页，字迹逐段显影
   useEffect(() => {
@@ -250,15 +253,15 @@ export function PaperCapsulePage() {
         setHost("is-opening is-leaving");
         await sleep(380);
       }
-      const d = await reload();
-      if (d) setC(d);
+      // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
+      if (!(await awaitOpened())) return; // 离开了页面，或胶囊已被删除
       setHost("");
       setOpening(null);
       setReveal(true);
       window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
       toast("胶囊已启封");
     })();
-  }, [expired, reload, setC]);
+  }, [expired, awaitOpened]);
 
   const opened = !!c && c.isOpened && !opening;
   return (

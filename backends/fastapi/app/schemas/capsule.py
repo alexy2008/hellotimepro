@@ -33,6 +33,14 @@ class CapsuleDetail(CapsuleBase):
     favoritedByMe: bool = False
 
 
+def add_calendar_years(dt: datetime, years: int) -> datetime:
+    """往后数若干个日历年的同一时刻；目标年没有该日期（2 月 29 日）时取当月最后一天。"""
+    try:
+        return dt.replace(year=dt.year + years)
+    except ValueError:  # 只有 2 月 29 日会走到这里
+        return dt.replace(year=dt.year + years, day=28)
+
+
 class CreateCapsuleRequest(BaseModel):
     title: str = Field(min_length=1, max_length=60)
     content: str = Field(min_length=1, max_length=5000)
@@ -48,7 +56,8 @@ class CreateCapsuleRequest(BaseModel):
             v = v.replace(tzinfo=timezone.utc)
         if v < now + timedelta(seconds=60):
             raise ValueError("openAt 必须晚于当前时间 60 秒以上")
-        if v > now + timedelta(days=365 * 10):
+        # 上限是「此刻往后 10 个日历年」（openapi 2.0.0），不是固定的 3650 天
+        if v > add_calendar_years(now, 10):
             raise ValueError("openAt 不得超出当前时间 10 年")
         return v
 

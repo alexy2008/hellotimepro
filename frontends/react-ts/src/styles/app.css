@@ -6,3 +6,10 @@
 #root {
   display: contents;
 }
+
+/* 「我的」列表底部的「加载更多」 */
+.list-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-8);
+}

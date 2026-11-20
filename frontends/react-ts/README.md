@@ -40,9 +40,9 @@ src/
 ├── hooks/                ← 两套皮肤共用的业务逻辑
 │   ├── usePlazaHome      首页：防抖搜索、/ 聚焦、到点刷新、年鉴数字
 │   ├── useCodeOpen       凭码开启（首页就地输码与开启页共用）
-│   ├── useCapsule        详情：取数、逐秒倒数、到点 expired；我封存过的胶囊
+│   ├── useCapsule        详情：取数、逐秒倒数、到点后等服务端确认开启（awaitOpened）；我封存过的胶囊
 │   ├── useCreateCapsule  创建：草稿、校验、AI 推荐与代笔、封存
-│   ├── useAccount        登录 / 注册 / 我的统计与列表 / 资料与密码
+│   ├── useAccount        登录 / 注册 / 我的统计与列表（分页加载更多）/ 资料与密码；表单值跨皮肤保留
 │   └── useNow            全局整秒节拍
 ├── lib/                  ← 图标、时间说法、头像（内联 spec/avatars/v2）、专属色、关于页文字、登录回跳
 ├── components/           ← 结构相同、只靠样式换肤的部件：Seg、FavButton、Feedback、forms、shared、AuthGate
@@ -76,9 +76,10 @@ src/
 - **样式**：不写组件样式，类名与 DOM 结构照 2.0 原型；本前端只有 `styles/app.css` 一行胶水。时笺的网络字体用 `@fontsource` 自托管。
 - **测试钩子**：所有关键元素带 `spec/ui/testids.md` 规定的 `data-testid`；长按封缄可用键盘空格按住完成（完成由定时器驱动，后台标签页不会卡住）。
 - **存储策略**：access token 在内存，refresh token 与 user 在 `localStorage`，并在首次渲染前恢复（守卫第一帧就能拿到登录态）；XSS 权衡见 `docs/02-design.md §7.2`。
-- **收藏**：2.0 起任何胶囊都能收藏；乐观更新、失败回滚；匿名用户先弹确认框，再带 `?redirect=` 去登录。
+- **收藏与创建入口**：2.0 起任何胶囊都能收藏；乐观更新、失败回滚；匿名用户点收藏或任一「创建」入口都先弹确认框，再带 `?redirect=` 去登录。
 
 ## 验证
 
 - 单元测试：`./test`（时间说法、专属色、登录回跳）
-- UI 冒烟：39 条 × 两套皮肤 = 78 条，PostgreSQL 与 SQLite 下均通过（2026-11-18）
+- UI 冒烟：44 条 × 两套皮肤 = 88 条，PostgreSQL 与 SQLite 下均通过（2026-11-20）
+- 设计令牌：`./verification/scripts/verify-design-tokens.sh react`（自己的样式只用语义令牌、无色值字面量）

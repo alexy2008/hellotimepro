@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import errors
+from app.core.config import settings
 from app.models import Capsule, Favorite, User
 from app.schemas.capsule import CapsuleDetail, CreateCapsuleRequest
 from app.schemas.user import UserBrief
@@ -112,7 +113,12 @@ def get_plaza_detail(db: Session, *, capsule_id: uuid.UUID, viewer_id: uuid.UUID
 
 
 def delete_own(db: Session, *, user: User, capsule_id: uuid.UUID) -> None:
-    capsule = db.execute(select(Capsule).where(Capsule.id == capsule_id)).scalar_one_or_none()
+    # 先锁胶囊行，再删收藏：与收藏 / 取消收藏的加锁顺序一致（都是「胶囊 → 收藏」），
+    # 避免作者删除与收藏者取消收藏并发时互相等待（PostgreSQL 死锁）
+    stmt = select(Capsule).where(Capsule.id == capsule_id)
+    if settings.db_driver == "postgres":
+        stmt = stmt.with_for_update()
+    capsule = db.execute(stmt).scalar_one_or_none()
     if not capsule:
         raise errors.not_found("胶囊不存在")
     if capsule.owner_id != user.id:

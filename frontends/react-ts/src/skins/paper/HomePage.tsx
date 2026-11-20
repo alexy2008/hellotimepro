@@ -15,6 +15,7 @@ import type { PlazaFilter, PlazaSort } from "@/types";
 import { CdShort, Envelope, Postmark, Seal } from "./parts";
 import { PaperCard, PaperCardSkeleton } from "./Card";
 import { PaperCodeInput } from "./CodeInput";
+import { CreateLink } from "@/components/LoginPrompt";
 
 const EmptyArt = () => (
   <svg className="empty__art" viewBox="0 0 120 84" aria-hidden="true">
@@ -115,11 +116,11 @@ function Hero({ now, featured }: { now: number; featured: ReturnType<typeof useP
             在那之前，谁也打不开它——包括你自己。
           </p>
           <div className="hero__cta">
-            <Link className="btn btn--primary btn--lg" to="/create" data-testid="home-create">
+            <CreateLink className="btn btn--primary btn--lg" data-testid="home-create">
               <Icon name="pen" />
               <span>写一枚胶囊</span>
               <Icon name="arrow" className="ic--go" />
-            </Link>
+            </CreateLink>
             <a className="btn btn--ghost btn--lg" href="#plaza" onClick={scrollToPlaza}>
               <span>逛逛胶囊广场</span>
               <Icon name="arrow" className="ic--go" />
@@ -318,10 +319,10 @@ export function PaperHomePage() {
                 <EmptyArt />
                 <h3>广场上还没有胶囊</h3>
                 <p>来当第一个写信给未来的人？</p>
-                <Link className="btn btn--primary" to="/create">
+                <CreateLink className="btn btn--primary">
                   <Icon name="pen" />
                   写一枚胶囊
-                </Link>
+                </CreateLink>
               </div>
             )
           ) : (

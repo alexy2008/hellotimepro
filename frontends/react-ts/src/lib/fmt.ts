@@ -128,3 +128,12 @@ export function focusIfIdle(el: HTMLElement | null | undefined) {
   const a = document.activeElement;
   if (el && (!a || a === document.body)) el.focus({ preventScroll: true });
 }
+
+/** 往后数 n 个日历年的同一时刻（UTC）；2 月 29 日落到平年时取 2 月 28 日——与服务端的上限算法一致 */
+export function addCalendarYears(t: number, n: number): number {
+  const d = new Date(t);
+  const out = new Date(t);
+  out.setUTCFullYear(d.getUTCFullYear() + n);
+  if (out.getUTCMonth() !== d.getUTCMonth()) out.setUTCDate(0);
+  return out.getTime();
+}

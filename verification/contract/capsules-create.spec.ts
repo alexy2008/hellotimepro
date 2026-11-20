@@ -117,3 +117,28 @@ test("GET /api/v1/capsules/{code} code 格式错误（非 8 位）→ 422", asyn
   const r = await api("GET", "/api/v1/capsules/abc");
   assert.equal(r.status, 422);
 });
+
+/** 此刻往后 n 个日历年的同一时刻（UTC）；2 月 29 日落到没有闰日的年份时取 2 月 28 日 */
+function addCalendarYears(d: Date, n: number): Date {
+  const out = new Date(d);
+  out.setUTCFullYear(d.getUTCFullYear() + n);
+  if (out.getUTCMonth() !== d.getUTCMonth()) out.setUTCDate(0); // 3 月 1 日 → 2 月最后一天
+  return out;
+}
+
+test("POST /api/v1/capsules openAt 上限是 10 个日历年：差 1 分钟到上限 → 201，超出 1 分钟 → 422", async () => {
+  const u = await register();
+  const now = new Date();
+  const limit = addCalendarYears(now, 10);
+  const ok = await api("POST", "/api/v1/capsules", {
+    token: u.accessToken,
+    json: { title: "十年之约", content: "c", openAt: new Date(limit.getTime() - 60_000).toISOString() },
+  });
+  assert.equal(ok.status, 201, ok.raw);
+  const late = await api("POST", "/api/v1/capsules", {
+    token: u.accessToken,
+    json: { title: "十年零一分", content: "c", openAt: new Date(limit.getTime() + 60_000).toISOString() },
+  });
+  assert.equal(late.status, 422);
+  assert.equal(late.body.errorCode, "VALIDATION_ERROR");
+});

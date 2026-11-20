@@ -488,7 +488,9 @@ useAuth.setState({ user: null })                  // 直接改
 | `usePlaza` | sort / filter / q / page + 列表、筛选数量、年鉴、精选 | 否；但两套皮肤共用，切换皮肤后条件还在 |
 | `useFeedback` | Toast 队列与当前确认框 | 否；页面里直接调 `toast()`、`await confirmDialog()` |
 
-创建页草稿是 `hooks/useCreateCapsule.ts` 里的一个小 store（`useDraft`），只在内存里，切换皮肤、离开再回来都还在，封存成功后清空。
+创建页草稿是 `hooks/useCreateCapsule.ts` 里的一个小 store（`useDraft`），只在内存里，切换皮肤、离开再回来都还在；封存成功、登出、换了账号时清空——草稿属于写它的人（订阅 `useAuth`，`user.id` 变了就 `reset()`）。
+
+登录 / 注册 / 资料 / 改密码的表单值同理放在 `hooks/useAccount.tsx` 的 `useForms` 里：切换皮肤会把视图组件整个换掉，值若放在组件的 `useState` 里就丢了（违反 X5）。它们在提交成功、登出、**离开该页面**时清空——判断「离开」的办法是卸载时看地址栏：切皮肤时路由没变，真离开时路由已经变了。
 
 ### 9.3 一致性：跨 store 联动
 
@@ -540,7 +542,7 @@ export function PaperCreatePage() {
 
 | 位置 | 放什么 |
 |---|---|
-| `components/` | 结构两套相同的部件：`Seg`（分段控件）、`FavButton`、`Feedback`（Toast / 确认框）、`forms`、`shared`（头像、技术栈、皮肤开关）、`AuthGate` |
+| `components/` | 结构两套相同的部件：`Seg`（分段控件）、`FavButton`、`LoginPrompt`（匿名收藏 / 创建先确认再去登录、`CreateLink`）、`Feedback`（Toast / 确认框）、`forms`、`shared`（头像、技术栈、皮肤开关、「加载更多」）、`AuthGate` |
 | `skins/<skin>/parts.tsx` | 皮肤专属的小件：时笺的印章、火漆、信封、邮戳、翻页数字；琥珀的胶囊插画、徽标、翻牌倒计时 |
 | `skins/<skin>/*Page.tsx` | 页面视图与卡片、外壳 |
 
@@ -552,7 +554,7 @@ export function PaperCreatePage() {
 
 | 文件 | 内容 |
 |---|---|
-| `fmt.ts` | 时间说法（`span`：「2 年 8 个月」）、倒计时拆分、等待进度、农历、`reducedMotion()`、`focusIfIdle()` |
+| `fmt.ts` | 时间说法（`span`：「2 年 8 个月」）、倒计时拆分、等待进度、农历、`reducedMotion()`、`focusIfIdle()`、`addCalendarYears()`（开启时间上限：10 个日历年，与服务端同一算法） |
 | `icons.tsx` | 24 网格线性图标 |
 | `avatars.ts` | 构建期内联 `spec/avatars/v2` 的单线徽记（`import.meta.glob(..., { query: "?raw" })`） |
 | `palette.ts` | 琥珀的胶囊专属色：FNV-1a + OKLCH（`docs/02-design.md §9.6`） |
@@ -568,7 +570,7 @@ export function PaperCreatePage() {
 ## 14. 测试
 
 - 单元测试（vitest，`./test`）：`lib/lib.test.ts` 测时间说法、专属色确定性、登录回跳；`api/client.test.ts` 测 refresh 单飞与重放。
-- UI 冒烟（Playwright，`verification/ui`）：39 条用例 × 两套皮肤，靠测试钩子定位；`SKINS=paper` 可只跑一套。
+- UI 冒烟（Playwright，`verification/ui`）：44 条用例 × 两套皮肤，靠测试钩子定位；`SKINS=paper` 可只跑一套。
 
 ## 15. 常见改动指南
 

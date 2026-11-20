@@ -60,6 +60,47 @@ test("切换皮肤与明暗后，草稿与路由都还在", async ({ page }, inf
   await expect(tid(page, "create-title")).toHaveValue("切换皮肤也不丢的草稿");
 });
 
+test("切换皮肤与明暗时，注册表单里填了一半的内容不丢", async ({ page }, info) => {
+  await page.goto("/register");
+  await tid(page, "register-email").fill("half-filled@ui-smoke.hellotimepro.dev");
+  await tid(page, "register-nickname").fill("填了一半");
+  await tid(page, "register-password").fill("abc12345");
+  await expect(tid(page, "avatar-option")).toHaveCount(10, { timeout: 8000 });
+  const pick = tid(page, "avatar-option").nth(3);
+  const avatar = await pick.getAttribute("data-value");
+  await pick.click();
+
+  const check = async () => {
+    await expect(page).toHaveURL(/\/register$/);
+    await expect(tid(page, "register-email")).toHaveValue("half-filled@ui-smoke.hellotimepro.dev");
+    await expect(tid(page, "register-nickname")).toHaveValue("填了一半");
+    await expect(tid(page, "register-password")).toHaveValue("abc12345");
+    await expect(page.locator(`[data-testid="avatar-option"][data-value="${avatar}"]`)).toHaveAttribute("data-selected", "true");
+  };
+  const other = info.project.name === "paper" ? "amber" : "paper";
+  await page.locator(`[data-testid="skin-option"][data-value="${other}"]`).click();
+  await expect(page.locator("html")).toHaveAttribute("data-skin", other, { timeout: 2000 });
+  await check();
+  const before = await page.locator("html").getAttribute("data-theme");
+  await tid(page, "theme-toggle").click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme", before ?? "", { timeout: 2000 });
+  await check();
+});
+
+test("匿名点击创建入口会先确认，确认后带着 redirect 去登录", async ({ page }) => {
+  await page.goto("/");
+  await tid(page, "home-create").click();
+  await expect(tid(page, "confirm-dialog")).toBeVisible({ timeout: 8000 });
+  await tid(page, "confirm-cancel").click();
+  await expect(tid(page, "confirm-dialog")).toHaveCount(0, { timeout: 8000 });
+  await expect(page).toHaveURL(/\/$/);
+
+  await tid(page, "nav-create").click();
+  await expect(tid(page, "confirm-dialog")).toBeVisible({ timeout: 8000 });
+  await tid(page, "confirm-ok").click();
+  await expect(page).toHaveURL(/\/login\?redirect=%2Fcreate$/, { timeout: 8000 });
+});
+
 test("未知路径显示 404", async ({ page }) => {
   await page.goto("/no/such/page");
   await expect(tid(page, "not-found")).toBeVisible();

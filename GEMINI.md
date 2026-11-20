@@ -56,7 +56,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 spec/           ← Single source of truth (never overridden by implementations)
   api/openapi.yaml        ← Full API contract
   db/schema.sql           ← PostgreSQL reference schema
-  styles/tokens.css|json  ← Design tokens (semantic colors, spacing, typography)
+  styles/                 ← 2.0 skins: base.css + paper/ + amber/ + shell.css (see README)
 backends/       ← 10 independent backend implementations (ports :29000–:29090)
 frontends/      ← 5 SPA implementations (ports :7173–:7180)
 fullstacks/     ← 5 self-contained apps (ports :7177–:7182)
@@ -111,7 +111,7 @@ users → refresh_tokens
 
 ### Styling
 
-Tailwind CSS v4 + semantic design tokens. All color/spacing references must use token names from `spec/styles/tokens.css` — hardcoded values are prohibited. `tokens.css` is the source; `tokens.json` is derived.
+2.0: two skins `paper` / `amber` × light/dark, all styles in `spec/styles/` (see `spec/styles/README.md`); **Tailwind is no longer used** (removed from the React reference). Implementation-owned CSS may only use `base.css` scales and the semantic layer (`--color-*`, `--bg-primary`, `--font-*`, `--radius-*`, `--shadow-card|pop`, `--header-h`); hardcoded colors prohibited. 1.x legacy `spec/styles/{palette,tokens,cyber}.css` remains only for not-yet-upgraded implementations.
 
 ## Per-Stack Notes
 

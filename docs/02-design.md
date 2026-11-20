@@ -449,7 +449,7 @@ DB_URL=sqlite://../../data/hellotime.db
 
 ### 9.1 共用层
 
-- **Tailwind CSS v4** 只用于少量布局 utility；颜色、字体、间距一律走 `spec/styles` 的令牌（§9.3）
+- **2.0 不再使用 Tailwind**：样式唯一来源是 `spec/styles`（§9.3），组件照原型的结构与类名书写，各实现自己的胶水样式只能用 `base.css` 刻度与语义令牌。个别栈确有需要可自行引入布局类工具，但须在 README 说明，且不得与皮肤类名冲突
 - 每个前端 SHOULD 有一个 `api/client.ts`（fetch 封装，统一错误、自动 refresh token 并重放）
 - 每个前端 SHOULD 有一个 `types/index.ts`（从 OpenAPI 生成或手维护，但 shape 一致），2.0 新增 `PlazaStats`、`MyStats`
 - 2.0 的视觉原型在 `2.0版原型byClaude-合集/`（纯静态，可直接双击打开）：它是两套皮肤的**视觉与交互基准**，实现时以它为参照，以 `spec/` 为契约
@@ -508,7 +508,7 @@ spec/tokens/skins.json               ← { base, skins: { paper: { light, dark }
 - **加载顺序固定**：`base.css` → 时笺三件 → 琥珀三件 → `shell.css`。各实现原样引入，不做二次加工
 - **类名就是原型的类名**（`.btn`、`.cap__title`、`.hquick__in`…，BEM 风格），组件的 DOM 结构以 2.0 原型为准：实现某个组件时，照原型里那套皮肤的模板写出同样的结构与类名，样式自然就对了。原型本身直接引用 `spec/styles`，它就是这套样式的活样本
 - **各实现自己写的样式**（布局胶水、框架特有的包装）只能引用 `base.css` 与语义层，不得引用私有令牌，不得写色值字面量。`spec/styles` 本身可以有字面量（插画、光效里的固定色）
-- 与 Tailwind 共存：皮肤类名带 `:root[data-skin]` 前缀，特异性高于 utility；实现里不要给同一元素同时套用同名含义冲突的 utility（如 `.container`、`.grid`）
+- 不再使用 Tailwind：它的全局重置会与皮肤的重置叠加，类名（`.container`、`.grid`）也与原型撞名；2.0 的 React 参考实现已移除 tailwindcss 与 `@tailwindcss/vite`
 - **1.x 遗留**：`palette.css`、`tokens.css`、`cyber.css`（`cy-*` 类）与 `spec/tokens/tokens.json` 暂时保留，因为尚未升级的实现还在引用。20 个 Web 实现全部迁到 2.0 后删除前三个；`tokens.json` 等桌面端与移动端在下一轮升级后删除
 
 **结构差异怎么办**：两套皮肤不只是换色——时笺的卡片是信封，琥珀的卡片是胶囊；时笺用长按火漆封缄，琥珀用按钮。因此：
@@ -649,7 +649,8 @@ LIMIT $pageSize OFFSET ($page - 1) * $pageSize;
 
 模糊搜索规则：
 
-- **跨库可移植**：统一用 `lower(col) LIKE '%' || lower($q) || '%'`（Postgres 与 SQLite 都支持）
+- **跨库可移植**：统一用 `lower(col) LIKE '%' || lower($q) || '%' ESCAPE '\'`（Postgres 与 SQLite 都支持）
+- **字面匹配**：拼进模式之前先把 `\`、`%`、`_` 转义成 `\\`、`\%`、`\_`，否则搜 `_` 会匹配所有标题、搜 `a_b` 会匹配 `axb`
 - 服务端先对 `q` 做 `trim`，结果为空当未传处理；长度越界返回 `VALIDATION_ERROR`
 - `total` 基于过滤后的结果集；分页信息准确反映搜索后的总数
 
@@ -765,18 +766,30 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 
 ### 15.2 契约验证脚本
 
-`verification/scripts/verify-contract.sh <target>` 对一个后端 / 全栈跑完整脚本：
+> ⚠️ **会重建数据库**：脚本的第一步是 `./scripts/db reset --seed --yes`——PostgreSQL 会重建 `DB_URL` 指向的库的 `public` schema，SQLite 会重建 `data/sqlite/hellotime-<target>.db`。库里原有的数据都会丢失。
+> 数据库按「环境变量 `DB_URL` > `data/.hello-state.json` 里的配置」选择。不想动日常开发库时，用一个专门的测试库：
+>
+> ```bash
+> # PostgreSQL：指向一个隔离的测试库（需事先建好空库）
+> DB_URL=postgresql+psycopg://hellotime:***@127.0.0.1:5432/hellotime_contract ./verification/scripts/verify-contract.sh fastapi
+> # SQLite：指向一个临时文件
+> DB_DRIVER=sqlite DB_URL=sqlite:////tmp/hellotime-contract.db ./verification/scripts/verify-contract.sh fastapi
+> ```
 
-1. 启动目标（通过 `hello start`），等健康检查；确认 `version == "2.0.0"`，否则直接判红
-2. 注册 2 个用户 → 登录 → 创建若干胶囊（含 `inPlaza=true/false`）
-3. 跑 [`verification/contract/*.spec.ts`](../verification/contract/)（fetch + 断言）
-4. 验证未到期 `content = null`
-5. 验证广场只返回 `in_plaza = true`
-6. 验证收藏：收藏自己的成功；凭码收藏 `inPlaza = false` 的成功并出现在「我收藏的」；不存在 404；非法 UUID 422；重复收藏与重复取消幂等
-7. 验证删除：删除后按码查询 404，并从收藏者的「我收藏的」里消失；不能删除别人的
-8. 验证统计：`/plaza/stats` 的 `counts` 与三种 `filter` 下列表的 `total` 一致、随 `q` 变化、`all = opened + unopened`；`/me/stats` 与「我创建的 / 我收藏的」的 `total` 一致、未登录 401
-9. 验证热度排序正确
-10. 清理
+`verification/scripts/verify-contract.sh <target>` 对一个后端 / 全栈依次做：
+
+1. **重置并播种数据库**（`db reset --seed --yes`，见上方警示）
+2. 启动目标（通过 `hello start`），等健康检查；确认 `version == "2.0.0"`，否则直接判红
+3. 注册 2 个用户 → 登录 → 创建若干胶囊（含 `inPlaza=true/false`）
+4. 跑 [`verification/contract/*.spec.ts`](../verification/contract/)（fetch + 断言）
+5. 验证未到期 `content = null`
+6. 验证广场只返回 `in_plaza = true`；搜索词按字面匹配（`%`、`_` 不是通配符）
+7. 验证收藏：收藏自己的成功；凭码收藏 `inPlaza = false` 的成功并出现在「我收藏的」；不存在 404；非法 UUID 422；重复收藏与重复取消幂等
+8. 验证删除：删除后按码查询 404，并从收藏者的「我收藏的」里消失；不能删除别人的
+9. 验证统计：`/plaza/stats` 的 `counts` 与三种 `filter` 下列表的 `total` 一致、随 `q` 变化、`all = opened + unopened`；`farthestOpenAt` / `nextOpenAt` 不受 `q` 影响；`/me/stats` 与「我创建的 / 我收藏的」的 `total` 一致、未登录 401
+10. 验证 `openAt` 上限：刚好 10 个日历年内通过，超出 422
+11. 验证热度排序正确
+12. 清理测试用户（`@hellotime-contract.com`），再 `db seed --force` 补回演示数据，停止目标
 
 输出统一的绿 / 红报告。
 
@@ -791,13 +804,15 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 
 ### 15.4 Design Token 验证
 
-`verification/scripts/verify-design-tokens.sh` 静态比对：
+`verification/scripts/verify-design-tokens.sh [实现…]` 静态检查（实现在同目录的 `verify_design_tokens.py`）：
 
-- 读 `spec/styles/base.css` 与两套 `tokens.css` 的语义层（命名规则见 `build_tokens.py` 的 `SEMANTIC`）
-- 扫描每个前端 / 全栈自己的样式源码：`var(--x)` 只能引用 `base.css` 刻度与语义层（实现内部以 `--_` 开头的局部变量除外），引用皮肤私有令牌即红灯
-- 组件样式里不得出现十六进制、`rgb()`、`hsl()`、`oklch()` 色值字面量（`spec/styles` 本身与胶囊专属色计算函数除外）
-- 两套皮肤的语义令牌必须同名同集合、`spec/tokens/skins.json` 必须是最新的：直接调用 `python3 spec/styles/build_tokens.py --check`
-- 失败即红灯
+- **spec 本身**（总是检查）：直接调用 `python3 spec/styles/build_tokens.py --check`——两套皮肤的语义令牌（命名规则见 `build_tokens.py` 的 `SEMANTIC`）必须同名同集合，`spec/tokens/skins.json` 必须是最新的
+- **实现必须引入 spec/styles 2.0**：源码里要引用 `base.css` 与 `paper|amber/tokens.css`
+- **实现自己的样式文件**（`.css` / `.scss` / `.less`，以及 `.vue` / `.svelte` / `.astro` 的 `<style>` 块；跳过 `node_modules`、构建产物，以及与 `spec/styles` 某个文件内容完全相同的拷贝）：
+  - `var(--x)` 只能引用 `base.css` 刻度与语义层，或实现内部以 `--_` 开头的局部变量；引用皮肤私有令牌即红灯
+  - 声明值里不得出现色值字面量：`#rgb` / `#rrggbb`（含透明度）、`rgb()`、`rgba()`、`hsl()`、`hsla()`、`oklch()` 等（胶囊专属色在脚本里计算，不在样式文件里，不受影响）
+- 用法：`./verification/scripts/verify-design-tokens.sh react`；不带参数只查 spec。未升级到 2.0 的实现会因为没有引入 2.0 样式而红灯——这是预期的
+- 失败即红灯（退出码 1）
 
 ## 16. 本地开发体验（Day-1 指标）
 
@@ -816,7 +831,7 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 | 风险 | 影响 | 缓解 |
 |---|---|---|
 | 10 后端 × Postgres + SQLite 双驱动维护成本高 | 迁移难写、修 bug 慢 | 先打通参考栈，其他栈按模板补；Schemathesis 兜底契约 |
-| Tailwind 的 utility 风被某些栈（Angular）不适 | 模板变脏 | Angular 中允许以组件级 `.scss` 写 token 类别名 |
+| 两套皮肤的样式表体积较大（约 700KB，含字体声明） | 首屏 CSS 偏重 | 字体按 unicode-range 分片按需下载；后续可按皮肤拆分样式包 |
 | 每次 refresh 去数据库增加延迟 | 登录态切换慢感知 | refresh 是低频事件（1h 一次），可接受 |
 | `favorite_count` 冗余计数器一致性 | 排序错误 | 事务写 + 契约验证覆盖 |
 | 5 全栈各自样式漂移 | 视觉不一致 | Design Token 验证脚本把关 |

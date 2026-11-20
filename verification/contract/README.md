@@ -14,6 +14,14 @@ BASE_URL=http://127.0.0.1:9080 node --test verification/contract
 
 脚本入口：[`verification/scripts/verify-contract.sh`](../scripts/verify-contract.sh) 会自动启停目标服务 + 重置 DB + 运行本目录。
 
+> ⚠️ **脚本第一步就会重建数据库**（`./scripts/db reset --seed --yes`）：PostgreSQL 重建 `DB_URL` 所指库的 `public` schema，SQLite 重建 `data/sqlite/hellotime-<target>.db`，原有数据全部丢失。
+> 库的选择顺序是「环境变量 `DB_URL` > `data/.hello-state.json`」。不想动日常开发库，就指向专门的测试库：
+>
+> ```bash
+> DB_URL=postgresql+psycopg://hellotime:***@127.0.0.1:5432/hellotime_contract ./verification/scripts/verify-contract.sh fastapi
+> DB_DRIVER=sqlite DB_URL=sqlite:////tmp/hellotime-contract.db ./verification/scripts/verify-contract.sh fastapi
+> ```
+
 ## 设计原则
 
 - **纯黑盒**：只用 HTTP + envelope。不读数据库、不 import 任何实现代码。

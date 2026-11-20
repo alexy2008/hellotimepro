@@ -12,9 +12,11 @@ import { copyText, toast } from "@/stores/feedback";
 import { useNow } from "@/hooks/useNow";
 import { nickState, useAvatarIds, useLogin, useMyList, useMyStats, useProfile, useRegister } from "@/hooks/useAccount";
 import { AvatarPicker, Field, NickState, PasswordField, PwdRules } from "@/components/forms";
+import { ListMore } from "@/components/shared";
 import { PaperLogo } from "./Shell";
 import { AvatarStamp, Postmark, Scale, Seal } from "./parts";
 import { PaperCard } from "./Card";
+import { CreateLink } from "@/components/LoginPrompt";
 
 /* ---------------- 登录 / 注册 共用的左侧题字 ---------------- */
 function ArtPanel({ poem, src, seal }: { poem: string[]; src: string; seal: string }) {
@@ -43,9 +45,7 @@ function ArtPanel({ poem, src, seal }: { poem: string[]; src: string; seal: stri
 const withRedirect = (path: string, redirect: string | null) => (redirect ? `${path}?redirect=${encodeURIComponent(redirect)}` : path);
 
 export function PaperLoginPage() {
-  const { errors, setErrors, busy, submit, redirect } = useLogin();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { email, setEmail, password, setPassword, errors, setErrors, busy, submit, redirect } = useLogin();
   return (
     <div className="page page--auth">
       <div className="auth">
@@ -68,7 +68,7 @@ export function PaperLoginPage() {
               noValidate
               onSubmit={(e) => {
                 e.preventDefault();
-                void submit(email, password);
+                void submit();
               }}
               onInput={() => errors.form && setErrors({})}
             >
@@ -106,12 +106,8 @@ export function PaperLoginPage() {
 }
 
 export function PaperRegisterPage() {
-  const { errors, busy, submit, redirect } = useRegister();
+  const { email, setEmail, nickname, setNickname, password, setPassword, avatarId, setAvatarId, errors, busy, submit, redirect } = useRegister();
   const ids = useAvatarIds();
-  const [email, setEmail] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [password, setPassword] = useState("");
-  const [avatarId, setAvatarId] = useState("neo");
   const ns = nickState(nickname);
   return (
     <div className="page page--auth">
@@ -129,7 +125,7 @@ export function PaperRegisterPage() {
               noValidate
               onSubmit={(e) => {
                 e.preventDefault();
-                void submit({ email, nickname, password, avatarId });
+                void submit();
               }}
             >
               <div className="form__row">
@@ -195,7 +191,7 @@ function Msg({ m }: { m: { type: string; text: string } | null }) {
 }
 
 function Created({ now, onChange }: { now: number; onChange: () => void }) {
-  const { items, remove } = useMyList("created", onChange);
+  const { items, total, hasMore, moreBusy, loadMore, remove } = useMyList("created", onChange);
   if (!items) return null;
   if (!items.length) {
     return (
@@ -203,21 +199,21 @@ function Created({ now, onChange }: { now: number; onChange: () => void }) {
         <Seal ch="空" variant="line" />
         <h3>还没有写下任何胶囊</h3>
         <p>第一封信，写给一年后的自己怎么样？</p>
-        <Link className="btn btn--primary" to="/create">
+        <CreateLink className="btn btn--primary">
           <Icon name="pen" />
           写一枚胶囊
-        </Link>
+        </CreateLink>
       </div>
     );
   }
   return (
     <>
       <div className="me__bar">
-        <span>按创建时间倒序 · 共 {items.length} 枚</span>
-        <Link className="btn btn--primary btn--sm" to="/create">
+        <span>按创建时间倒序 · 共 {total} 枚</span>
+        <CreateLink className="btn btn--primary btn--sm">
           <Icon name="plus" />
           新建胶囊
-        </Link>
+        </CreateLink>
       </div>
       <ul className="ledger">
         {items.map((c, i) => {
@@ -311,6 +307,7 @@ function Created({ now, onChange }: { now: number; onChange: () => void }) {
           );
         })}
       </ul>
+      <ListMore show={hasMore} busy={moreBusy} left={total - items.length} onMore={() => void loadMore()} />
       <p className="me__fine">
         <Icon name="info" />
         胶囊的内容与启封时刻一经封存就不可修改；你可以随时删除自己写的胶囊，无论它是否已经启封。
@@ -320,7 +317,7 @@ function Created({ now, onChange }: { now: number; onChange: () => void }) {
 }
 
 function Favorites({ now, onChange }: { now: number; onChange: () => void }) {
-  const { items, onFavChange } = useMyList("favorites", onChange);
+  const { items, total, hasMore, moreBusy, loadMore, onFavChange } = useMyList("favorites", onChange);
   const me = useAuth((s) => s.user);
   if (!items) return null;
   if (!items.length) {
@@ -339,7 +336,7 @@ function Favorites({ now, onChange }: { now: number; onChange: () => void }) {
   return (
     <>
       <div className="me__bar">
-        <span>按收藏时间倒序 · 共 {items.length} 枚</span>
+        <span>按收藏时间倒序 · 共 {total} 枚</span>
         <Link className="btn btn--ghost btn--sm" to="/">
           去广场逛逛
         </Link>
@@ -358,6 +355,7 @@ function Favorites({ now, onChange }: { now: number; onChange: () => void }) {
           />
         ))}
       </div>
+      <ListMore show={hasMore} busy={moreBusy} left={total - items.length} onMore={() => void loadMore()} />
     </>
   );
 }

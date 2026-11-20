@@ -2,23 +2,24 @@
 // 胶囊详情与开启页的共享逻辑（两套皮肤共用）
 // ============================================================
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { useAuth } from "@/stores/auth";
 import { ApiError, type CapsuleDetail, type CapsuleListItem } from "@/types";
 import { copyText } from "@/stores/feedback";
 import { useNow } from "@/hooks/useNow";
-import { ms } from "@/lib/fmt";
+import { ms, sleep } from "@/lib/fmt";
 
 /**
  * 按码取胶囊。未开启时逐秒倒数，归零那一刻 expired 变 true——
- * 皮肤据此播放开启动画，并调用 reload() 拿到正文（不用刷新页面）。
+ * 皮肤据此播放开启动画，并调用 awaitOpened() 拿到正文（不用刷新页面）。
  */
 export function useCapsuleByCode(code: string) {
   const user = useAuth((s) => s.user);
   const [c, setC] = useState<CapsuleDetail | null>(null);
   const [status, setStatus] = useState<"loading" | "ok" | "missing" | "error">("loading");
   const now = useNow();
+  const gen = useRef(0); // 换了码或离开页面就作废进行中的等待
 
   const load = useCallback(async () => {
     try {
@@ -40,11 +41,45 @@ export function useCapsuleByCode(code: string) {
   }, [load, user?.id]);
 
   useEffect(() => {
+    const my = ++gen.current;
+    return () => {
+      if (gen.current === my) gen.current++;
+    };
+  }, [code]);
+
+  /**
+   * 倒数归零后取正文：以服务端的 isOpened 为准。本机时钟可能比服务端快几秒，
+   * 这时接口仍返回未开启——隔一会儿再问（1s、2s…最多 5s 一次），直到真正开启；
+   * 离开页面、换了码或胶囊已被删除（404）时返回 null
+   */
+  const awaitOpened = useCallback(async (): Promise<CapsuleDetail | null> => {
+    const my = gen.current;
+    for (let i = 0; my === gen.current; i++) {
+      try {
+        const d = await api.capsuleByCode(code);
+        if (my !== gen.current) return null;
+        if (d.isOpened) {
+          setC(d);
+          return d;
+        }
+      } catch (e) {
+        if (my !== gen.current) return null;
+        if (e instanceof ApiError && e.status === 404) {
+          setStatus("missing");
+          return null;
+        }
+      }
+      await sleep(Math.min(1000 * (i + 1), 5000));
+    }
+    return null;
+  }, [code]);
+
+  useEffect(() => {
     if (c) document.title = `${c.title} · HelloTime Pro`;
   }, [c]);
 
   const expired = !!c && !c.isOpened && ms(c.openAt) <= now;
-  return { c, setC, status, now, expired, reload: load };
+  return { c, setC, status, now, expired, reload: load, awaitOpened };
 }
 
 /** 复制码与分享链接 */

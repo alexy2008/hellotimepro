@@ -10,23 +10,16 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import { useAuth } from "@/stores/auth";
 import { usePlaza } from "@/stores/plaza";
-import { useUi } from "@/stores/ui";
-import { confirmDialog, toast } from "@/stores/feedback";
+import { toast } from "@/stores/feedback";
+import { askLogin } from "@/components/LoginPrompt";
 import { loginPath } from "@/lib/redirect";
 import { fmt, reducedMotion } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
-import { Seal } from "@/skins/paper/parts";
 
 interface Props {
   capsule: { id: string; favoritedByMe: boolean; favoriteCount: number };
   size?: "sm" | "md";
   onChange?: (favorited: boolean, count: number) => void;
-}
-
-/** 登录提示框顶部的小标记：时笺盖一枚「藏」字朱文印，琥珀是一颗心 */
-function LoginMark() {
-  const skin = useUi((s) => s.skin);
-  return <div className="dlg__mark">{skin === "paper" ? <Seal ch="藏" variant="line" /> : <Icon name="heart" />}</div>;
 }
 
 export function FavButton({ capsule, size = "sm", onChange }: Props) {
@@ -50,14 +43,7 @@ export function FavButton({ capsule, size = "sm", onChange }: Props) {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
-      const ok = await confirmDialog({
-        title: "登录后才能收藏",
-        body: <p>收藏的胶囊会出现在「我收藏的」里——等它启封的那天，你不会错过。</p>,
-        confirm: "去登录",
-        cancel: "再逛逛",
-        mark: <LoginMark />,
-      });
-      if (ok) navigate(loginPath(pathname + search));
+      if (await askLogin("favorite")) navigate(loginPath(pathname + search));
       return;
     }
     if (busy.current) return;

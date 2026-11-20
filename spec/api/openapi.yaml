@@ -16,6 +16,9 @@ info:
       `POST /api/v1/me/favorites` 不再返回 `BAD_REQUEST`
     - `GET /api/v1/me/favorites` 因此可能包含 `inPlaza = false` 的胶囊
     - `/api/v1/health` 的 `version` 固定返回 `2.0.0`
+    - `openAt` 上限明确为「此刻往后 10 个日历年」（1.x 各实现多按 3650 天计算，会差出闰日）
+    - `q` 明确为字面子串匹配：`%`、`_` 不是通配符
+    - 空值写法改为 OpenAPI 3.1 的 `type: [string, "null"]`，不再使用 3.0 的 `nullable`
   version: 2.0.0
   contact:
     name: HelloTime Pro
@@ -80,18 +83,15 @@ components:
         success:
           type: boolean
         data:
-          nullable: true
           description: 成功时的数据；失败时为 null
         message:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: 人类可读的提示；成功可为 null
         errorCode:
           $ref: '#/components/schemas/ErrorCode'
 
     ErrorCode:
-      type: string
-      nullable: true
+      type: [string, "null"]
       enum:
         - null
         - VALIDATION_ERROR
@@ -112,7 +112,6 @@ components:
             success:
               const: false
             data:
-              nullable: true
               example: null
             message:
               type: string
@@ -266,13 +265,11 @@ components:
               type: boolean
               description: 未登录固定 false；登录用户返回其收藏状态
             favoritedAt:
-              type: string
+              type: [string, "null"]
               format: date-time
-              nullable: true
               description: 仅在 `/me/favorites` 列表中出现（当前用户收藏该胶囊的时间）
             contentPreview:
-              type: string
-              nullable: true
+              type: [string, "null"]
               maxLength: 81
               description: 已开启胶囊的正文前 80 字符（超出追加 `…`）；未开启或无内容返回 null
 
@@ -284,8 +281,7 @@ components:
           required: [content, favoritedByMe]
           properties:
             content:
-              type: string
-              nullable: true
+              type: [string, "null"]
               description: 未到期返回 null；已到期返回完整文本（1–5000 字符）
             favoritedByMe:
               type: boolean
@@ -397,7 +393,9 @@ components:
         openAt:
           type: string
           format: date-time
-          description: ISO 8601 UTC；必须 > now + 60s，且 ≤ now + 10 年
+          description: |
+            ISO 8601 UTC；必须 > now + 60s，且不晚于「此刻往后 10 个日历年的同一时刻」（UTC 计算）。
+            目标年没有该日期时（2 月 29 日）取当月最后一天，例如 2028-02-29T08:00Z 的上限是 2038-02-28T08:00Z。
         inPlaza:
           type: boolean
           default: true
@@ -436,14 +434,12 @@ components:
               minimum: 0
               description: '`openAt > now`；恒有 `all = opened + unopened`'
         farthestOpenAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: 广场上开启时间最晚的一枚胶囊的 `openAt`（无论是否已开启）；广场为空时为 null
         nextOpenAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: 尚未开启的胶囊里最早到来的 `openAt`；没有未开启胶囊时为 null
 
     MyStats:
@@ -487,8 +483,7 @@ components:
         version:
           type: string
         iconUrl:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: 相对该服务根的 SVG 图标路径，如 `/static/icons/fastapi.svg`
 
     HealthData:
@@ -644,9 +639,10 @@ components:
       name: q
       in: query
       description: |
-        模糊搜索关键词；大小写不敏感子串匹配，
+        模糊搜索关键词；大小写不敏感**字面**子串匹配，
         匹配 `title` 或 `creator.nickname`（OR 关系）。
         前后自动 trim；trim 后为空视为未传。
+        `%`、`_`、`\` 等字符按字面匹配，不是通配符（实现用 LIKE 时必须转义）。
       required: false
       schema:
         type: string

@@ -1,9 +1,12 @@
 // ============================================================
 // 账号相关的共享逻辑（两套皮肤共用）：登录、注册、「我的」三个页签、资料与密码
+// - 表单内容放在内存 store 里：切换皮肤（视图组件整个换掉）时不丢（spec/ui/testids.md X5）；
+//   离开该页面、提交成功、登出时清空，密码不会在内存里久留
 // ============================================================
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { create } from "zustand";
 import { api } from "@/api/client";
 import { useAuth } from "@/stores/auth";
 import { confirmDialog, toast } from "@/stores/feedback";
@@ -61,16 +64,68 @@ function fieldErrors(e: unknown, map: Record<string, string> = {}): Errors {
   return out;
 }
 
+// ---------------------------------------------------------------- 表单内容
+
+interface LoginForm { email: string; password: string }
+interface RegisterForm { email: string; nickname: string; password: string; avatarId: string }
+interface ProfileForm { userId: string | null; nickname: string; avatarId: string }
+interface PwdForm { current: string; next: string; confirm: string }
+
+const blank = {
+  login: (): LoginForm => ({ email: "", password: "" }),
+  register: (): RegisterForm => ({ email: "", nickname: "", password: "", avatarId: "neo" }),
+  profile: (): ProfileForm => ({ userId: null, nickname: "", avatarId: "" }),
+  pwd: (): PwdForm => ({ current: "", next: "", confirm: "" }),
+};
+type FormKey = keyof typeof blank;
+type Forms = { login: LoginForm; register: RegisterForm; profile: ProfileForm; pwd: PwdForm };
+
+export const useForms = create<Forms>()(() => ({
+  login: blank.login(),
+  register: blank.register(),
+  profile: blank.profile(),
+  pwd: blank.pwd(),
+}));
+
+function patchForm<K extends FormKey>(k: K, p: Partial<Forms[K]>) {
+  useForms.setState((s) => ({ [k]: { ...s[k], ...p } }) as Partial<Forms>);
+}
+function clearForm(...keys: FormKey[]) {
+  useForms.setState(Object.fromEntries(keys.map((k) => [k, blank[k]()])) as Partial<Forms>);
+}
+
+// 登出 / 换账号：全部清空
+useAuth.subscribe((s, prev) => {
+  if (s.user?.id !== prev.user?.id && prev.user) clearForm("login", "register", "profile", "pwd");
+});
+
+/**
+ * 离开页面时清空表单。切换皮肤也会卸载视图组件，但路由不变——
+ * 卸载时地址栏已经不是这一页，才算真的离开
+ */
+function useClearOnLeave(path: string, ...keys: FormKey[]) {
+  const keysRef = useRef(keys);
+  useEffect(
+    () => () => {
+      if (window.location.pathname !== path) clearForm(...keysRef.current);
+    },
+    [path],
+  );
+}
+
 // ---------------------------------------------------------------- 登录
 
 export function useLogin() {
   const setTokens = useAuth((s) => s.setTokens);
   const navigate = useNavigate();
   const redirect = useRedirectParam();
+  const form = useForms((s) => s.login);
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
+  useClearOnLeave("/login", "login");
 
-  async function submit(email: string, password: string) {
+  async function submit() {
+    const { email, password } = useForms.getState().login;
     const errs: Errors = {};
     if (!emailOk(email)) errs.email = "请输入有效的邮箱地址";
     else if (!password) errs.password = "请输入密码";
@@ -80,6 +135,7 @@ export function useLogin() {
     try {
       const t = await api.login({ email: email.trim(), password });
       setTokens(t);
+      clearForm("login");
       toast(`欢迎回来，${t.user.nickname}`);
       navigate(redirect ? safeRedirect(redirect, "/") : "/me/created", { replace: true });
     } catch (e) {
@@ -89,7 +145,16 @@ export function useLogin() {
       setBusy(false);
     }
   }
-  return { errors, setErrors, busy, submit, redirect };
+  return {
+    ...form,
+    setEmail: (email: string) => patchForm("login", { email }),
+    setPassword: (password: string) => patchForm("login", { password }),
+    errors,
+    setErrors,
+    busy,
+    submit,
+    redirect,
+  };
 }
 
 // ---------------------------------------------------------------- 注册
@@ -98,10 +163,13 @@ export function useRegister() {
   const setTokens = useAuth((s) => s.setTokens);
   const navigate = useNavigate();
   const redirect = useRedirectParam();
+  const form = useForms((s) => s.register);
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
+  useClearOnLeave("/register", "register");
 
-  async function submit(v: { email: string; nickname: string; password: string; avatarId: string }) {
+  async function submit() {
+    const v = useForms.getState().register;
     const errs: Errors = {};
     if (!emailOk(v.email)) errs.email = "请输入有效的邮箱地址";
     else if (!NICK_RE.test(v.nickname.trim())) errs.nickname = "昵称需为 2–20 个字符：中英文、数字、下划线或连字符";
@@ -112,6 +180,7 @@ export function useRegister() {
     try {
       const t = await api.register({ email: v.email.trim(), nickname: v.nickname.trim(), password: v.password, avatarId: v.avatarId });
       setTokens(t);
+      clearForm("register");
       toast(`你好，${t.user.nickname}`);
       navigate(redirect ? safeRedirect(redirect, "/") : "/create", { replace: true });
     } catch (e) {
@@ -120,7 +189,19 @@ export function useRegister() {
       setBusy(false);
     }
   }
-  return { errors, setErrors, busy, submit, redirect };
+  const set = (k: keyof RegisterForm) => (v: string) => patchForm("register", { [k]: v });
+  return {
+    ...form,
+    setEmail: set("email"),
+    setNickname: set("nickname"),
+    setPassword: set("password"),
+    setAvatarId: set("avatarId"),
+    errors,
+    setErrors,
+    busy,
+    submit,
+    redirect,
+  };
 }
 
 // ---------------------------------------------------------------- 「我的」
@@ -135,24 +216,60 @@ export function useMyStats() {
   return { stats, refresh };
 }
 
-/** 我创建的 / 我收藏的：一次取 50 枚（教学项目，够用） */
+const PAGE_SIZE = 20;
+
+/** 我创建的 / 我收藏的：一页 20 枚，「加载更多」往后接（列表一直按时间倒序） */
 export function useMyList(kind: "created" | "favorites", onChange?: () => void) {
   const [items, setItems] = useState<CapsuleListItem[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState(false);
+  const [moreBusy, setMoreBusy] = useState(false);
+  const seq = useRef(0);
+
+  const fetchPage = useCallback(
+    (n: number) => (kind === "created" ? api.myCapsules(n, PAGE_SIZE) : api.myFavorites(n, PAGE_SIZE)),
+    [kind],
+  );
 
   const load = useCallback(async () => {
+    const my = ++seq.current;
     try {
-      const r = kind === "created" ? await api.myCapsules(1, 50) : await api.myFavorites(1, 50);
+      const r = await fetchPage(1);
+      if (my !== seq.current) return;
       setItems(r.items);
+      setTotal(r.pagination.total);
+      setPage(1);
       setError(false);
     } catch {
-      setError(true);
+      if (my === seq.current) setError(true);
     }
-  }, [kind]);
+  }, [fetchPage]);
   useEffect(() => {
     setItems(null);
     void load();
   }, [load]);
+
+  /** 下一页：中间有删除 / 取消收藏时，后一页会前移几枚，按 id 去重即可 */
+  async function loadMore() {
+    if (moreBusy) return;
+    const my = seq.current;
+    setMoreBusy(true);
+    try {
+      const r = await fetchPage(page + 1);
+      if (my !== seq.current) return;
+      setItems((list) => {
+        const have = new Set((list ?? []).map((i) => i.id));
+        return [...(list ?? []), ...r.items.filter((i) => !have.has(i.id))];
+      });
+      setTotal(r.pagination.total);
+      setPage(r.pagination.page);
+    } catch {
+      toast("加载失败，请稍后再试", { tone: "error" });
+    } finally {
+      setMoreBusy(false);
+    }
+  }
 
   /** 删除：确认框写明后果（spec/ui/copy.md §3） */
   async function remove(c: CapsuleListItem, mark?: React.ReactNode) {
@@ -175,6 +292,7 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
     try {
       await api.deleteMyCapsule(c.id);
       setItems((list) => (list ?? []).filter((i) => i.id !== c.id));
+      setTotal((t) => Math.max(0, t - 1));
       toast(`已删除《${c.title}》`);
       onChange?.();
       return true;
@@ -186,11 +304,15 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
 
   /** 在「我收藏的」里取消收藏：从列表里拿掉 */
   function onFavChange(id: string, favorited: boolean) {
-    if (kind === "favorites" && !favorited) setItems((list) => (list ?? []).filter((i) => i.id !== id));
+    if (kind === "favorites" && !favorited) {
+      setItems((list) => (list ?? []).filter((i) => i.id !== id));
+      setTotal((t) => Math.max(0, t - 1));
+    }
     onChange?.();
   }
 
-  return { items, error, reload: load, remove, onFavChange };
+  const hasMore = !!items && items.length < total;
+  return { items, total, hasMore, moreBusy, loadMore, error, reload: load, remove, onFavChange };
 }
 
 // ---------------------------------------------------------------- 资料与密码
@@ -200,12 +322,20 @@ export function useProfile() {
   const refreshMe = useAuth((s) => s.refreshMe);
   const logout = useAuth((s) => s.logout);
   const navigate = useNavigate();
-  const [nickname, setNickname] = useState(user.nickname);
-  const [avatarId, setAvatarId] = useState(user.avatarId);
+  // 资料表单：第一次进来（或换了账号）时从当前用户填好；之后切皮肤也接着用 store 里正在改的值
+  const stored = useForms((s) => s.profile);
+  const prof = stored.userId === user.id ? stored : { userId: user.id, nickname: user.nickname, avatarId: user.avatarId };
+  useEffect(() => {
+    if (useForms.getState().profile.userId !== user.id) patchForm("profile", { userId: user.id, nickname: user.nickname, avatarId: user.avatarId });
+  }, [user.id, user.nickname, user.avatarId]);
+  const { nickname, avatarId } = prof;
+  const setNickname = (v: string) => patchForm("profile", { ...prof, nickname: v });
+  const setAvatarId = (v: string) => patchForm("profile", { ...prof, avatarId: v });
+  const pwd = useForms((s) => s.pwd);
+  useClearOnLeave("/me/profile", "profile", "pwd");
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err" | "info"; text: string } | null>(null);
-  const [pwd, setPwd] = useState({ current: "", next: "", confirm: "" });
   const [pwdBusy, setPwdBusy] = useState(false);
   const [pwdMsg, setPwdMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -240,8 +370,7 @@ export function useProfile() {
   }
 
   function resetProfile() {
-    setNickname(user.nickname);
-    setAvatarId(user.avatarId);
+    patchForm("profile", { userId: user.id, nickname: user.nickname, avatarId: user.avatarId });
     setErrors({});
     setMsg(null);
   }
@@ -257,6 +386,7 @@ export function useProfile() {
     setPwdBusy(true);
     try {
       await api.changePassword({ currentPassword: pwd.current, newPassword: pwd.next });
+      clearForm("pwd");
       setPwdMsg({ type: "ok", text: "密码已更新。3 秒后将自动登出，请用新密码重新登录。" });
       setTimeout(() => {
         void logout(false).then(() => navigate("/login"));
@@ -282,8 +412,8 @@ export function useProfile() {
     saveProfile,
     resetProfile,
     pwd,
-    setPwd: (k: "current" | "next" | "confirm", v: string) => {
-      setPwd((p) => ({ ...p, [k]: v }));
+    setPwd: (k: keyof PwdForm, v: string) => {
+      patchForm("pwd", { [k]: v });
       setErrors((e) => ({ ...e, [k]: undefined }));
     },
     pwdBusy,
