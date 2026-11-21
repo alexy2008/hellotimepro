@@ -51,7 +51,7 @@ impl AppConfig {
     pub fn from_environment() -> Self {
         AppConfig {
             service_name: "hellotime-pro",
-            service_version: "0.1.0",
+            service_version: env!("CARGO_PKG_VERSION"),
             host: env_or("HOST", "0.0.0.0"),
             port: env_or("PORT", "29070").parse().unwrap_or(29070),
             db_driver: env_or("DB_DRIVER", "postgres"),

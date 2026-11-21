@@ -1,10 +1,10 @@
-use chrono::{Duration, Months, Utc};
+use chrono::Utc;
 use rand::Rng;
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::domain::{Capsule, CapsuleView, User};
-use crate::infra::db::{parse_uuid, Conn};
+use crate::infra::db::Conn;
 use crate::infra::repos::{capsules, favorites};
 use crate::services::{mapper, validation};
 use crate::state::AppState;
@@ -18,17 +18,8 @@ const CODE_ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 pub async fn create(state: &AppState, owner: &User, req: &CreateCapsuleRequest) -> ApiResult<Value> {
     let title = validation::title(req.title.as_deref())?;
     let content = validation::content(req.content.as_deref())?;
-    let open_at = validation::open_at(req.open_at.as_deref())?;
     let now = Utc::now();
-    if open_at < now + Duration::seconds(60) {
-        return Err(ApiError::validation("openAt 必须晚于当前时间 60 秒以上", "openAt"));
-    }
-    let ten_years = now
-        .checked_add_months(Months::new(120))
-        .ok_or_else(|| ApiError::internal("时间溢出"))?;
-    if open_at > ten_years {
-        return Err(ApiError::validation("openAt 不得超出当前时间 10 年", "openAt"));
-    }
+    let open_at = validation::open_at(req.open_at.as_deref(), now)?;
     let in_plaza = req.in_plaza.unwrap_or(true);
 
     let mut conn = state.db.begin().await?;
@@ -82,15 +73,13 @@ pub async fn get_by_code(state: &AppState, code: &str, viewer_id: Option<&Uuid>)
     Ok(mapper::detail(&view, favorited, &Utc::now()))
 }
 
-/// 广场详情：仅 inPlaza=true；非法 UUID / 不在广场 → 404。
+/// 广场详情：仅 inPlaza=true；非法 UUID → 422，不在广场 → 404。
 pub async fn get_plaza_detail(
     state: &AppState,
     id_raw: &str,
     viewer_id: Option<&Uuid>,
 ) -> ApiResult<Value> {
-    let Some(id) = parse_uuid(id_raw) else {
-        return Err(ApiError::not_found("胶囊不存在"));
-    };
+    let id = validation::capsule_id(Some(id_raw), "id")?;
     let mut conn = state.db.acquire().await?;
     let view = match capsules::find_by_id(&mut conn, &id).await? {
         Some(v) if v.capsule.in_plaza => v,
@@ -102,15 +91,13 @@ pub async fn get_plaza_detail(
 
 /// 删除自己的胶囊（无论是否到期）；连同收藏关系一起删。
 pub async fn delete_own(state: &AppState, user: &User, id_raw: &str) -> ApiResult<()> {
-    let Some(id) = parse_uuid(id_raw) else {
-        return Err(ApiError::not_found("胶囊不存在"));
-    };
+    let id = validation::capsule_id(Some(id_raw), "id")?;
     let mut conn = state.db.begin().await?;
     let result = async {
-        let Some(view) = capsules::find_by_id(&mut conn, &id).await? else {
+        let Some(owner_id) = capsules::lock_owner_id(&mut conn, &id).await? else {
             return Err(ApiError::not_found("胶囊不存在"));
         };
-        if view.capsule.owner_id != user.id {
+        if owner_id != user.id {
             return Err(ApiError::forbidden("无权删除他人胶囊"));
         }
         favorites::delete_by_capsule(&mut conn, &id).await?;

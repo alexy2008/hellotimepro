@@ -70,8 +70,7 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
   正确）、0/1 整数；Postgres 用原生 `uuid` / `timestamptz` / `boolean` 直传。
 - **SQLite 池上限 1**：sqlx 连接池 `max_connections(1)` 把全部 SQLite 访问串行化
   （对应 Vapor 的 actor 门闩 / Ktor 的"池=1"），配合 `BEGIN IMMEDIATE` 避免写竞争。
-- **收藏计数并发安全**：幂等 UPSERT（`ON CONFLICT DO NOTHING RETURNING`）判定是否真插入 +
-  原子 `favorite_count = favorite_count + 1`，无需行锁也不会重复计数。
+- **收藏计数并发安全**：幂等 UPSERT 和原子更新维护计数；PostgreSQL 的收藏、取消与删除统一先锁胶囊行。
 - **refresh token 轮转 + 家族吊销**：重用检测分支先提交家族吊销再抛 401（事务内不抛异常、
   用 outcome 枚举区分，`conn.finish(result)` COMMIT 后再转错误）；Postgres 路径对 token 行加 `FOR UPDATE`。
 - **显式 null 输出**：响应统一构造 `serde_json::Value` 树——`Value::Null` 序列化为显式
@@ -85,15 +84,26 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
   CF-1010 UA / chat 风格跳过 `/responses` 等坑的处理（见 `docs/dev-notes.md §3`）。
   未配置时建议端点本地兜底、推荐端点返回空列表。
 
-## 验证
-
-```bash
-./verification/scripts/verify-contract.sh axum                   # PostgreSQL，104/104
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh axum  # SQLite，104/104
-```
-
 ## 注意事项
 
 - `hello start` 不注入 `PORT`，默认端口直接是登记端口 29070。
 - Rust regex crate 不支持 lookahead，密码"含字母 + 含数字"改为显式字符扫描（语义等价）。
 - 详细代码导读见 [TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)。
+
+## 2.0 验证
+
+2026-11-21，直接访问 Axum 的 `:29070`，不经过共享反代。
+
+| 检查 | 数据库 | 结果 |
+|---|---|---|
+| `./test` | 涉及数据库的测试使用内存 SQLite | 28/28 |
+| `./verification/scripts/verify-contract.sh axum` | 独立 PostgreSQL 库 `hellotime_contract_axum_*` | 117/117 |
+| 同一契约脚本 | 独立临时 SQLite 文件 | 117/117 |
+
+`./build` 通过。复跑契约时须显式传入 `DB_DRIVER` 和独立库的 `DB_URL`；不适用 UI 冒烟和设计令牌检查。
+
+## 2.0 迁移笔记
+
+- 无 schema 迁移。sqlx 继续统一绑定两库时间与 UUID；SQLite URL 恰好移除 `sqlite:///`，避免绝对路径出现双前导斜杠。
+- 广场列表、计数和统计共用字面搜索谓词；最远与最近开启时间从公开胶囊的时间列直接取值，无记录返回显式 `null`。
+- 收藏、取消收藏、删除的 PostgreSQL 行锁只查询胶囊的 `owner_id`，不连表，避免锁住无关的作者行；SQLite 使用单连接和 `BEGIN IMMEDIATE`，删除顺序由禁用外键的回归测试覆盖。

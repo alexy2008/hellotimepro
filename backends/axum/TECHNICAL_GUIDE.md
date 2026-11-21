@@ -90,9 +90,7 @@ cd backends/axum
 ./build                                                 # 预热（首次 4-5 分钟）
 ./run                                                   # DB_DRIVER=postgres（默认）
 DB_DRIVER=sqlite ./run                                  # SQLite，零外部依赖
-./test                                                  # 25 个纯函数单元测试
-../../verification/scripts/verify-contract.sh axum          # 契约 104 用例（PG）
-DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh axum
+./test                                                  # 单元与服务测试
 ```
 
 首次 `./build` 慢（Rust 全量编译 + 依赖）；`run` 不建表/迁移/seed——schema 由 `scripts/db` 准备。
@@ -117,7 +115,7 @@ async fn main() {
 `AppState`（`state.rs`）手动装配，全部字段启动时就绪，最后 `Arc<AppState>` 通过 axum 的 `State` extractor 注入每个 handler：
 
 - `Db`：按 `DB_DRIVER`/`DB_URL` 建 PgPool（lazy，max 8）或 SqlitePool（max **1**）。lazy 连接意味着启动不依赖数据库可达。
-- `AvatarService`：读 `spec/avatars/catalog.json` 一次。
+- `AvatarService`：读 `spec/avatars/v2/catalog.json` 一次。
 - `reqwest::Client`、prompt 模板、`LoginRateLimiter`（`Mutex<HashMap<email, Vec<Instant>>>` 60 秒滑动窗口）。
 
 ## 5. Rust / Axum 的几个关键思想
@@ -353,7 +351,7 @@ pub async fn register(state: &AppState, req: &RegisterRequest) -> ApiResult<Valu
 
 ## 14. 测试（./test）
 
-25 个纯函数单元测试，无数据库依赖：iso_date 解析变体/往返/排序、validation 规则、JWT 往返/过期/篡改、
+单元测试覆盖 iso_date 解析变体/往返/排序、validation 规则、JWT 往返/过期/篡改、
 refresh token 形态、UUID hex 往返、`?`→`$n` 转换、8 位码生成、推荐解析去重/钳位、标题清洗、本地兜底。
 （这些测试就内联在各模块的 `#[cfg(test)] mod tests` 里，例如 `security.rs` 末尾的 JWT 往返/过期/篡改三例。）
 契约行为（104 用例）由 `verification/` 黑盒覆盖，不在单元层重复。

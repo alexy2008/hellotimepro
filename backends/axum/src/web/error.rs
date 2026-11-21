@@ -63,15 +63,6 @@ impl ApiError {
         }
     }
 
-    pub fn bad_request(message: impl Into<String>) -> ApiError {
-        ApiError {
-            status: StatusCode::BAD_REQUEST,
-            code: "BAD_REQUEST",
-            message: message.into(),
-            details: None,
-        }
-    }
-
     pub fn rate_limited(message: impl Into<String>) -> ApiError {
         ApiError {
             status: StatusCode::TOO_MANY_REQUESTS,

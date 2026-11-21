@@ -154,6 +154,32 @@ fn map_view(row: &DbRow, favorited_column: bool, favorited_at_column: bool) -> A
 
 pub mod capsules {
     use super::*;
+    use crate::web::error::ApiError;
+
+    #[derive(Debug, PartialEq, Eq)]
+    pub struct OpenCounts {
+        pub all: i64,
+        pub opened: i64,
+        pub unopened: i64,
+    }
+
+    pub struct OwnedCounts {
+        pub states: OpenCounts,
+        pub in_plaza: i64,
+        pub favorites_received: i64,
+    }
+
+    const OPEN_COUNTS: &str = "COUNT(*) AS total, \
+        COUNT(CASE WHEN c.open_at <= ? THEN 1 END) AS opened, \
+        COUNT(CASE WHEN c.open_at > ? THEN 1 END) AS unopened";
+
+    fn open_counts(row: &DbRow) -> ApiResult<OpenCounts> {
+        Ok(OpenCounts {
+            all: row.i64("total")?,
+            opened: row.i64("opened")?,
+            unopened: row.i64("unopened")?,
+        })
+    }
 
     pub async fn find_by_code(conn: &mut Conn, code: &str) -> ApiResult<Option<CapsuleView>> {
         let sql = format!(
@@ -172,6 +198,18 @@ pub mod capsules {
         conn.fetch_opt(&sql, &[Value::Uuid(*id)])
             .await?
             .map(|r| map_view(&r, false, false))
+            .transpose()
+    }
+
+    pub async fn lock_owner_id(conn: &mut Conn, id: &Uuid) -> ApiResult<Option<Uuid>> {
+        let stmt = if conn.is_sqlite() {
+            "SELECT owner_id FROM capsules WHERE id = ?"
+        } else {
+            "SELECT owner_id FROM capsules WHERE id = ? FOR UPDATE"
+        };
+        conn.fetch_opt(stmt, &[Value::Uuid(*id)])
+            .await?
+            .map(|row| row.uuid("owner_id"))
             .transpose()
     }
 
@@ -269,11 +307,60 @@ pub mod capsules {
             }
         }
         if let Some(search) = search {
-            let pattern = format!("%{search}%");
-            sql.push_str(" AND (lower(c.title) LIKE ? OR lower(u.nickname) LIKE ?)");
+            let literal = search.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+            let pattern = format!("%{literal}%");
+            sql.push_str(r" AND (lower(c.title) LIKE ? ESCAPE '\' OR lower(u.nickname) LIKE ? ESCAPE '\')");
             params.push(Value::Str(pattern.clone()));
             params.push(Value::Str(pattern));
         }
+    }
+
+    pub async fn plaza_counts(
+        conn: &mut Conn,
+        now: &DateTime<Utc>,
+        search: Option<&str>,
+    ) -> ApiResult<OpenCounts> {
+        let mut stmt = format!("SELECT {OPEN_COUNTS} FROM capsules c JOIN users u ON u.id = c.owner_id");
+        let mut params = vec![Value::Ts(*now), Value::Ts(*now)];
+        plaza_conditions(&mut stmt, &mut params, PlazaFilter::All, now, search);
+        let row = conn.fetch_opt(&stmt, &params).await?
+            .ok_or_else(|| ApiError::internal("广场统计未返回结果"))?;
+        open_counts(&row)
+    }
+
+    pub async fn farthest_open_at(conn: &mut Conn) -> ApiResult<Option<DateTime<Utc>>> {
+        conn.fetch_opt(
+            "SELECT open_at FROM capsules WHERE in_plaza = ? ORDER BY open_at DESC LIMIT 1",
+            &[Value::Bool(true)],
+        )
+        .await?
+        .map(|row| row.ts("open_at"))
+        .transpose()
+    }
+
+    pub async fn next_open_at(conn: &mut Conn, now: &DateTime<Utc>) -> ApiResult<Option<DateTime<Utc>>> {
+        conn.fetch_opt(
+            "SELECT open_at FROM capsules WHERE in_plaza = ? AND open_at > ? ORDER BY open_at LIMIT 1",
+            &[Value::Bool(true), Value::Ts(*now)],
+        )
+        .await?
+        .map(|row| row.ts("open_at"))
+        .transpose()
+    }
+
+    pub async fn owned_counts(conn: &mut Conn, owner_id: &Uuid, now: &DateTime<Utc>) -> ApiResult<OwnedCounts> {
+        let stmt = format!(
+            "SELECT {OPEN_COUNTS}, COUNT(CASE WHEN c.in_plaza THEN 1 END) AS in_plaza, \
+             COALESCE(SUM(c.favorite_count), 0) AS favorites_received FROM capsules c WHERE c.owner_id = ?"
+        );
+        let row = conn.fetch_opt(&stmt, &[Value::Ts(*now), Value::Ts(*now), Value::Uuid(*owner_id)])
+            .await?
+            .ok_or_else(|| ApiError::internal("个人统计未返回结果"))?;
+        Ok(OwnedCounts {
+            states: open_counts(&row)?,
+            in_plaza: row.i64("in_plaza")?,
+            favorites_received: row.i64("favorites_received")?,
+        })
     }
 
     pub async fn count_plaza(
@@ -354,13 +441,15 @@ pub mod capsules {
         offset: i64,
     ) -> ApiResult<Vec<CapsuleView>> {
         let sql = format!(
-            "SELECT {VIEW_COLUMNS} FROM capsules c JOIN users u ON u.id = c.owner_id \
+            "SELECT {VIEW_COLUMNS}, (fv.user_id IS NOT NULL) AS favorited_by_me \
+             FROM capsules c JOIN users u ON u.id = c.owner_id \
+             LEFT JOIN favorites fv ON fv.capsule_id = c.id AND fv.user_id = c.owner_id \
              WHERE c.owner_id = ? ORDER BY c.created_at DESC LIMIT ? OFFSET ?"
         );
         conn.fetch_all(&sql, &[Value::Uuid(*owner_id), Value::I64(limit), Value::I64(offset)])
             .await?
             .iter()
-            .map(|r| map_view(r, false, false))
+            .map(|r| map_view(r, true, false))
             .collect()
     }
 

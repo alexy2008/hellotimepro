@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use crate::config::AppConfig;
 
-/// 从 spec/avatars/catalog.json 加载内置头像目录（启动时一次）。
+/// 从 spec/avatars/v2/catalog.json 加载内置头像目录（启动时一次）。
 pub struct AvatarService {
     list: Value,
     ids: HashSet<String>,
@@ -12,7 +12,7 @@ pub struct AvatarService {
 
 impl AvatarService {
     pub fn load(config: &AppConfig) -> Result<AvatarService, String> {
-        let path = format!("{}/spec/avatars/catalog.json", config.abs_repo_root());
+        let path = format!("{}/spec/avatars/v2/catalog.json", config.abs_repo_root());
         let raw = std::fs::read_to_string(&path)
             .map_err(|e| format!("读取头像目录失败 {path}: {e}"))?;
         let catalog: Value =

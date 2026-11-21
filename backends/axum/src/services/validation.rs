@@ -1,6 +1,7 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Months, Utc};
 use regex::Regex;
 use std::sync::OnceLock;
+use uuid::Uuid;
 
 use crate::infra::iso_date;
 use crate::web::error::{ApiError, ApiResult};
@@ -89,12 +90,29 @@ pub fn content(value: Option<&str>) -> ApiResult<String> {
     }
 }
 
-pub fn open_at(value: Option<&str>) -> ApiResult<DateTime<Utc>> {
+pub fn open_at(value: Option<&str>, now: DateTime<Utc>) -> ApiResult<DateTime<Utc>> {
     let v = match value {
         Some(v) if !v.is_empty() => v,
         _ => return Err(ApiError::validation("openAt 不能为空", "openAt")),
     };
-    iso_date::parse(v).ok_or_else(|| ApiError::validation("openAt 必须是 ISO-8601 时间", "openAt"))
+    let open_at = iso_date::parse(v)
+        .ok_or_else(|| ApiError::validation("openAt 必须是 ISO-8601 时间", "openAt"))?;
+    if open_at <= now + Duration::seconds(60) {
+        return Err(ApiError::validation("openAt 必须晚于当前时间 60 秒以上", "openAt"));
+    }
+    let limit = now
+        .checked_add_months(Months::new(120))
+        .ok_or_else(|| ApiError::internal("时间溢出"))?;
+    if open_at > limit {
+        return Err(ApiError::validation("openAt 不得超出当前时间 10 年", "openAt"));
+    }
+    Ok(open_at)
+}
+
+pub fn capsule_id(value: Option<&str>, field: &str) -> ApiResult<Uuid> {
+    value
+        .and_then(|raw| Uuid::parse_str(raw).ok())
+        .ok_or_else(|| ApiError::validation("必须提供合法的胶囊 UUID", field))
 }
 
 pub fn code(value: &str) -> ApiResult<()> {
@@ -117,6 +135,15 @@ pub fn page(page: i64, page_size: i64) -> ApiResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn open_at_uses_utc_calendar_years_and_clamps_leap_day() {
+        let now = iso_date::parse("2028-03-01T01:30:45.123+08:00").unwrap();
+        assert!(open_at(Some("2028-02-29T17:31:45.123Z"), now).is_err());
+        assert!(open_at(Some("2028-02-29T17:31:45.124Z"), now).is_ok());
+        assert!(open_at(Some("2038-02-28T17:30:45.123Z"), now).is_ok());
+        assert!(open_at(Some("2038-02-28T17:30:45.124Z"), now).is_err());
+    }
 
     #[test]
     fn password_rules() {

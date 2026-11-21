@@ -77,8 +77,8 @@ impl Db {
 
 fn sqlite_path(config: &AppConfig) -> String {
     if let Some(url) = &config.db_url {
-        if let Some(rest) = url.strip_prefix("sqlite://") {
-            return rest.to_string(); // sqlite:///abs/path → /abs/path
+        if let Some(rest) = url.strip_prefix("sqlite:///") {
+            return rest.to_string();
         }
     }
     format!("{}/data/sqlite/hellotime-axum.db", config.abs_repo_root())

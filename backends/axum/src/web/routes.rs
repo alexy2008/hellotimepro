@@ -32,6 +32,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/v1/auth/logout", post(logout))
         // ── Me ──────────────────────────────────────────────────────────────
         .route("/api/v1/me", get(me).patch(update_profile))
+        .route("/api/v1/me/stats", get(my_stats))
         .route("/api/v1/me/password", post(change_password))
         .route("/api/v1/me/capsules", get(my_capsules))
         .route("/api/v1/me/capsules/{id}", delete(delete_capsule))
@@ -40,6 +41,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/v1/capsules/{code}", get(get_by_code))
         // ── Plaza ───────────────────────────────────────────────────────────
         .route("/api/v1/plaza/capsules", get(plaza_list))
+        .route("/api/v1/plaza/stats", get(plaza_stats))
         .route("/api/v1/plaza/capsules/{id}", get(plaza_detail))
         // ── Favorites ───────────────────────────────────────────────────────
         .route("/api/v1/me/favorites", get(my_favorites).post(add_favorite))
@@ -153,6 +155,11 @@ async fn me(State(state): S, headers: HeaderMap) -> ApiResult<Response> {
     Ok(envelope::ok(user_service::to_json(&user)))
 }
 
+async fn my_stats(State(state): S, headers: HeaderMap) -> ApiResult<Response> {
+    let user = required_user(&state, &headers).await?;
+    Ok(envelope::ok(plaza::my_stats(&state, &user).await?))
+}
+
 async fn update_profile(
     State(state): S,
     headers: HeaderMap,
@@ -234,6 +241,10 @@ async fn plaza_list(State(state): S, headers: HeaderMap, Query(q): Q) -> ApiResu
     ))
 }
 
+async fn plaza_stats(State(state): S, Query(query): Q) -> ApiResult<Response> {
+    Ok(envelope::ok(plaza::plaza_stats(&state, query.get("q").map(String::as_str)).await?))
+}
+
 async fn plaza_detail(
     State(state): S,
     headers: HeaderMap,
@@ -301,7 +312,7 @@ async fn capsule_recommendations(State(state): S, Query(q): Q) -> ApiResult<Resp
 // ── 静态资源 ─────────────────────────────────────────────────────────────────
 
 async fn serve_avatar(State(state): S, Path(file): Path<String>) -> ApiResult<Response> {
-    serve_spec_file(&state, "spec/avatars", &file).await
+    serve_spec_file(&state, "spec/avatars/v2", &file).await
 }
 
 async fn serve_icon(State(state): S, Path(file): Path<String>) -> ApiResult<Response> {
