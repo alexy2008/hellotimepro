@@ -1,601 +1,478 @@
-# HelloTime Pro · SolidJS 前端技术手册与代码导读
+# HelloTime Pro SolidJS 前端技术手册与代码导读
 
-面向**已经会 React / Vue，第一次读 SolidJS** 的读者。本项目与 `frontends/react-ts`
-功能完全一致、共享同一份 API 契约与设计令牌，因此最适合把它当作「同一个产品的 SolidJS 译本」来读：
-逻辑层逐字复用，UI 层是 SolidJS 习惯写法的重写。读完你会建立两个核心直觉：
+本文面向已经熟悉 HTML / CSS / JavaScript 基本语法，但还没系统接触过 SolidJS、TypeScript、Vite、单页应用（SPA）这套现代前端栈的读者。读过 React 版手册（`frontends/react-ts/TECHNICAL_GUIDE.md`）更好——本文会不断拿两者对照。读完后，你应该能回答三件事：
 
-1. **SolidJS 的组件函数只运行一次**——这与 React「每次渲染重跑函数」是根本性的区别。
-2. **响应式是细粒度的**——状态读取在哪里发生，更新就只刷新那一处 DOM，没有虚拟 DOM、没有 diff。
+- 用户在浏览器输入 URL 后，代码按什么顺序执行。
+- SolidJS、TypeScript、Vite、Solid Router、Signals / Store 与 spec/styles 分别在做什么。
+- 想新增一个页面、状态或接口调用时，应该改哪些文件。
 
----
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 Solid 的核心概念（组件只运行一次、Signal、Store、Effect 与 owner、控制流）；第 6 节快速过 TypeScript；第 7～13 节按一次「打开页面」的生命周期分层细讲；第 14～15 节是测试与常见改动；第 16～18 节是对照表、渲染原理与踩坑清单。
 
 ## 1. 技术选型与设计特色
 
-| 维度 | 选择 | 说明 |
-|---|---|---|
-| 框架 | SolidJS 1.9 | 细粒度响应式 + 编译期优化，无虚拟 DOM |
-| 语言 | TypeScript 5.7 | 与后端 OpenAPI 契约对齐 |
-| 构建 | Vite 6 + `vite-plugin-solid` | babel-preset-solid 把 JSX 编译为真实 DOM 操作 |
-| 路由 | `@solidjs/router` 0.16 | `<Router>` / `<Route>` / `<A>` / `useNavigate` / `useParams` |
-| 状态 | 模块级 `createSignal` / `createStore` | 全局状态脱离组件树，类似 react-ts 里 Zustand 的角色 |
-| 样式 | Tailwind v4 + `spec/styles` 设计令牌 | 与所有前端共享 `cy-*` 组件类 |
+HelloTime Pro 的 Solid 前端基于 **SolidJS + TypeScript + Vite**，用 **Solid Router** 控制路由，状态直接用 Solid 自带的 **Signal / Store**（不需要第三方状态库），样式原样引入 `spec/styles` 的两套皮肤（2.0）。
 
-**一句话定位**：React 用「重跑函数 + 虚拟 DOM diff」实现声明式 UI；SolidJS 用「函数跑一次 + 细粒度订阅」
-实现同样的声明式 UI。心智从「什么时候组件会重渲染」变成「这块响应式数据被谁订阅了」。
+* **SolidJS（细粒度响应式，没有虚拟 DOM）**：写法和 React 一样是 JSX + 函数组件，但**组件函数只运行一次**。它的工作是搭好 DOM、登记一批「这个文本 / 属性依赖哪个信号」的细粒度计算；之后信号一变，只有用到它的那个 DOM 位置被更新，不重跑组件、不做 diff。
+* **Signal / Store（框架自带的状态）**：`createSignal` 是最小的响应式单元，`createStore` 让嵌套对象的每个字段都能被单独订阅。它们可以在组件之外（模块顶层）创建，天然就是全局 store，不需要 Redux / Zustand。
+* **Solid Router（声明式路由表）**：`<Route path component>` 平铺出路由表，`useParams()`、`useLocation()` 返回的也是响应式对象。
+* **TypeScript**：类型与 `openapi.yaml` 对齐，`tsc --noEmit` 是构建的第一步，类型错的代码无法构建。
+* **Vite**：基于原生 ESM 的开发服务器与打包器；`vite-plugin-solid` 在编译期把 JSX 变成「真实 DOM 创建 + 细粒度更新」的代码。
+* **双皮肤与设计令牌（2.0）**：「时笺」「琥珀」两套皮肤 × 明暗，全部样式来自 `spec/styles`（每条规则按 `:root[data-skin]` 限定，两套同时加载）。本前端不写组件样式，只按 2.0 原型写出相同的 DOM 结构与类名；切换皮肤 / 明暗只改 `<html>` 上的两个属性。
+* **状态建在路由页、视图按皮肤分**：业务逻辑写成 primitive（`src/primitives/`，React 版叫 hooks），由路由页创建一次，再交给 `src/skins/paper` 或 `src/skins/amber` 的视图。换皮肤只换视图，状态不动——这是本前端最值得看的组织方式，也是它和 React 版最大的结构差异（第 11 节细讲）。
 
----
+## 2. 先建立整体地图
 
-## 2. 整体地图
+HelloTime Pro 是一个时间胶囊应用。Solid 前端的职责是：
+
+- 渲染所有页面（首页广场 / 开启 / 详情 / 创建 / 我的 / 登录 / 注册 / 关于），每个页面都有「时笺」「琥珀」两套视图。
+- 调用后端 `/api/v1/*`（经 `:9080` 反代），把 JSON 画成卡片、表单、详情；2.0 新增 `/plaza/stats`、`/me/stats`。
+- 维护客户端状态：登录态、皮肤与明暗、广场查询条件、创建页草稿。
+- 守卫需要登录的路由（`/create`、`/me/*`），未登录跳 `/login?redirect=…`；access token 过期自动刷新并重放。
 
 ```
 src/
-├── main.tsx            挂载入口：render(() => <App/>, #root)
-├── App.tsx             <Router> 路由表 + 启动时 hydrate
-├── api/client.ts       fetch 封装 / 响应解包 / 自动 refresh        ← 与 react-ts 逐字一致
-├── types/index.ts      契约类型 + ApiError                         ← 与 react-ts 逐字一致
-├── utils/{avatar,format}.ts  头像 URL / 倒计时 / 时间格式           ← 与 react-ts 逐字一致
-├── stores/             全局响应式状态（SolidJS 习惯写法，本译本重写）
-│   ├── theme.ts        createSignal
-│   ├── auth.ts         createStore + configureApi 注入
-│   ├── plaza.ts        createStore
-│   └── capsule.ts      createStore
-├── components/         15 个展示 / 容器组件
-├── pages/              11 个路由页面
-└── styles/             index.css（令牌 import）+ layout.css（布局类）
+├── main.tsx / App.tsx   入口：首帧前恢复登录态，挂路由表
+├── app/Layout.tsx       总布局：按皮肤挑页头 / 页脚 / 底栏
+├── pages/               路由入口：建好本页状态，<Skinned> 按皮肤挑视图
+├── primitives/          业务逻辑（两套皮肤共用）
+├── stores/              模块级 Signal / Store：auth · ui · plaza · feedback
+├── api/ · types/        接口客户端与类型
+├── lib/                 纯工具：图标、时间说法、头像、专属色、账号规则、回跳
+├── components/          结构相同只靠样式换肤的部件
+└── skins/paper|amber/   两套视图
 ```
 
-可复用的「纯 TS」（`api` / `types` / `utils`）在所有前端之间是一字不差的——这正是契约驱动多栈项目的价值：
-**业务逻辑与框架无关，框架只负责把状态渲染成 DOM。** 真正体现 SolidJS 特色的是 `stores/`、`components/`、`pages/`。
-
----
+一次「打开首页」的数据流：`pages/PlazaPage` 创建 `createPlazaHome()` 与 `createCodeOpen()` → `<Skinned>` 读 `skin()` 渲染 `skins/amber/HomePage` → primitive 里的 effect 调 `stores/plaza.refreshAll()` → `api/client` 发请求 → store 字段更新 → 只有读了那些字段的 DOM 位置更新。换成时笺时，只有视图换成 `skins/paper/HomePage`，路由页建好的状态原样交给新视图。
 
 ## 3. 如何运行和验证
 
 ```bash
-# 后端 + 反代
-./scripts/hello start fastapi && ./scripts/hello switch fastapi
-
-# 前端（端口 7180）
-./scripts/hello start solid          # 或 cd frontends/solid && ./run
-
-# 验证（25 个 Playwright 冒烟用例）
-./verification/scripts/verify-ui-smoke.sh solid
-
-# 类型检查 / 单测 / 构建
 cd frontends/solid
-npm run lint      # tsc --noEmit
-npm test          # vitest（api client + format 纯函数）
-./build           # tsc + vite build
+./run                          # 开发模式，端口 7180
+./build                        # 类型检查 + 生产构建到 dist/
+./test                         # vitest 单测
 ```
 
----
+打开浏览器访问 `http://localhost:7180`。`./run` 做的事：
+
+1. 检查 `node_modules` 是否存在，没有就 `npm install`。
+2. 执行 `npm run dev`，即 `vite --host 0.0.0.0 --port 7180`。
+3. Vite 按需编译 `.ts/.tsx`，修改文件自动热更新（HMR）。
+
+API 代理由 `vite.config.ts` 配置：`/api/*` 与 `/static/*` 转发到 `BACKEND_PROXY`（默认 `http://localhost:9080`，即仓库的反向代理；也可以直连某个后端：`BACKEND_PROXY=http://localhost:29010 ./run`）。
+
+生产构建（`./build`）：
+
+```bash
+tsc --noEmit -p tsconfig.app.json   # 仅做类型检查
+vite build                          # 打包到 dist/（HTML + JS + CSS + 字体）
+```
+
+黑盒验证在仓库根目录跑：
+
+```bash
+./verification/scripts/verify-ui-smoke.sh solid        # 44 条 × 两套皮肤
+./verification/scripts/verify-design-tokens.sh solid   # 自己的样式只用语义令牌
+```
 
 ## 4. 入口链路：`index.html` → `main.tsx` → `App.tsx`
 
-### 4.1 `index.html`
-SPA 唯一的 HTML，只有一个 `<div id="root">` 和一段提早注入 `data-theme` 的内联脚本（避免首屏闪白）。
+### 4.1 `index.html`：SPA 的唯一 HTML
 
-### 4.2 `main.tsx`
+整个应用只有一个 `<div id="root"></div>`。`<head>` 里的内联 `<script>` 在 Solid 启动前就同步读 `localStorage`，写好 `data-skin`（时笺 / 琥珀）与 `data-theme`（明 / 暗），并设置地址栏颜色——避免首帧闪出另一套皮肤或另一种明暗。`<script type="module" src="/src/main.tsx">` 让 Vite 把 TSX 当 ES Module 加载。
+
+### 4.2 `main.tsx`：先恢复登录态，再挂载
+
 ```tsx
 import { render } from "solid-js/web";
+import { App } from "./App";
+import { hydrateAuth } from "@/stores/auth";
+import "./styles/index.css";
+
+hydrateAuth();                                          // 首次渲染之前从 localStorage 恢复
 render(() => <App />, document.getElementById("root")!);
 ```
-注意 `render` 的第一个参数是**函数**（`() => <App/>`），不是 React 的 `<App/>` 元素。
-SolidJS 需要在一个「响应式 root」里执行组件树，这个函数就是 root 的入口。
 
-### 4.3 `App.tsx`
-根组件做三件事：启动时 hydrate、登录态自动校验、声明路由表。
+- `render(() => <App />, el)`：Solid 的挂载入口。第一个参数是**函数**——Solid 要在自己建立的响应式根（root）里调用它，这样里面创建的所有计算都有归属，卸载时能一起清理。
+- `hydrateAuth()` 放在 `render` 之前：守卫（未登录跳登录、已登录访问登录页跳走）在第一帧就能拿到正确的 user。
+- `import "./styles/index.css"`：让 CSS 也走 Vite 的依赖图。
+
+### 4.3 `App.tsx`：路由表
 
 ```tsx
 export function App() {
-  onMount(() => {        // 挂载后执行一次（仅客户端）
-    hydrateTheme();
-    hydrateAuth();
+  onMount(() => {
+    if (auth.refreshToken) void refreshMe();   // 本地有 refresh token 时确认一次登录态
   });
-
-  createEffect(() => {   // 依赖变化时自动重跑
-    if (auth.hydrated && auth.refreshToken) void refreshMe();
-  });
-
   return (
-    <Router>
-      <Route component={MainLayout}>
-        <Route path="/" component={PlazaPage} />
-        {/* … */}
-      </Route>
-      <Route component={MeShell}>{/* 受保护的个人中心 */}</Route>
+    <Router root={Layout}>
+      <Route path="/" component={PlazaPage} />
+      <Route path="/create" component={GatedCreate} />
+      <Route path="/capsules/:code" component={CapsuleByCodePage} />
+      <Route path="/me/:tab" component={GatedMe} />
       <Route path="*" component={NotFoundPage} />
+      {/* …其余路由见源码 */}
     </Router>
   );
 }
 ```
 
-`createEffect` 自动追踪函数体内读取的响应式数据（这里是 `auth.hydrated`、`auth.refreshToken`），
-当它们变化时重跑——**没有 React 那样的依赖数组**，依赖是自动收集的。
+`root={Layout}` 是所有路由共用的外壳，当前路由的页面作为 `props.children` 交给它（第 8 节）。`onMount` 在组件挂载后运行一次、不追踪依赖，相当于 React 的 `useEffect(fn, [])`。
 
----
+## 5. SolidJS 的核心概念
 
-## 5. SolidJS 核心概念：细粒度响应式
+Solid 的 JSX 看起来和 React 几乎一样，但心智模型完全不同。先记住一句话：**组件函数只运行一次，之后的更新全靠信号。**
 
-### 5.1 `createSignal`：最小响应式单元
+### 5.1 组件只运行一次
+
+```tsx
+function Hello(props: { name: string }) {
+  console.log("这一行只打印一次");
+  return <h1>你好，{props.name}</h1>;
+}
+```
+
+React 的组件每次状态变化都会从头再跑一遍，产出新的虚拟 DOM 去 diff；Solid 的组件只在创建时跑一遍，它的产物是真实的 DOM 节点加上一批细粒度的计算（`{props.name}` 这个位置会被编译成「名字变了就只改这个文本节点」）。所以：
+
+- 组件体里可以直接写「只做一次」的事（建状态、注册监听），不需要 `useRef` / `useCallback` 那一套。
+- 想让某个值随状态变化，必须在 JSX 里或计算里**读信号**，而不是在组件体顶部算好存成变量。
+
+### 5.2 `createSignal`：最小响应式单元
+
 ```tsx
 const [count, setCount] = createSignal(0);
-count();        // 读：在响应式上下文里读会建立订阅
-setCount(1);    // 写：通知所有订阅者
-setCount(c => c + 1);  // 函数式更新
+count();                 // 读：在响应式上下文里读会建立订阅
+setCount(1);             // 写：通知所有订阅者
+setCount((c) => c + 1);  // 函数式更新
 ```
-关键区别：**`count` 是一个 getter 函数，读值要调用 `count()`**。这不是啰嗦，而是 SolidJS 追踪订阅的机制——
-只有「在响应式上下文里调用 getter」才会被记录为依赖。
 
-本项目 `stores/theme.ts` 就是一个最小例子：模块顶层 `createSignal`，导出 getter，组件里 `theme() === "dark"`。
+`count` 是一个 **getter 函数**，读值要调用 `count()`——这正是 Solid 追踪依赖的方式：只有在计算（JSX 表达式、`createEffect`、`createMemo`）运行期间调用的 getter，才会被记成依赖。
 
-### 5.2 `createStore`：嵌套对象的细粒度响应
-当状态是一个对象（尤其有嵌套）时用 `createStore`，它返回一个 proxy，**读属性路径就建立细粒度订阅**：
+本项目 `stores/ui.ts` 就是一个例子：模块顶层 `createSignal` 出 `skin` 与 `theme`，导出只读的 getter 与 `setSkin` / `toggleTheme` 动作，任何组件里写 `skin() === "paper"` 就订阅了皮肤。
+
+### 5.3 `createStore`：嵌套对象的细粒度响应
+
+状态是一个对象（尤其有嵌套或数组）时用 `createStore`。它返回一个 proxy，**读到哪个字段就订阅哪个字段**：
+
 ```tsx
-const [auth, setAuth] = createStore({ user: null, accessToken: null, hydrated: false });
-auth.user;                        // 读：只订阅 user 字段
-setAuth({ user: me });            // 合并顶层字段
-setAuth("mine", "items", arr);    // 按路径精确更新嵌套字段
+const [plaza, setPlaza] = createStore({ sort: "new", items: [], counts: null, ... });
+plaza.sort;                                              // 只订阅 sort
+setPlaza({ sort: "hot", page: 1 });                      // 浅合并顶层字段
+setPlaza("items", (it) => it.id === id, { favoriteCount: 3 });  // 按路径改数组里符合条件的那几项
+setPlaza("items", reconcile(data.items, { key: "id" })); // 按 id 对齐新旧数组，没变的项保持原对象
 ```
-`stores/{auth,plaza,capsule}.ts` 都用 `createStore`。例如 `capsule.ts` 持有 `{ mine, favorites }` 两个分片，
-`setCapsule("mine", { loading: true })` 只更新 `mine` 分片，订阅 `capsule.favorites` 的组件不会被触动。
 
-### 5.3 `createEffect` / `onMount` / `onCleanup`
+`stores/plaza.ts` 用 `reconcile` 写回列表：刷新后同一枚胶囊仍是同一个对象，`<For>` 不会重建它的卡片；收藏后的 `patchFavorited` 只改那一枚的两个字段，整页只有那颗心和那个数字会动。
+
+### 5.4 派生值：普通函数与 `createMemo`
+
 ```tsx
-createEffect(() => {           // 自动追踪依赖，依赖变化重跑
-  if (opened()) return;
-  const t = setInterval(() => setNow(Date.now()), 1000);
-  onCleanup(() => clearInterval(t));   // 重跑前 / 卸载时清理
+const opened = () => props.c.isOpened || openAt() <= props.now;   // 读 opened() 时才计算
+const due = createMemo(() => items.some((c) => ms(c.openAt) <= now()));  // 缓存，依赖变了才重算
+```
+
+大多数派生直接写箭头函数；结果要被多处读、或者计算较重、或者你需要「值没变就不通知下游」时，用 `createMemo`。`primitives/plazaHome.ts` 的 `due`（是否有胶囊刚好到点）就是 memo：它从 false 变 true 的那一刻才触发一次整页刷新。
+
+### 5.5 `createEffect`、owner 与 `onCleanup`
+
+```tsx
+createEffect(() => {
+  if (skin() !== "amber" || !canvas) return;
+  onCleanup(startSky(canvas, theme() !== "light"));   // 重跑前 / 销毁时先停掉旧动画
 });
-onMount(() => { /* 挂载后跑一次，不追踪依赖 */ });
 ```
-对照 React：`onMount` ≈ `useEffect(fn, [])`；`createEffect` ≈ `useEffect` 但**依赖自动收集**；
-`onCleanup` ≈ effect 返回的清理函数。`CapsuleCard` / `CapsuleDetail` 的每秒倒计时就是这个模式。
 
-### 5.4 派生值：函数即 memo
-SolidJS 里「派生状态」通常就是一个普通函数：
-```tsx
-const cd = () => countdownTo(props.capsule.openAt, now());   // 读 cd() 时才计算
+- `createEffect` 的依赖是**自动收集**的：运行期间读过的所有信号。皮肤或明暗一变，上面这个 effect 重跑。
+- 每个组件、每个 effect、每个 memo 都是一个 **owner**。在它里面创建的计算、登记的 `onCleanup` 都归它管；它被销毁（组件卸载、effect 重跑、`<Show>` 换分支）时，下面挂着的一切一起清理。这棵 owner 树就是 Solid 的生命周期——本项目「状态建在路由页、离开路由就清空」完全建立在它之上。
+- `on(deps, fn)` 可以显式指定依赖，`fn` 里的读取不再被追踪；第二个参数是上一次的值。`stores/auth.ts` 的 `onAccountChange` 用它监听「账号 id 变了」：
+
+```ts
+createEffect(on(() => auth.user?.id, (id, prev) => { if (prev && id !== prev) fn(); }));
 ```
-需要缓存昂贵计算时才用 `createMemo`。本项目大多数派生直接用箭头函数 getter（如 `contentLen()`、`dotClass()`）。
 
-### 5.5 props 不要解构
+> ⚠️ 不要给它加 `{ defer: true }`：被 defer 跳过的那一次不会记下旧值，第一次登出时 `prev` 是 `undefined`，回调就漏了。
+
+- `untrack(fn)`：在计算里调用但不想成为依赖的读取，用它圈起来（第 11 节「我的」页签就用到了）。
+
+### 5.6 props 不要解构，JSX 类型的 prop 只读一次
+
 ```tsx
-// ✓ 正确：保持响应性
-function Card(props: { capsule: CapsuleListItem }) {
-  return <h3>{props.capsule.title}</h3>;
+function Card(props: { c: CapsuleListItem }) {   // ✓ 一律 props.c.title
+  return <h3>{props.c.title}</h3>;
 }
-// ✗ 错误：解构会读出当时的快照，丢失后续更新
-function Card({ capsule }) { /* capsule 不再响应 */ }
+function Card({ c }) { ... }                      // ✗ 解构发生在那唯一一次执行里，之后不再更新
 ```
-这是 React 老手最容易踩的坑。本项目所有组件都通过 `props.x` 访问。需要默认值时用 `() => props.x ?? 默认`
-（见 `CapsuleCard` 的 `showCreator`、`Alert` 的 `variant`）。
 
-### 5.6 控制流：`<Show>` / `<For>` / `<Index>`
+Solid 把 props 编译成 getter：父组件传 `now={now()}`，子组件每次读 `props.now` 都拿到最新值。反过来，**传 JSX 的 prop 每读一次就新建一次节点**：`trail={<NickState …/>}` 在子组件里读两次就是两份 DOM。`components/forms.tsx` 的 `Field` 用 `children(() => p.trail)` 解析一次，「判断有没有」和「渲染」共用同一份。
+
+### 5.7 控制流：`<Show>` / `<For>` / `<Index>` / `<Switch>`
+
 ```tsx
-<Show when={auth.user} fallback={<LoginButtons/>}>
-  {(user) => <Chip name={user().nickname} />}   {/* user() 是非空 Accessor */}
+<Show when={auth.user} fallback={<LoginButtons />}>
+  {(user) => <Avatar id={user().avatarId} />}         {/* user() 已收窄为非空 */}
 </Show>
-
-<For each={plaza.items}>{(c) => <CapsuleCard capsule={c} />}</For>   {/* 按引用 keyed */}
-<Index each={chars()}>{(ch, i) => <input value={ch()} />}</Index>   {/* 按位置 keyed */}
+<Show when={params.code} keyed>{(code) => <CapsuleView code={code} />}</Show>  {/* 值一变整块重建 */}
+<For each={plaza.items}>{(c, i) => <PaperCard c={c} i={i()} />}</For>      {/* 按对象引用 */}
+<Index each={cells()}>{(ch, i) => <input value={ch()} />}</Index>          {/* 按位置 */}
+<Switch fallback={<List />}><Match when={loading()}>…</Match><Match when={error()}>…</Match></Switch>
 ```
-- `<Show>` 的 callback 形式能把 `when` 收窄为非空 Accessor，省去 `!` 断言。
-- `<For>` 按**元素引用**协调，适合可增删的列表（广场、收藏）。
-- `<Index>` 按**位置**协调，item 是 Accessor、index 是数字，适合定长且按位更新——`CapsuleCodeInput` 的 8 个格子用它最贴切。
 
-### 5.7 ⚠️ 陷阱：`createEffect` 会追踪到你「顺手读到」的依赖
+- 条件和列表不能像 React 那样写 `&&` / `.map()` 了事（能跑，但每次都会整块重建）；用这些组件，Solid 才能只增删变化的那一块 DOM。
+- `keyed` 的 `<Show>` 是 React 里「改 `key` 让组件重新挂载」的对应物：详情页按 `code` 重建状态、翻页数字按数字重建 `<span>` 重播动画，都用它。
+- `<For>` 适合可增删的列表（广场、收藏）；`<Index>` 适合定长、按位更新的东西（8 格输码、日历的 42 格）。
 
-这是 React 老手移植到 Solid 时最隐蔽的坑，也是本项目实测踩到过的。`createEffect` 的依赖不是手写的，
-而是**自动收集 effect 同步执行期间读取过的所有响应式数据**——包括 effect 里调用的函数内部的同步读取。
+### 5.8 JSX 与 React 的几处写法差异
 
-反面例子（曾经的写法）：
+| React | Solid | 说明 |
+|---|---|---|
+| `className="x"` | `class="x"` | Solid 直接用 HTML 属性名 |
+| `htmlFor` | `for` | 同上 |
+| `onChange`（输入框） | `onInput` | React 的 onChange 其实是 input 事件；Solid 的 `onChange` 是原生 change |
+| `style={{ marginTop: 8 }}` | `style={{ "margin-top": "8px" }}` | kebab-case 键，数值不会自动补 `px` |
+| `dangerouslySetInnerHTML` | `innerHTML` | 只用于本地常量（图标路径、关于页原则） |
+| `ref={useRef()}` | `let el; <div ref={el}>` | 直接给变量赋值，或传回调 |
+| `key={x}` 重新挂载 | `<Show when={x} keyed>` | 见 5.7 |
+
+## 6. TypeScript 快速概览
+
+`.ts` 与 `.tsx` 是带类型注解的 JavaScript，读代码时可以把冒号后面的内容当注释。本项目常见的写法：
+
+```ts
+const [c, setC] = createSignal<CapsuleDetail | null>(null);  // 泛型参数约束信号里的值
+type DetailStatus = "loading" | "ok" | "missing" | "error";  // 联合类型
+export type CapsuleForm = ReturnType<typeof createCapsuleForm>;  // 从函数返回值推出类型，视图的 props 用它
+e instanceof ApiError                                         // 运行时检查，TS 会收窄类型
+```
+
+`tsconfig.app.json` 开了 `strict`，`jsx: "preserve"` + `jsxImportSource: "solid-js"` 让 TS 用 Solid 的 JSX 类型检查模板。Solid 的 JSX 类型里漏了几个 SVG 属性（`textLength`、`lengthAdjust`、`focusable`），`src/solid-jsx.d.ts` 用模块扩充补上。
+
+## 7. 路由层：`@solidjs/router`
 
 ```tsx
-// PlazaPage：本意是「hydrate 完加载一次广场」
-createEffect(() => {
-  if (auth.hydrated) void fetchPlaza();   // ← 看起来只依赖 auth.hydrated
-});
+<Router root={Layout}>
+  <Route path="/" component={PlazaPage} />
+  <Route path="/capsules/:code" component={CapsuleByCodePage} />
+  <Route path="/me" component={ToMyCreated} />           {/* 渲染 <Navigate href="/me/created" /> */}
+  <Route path="/me/:tab" component={GatedMe} />          {/* 三个页签共用一个页面组件 */}
+  <Route path="*" component={NotFoundPage} />
+</Router>
+```
 
-// 但 fetchPlaza 同步读取了一堆 store 字段来拼请求参数：
-async function fetchPlaza() {
-  setPlaza({ loading: true });
-  const data = await api.plaza({
-    sort: plaza.sort, filter: plaza.filter, q: plaza.q,   // ← 这些读取发生在 await 之前，
-    page: plaza.page, pageSize: plaza.pageSize,           //    仍在 effect 的同步追踪窗口内！
-  });
-  /* … await 之后的读取不再被追踪 … */
+- **路径参数**：`useParams()` 返回响应式对象，`params.code` 变了，读它的地方会更新——但路由组件本身**不会重建**。所以详情页用 `<Show when={params.code} keyed>` 包一层，换码就整份状态重建（第 11 节）。
+- **跳转**：站内链接直接写 `<a href="/open">`，路由器在 `document` 上拦截同源链接的点击、改走前端路由，不刷新页面。编程式跳转用 `const navigate = useNavigate(); navigate("/me/created", { replace: true })`。渲染期间要跳走（守卫）用 `<Navigate href="…" />`。
+- **为什么不用 `<A>`**：它会自动加 `active` / `inactive` 类；本项目的高亮类名是 `is-active`，由 `components/shellParts.tsx` 的 `createNav()` 显式给出。
+- **拦截匿名用户的创建入口**：路由器先调 `delegateEvents(["click"])` 再挂自己的监听，Solid 的委托事件因此先运行。`components/LoginPrompt.tsx` 的 `CreateLink` 在 `onClick` 里 `preventDefault()`，路由器看到 `defaultPrevented` 就不跳了，先弹确认框，确认后再 `navigate(loginPath("/create"))`。
+
+## 8. 布局、守卫与按皮肤挑视图
+
+### 8.1 `app/Layout.tsx`：总布局
+
+所有路由都渲染在 `Layout` 里：`<main id="view">{props.children}</main>`。它用 `createEffect(on(() => location.pathname, …))` 在换页时写 `body[data-route]` 并滚回顶部；挂一次时笺的 SVG 滤镜（`#f-rough`、`#f-ink`）与琥珀的星空背景；页头、页脚、底栏各用一次 `<Skinned>` 按皮肤挑。`id="view"`、`body[data-route]` 都是 `spec/styles` 依赖的 DOM 约定，照原型写。
+
+### 8.2 `pages/Skinned.tsx`：按皮肤挑视图
+
+```tsx
+export function Skinned(props: { paper: JSX.Element; amber: JSX.Element }) {
+  return <Show when={skin() === "paper"} fallback={props.amber}>{props.paper}</Show>;
 }
 ```
 
-结果：这个 effect 实际依赖 `{ auth.hydrated, plaza.sort, plaza.filter, plaza.q, plaza.page, plaza.pageSize }`。
-而 `setSort/setFilter/setQ/setPage` 本身已经会调一次 `fetchPlaza()`，于是每次筛选/搜索/翻页都**请求两次**
-（序列号守卫会丢弃过期那次，所以结果正确，但白白多打一次网络）。
+`paper={<PaperHomePage h={h} />}` 被编译成 getter，`<Show>` 只在需要时才读，所以同一时刻只会创建当前皮肤那一份视图。换皮肤时旧视图销毁（它的 owner 下的计算、监听一起清理），新视图创建——而外面路由页建好的状态原样传给它。
 
-> 对比 React：`useEffect(fn, [hydrated, fetchPlaza])` 的依赖是手写死的，改 `plaza.sort` 不会重跑这个 effect——
-> 所以 React 版**天然没有**这个问题。这正是「自动依赖收集」的双刃剑。
+### 8.3 `components/AuthGate.tsx`：路由守卫
 
-两种修法：
-
-```tsx
-// 法一：untrack 把不想追踪的读取圈起来（本项目采用）
-createEffect(() => {
-  if (auth.hydrated) untrack(() => void fetchPlaza());  // effect 只订阅 auth.hydrated
-});
-
-// 法二：只在 effect 里读「真正的触发条件」，副作用调用挪到不追踪的地方
-```
-
-同源的判断也用在 `App.tsx` 的 `refreshMe` effect：条件写成 `auth.hydrated && auth.refreshToken && !auth.user`，
-并用 `untrack` 包住调用，避免登录 `setTokens` / token 轮换改动 `refreshToken` 时重复拉 `/me`。
-
-**经验法则**：当 effect 体里调用的函数会同步读取响应式数据、而你又不希望它们成为依赖时，用 `untrack` 圈住调用。
-
----
-
-## 6. 路由层：`@solidjs/router`
-
-嵌套路由通过「父 `<Route>` 的 `component` 接收 `props.children`」实现 outlet：
-
-```tsx
-<Route component={MainLayout}>          {/* MainLayout 渲染 props.children */}
-  <Route path="/" component={PlazaPage} />
-</Route>
-```
-
-`MainLayout` / `MeLayout` 因此都接收 `props: { children?: JSX.Element }` 并在合适位置渲染 `{props.children}`。
-
-导航 API：
-- `<A href="/open" activeClass="cy-nav__active" end>` —— 声明式链接，`activeClass` 自动加在当前路由，`end` 表示精确匹配（首页 `/` 必须加，否则会匹配所有路径）。
-- `useNavigate()` —— 命令式跳转：`navigate("/me/created", { replace: true })`、`navigate(-1)`。
-- `useParams<{code:string}>()` —— 读路径参数（`CapsuleByCodePage` 用 `params.code`，且它是响应式的，`createEffect` 里读它即可在换 code 时自动重载）。
-- `useLocation().state` —— 读上次导航携带的 state（`AuthGate` 写 `from`，`LoginPage` 据此回跳）。
-
----
-
-## 7. 布局与守卫
-
-### `MainLayout` / `MeLayout`
-共享外壳（Header / Footer），通过 `props.children` 放置子路由内容。`MeLayout` 还多一个侧边导航。
-
-### `AuthGate`
-路由守卫用声明式 `<Show>` 表达，而不是命令式跳转：
 ```tsx
 export function AuthGate(props: { children: JSX.Element }) {
   const location = useLocation();
   return (
-    <Show when={auth.hydrated} fallback={null}>
+    <Show when={auth.hydrated}>
       <Show when={auth.user || auth.refreshToken}
-            fallback={<Navigate href="/login" state={{ from: location.pathname }} />}>
+            fallback={<Navigate href={loginPath(location.pathname + location.search)} />}>
         {props.children}
       </Show>
     </Show>
   );
 }
 ```
-两层 `<Show>`：先等 hydrate 完成（避免刷新页瞬间误判未登录），再判断登录态。
-受保护页面在 `App.tsx` 里被包进 `AuthGate`（`/create` 直接包，`/me/*` 通过 `MeShell` 包 `MeLayout`）。
 
----
+只有 refresh token（刷新页还没拿到 access token）也放行——接下来的接口调用会自动 refresh（第 9 节）。跳转目标是 `/login?redirect=%2Fcreate` 这样编码好的串，登录成功后 `safeRedirect` 只接受站内路径。已登录访问登录 / 注册页，由 `pages/LoginPage.tsx` 的 `guestRedirect()` 在进入那一刻判断一次（用 `untrack` 读，之后登录成功不会被它抢先跳走）。
 
-## 8. 数据层：`api/client.ts`（与 react-ts 一致）
+## 9. 数据层：`api/client.ts`
 
-这一层是纯 TS，没有任何框架味道，所以跨前端逐字复用。要点：
+与 React 版逐字相同——它不依赖任何框架：
 
-- 统一 `request<T>(path, opts)`：拼 URL、带 `Authorization`、解响应包装 `{success,data,...}`，失败抛 `ApiError`。
-- **自动 refresh**：命中 `401 + UNAUTHORIZED` 时调 `/auth/refresh` 拿新 access token 后重放原请求；
-  并发请求共享同一个 `refreshing` Promise 去重——多个请求同时 401 只会触发一次 refresh，其余等待同一 Promise。
-- **与 store 解耦（依赖倒置）**：client **不** import 任何 store，而是暴露一个 `configureApi(cbs)` 注册函数：
+1. `request<T>(path, opts)` 自动设置 `Content-Type` / `Accept`、序列化 `body`、拼 `Authorization` 头；解开后端的统一外壳 `{ success, data, message, errorCode }`，调用者只拿到 `data`；失败抛 `ApiError`（带 HTTP 状态、errorCode、字段级 details）。
+2. **401 自动 refresh 并重放**：模块级变量 `refreshing` 保证一波并发 401 只发一次 `/auth/refresh`，其余请求 `await` 同一个 Promise；`_retry` 标记防止重放后再 401 陷入死循环。
+3. **依赖注入**：client 不 `import` auth store（store 反过来要 import client，会循环）。`stores/auth.ts` 加载时调用 `configureApi({ getAccessToken, getRefreshToken, onTokensRefreshed, onAuthLost })` 把 store 的读写函数交给 client。单元测试也因此能直接注入假回调（`api/client.test.ts`）。
 
-```tsx
-// api/client.ts —— 只持有回调，不知道 store 长什么样
-let cbs: ApiCallbacks = { getAccessToken: () => null, /* … */ };
-export function configureApi(c: Partial<ApiCallbacks>) { cbs = { ...cbs, ...c }; }
+## 10. 状态层：模块级 Signal / Store
 
-// stores/auth.ts —— 模块加载时把「读 token / 写回新 token / 登录失效」的能力注入进去
-configureApi({
-  getAccessToken:   () => auth.accessToken,
-  getRefreshToken:  () => auth.refreshToken,
-  onTokensRefreshed: (a, r) => patchTokens(a, r),  // refresh 成功后写回 store
-  onAuthLost:        () => logout(),               // refresh 也失败 → 清空登录态
-});
-```
+| 模块 | 关心什么 | 持久化 |
+|---|---|---|
+| `stores/auth` | user / accessToken / refreshToken / hydrated；`refreshMe()` 单飞；`onAccountChange(fn)` | refreshToken + user → localStorage（`main.tsx` 在首次渲染前恢复） |
+| `stores/ui` | skin（paper / amber）· theme（light / dark）及带转场的切换 | localStorage `hellotime.skin` / `hellotime.theme` |
+| `stores/plaza` | sort / filter / q / qInput / page + 列表、筛选数量、年鉴、精选；搜索防抖计时器 | 否；两套皮肤共用，切皮肤后条件与正在输入的字都在 |
+| `stores/feedback` | Toast 列表、当前确认框；`toast()`、`confirmDialog()`、`copyText()` | 否 |
 
-这样的好处：①`client.ts` 跨 5 个前端逐字复用，因为它不依赖任何框架的状态方案；
-②打破了「client 要读 token → 依赖 auth store → auth store 要用 client 发请求」的循环依赖；
-③测试 client 时可注入假回调（见 §15）。
+几个要点：
 
----
+- **只读导出 + 动作函数**：模块导出 store 本身（只读用）与 `setSort` / `refreshAll` / `patchFavorited` 这样的动作，写操作集中在模块里，组件不直接 `setPlaza`。
+- **并发请求的序列号**：`fetchList` 每次发请求先 `++listSeq`，回来时序号对不上就丢弃——用户快速切筛选时，旧响应不会覆盖新结果。详情、「我的」列表、输码查询都用同样的「代数」守卫。
+- **跨 store 联动**：`FavButton` 收藏成功后调 `patchFavorited(id, favorited, count)`，广场列表与精选里那一枚同步更新；「我收藏的」里取消收藏则通过回调把它从列表移出、并刷新 `/me/stats`。
+- **View Transition 不必等**：`setSkin` 在 `document.startViewTransition(cb)` 的回调里写信号，Solid 的 DOM 更新是同步的，回调返回时新皮肤已经画好（Vue 需要 `return nextTick()`）。
+- **确认框的正文写成函数**：`confirmDialog({ body: () => <p>…</p>, mark: () => <Seal … /> })`。Solid 的 JSX 一写出来就是真实节点，在点击回调里直接创建的话没有 owner 管它；交给 `DialogHost` 在自己的组件树里调用就归它管了。
+- **草稿**是 `primitives/capsuleForm.ts` 里的模块级 store：切皮肤、离开再回来都在；`onAccountChange(resetDraft)` 让登出、换账号时清空；每次改动 `draftVersion++`，封存成功时只有版本没变（等待期间没人再改过）才清空。
 
-## 9. 状态层：模块级 Signal / Store
+## 11. 路由页、primitives 与皮肤视图
 
-SolidJS 的响应式不依赖组件树，因此「全局 store」就是**模块顶层的 Signal / Store + 导出动作函数**，
-角色等同 react-ts 里的 Zustand，但更轻——没有 `create()`、没有 selector、没有 Provider。
+### 11.1 一个页面的三层
 
 ```tsx
-// stores/auth.ts（节选）
-const [auth, setAuth] = createStore<AuthStore>({ user: null, /* … */ hydrated: false });
-export { auth };
-export function setTokens(t: AuthTokens) { setAuth({ user: t.user, /* … */ }); persist(/* … */); }
-// 启动时把读 token 的能力注入 api client
-configureApi({ getAccessToken: () => auth.accessToken, /* … */ });
-```
-
-组件里直接 `import { auth, logout } from "@/stores/auth"`，读 `auth.user` 建立订阅，调 `logout()` 触发更新。
-
-四个 store：
-- `theme.ts` — `createSignal` 主题，配 `hydrateTheme/toggleTheme`。
-- `auth.ts` — `createStore` 鉴权，配 hydrate/setTokens/patchTokens/logout/refreshMe，并注入 `configureApi`。
-- `plaza.ts` — `createStore` 广场（sort/filter/q/page），动作触发 `fetchPlaza()`。
-- `capsule.ts` — `createStore` 我创建的 / 我收藏的两个分片，跨 store 联动时调用 `plaza` 的 `patchPlazaFavorited`。
-
-### 9.1 `createSignal` 还是 `createStore`？
-
-| 用 `createSignal` | 用 `createStore` |
-|---|---|
-| 单个标量值（主题字符串、loading 布尔、表单字段） | 含多个字段、尤其是嵌套对象 / 数组的状态 |
-| `theme.ts` | `auth` / `plaza` / `capsule` |
-| 读写整体替换 | 想按字段路径精确更新、精确订阅 |
-
-`createStore` 的核心价值是**路径更新 + 路径订阅**，二者一一对应：
-
-```tsx
-// 顶层合并（只动 loading/error，items 引用不变 → 订阅 items 的 <For> 不重渲染）
-setPlaza({ loading: true, error: null });
-
-// 路径定位到嵌套分片
-setCapsule("mine", { loading: true });
-
-// 路径 + 函数式更新数组（不可变 map）
-setCapsule("mine", "items", (items) => items.filter((c) => c.id !== id));
-setPlaza("items", (items) => items.map((it) => it.id === id ? { ...it, favoritedByMe } : it));
-```
-
-`capsule.ts` 把状态切成 `{ mine, favorites }` 两个 `ListSlice`，正因为 `createStore` 能让
-「只更新 `mine` 分片」与「只订阅 `favorites` 分片的页面」互不打扰——这是 `createSignal` 做不到的细粒度。
-
-### 9.2 并发请求的「序列号」模式（完整版）
-
-列表类 store 都面临同一个竞态：用户快速切 sort / 翻页，先发的请求可能后到，**旧响应覆盖新结果**。
-解法是给每次请求编号，回写前校验自己仍是「最新发起」：
-
-```tsx
-// plaza.ts —— 闭包变量，不放进 store（它不需要被订阅）
-let fetchSeq = 0;
-
-export async function fetchPlaza() {
-  const myId = ++fetchSeq;                 // 占用一个递增编号
-  setPlaza({ loading: true, error: null });
-  try {
-    const data = await api.plaza({ sort: plaza.sort, /* … */ });
-    if (myId !== fetchSeq) return;         // 已有更新的请求发起 → 丢弃自己的结果
-    setPlaza({ items: data.items, pagination: data.pagination, loading: false });
-  } catch (e) {
-    if (myId !== fetchSeq) return;
-    setPlaza({ loading: false, error: /* … */ });
-  }
+// pages/CreatePage.tsx
+export function CreatePage() {
+  return <Show when={auth.user?.id} keyed>{(id) => <CreateForm owner={id} />}</Show>;  // 按账号重建
+}
+function CreateForm(_props: { owner: string }) {
+  const f = createCapsuleForm();          // 提交锁、AI 任务、成功回执都归它
+  return <Skinned paper={<PaperCreatePage f={f} />} amber={<AmberCreatePage f={f} />} />;
 }
 ```
 
-`capsule.ts` 的 `mine` / `favorites` 各持一个独立计数器（`mineSeq` / `favSeq`）；
-`resetCapsules()`（登出时调用）会把两个计数器都 `++`，从而让任何在途请求的回写都失效——
-干净地丢弃「登出前发出、登出后才返回」的脏数据。
+1. **路由页**（`pages/`）：创建本页的 primitive，决定它活多久（按账号、按胶囊码、按页签），再用 `<Skinned>` 挑视图。
+2. **primitive**（`primitives/`）：业务逻辑，返回一组信号与动作，比如 `f.draft.title`、`f.submit()`、`f.aiBusy()`。它们里面的 `createEffect` / `onCleanup` 归调用它的路由页所有。
+3. **皮肤视图**（`skins/<skin>/`）：只负责把状态画成各自的样子，照原型写 DOM 与类名。
 
-> 为什么用闭包变量而不是 store 字段？因为它纯粹是控制流状态、不需要驱动任何 UI；
-> 放进 `createStore` 反而会平白产生订阅。这点与 react-ts 用 `useRef` 同源。
+正在封存时切皮肤：时笺视图连同长按进度环一起销毁，琥珀视图拿到同一个 `f`，`f.submitting()` 仍为真、`f.created()` 一到就显示回执。
 
-### 9.3 跨 store 联动：收藏数同步
+### 11.2 状态活多久，由它建在哪决定
 
-收藏是个典型的跨视图一致性问题：在广场点收藏，「我收藏的」列表和卡片上的计数都要同步。
-本项目让 `capsule.ts` 直接 import `plaza` 的 `patchPlazaFavorited` 做投影更新：
+| 状态 | 建在 | 什么时候重建 / 清空 |
+|---|---|---|
+| 首页 / 开启页的 8 格输码 | `PlazaPage` / `OpenPage`（经 `CodeOpenContext` 交给输码框） | 离开路由；改码时旧查询与延迟跳转作废（代数守卫） |
+| 胶囊详情 | `CapsuleByCodePage` 里按 `code` keyed | 换码、离页；开启动画与轮询在视图里，换皮肤时旧视图 `abort()` |
+| 创建表单 | `CreatePage` 里按 `user.id` keyed | 换账号、离页（草稿本身在模块 store，见第 10 节） |
+| 登录 / 注册表单 | `LoginPage` / `RegisterPage` | 离页、提交成功 |
+| 「我的」页签 | `MeView` 里的 `createMemo`，每个页签一份 | 换页签、离页 |
 
-```tsx
-// capsule.ts toggleFavorite（取消收藏分支）
-await api.unfavorite(capsuleId);
-setCapsule("favorites", "items", (items) => items.filter((c) => c.id !== capsuleId));
-const plazaItem = plaza.items.find((i) => i.id === capsuleId);
-patchPlazaFavorited(capsuleId, false, Math.max(0, (plazaItem?.favoriteCount ?? 1) - 1));
-```
-
-因为 store 是模块级单例、跨组件树共享，这种「一处操作、多处投影」不需要任何 Context / Provider，
-直接函数调用即可——这是模块级响应式相比 React Context 的简洁之处。
-
----
-
-## 10. 组件与页面的典型模式
-
-### 10.1 数据拉取页
-`PlazaPage` / `MeCreatedPage` / `MeFavoritesPage`：`onMount` 或 `createEffect` 里触发 store 的 fetch，
-模板用 `<CapsuleGrid items={store.items} loading={store.loading} />` 直接绑定响应式数据。
-注意 `items={store.mine.items}` 这种**传 getter 表达式**的写法在 JSX 里是响应式的——
-Solid 编译器把属性值包成 thunk，子组件读取时才求值并建立订阅。
-
-### 10.2 受控表单
-`LoginPage` / `RegisterPage` / `CreatePage` / `MeProfilePage`：每个字段一个 signal，
-`value={x()} onInput={(e) => setX(e.currentTarget.value)}`；提交在 `onSubmit` 里 `e.preventDefault()` 后调 API。
-没有 React 的「受控组件每键重渲染整个组件」开销——Solid 只更新那一个 `<input>` 的 value 绑定。
-
-### 10.3 乐观更新 + props 回灌（`FavoriteButton`）
-这是体现 Solid 响应式细节的最佳样本。它持有本地 signal 做即时反馈，又要能接受外部（store patch / 详情页）的更新：
+「我的」三个页签共用一个路由组件（切页签时页头与统计不重绘），每个页签的状态这样建：
 
 ```tsx
-const [active, setActive] = createSignal(props.capsule.favoritedByMe);
-const [count, setCount]   = createSignal(props.capsule.favoriteCount);
-
-// 关键：props 变化时把外部最新值「回灌」进本地 signal。
-// 因为本组件可能被复用在列表里，父级 patch 后必须同步，否则显示旧值。
-createEffect(() => {
-  setActive(props.capsule.favoritedByMe);
-  setCount(props.capsule.favoriteCount);
+const body = createMemo<MeBody>(() => {
+  const tab = props.tab;
+  return untrack(() =>
+    tab === "profile"
+      ? { tab, profile: createProfile(), avatarIds: createAvatarIds() }
+      : { tab, list: createMyList(tab, stats.refresh) },
+  );
 });
-
-async function toggle() {
-  if (!auth.user) { /* 匿名 → confirm 跳登录 */ return; }
-  // 调 API 成功后同时更新本地 signal 和广场投影
-  const r = await api.favorite(props.capsule.id);
-  setActive(true); setCount(r.favoriteCount);
-  patchPlazaFavorited(props.capsule.id, true, r.favoriteCount);
-}
 ```
 
-> 这个 `createEffect` 在 React 里对应的是「`useEffect(() => setActive(props...), [props...])`」这种受控同步，
-> 但 Solid 自动追踪 `props.capsule.favoritedByMe`，省去依赖数组。
+memo 重跑时，上一次在它里面建的状态（和它们的 effect、onCleanup）一起销毁，所以离开「账号设置」页签就等于清空了资料与密码表单。`untrack` 必不可少：`createProfile()` 创建时会读 `auth.user`，不圈起来的话，保存资料后 `refreshMe` 改了 `auth.user`，memo 就会把正在改的表单整份重建。
 
-### 10.4 定长按位输入（`CapsuleCodeInput`）—— `<Index>` 的教科书用例
-8 个胶囊码格子是「定长、按位置更新、每格一个 DOM `<input>`」，正是 `<Index>`（而非 `<For>`）的场景：
+### 11.3 表单：受控输入
 
-```tsx
-const refs: Array<HTMLInputElement | undefined> = [];
-const chars = () => Array.from({ length: LEN }, (_, i) => (props.value[i] ?? "").toUpperCase());
+所有输入都是受控的：值在 primitive 的信号里，`onInput` 写回去，`value={f.email()}` 读出来。注意一个和 React 不同的细节：Solid 只在信号值**变了**时才写 `input.value`。如果处理函数把输入清洗掉了（输码框丢掉非法字符），信号值没变，DOM 里就会留着用户刚敲的那个字符——两套输码框都在 `onInput` 里把清洗后的值写回 `el.value`。
 
-<Index each={chars()}>
-  {(ch, i) => (                          // ch 是 Accessor（() => string），i 是固定数字
-    <input
-      ref={(el) => (refs[i] = el)}       // 收集 DOM 引用，用于自动聚焦下一格
-      value={ch()}
-      maxlength={1}
-      onInput={(e) => setAt(i, e.currentTarget.value.slice(-1))}
-      onKeyDown={(e) => handleKey(i, e)} // Backspace / 方向键在格子间移动焦点
-      onPaste={handlePaste}              // 粘贴整串：过滤非法字符后一次性填入
-    />
-  )}
-</Index>
-```
+### 11.4 组件分类
 
-- 用 `<For>` 会按元素引用协调——但这里元素是字符串、位置固定，按位置（`<Index>`）才对。
-- `ref={(el) => (refs[i] = el)}` 是 Solid 收集 DOM 节点的惯用法（回调 ref），用来实现「输入后自动跳下一格」。
-- `value.length === LEN` 时触发 `onComplete`（见 §5.7 关于这里曾经的双触发坑）。
-
-### 10.5 自定义卡片操作（`MeCreatedPage`）
-`CapsuleGrid` 接收 `cardSlot={(c) => JSX}`，对每个 item 渲染「撤回」按钮或收藏数——
-对应 react-ts 的 `rightSlot` render-prop。在 Solid 里就是一个返回 JSX 的普通函数 prop。
-
-### 10.6 翻页动画 + 自动开启（`CapsuleDetail`）
-`CalendarUnit` 用 signal 驱动 fold/unfold 动画相位；到点后用 `setTimeout` 轮询 `onExpired` 刷新开启状态。
-**注意用 `window.setTimeout` 拿 `number` 返回值**——否则在装了 `@types/node` 的环境里类型会被推断成 `NodeJS.Timeout`，
-与显式 `number` 标注冲突（这是本实现 lint 唯一暴露过的两处错误，见 §17）。
-
----
-
-## 11. 样式层
-
-`styles/index.css` 直接 `@import` `spec/styles/{palette,tokens,cyber}.css` + Tailwind v4，
-与所有前端共享 `cy-*` 组件类与设计令牌。组件层只允许用语义令牌 `var(--color-*)` 和 `cy-*`，禁止硬编码色值。
-
-> ⚠️ SolidJS 的 `style` 对象与 React 不同：**键用 kebab-case 字符串、值必须带单位**。
-> 例如 React 的 `style={{ marginLeft: "auto", gap: 6 }}` 在 Solid 要写成 `style={{ "margin-left": "auto", gap: "6px" }}`。
-> SVG 属性也用原生 kebab-case：`stroke-width` 而非 `strokeWidth`。
-
----
-
-## 12. 常见改动指南
-
-| 想做的事 | 改哪里 |
+| 位置 | 放什么 |
 |---|---|
-| 加一个页面 / 路由 | `pages/` 新增组件 + `App.tsx` 的 `<Route>` |
-| 加一个 API 端点 | `api/client.ts` 的 `api` 对象 + `types/index.ts` 类型 |
-| 加一块全局状态 | `stores/` 新建模块级 Signal/Store + 导出动作 |
-| 改广场筛选逻辑 | `stores/plaza.ts` |
-| 改视觉令牌 | 改 `spec/styles/tokens.css`（**不要**在组件里硬编码） |
+| `components/` | 结构两套相同的部件：`Seg`（分段控件与 `createSlider` 滑块定位）、`FavButton`、`LoginPrompt`（`askLogin`、`CreateLink`）、`Feedback`（Toast / 确认框宿主）、`forms`（字段、密码、昵称状态、头像选择、`createShake`）、`shared`（头像、技术栈图标、皮肤开关、「加载更多」、`createHealth`）、`shellParts`（导航高亮、用户菜单）、`AuthGate` |
+| `skins/<skin>/parts.tsx` | 皮肤专属的小件：时笺的印章、火漆、信封、邮戳、刻度尺、翻页数字、邮票；琥珀的胶囊插画、徽标、邮戳、翻牌倒计时、码牌 |
+| `skins/<skin>/*.tsx` | 页面视图与卡片、外壳、输码框 |
 
----
+### 11.5 测试钩子
 
-## 13. SolidJS vs React vs Vue vs Svelte 速查
+每个关键元素都带 `spec/ui/testids.md` 规定的 `data-testid` 与状态属性（`data-state`、`data-code`、`data-selected`、`aria-pressed`…）。UI 冒烟只靠它们定位，所以两套皮肤跑同一套用例。布尔值写成 `data-selected={String(on())}`，保证属性值是 `"true"` / `"false"`。
+
+## 12. 工具层：`lib/`
+
+| 文件 | 内容 |
+|---|---|
+| `fmt.ts` | 时间说法（`span`：「2 年 8 个月」）、倒计时拆分、等待进度、农历、`reducedMotion()`、`focusIfIdle()`、`addCalendarYears()`（开启时间上限：10 个日历年，与服务端同一算法） |
+| `icons.tsx` | 24 网格线性图标（`<Icon name="pen" />`） |
+| `avatars.ts` | 构建期内联 `spec/avatars/v2` 的单线徽记（`import.meta.glob(..., { query: "?raw" })`） |
+| `palette.ts` | 琥珀的胶囊专属色：FNV-1a + OKLCH（`docs/02-design.md §9.6`） |
+| `about.ts` | 关于页共用文字、技术栈角色名、本前端技术栈 |
+| `account.ts` | 邮箱 / 昵称（按 Unicode 码点）/ 密码规则、`nickState`、后端字段错误映射 |
+| `redirect.ts` | 登录回跳：只接受站内路径 |
+
+## 13. 样式层：spec/styles
+
+`src/styles/index.css` 只做三件事：引入 `@fontsource` 自托管字体；按「base → 时笺 → 琥珀 → shell」的顺序引入 `spec/styles`；引入 `app.css`（让 `#root` 不参与布局 + 「加载更多」的居中）。本前端不写组件样式，也不用 Tailwind。
+
+想改长相：改 `spec/styles/<skin>/*.css`（所有实现一起受益），并在原型里两套皮肤、明暗都看一遍。想加只属于本前端的胶水样式：写进 `app.css`，只能用 `base.css` 刻度与语义令牌（`--color-*` 等），`verify-design-tokens.sh solid` 会检查。
+
+## 14. 测试
+
+- **单元测试**（vitest，node 环境，`./test`）：只测纯逻辑，不渲染组件。
+  - `lib/lib.test.ts`：时间说法、倒计时、等待进度、专属色确定性、登录回跳。
+  - `lib/account.test.ts`：昵称按码点校验（`𠮷的草稿` 合法、21 位超长）、`invalid` 与 `taken` 的区分、日历年上限（2 月 29 日落到平年）、页码列表。
+  - `api/client.test.ts`：refresh 单飞与重放、登出不触发刷新。
+- **UI 冒烟**（Playwright，`verification/ui`）：44 条用例 × 两套皮肤，真实浏览器、真实后端，只靠测试钩子定位；`SKINS=paper` 可只跑一套。组件级行为交给它覆盖，两层各司其职。
+
+## 15. 常见改动指南
+
+- **新增一个页面**：在 `primitives/` 写逻辑（`createXxx()`）→ 在 `skins/paper` 与 `skins/amber` 各写一份视图（照原型的结构与类名，接收 primitive 作 prop）→ 在 `pages/` 加一个路由入口（建状态 + `<Skinned>`）→ 在 `App.tsx` 登记 → 按 `spec/ui/testids.md` 加测试钩子。
+- **新增一个接口**：先改 `spec/api/openapi.yaml` → 在 `types/` 加类型 → 在 `api/client.ts` 加方法 → 在 primitive 或 store 里调用。
+- **新增一份全局状态**：在 `stores/` 用 `createSignal` / `createStore` 建在模块顶层，导出只读值与动作函数；需要监听别的状态时，把 `createEffect` 放进 `createRoot` 里（参考 `onAccountChange`）。
+- **调整视觉**：改 `spec/styles`，不要在组件里写样式。
+
+## 16. SolidJS vs React vs Vue vs Svelte 速查
 
 | 概念 | SolidJS | React | Vue 3 | Svelte 5 |
 |---|---|---|---|---|
 | 组件函数执行 | **只一次** | 每次渲染 | setup 一次 | 一次 |
 | 局部状态 | `createSignal` → `x()` | `useState` → `x` | `ref` → `x.value` | `$state` → `x` |
 | 派生 | 函数 / `createMemo` | `useMemo` | `computed` | `$derived` |
-| 副作用 | `createEffect`（自动依赖） | `useEffect`（手写依赖） | `watchEffect` | `$effect` |
-| 挂载 | `onMount` | `useEffect(fn,[])` | `onMounted` | `$effect`/`onMount` |
-| 列表 | `<For>` / `<Index>` | `.map()` | `v-for` | `{#each}` |
-| 条件 | `<Show>` | `&&` / 三元 | `v-if` | `{#if}` |
-| 全局状态 | 模块级 Signal/Store | Zustand/Context | Pinia | `.svelte.ts` 单例 |
+| 副作用 | `createEffect`（自动依赖） | `useEffect`（手写依赖） | `watchEffect` / `watch` | `$effect` |
+| 挂载 / 清理 | `onMount` / `onCleanup` | `useEffect` 及其返回值 | `onMounted` / `onUnmounted` | `onMount` / `$effect` 返回值 |
+| 列表 | `<For>` / `<Index>` | `.map()` + `key` | `v-for` + `:key` | `{#each}` |
+| 条件 | `<Show>` / `<Switch>` | `&&` / 三元 | `v-if` | `{#if}` |
+| 重建子树 | `<Show keyed>` | 改 `key` | 改 `:key` | `{#key}` |
+| 跨层传递 | `createContext` / `useContext` | Context | `provide` / `inject` | `setContext` |
+| 全局状态 | 模块级 Signal / Store | Zustand / Context | Pinia | `.svelte.ts` 单例 |
 | 渲染模型 | 细粒度，无 VDOM | 虚拟 DOM diff | 虚拟 DOM diff | 编译期，无 VDOM |
 
----
+本项目里同一份逻辑的四种写法：React 的 `hooks/useCreateCapsule.ts`、Vue 的组合式函数、Svelte 的 runes、Solid 的 `primitives/capsuleForm.ts`——对照着读最能看出差别。
 
-## 14. 渲染原理：没有虚拟 DOM，更新去哪了？
+## 17. 渲染原理：没有虚拟 DOM，更新去哪了？
 
-理解这一点能解释前面所有「为什么 props 不能解构」「为什么读值要调用函数」的根因。
-
-`vite-plugin-solid`（babel-preset-solid）在**编译期**把 JSX 转成真实 DOM 创建 + 细粒度更新表达式。
-大致上：
+`vite-plugin-solid`（babel-preset-solid）在**编译期**把 JSX 转成真实 DOM 的创建代码加细粒度的更新表达式。大致上：
 
 ```tsx
-<h3>{props.capsule.title}</h3>
+<h3 class="cap__title">{props.c.title}</h3>
 ```
 
 会被编译成类似：
 
 ```js
-const el = document.createElement("h3");
-// 这一行被包进一个 computation：props.capsule.title 变化时只重跑它，只改这个文本节点
-insert(el, () => props.capsule.title);
+const el = template(`<h3 class="cap__title">`)();   // 静态结构一次性克隆出来
+insert(el, () => props.c.title);                    // 只有这个文本位置依赖 title
 ```
 
 所以：
 
-- **组件函数只运行一次**——它的职责是「建立 DOM 结构 + 注册一批细粒度 computation」，而不是像 React 那样
-  「每次状态变化重跑、产出新 VDOM、再 diff」。这就是为什么把响应式数据解构成普通变量会丢失响应性：
-  解构发生在那「唯一一次」执行里，拿到的是当时的快照。
-- **更新是点对点的**——`setCount(5)` 直接定位到订阅了 `count` 的那个文本节点 / 属性绑定去改，
-  不重跑组件、不 diff 子树。一个 1000 行的列表里改一个 item 的标题，只有那一个 `<h3>` 的文本被触碰。
-- **`<For>` / `<Show>` 是编译/运行时协作的协调原语**——它们维护一小块「键 → DOM 片段」的映射，
-  数据变化时增删/移动 DOM 片段，而不是重建整棵子树。
+- **组件函数只运行一次**——它的职责是「建立 DOM 结构 + 注册一批细粒度计算」，而不是每次产出新 VDOM 再 diff。把响应式数据解构成普通变量会丢失响应性，原因就在这里：解构发生在那唯一一次执行里。
+- **更新是点对点的**——`setPlaza("items", …, { favoriteCount: 3 })` 直接定位到读了那一枚 `favoriteCount` 的文本节点去改，不重跑组件、不 diff 子树。
+- **控制流组件是协调原语**——`<For>` / `<Show>` 维护一小块「键 → DOM 片段」的映射，数据变化时增删、移动片段，而不是重建整棵子树。
 
-一句话：React 把「什么变了」交给运行时 diff 去算；Solid 在你写下 `count()` 的那一刻，
-就在编译期+运行时记录了「这个 DOM 位置依赖 count」，于是更新时无需计算、直接命中。
+一句话：React 把「什么变了」交给运行时 diff 去算；Solid 在你写下 `count()` 的那一刻就记下了「这个 DOM 位置依赖 count」，更新时无需计算、直接命中。
 
----
-
-## 15. 测试策略
-
-```bash
-npm test          # vitest，node 环境
-```
-
-本项目单测**只测纯逻辑层**，不渲染 Solid 组件：
-
-- `src/utils/format.test.ts` —— 倒计时计算、时间格式化、数字格式化等纯函数，输入输出直接断言。
-- `src/api/client.test.ts` —— 用 `configureApi()` 注入假 token 回调、`vi.stubGlobal("fetch", …)` 打桩，
-  验证响应解包、`ApiError` 抛出、401 自动 refresh + 重放、refresh 并发去重。**这正是 §8 依赖倒置设计的回报**：
-  client 不依赖任何 store，测试里随便注入假回调即可。
-
-为什么不做组件渲染测试？因为**组件级行为已被 `verification/` 的 25 个 Playwright 黑盒用例覆盖**
-（真实浏览器、真实后端、真实路由）。单测聚焦那些 Playwright 难以精确触发的分支（如 refresh 竞态），
-两层各司其职，不重复造轮子。这也符合本仓库「外部黑盒验证为准」的总原则。
-
----
-
-## 16. 与契约对齐
-
-| 契约要点 | 落点 |
-|---|---|
-| 统一响应包装 `{ success, data, message, errorCode }` | `src/api/client.ts` 解包并将失败映射成 `ApiError` |
-| 错误码枚举 | `src/types/index.ts` `ErrorCode` |
-| 8 位胶囊码 `[A-Z0-9]{8}` | `CapsuleCodeInput` 强制大写 + 字符过滤（§10.4） |
-| 广场 sort/filter/q + 分页 | `stores/plaza.ts` + `PlazaToolbar`（搜索 300ms 防抖） |
-| JWT + refresh 轮换 | `api/client.ts` 自动 refresh；`stores/auth.ts` 持久化 refresh token + user |
-| 头像列表 `/api/v1/avatars` | `RegisterPage` / `MeProfilePage` 取自 API |
-| 健康检查 `/api/v1/health` | `AppFooter` / `AboutPage` 渲染当前后端栈 |
-| AI 建议 / 推荐端点 | `CreatePage` + `RecommendationStrip`（失败静默、不阻塞创建） |
-| 路由路径 | `/c/:code` 与 react-ts / vue3-ts / angular 一致 |
-
----
-
-## 17. 踩坑 FAQ（本实现实测）
+## 18. 踩坑 FAQ（本实现实测）
 
 | 现象 | 原因 | 对策 |
 |---|---|---|
-| 改了 store 字段，组件不更新 | 把 props / store 字段**解构**成了普通变量，丢失响应性（§5.5） | 一律 `props.x` / `store.x` 访问；默认值用 `() => props.x ?? d` |
-| effect 莫名多跑、列表请求翻倍 | effect 自动追踪了它调用的函数里同步读取的响应式数据（§5.7） | 用 `untrack(() => fn())` 圈住不想追踪的调用 |
-| `style={{ marginLeft: "auto" }}` 不生效 | Solid 的 style 对象用 **kebab-case 键 + 带单位值**，不是 React 的 camelCase + 自动 px | 写成 `style={{ "margin-left": "auto", gap: "6px" }}`；SVG 属性用 `stroke-width` |
-| `const t: number = setTimeout(...)` 类型报错 | 装了 `@types/node` 时 `setTimeout` 返回 `NodeJS.Timeout` | 用 `window.setTimeout` / `window.clearTimeout` 拿浏览器的 `number`（§10.6） |
-| `<Show>{(x) => x.foo}</Show>` 报 x 可能为空 | callback 形式的参数是 Accessor | 写 `{(x) => x().foo}`，且 `x()` 已被收窄为非空 |
-| 首页 `<A href="/">` 一直高亮 | 路由前缀匹配 | 加 `end` 属性做精确匹配（§6） |
+| 改了 store 字段，组件不更新 | 把 props / store 字段解构成了普通变量（§5.6） | 一律 `props.x` / `store.x` 访问 |
+| effect 莫名多跑、请求翻倍 | effect 自动追踪了它调用的函数里同步读取的信号（§5.5） | 用 `on(dep, fn)` 指定依赖，或 `untrack(() => fn())` 圈住 |
+| 登出后草稿没清 | `on(…, { defer: true })` 跳过的那一次不记旧值 | 不加 defer，用「旧值为空就不触发」判断首次 |
+| 同一个小部件出现两份 | JSX 类型的 prop 每读一次就新建一次节点（§5.6） | `children(() => props.x)` 或 `createMemo` 只读一次 |
+| 输码框里留着被过滤掉的字符 | 信号值没变时 Solid 不回写 DOM（§11.3） | 在 `onInput` 里手动写回 `el.value` |
+| `/capsules/A` 跳到 `/capsules/B` 还显示旧数据 | 同一路由换参数，组件不重建 | `<Show when={params.code} keyed>` |
+| 骨架屏、标尺刻度位置不对 | Solid 的 style 不自动补 `px`、键要 kebab-case | `style={{ width: "150px", "margin-top": "12px" }}` |
+| CSS 动画只播一次 | 没有 React 的 `key` 重挂载 | keyed `<Show>` 重建节点，或 `classList` 摘掉 → 回流 → 加回 |
+| keyed `<Show>` 的子函数报类型错 | 类型要求子函数必须声明参数 | 写 `{(id) => …}`，用不到也写出来 |
+| `textLength` / `focusable` 报类型错 | Solid 的 JSX 类型漏了这几个 SVG 属性 | `src/solid-jsx.d.ts` 模块扩充 |
+| `<Show>{(x) => x.foo}</Show>` 报 x 可能为空 | callback 形式的参数是 Accessor | 写 `{(x) => x().foo}`，`x()` 已被收窄为非空 |
 
-读到这里，回到 `frontends/react-ts` 对照同一个页面（比如 `CreatePage` 或 `FavoriteButton`），你会清楚看到：
-两边业务逻辑几乎一样，差别只在「React 用 hooks + 重渲染 + VDOM diff」对「Solid 用 signals + 细粒度订阅 + 编译期定位」。
-这正是本多栈项目想让你建立的对比直觉。
+读到这里，回到 `frontends/react-ts` 对照同一个页面（比如创建页或收藏按钮），你会清楚看到：两边的业务逻辑几乎一样，差别只在「React 用 hooks + 重渲染 + VDOM diff」对「Solid 用 signals + owner 树 + 编译期定位」。这正是本多栈项目想让你建立的对比直觉。

@@ -1,110 +1,29 @@
-import { createSignal, Show } from "solid-js";
-import { A, useLocation, useNavigate } from "@solidjs/router";
-import { api } from "@/api/client";
-import { setTokens } from "@/stores/auth";
-import { ApiError } from "@/types";
-import { Alert } from "@/components/Alert";
+import { untrack } from "solid-js";
+import { Navigate, useLocation } from "@solidjs/router";
+import { auth } from "@/stores/auth";
+import { safeRedirect } from "@/lib/redirect";
+import { createLogin } from "@/primitives/account";
+import { PaperLoginPage } from "@/skins/paper/AccountPages";
+import { AmberLoginPage } from "@/skins/amber/AccountPages";
+import { Skinned } from "./Skinned";
+
+/**
+ * 已登录时访问登录 / 注册页：直接去 redirect（或首页），不破坏当前会话。
+ * 只在进入页面那一刻判断——页面里刚登录成功时由表单自己跳转，不能被这里抢先
+ */
+export function guestRedirect(): string | null {
+  const location = useLocation();
+  return untrack(() => (auth.user ? safeRedirect(new URLSearchParams(location.search).get("redirect"), "/") : null));
+}
 
 export function LoginPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const to = guestRedirect();
+  if (to) return <Navigate href={to} />;
+  document.title = "登录 · HelloTime Pro";
+  return <LoginForm />;
+}
 
-  const [email, setEmail] = createSignal("");
-  const [password, setPassword] = createSignal("");
-  const [busy, setBusy] = createSignal(false);
-  const [err, setErr] = createSignal<string | null>(null);
-
-  async function submit(e: SubmitEvent) {
-    e.preventDefault();
-    setErr(null);
-    setBusy(true);
-    try {
-      const tokens = await api.login({ email: email().trim(), password: password() });
-      setTokens(tokens);
-      const state = location.state as { from?: string } | null;
-      navigate(state?.from ?? "/me/created", { replace: true });
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "登录失败");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <main
-      class="cy-container cy-container--narrow"
-      style={{ "margin-top": "var(--space-12)", "margin-bottom": "var(--space-16)" }}
-    >
-      <div class="cy-card" style={{ "max-width": "440px", margin: "0 auto" }}>
-        <h1
-          style={{
-            "font-family": "var(--font-display)",
-            "font-size": "var(--font-size-3xl)",
-            margin: "0 0 var(--space-2)",
-          }}
-        >
-          欢迎回来
-        </h1>
-        <p style={{ color: "var(--color-text-secondary)", margin: "0 0 var(--space-8)" }}>
-          你留给未来的信，还在等你开启。
-        </p>
-
-        <form class="cy-form" onSubmit={submit}>
-          <div class="cy-field">
-            <label for="email">邮箱</label>
-            <input
-              class="cy-input"
-              id="email"
-              type="email"
-              autocomplete="email"
-              required
-              value={email()}
-              onInput={(e) => setEmail(e.currentTarget.value)}
-            />
-          </div>
-          <div class="cy-field">
-            <label for="pwd">密码</label>
-            <input
-              class="cy-input"
-              id="pwd"
-              type="password"
-              autocomplete="current-password"
-              required
-              value={password()}
-              onInput={(e) => setPassword(e.currentTarget.value)}
-            />
-            <span class="cy-field__hint">忘记密码？M1 暂不支持找回，请联系管理员重置。</span>
-          </div>
-
-          <button
-            class="cy-btn cy-btn--primary cy-btn--lg"
-            type="submit"
-            style={{ width: "100%" }}
-            disabled={busy()}
-          >
-            {busy() ? "登录中…" : "登录"}
-          </button>
-
-          <div
-            style={{
-              "text-align": "center",
-              color: "var(--color-text-muted)",
-              "font-size": "var(--font-size-sm)",
-            }}
-          >
-            还没有账号？
-            <A href="/register" style={{ color: "var(--color-brand-primary)" }}>
-              立即注册
-            </A>
-          </div>
-        </form>
-      </div>
-
-      <Show when={err()}>
-        <div style={{ "max-width": "440px", margin: "var(--space-6) auto 0" }}>
-          <Alert variant="danger">{err()}</Alert>
-        </div>
-      </Show>
-    </main>
-  );
+function LoginForm() {
+  const f = createLogin();
+  return <Skinned paper={<PaperLoginPage f={f} />} amber={<AmberLoginPage f={f} />} />;
 }

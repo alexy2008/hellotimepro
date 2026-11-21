@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
-import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
 // 反向代理目标：默认指向 :9080（hello switch 切换的反代）
@@ -8,7 +7,7 @@ import path from "node:path";
 const BACKEND_PROXY = process.env.BACKEND_PROXY ?? "http://localhost:9080";
 
 export default defineConfig({
-  plugins: [solid(), tailwindcss()],
+  plugins: [solid()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
@@ -19,7 +18,7 @@ export default defineConfig({
     port: 7180,
     host: "0.0.0.0",
     proxy: {
-      // API 与后端静态资源（头像 / 图标）一并代理
+      // API 与后端静态资源（技术栈图标）一并代理
       // proxyTimeout 延长至 60s，以容纳 LLM 胶囊建议接口的响应时间
       "/api": { target: BACKEND_PROXY, changeOrigin: true, proxyTimeout: 60_000 },
       "/static": { target: BACKEND_PROXY, changeOrigin: true },

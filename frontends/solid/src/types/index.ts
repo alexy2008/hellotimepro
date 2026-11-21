@@ -70,6 +70,23 @@ export interface CapsuleDetail extends CapsuleBase {
   favoritedByMe: boolean;
 }
 
+/** 2.0：GET /plaza/stats。counts 与列表同口径（受 q 影响），两个时刻不受 q 影响 */
+export interface PlazaStats {
+  counts: { all: number; opened: number; unopened: number };
+  farthestOpenAt: string | null;
+  nextOpenAt: string | null;
+}
+
+/** 2.0：GET /me/stats */
+export interface MyStats {
+  created: number;
+  opened: number;
+  unopened: number;
+  inPlaza: number;
+  favoritesReceived: number;
+  favoritesGiven: number;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
