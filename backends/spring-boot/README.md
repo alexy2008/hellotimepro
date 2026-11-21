@@ -101,8 +101,17 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
 
 另验证 `./build` 通过，10 个头像 URL 的 SVG 均与 v2 规范一致。UI 冒烟、设计令牌检查不适用于纯后端。
 
+评审修正后复验（2026-11-21，路径 UUID 校验，见迁移笔记最后一条）：
+
+| 检查 | 数据库 | 结果 |
+|---|---|---|
+| `./test`（新增路径 UUID 用例） | 临时 SQLite | 6/6 |
+| 仓库契约 | 专用 PostgreSQL 库 | 117/117 |
+| 同一仓库契约 | 临时 SQLite 文件 | 117/117 |
+
 ## 2.0 迁移笔记
 
 - 无 schema 迁移。广场列表与统计复用 JPQL 谓词；时间极值使用 Spring Data 单列投影和 `findFirst…OrderBy…`，保留 Hibernate 自定义 JDBC 时间类型映射，且不受搜索词影响。
 - PostgreSQL 继续用 `PESSIMISTIC_WRITE`；收藏、取消收藏、删除按同一顺序操作。SQLite 使用单连接池及 `transaction_mode=IMMEDIATE`，避免读事务升级为写事务时遇到锁冲突。删除时用 JPQL 批量删除收藏，不依赖外键级联。
 - PostgreSQL 复测须显式设置 `DB_DRIVER=postgres` 和专用 `DB_URL`，再执行 `./verification/scripts/verify-contract.sh spring`。SQLite 包装脚本的清理路径不一定采用 `DB_URL`，因此显式指定临时库并通过 `scripts/db` 初始化、`scripts/hello` 启停，直接用 `BASE_URL=http://127.0.0.1:29000 node --test verification/contract/*.spec.ts` 运行同一套用例。
+- 路径里的胶囊 id 统一经 `CapsuleIds.parse` 校验（与请求体 `@Pattern` 共用 `Dtos.UUID_PATTERN`），格式不合法返回 422。此前 `GET /plaza/capsules/{id}`、`DELETE /me/capsules/{id}` 直接 `UUID.fromString`，非法值落到通用处理器变成 500；`DELETE /me/favorites/{id}` 吞掉异常返回 204。`UUID.fromString` 还会接受 `1-1-1-1-1` 这类非标准写法，所以先用正则判格式。

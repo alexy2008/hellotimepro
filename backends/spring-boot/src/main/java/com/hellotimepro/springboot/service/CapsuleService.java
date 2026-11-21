@@ -80,7 +80,7 @@ public class CapsuleService {
   }
 
   public CapsuleDetail getPlazaDetail(String id, String viewerId) {
-    CapsuleEntity capsule = capsules.findById(UUID.fromString(id)).filter(CapsuleEntity::isInPlaza)
+    CapsuleEntity capsule = capsules.findById(CapsuleIds.parse(id, "id")).filter(CapsuleEntity::isInPlaza)
         .orElseThrow(() -> ApiException.notFound("胶囊不存在"));
     UserEntity owner = users.findById(capsule.getOwnerId())
         .orElseThrow(() -> ApiException.notFound("胶囊不存在"));
@@ -89,7 +89,7 @@ public class CapsuleService {
 
   @Transactional
   public void deleteOwn(UserEntity user, String id) {
-    UUID uuid = UUID.fromString(id);
+    UUID uuid = CapsuleIds.parse(id, "id");
     CapsuleEntity capsule = capsules.findForMutation(uuid, "postgres".equals(props.getDbDriver()))
         .orElseThrow(() -> ApiException.notFound("胶囊不存在"));
     if (!capsule.getOwnerId().equals(user.getId())) throw ApiException.forbidden("无权删除他人胶囊");

@@ -14,6 +14,9 @@ import java.util.List;
 public final class Dtos {
   private Dtos() {}
 
+  /** 标准带连字符的 UUID；请求体（@Pattern）与路径参数（CapsuleIds）共用同一口径。 */
+  public static final String UUID_PATTERN = "[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}";
+
   public record Envelope<T>(boolean success, T data, String message, String errorCode) {
     public static <T> Envelope<T> ok(T data) {
       return new Envelope<>(true, data, null, null);
@@ -78,8 +81,7 @@ public final class Dtos {
       Boolean inPlaza
   ) {}
 
-  public record FavoriteRequest(@NotBlank @Pattern(regexp = "[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
-      String capsuleId) {}
+  public record FavoriteRequest(@NotBlank @Pattern(regexp = UUID_PATTERN) String capsuleId) {}
 
   public record CapsuleBase(
       String id,

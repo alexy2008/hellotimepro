@@ -91,4 +91,5 @@ DB_URL=postgresql://user:pass@localhost:5432/mydb ./run
 
 - 无 schema 迁移。TypeORM 的 QueryBuilder 手写条件参数不经实体时间列转换器；SQLite 按 seed 的 ISO 文本格式显式绑定 `now`。聚合计数将 PostgreSQL 字符串与 SQLite 数值统一为 JSON 数字。
 - SQLite 演示胶囊主键用无连字符的十六进制，而本栈已有数据可能带连字符。API 返回规范 UUID，查询匹配两种存储形态；收藏外键和删除均使用查到的原始主键。
+- 评审修正（2026-11-21）：生成唯一码重试耗尽时改为 `INTERNAL_ERROR`（500），与 fastapi 一致；之前误用 `BAD_REQUEST`。`./test` 5/5 + 类型检查通过；该分支在契约里无法触发，未重跑契约。
 - PostgreSQL 复测显式设置 `DB_DRIVER=postgres` 和专用 `DB_URL` 后执行 `./verification/scripts/verify-contract.sh nest`。SQLite 包装脚本的清理路径不一定采用 `DB_URL`，因此显式指定临时库，通过 `scripts/db` 初始化和 `scripts/hello` 启停，再执行 `BASE_URL=http://127.0.0.1:29040 node --test verification/contract/*.spec.ts`。

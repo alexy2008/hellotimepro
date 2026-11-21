@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { badRequest, forbidden, notFound, validationError } from '../common/api.exception';
+import { forbidden, internalError, notFound, validationError } from '../common/api.exception';
 import { Capsule } from '../entities/capsule.entity';
 import { Favorite } from '../entities/favorite.entity';
 import { User } from '../entities/user.entity';
@@ -102,7 +102,8 @@ export class CapsulesService {
         throw e;
       }
     }
-    throw badRequest('生成唯一码失败');
+    // 与 fastapi 一致：服务端重试耗尽属于内部错误，不是客户端请求有误
+    throw internalError('生成唯一码失败');
   }
 
   async getByCode(code: string, viewerId: string | null) {

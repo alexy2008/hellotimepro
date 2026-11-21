@@ -67,6 +67,10 @@ export function badRequest(message: string): ApiException {
   return new ApiException('BAD_REQUEST', message);
 }
 
+export function internalError(message = '服务器内部错误'): ApiException {
+  return new ApiException('INTERNAL_ERROR', message);
+}
+
 export function rateLimited(message = '操作过于频繁，请稍后再试'): ApiException {
   return new ApiException('RATE_LIMITED', message);
 }

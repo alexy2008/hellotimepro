@@ -2,7 +2,7 @@
 
 > 面向所有编码 agent（Codex、OpenCode、Antigravity / Gemini、Claude Code…）。通用工作约定见根目录 `AGENTS.md`，本文件只讲 2.0 升级本身。
 
-> 适用范围：其余 9 个后端、4 个前端、5 个全栈。桌面端 / 移动端不在本轮。
+> 适用范围：全部 10 个后端、5 个前端、5 个全栈（进度见第 5 节）。桌面端 / 移动端不在本轮。
 > 参考实现已完成：**后端 FastAPI**（`backends/fastapi`）、**前端 React**（`frontends/react-ts`）。
 > 原则：`spec/` 是唯一事实源；**先读参考实现再动手，做到功能对齐，不自由发挥**；不做中间态兼容（不需要同时支持 1.x 与 2.0）。
 
@@ -39,6 +39,14 @@
 9. **头像**改读 `spec/avatars/v2/`（`catalog.json` + svg），不再用根目录的 1.x 头像。
 10. 空值字段（`message`、`errorCode`、`favoritedAt`、`content`、`farthestOpenAt`…）照 openapi 返回 `null`，不要省略字段。
 11. 单元测试同步：统计、收藏口径、删除连带、日历年上限、字面匹配。
+12. **路径里的胶囊 id 也要校验 UUID 格式**：`GET /plaza/capsules/{id}`、`DELETE /me/capsules/{id}`、`DELETE /me/favorites/{capsuleId}` 格式不合法 → 422 `VALIDATION_ERROR`（与 fastapi 的 `uuid.UUID` 路径参数一致）；格式合法但不存在 → 404（取消收藏仍幂等 204）。不要让解析异常落到通用处理器变成 500，也不要吞掉变成 204。Java 的 `UUID.fromString` 过于宽松（`1-1-1-1-1` 也能解析），先用正则判格式。契约目前只测了 `POST /me/favorites` 的非法 UUID，这几条要靠单测兜住。
+
+第一批（gin、spring-boot、ktor、nest、elysia）踩到的 SQLite 坑，后面的实现照做即可：
+
+- **种子数据的 UUID 是无连字符的 32 位十六进制**，应用新建的是带连字符的标准格式，同一张表里两种并存。要么像 spring / ktor 那样靠列类型映射统一，要么像 gin / nest / elysia 那样「查找时两种格式都匹配、输出时统一成带连字符」；写外键（收藏、删除）用查到的原始主键。
+- **时间是 ISO 文本**：手写 SQL 里和 `open_at` 比较的 `now` 必须按种子的格式绑定（`YYYY-MM-DDTHH:MM:SS[.ffffff]+00:00`）。部分 ORM 在手写条件里不走实体的时间转换器（TypeORM 会绑成空格分隔的格式，同一天内比较出错）。
+- **最远 / 最近开启时刻建议用 `ORDER BY open_at … LIMIT 1` 取列**：SQLite 下 `MAX/MIN` 聚合的结果是字符串，丢了列的类型映射（fastapi 用 `_as_utc` 兜底）。
+- **先读后写的事务要一开始就拿写锁**：`BEGIN IMMEDIATE`（Go `_txlock=immediate`、sqlite-jdbc `transaction_mode=IMMEDIATE`）或单连接池，否则并发时读锁升级为写锁会 `SQLITE_BUSY`。
 
 验证（**PostgreSQL 与 SQLite 都要 117/117**）：
 
@@ -110,7 +118,10 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 | 类别 | 实现 | 状态 |
 |---|---|---|
 | 后端 | fastapi | ✅ 117/117 双库（2026-11-20） |
-| 后端 | nest · elysia · gin · spring-boot · ktor · aspnet · axum · vapor · drogon | ⬜ |
+| 后端 | gin · ktor · nest · elysia | ✅ 117/117 双库（2026-11-21）；已静态评审，nest 修了一处错误码 |
+| 后端 | spring-boot | ✅ 117/117 双库（2026-11-21）；评审后补了路径 UUID 校验（第 1 节第 12 条），复验 117/117 双库 |
+| 后端 | aspnet | ✅ 117/117 双库（2026-11-21，README 自报，尚未评审） |
+| 后端 | axum · vapor · drogon | ⬜ |
 | 前端 | react-ts | 升级时记录 88/88 双库 + 令牌（2026-11-20）；11-21 复核修复后通过类型检查，仅做静态验证 |
 | 前端 | vue3-ts · angular | 升级时 README 记录 88/88 双库 + 令牌（2026-11-21）；同日复核修复后通过模板与类型检查，仅做静态验证 |
 | 前端 | svelte · solid | ⬜ |

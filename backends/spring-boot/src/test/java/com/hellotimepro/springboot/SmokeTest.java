@@ -114,6 +114,35 @@ class SmokeTest {
     assertThat(authenticatedGet("/api/v1/me/favorites", bob).path("items")).isEmpty();
   }
 
+  @Test
+  void malformedCapsuleIdsInPathAreValidationErrors() throws Exception {
+    String alice = register("alice@hellotime.pro", "alice", "neo").path("accessToken").asText();
+    HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(alice);
+    HttpEntity<Void> auth = new HttpEntity<>(headers);
+    // "1-1-1-1-1" 能被 UUID.fromString 解析，也必须按格式不合法处理
+    for (String bad : List.of("not-a-uuid", "1-1-1-1-1")) {
+      for (var call : List.of(
+          Map.entry(HttpMethod.GET, "/api/v1/plaza/capsules/{id}"),
+          Map.entry(HttpMethod.DELETE, "/api/v1/me/capsules/{id}"),
+          Map.entry(HttpMethod.DELETE, "/api/v1/me/favorites/{id}"))) {
+        ResponseEntity<String> response = http.exchange(call.getValue(), call.getKey(), auth, String.class, bad);
+        assertThat(response.getStatusCode()).as("%s %s", call.getKey(), bad)
+            .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(mapper.readTree(response.getBody()).path("errorCode").asText()).isEqualTo("VALIDATION_ERROR");
+      }
+    }
+
+    // 格式合法但不存在：详情 / 删除 404，取消收藏保持幂等 204
+    String missing = "00000000-0000-4000-8000-000000000000";
+    assertThat(http.exchange("/api/v1/plaza/capsules/{id}", HttpMethod.GET, auth, String.class, missing)
+        .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(http.exchange("/api/v1/me/capsules/{id}", HttpMethod.DELETE, auth, String.class, missing)
+        .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(http.exchange("/api/v1/me/favorites/{id}", HttpMethod.DELETE, auth, String.class, missing)
+        .getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+  }
+
   private JsonNode createCapsule(String token, String title, OffsetDateTime openAt, boolean inPlaza) throws Exception {
     return post("/api/v1/capsules", Map.of("title", title, "content", "Test note",
         "openAt", openAt.toString(), "inPlaza", inPlaza), token, HttpStatus.CREATED).path("data");

@@ -31,7 +31,8 @@ public class FavoriteService {
   public FavoriteResult addFavorite(UserEntity user, String capsuleId) {
     // favorite_count 是冗余计数器，必须和 favorites 行变更处在同一事务。
     // Postgres 路径会拿胶囊行写锁；SQLite 依赖单写事务和原子 UPDATE。
-    CapsuleEntity capsule = capsules.findForMutation(UUID.fromString(capsuleId), "postgres".equals(props.getDbDriver()))
+    CapsuleEntity capsule = capsules.findForMutation(CapsuleIds.parse(capsuleId, "capsuleId"),
+            "postgres".equals(props.getDbDriver()))
         .orElseThrow(() -> ApiException.notFound("胶囊不存在"));
 
     FavoriteId id = new FavoriteId(user.getId(), capsule.getId());
@@ -56,12 +57,8 @@ public class FavoriteService {
   public void removeFavorite(UserEntity user, String capsuleId) {
     // 与 add 一样先锁胶囊行，序列化同一胶囊上的并发取消；否则两个请求都可能
     // 看到 favorite 存在，第二个 DELETE 0 行后仍把计数再减一次。
-    UUID uuid;
-    try {
-      uuid = UUID.fromString(capsuleId);
-    } catch (IllegalArgumentException ex) {
-      return;
-    }
+    // 幂等只针对「胶囊不存在 / 原本未收藏」（204）；UUID 格式不合法与 fastapi 一致返回 422。
+    UUID uuid = CapsuleIds.parse(capsuleId, "capsuleId");
     CapsuleEntity capsule = capsules.findForMutation(uuid, "postgres".equals(props.getDbDriver())).orElse(null);
     if (capsule == null) return;
     FavoriteId id = new FavoriteId(user.getId(), capsule.getId());
