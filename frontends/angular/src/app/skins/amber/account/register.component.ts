@@ -46,15 +46,14 @@ import { AmberAuthArtComponent } from './auth-art.component';
                 label="昵称"
                 lead="user"
                 [req]="true"
-                [maxlength]="20"
                 autocomplete="nickname"
                 placeholder="2–20 个字符"
                 [hint]="f.nick().hint ?? '全站唯一，注册后可以改。'"
                 testId="register-nickname"
                 [error]="e['nickname'] ?? (f.nick().state === 'invalid' ? f.nick().hint : undefined)"
-                [(value)]="f.nickname"
+                [value]="f.nickname()" (valueChange)="f.setNickname($event)"
               >
-                <span appNickState appTrail [state]="e['nickname'] ? 'taken' : f.nick().state"></span>
+                <span appNickState appTrail [state]="f.nick().state"></span>
               </app-field>
             </div>
             <app-field fieldId="password" label="密码" lead="lock" [req]="true" [password]="true" autocomplete="new-password" placeholder="设置密码" testId="register-password" [error]="e['password']" [(value)]="f.password" />

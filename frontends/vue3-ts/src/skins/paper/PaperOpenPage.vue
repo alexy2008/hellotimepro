@@ -3,7 +3,7 @@
      结构与类名照 2.0 原型 paper/view-capsule.js
      ============================================================ -->
 <script setup lang="ts">
-import { ref, useTemplateRef } from "vue";
+import { useTemplateRef } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { toast } from "@/stores/feedback";
 import { fmt, ms } from "@/lib/fmt";
@@ -15,15 +15,10 @@ import PaperSeal from "./PaperSeal.vue";
 
 const auth = useAuthStore();
 const mine = useMySealed();
-const { state, error, shake, go, reset } = useCodeOpen();
-const value = ref("");
+const { state, error, shake, go, value, input: onChange } = useCodeOpen();
 const input = useTemplateRef<InstanceType<typeof PaperCodeInput>>("codeInput");
 const now = Date.now();
 
-const onChange = (v: string) => {
-  value.value = v;
-  reset();
-};
 
 async function pasteCode() {
   try {
@@ -53,7 +48,7 @@ async function pasteCode() {
           如果还没到启封的时刻，你会看到它的倒计时。
         </p>
 
-        <PaperCodeInput id="code" ref="codeInput" :state="state" :shake="shake" autofocus @change="onChange" @complete="go" />
+        <PaperCodeInput id="code" ref="codeInput" :value="value" :state="state" :shake="shake" autofocus @change="onChange" @complete="go" />
         <div class="openp__err" role="alert" :data-testid="error ? 'open-error' : undefined">{{ error }}</div>
 
         <div class="openp__act">

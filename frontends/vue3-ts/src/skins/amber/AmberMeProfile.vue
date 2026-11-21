@@ -28,7 +28,6 @@ const save = () => p.saveProfile().then(() => emit("saved"));
           v-model="p.nickname"
           label="昵称"
           lead="user"
-          :maxlength="20"
           autocomplete="nickname"
           :hint="p.nickHint ?? '2–20 个字符，全站唯一。'"
           :error="p.errors.nickname"

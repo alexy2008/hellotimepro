@@ -5,7 +5,7 @@
 
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, effect, type ElementRef, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { focusIfIdle } from '@/lib/fmt';
-import type { CodeState } from '@/shared/code-opener';
+import { CodeOpener, type CodeState } from '@/shared/code-opener';
 import { CONTENTS } from '@/shared/host';
 
 const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
@@ -67,7 +67,7 @@ export class AmberCodeInputComponent {
   readonly changed = output<string>();
   readonly complete = output<string>();
 
-  protected readonly value = signal('');
+  protected readonly value = inject(CodeOpener).value;
   protected readonly focused = signal(false);
   protected readonly shaking = signal(false);
   /** 本次新敲进来的格子「弹」一下：从第几格开始弹 */
@@ -97,7 +97,6 @@ export class AmberCodeInputComponent {
   protected update(raw: string, complete: boolean) {
     const v = clean(raw);
     this.popFrom.set(v.length > this.value().length ? this.value().length : 8);
-    this.value.set(v);
     const el = this.native().nativeElement;
     if (el.value !== v) el.value = v;
     this.changed.emit(v);

@@ -122,6 +122,16 @@ def seed_demo(db_driver: str, db_url: str, *, force: bool) -> None:
     seed(db_driver, db_url)
 
 
+def cleanup_test_users(db_driver: str, db_url: str, domain: str) -> None:
+    engine = _engine(db_driver, db_url)
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("DELETE FROM users WHERE email LIKE :suffix"), {"suffix": "%@" + domain})
+        print(f"✓ 已清理 {result.rowcount} 个 @{domain} 测试账号")
+    finally:
+        engine.dispose()
+
+
 def status(db_driver: str, db_url: str) -> None:
     print(f"DB_DRIVER = {db_driver}")
     print(f"DB_URL    = {_sanitize(db_url)}")
@@ -130,7 +140,7 @@ def status(db_driver: str, db_url: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="scripts/db")
-    parser.add_argument("command", choices=["init", "reset", "seed", "status"])
+    parser.add_argument("command", choices=["init", "reset", "seed", "status", "cleanup-contract", "cleanup-ui"])
     parser.add_argument("--seed", action="store_true", help="reset 后导入演示数据")
     parser.add_argument("--force", action="store_true", help="seed 前先删除已有演示数据")
     parser.add_argument("--yes", "-y", action="store_true", help="跳过 reset 交互确认")
@@ -146,6 +156,9 @@ def main() -> int:
             reset_schema(db_driver, db_url, yes=args.yes)
             if args.seed:
                 seed_demo(db_driver, db_url, force=False)
+        elif args.command in ("cleanup-contract", "cleanup-ui"):
+            domain = "hellotime-contract.com" if args.command == "cleanup-contract" else "ui-smoke.hellotimepro.dev"
+            cleanup_test_users(db_driver, db_url, domain)
         elif args.command == "seed":
             seed_demo(db_driver, db_url, force=args.force)
         return 0

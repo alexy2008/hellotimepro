@@ -6,13 +6,13 @@
      结构与类名照 2.0 原型 amber/view-create.js
      ============================================================ -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, useTemplateRef, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, useTemplateRef, watch } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { fmt, focusIfIdle, pad2, reducedMotion } from "@/lib/fmt";
 import { DAY, LIMITS } from "@/lib/schedule";
 import { useNow } from "@/composables/useNow";
 import { useShake } from "@/composables/useMotion";
-import { useCreateCapsule } from "@/composables/useCreateCapsule";
+import { useCreateForm } from "@/composables/useCreateCapsule";
 import AppIcon from "@/components/AppIcon.vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AmberBadge from "./AmberBadge.vue";
@@ -39,7 +39,7 @@ const toLocal = (t: number) => {
 
 const auth = useAuthStore();
 const me = computed(() => auth.user!);
-const f = reactive(useCreateCapsule());
+const f = useCreateForm();
 const now = useNow();
 const titleEl = useTemplateRef<HTMLInputElement>("titleEl");
 const contentEl = useTemplateRef<HTMLTextAreaElement>("contentEl");

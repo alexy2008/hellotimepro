@@ -9,10 +9,11 @@ import { defineComponent, h, type Component } from "vue";
 import { useUiStore, type Skin } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 
-export function skinned(name: string, views: Record<Skin, Component>, opts: { needsUser?: boolean } = {}) {
+export function skinned(name: string, views: Record<Skin, Component>, opts: { needsUser?: boolean; setup?: () => void } = {}) {
   return defineComponent({
     name,
     setup() {
+      opts.setup?.();
       const ui = useUiStore();
       const auth = useAuthStore();
       return () => (opts.needsUser && !auth.user ? null : h(views[ui.skin]));

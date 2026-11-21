@@ -57,12 +57,15 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 4. **页面与路由**：见 React README 的路由表（`/`、`/open`、`/capsules/:code`、`/create`、`/login`、`/register`、`/me/created|favorites|profile`、`/about`、404）。
 5. **测试钩子**：`spec/ui/testids.md` 全部必有钩子与状态属性；X1–X8 约定逐条满足。
 6. **评审中修过的坑（必须一次做对）**：
-   - 创建页草稿放在内存 store，切皮肤不丢；**登出 / 换账号时清空**
-   - AI 代笔：请求成功前不动用户已写的正文，失败时原文保留
+   - 创建页草稿按账号保存。封存请求的提交锁和成功回执由创建路由持有，切皮肤后继续使用同一份；成功只清空本次提交的草稿版本。登出或换账号时清空草稿。
+   - AI 代笔等待响应或逐字填入期间，用户手动改标题、正文、开启时间，立即终止这次代笔对草稿的写入；请求失败时保留原文。
    - 开启时间上限用「10 个日历年」（React `addCalendarYears`），两头各留余量
    - 登录 / 注册 / 资料 / 改密码的**表单值也要跨皮肤保留**（放共享 store；离开页面、成功、登出时清空）
-   - 「我的」列表分页 + 「加载更多」（钩子 `list-next`），不要只取前 N 枚
-   - 详情页倒数归零后**以服务端 `isOpened` 为准**，未确认时退避重试（1s、2s…≤5s），不提前提示「已开启」
+   - 「我的」列表支持 `list-next`。删除或取消收藏后，按仍显示的条数计算下一页，重读发生前移的边界页，按 ID 去重；直到显示条数与服务端总数一致。
+   - 详情页倒数归零后**以服务端 `isOpened` 为准**，未确认时退避重试（1s、2s…≤5s）。从动画开始就监听取消信号，换码、换肤或离页后，旧视图停止轮询和通知。初次加载遇到 404 显示查无此码，其他失败提供重试。
+   - 首页和开启页都按路由保存 8 格输码。切皮肤保留已填内容；改码或离页后，旧查询及延迟跳转失效。
+   - 注册和资料页按 Unicode 码点校验昵称（字母、数字、下划线、连字符，2–20 位）。格式错误显示 `invalid`，服务端明确返回昵称冲突才显示 `taken`。
+   - 广场新查询失败时显示本次错误和重试入口，旧查询的卡片不得作为新查询结果显示。
    - 匿名点击**任何**「创建」入口（首页、导航、底栏、空状态）和收藏：先弹 `confirm-dialog`，确认后去 `/login?redirect=…`
    - 登录态在首次渲染前恢复（守卫第一帧就能拿到）；后台标签页里定时器驱动的长按不能卡住（不要依赖 rAF）
 7. 文档：重写 `README.md` 与 `TECHNICAL_GUIDE.md`（参考 React 的两份）。
@@ -73,7 +76,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 ./scripts/hello status          # 确认 :9080 指向 fastapi；不是的话先问用户，不要自己 switch
 ./verification/scripts/verify-ui-smoke.sh <frontend>
 ./verification/scripts/verify-design-tokens.sh <frontend>
-# SQLite：DB_DRIVER=sqlite 重启 fastapi 后再跑一遍，跑完恢复 PostgreSQL
+# SQLite 轮：让 FastAPI 和冒烟入口使用同一个 DB_DRIVER=sqlite 和 DB_URL；结束后恢复原后端配置
 ```
 
 ## 3. 全栈清单
@@ -90,6 +93,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
   DB_DRIVER=sqlite DB_URL=sqlite:////tmp/hellotime-contract-<backend>.db ./verification/scripts/verify-contract.sh <backend>
   ```
   用户名密码从 `data/.hello-state.json` 读，不要写进文档或提交；库要先建好（如 `createdb hellotime_contract_gin`），每个后端各用一个，互不干扰。
+- 契约脚本在 reset、服务启动、账号清理、补种期间共用同一 `DB_URL`。SQLite 相对路径以仓库根目录解析。SPA 冒烟从代理的 `/api/v1/health` 核对驱动；健康接口只公布驱动，后端若使用自定义文件或 PostgreSQL 库，启动后端与运行冒烟时都要传同一 `DB_URL`。全栈冒烟默认按自身实现名派生 SQLite 文件。
 - **`:9080` 反代是共享的**：前端任务依赖它指向 fastapi。后端任务**不要** `hello switch`，契约测试直接打后端自己的端口。
 - **fastapi 换 SQLite 会影响所有前端任务**：前端任务跑 SQLite 冒烟前先确认没有别的前端任务在跑冒烟，跑完立即用 PostgreSQL 重启 fastapi。
 - **只改自己的目录**：`backends/<x>/`、`frontends/<x>/` 或 `fullstacks/<x>/`。`spec/`、`verification/`、`docs/`（包括本文件）、`scripts/`、`AGENTS.md`、`CLAUDE.md`、`GEMINI.md` 一律不改；需要改时停下来问用户。
@@ -107,8 +111,9 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 |---|---|---|
 | 后端 | fastapi | ✅ 117/117 双库（2026-11-20） |
 | 后端 | nest · elysia · gin · spring-boot · ktor · aspnet · axum · vapor · drogon | ⬜ |
-| 前端 | react-ts | ✅ 88/88 双库 + 令牌（2026-11-20） |
-| 前端 | vue3-ts · angular · svelte · solid | ⬜ |
+| 前端 | react-ts | 升级时记录 88/88 双库 + 令牌（2026-11-20）；11-21 复核修复后通过类型检查，仅做静态验证 |
+| 前端 | vue3-ts · angular | 升级时 README 记录 88/88 双库 + 令牌（2026-11-21）；同日复核修复后通过模板与类型检查，仅做静态验证 |
+| 前端 | svelte · solid | ⬜ |
 | 全栈 | next · nuxt · spring-mvc · rails · laravel | ⬜ |
 
 ## 6. 任务提示词模板

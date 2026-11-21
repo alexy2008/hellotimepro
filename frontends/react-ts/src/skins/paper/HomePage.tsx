@@ -4,7 +4,7 @@
 // 结构与类名照 2.0 原型 paper/view-plaza.js
 // ============================================================
 
-import { useRef, useState, type CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { fmt, ms, reducedMotion } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
@@ -32,16 +32,14 @@ const scrollToPlaza = (e?: React.MouseEvent) => {
 };
 
 function QuickOpen() {
-  const { state, error, shake, go, reset } = useCodeOpen();
-  const value = useRef("");
-  const [full, setFull] = useState(false);
+  const { state, error, shake, go, value, input: changeCode } = useCodeOpen();
   return (
     <form
-      className={`hquick${full ? " is-full" : ""}`}
+      className={`hquick${value.length === 8 ? " is-full" : ""}`}
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        void go(value.current);
+        void go(value);
       }}
     >
       <div className="hquick__k">
@@ -53,11 +51,8 @@ function QuickOpen() {
           size="sm"
           state={state}
           shake={shake}
-          onChange={(v) => {
-            value.current = v;
-            setFull(v.length === 8);
-            reset();
-          }}
+          value={value}
+          onChange={changeCode}
           onComplete={(v) => void go(v)}
         />
         <button className="hquick__go" type="submit" aria-label="开启">
@@ -294,7 +289,7 @@ export function PaperHomePage() {
         <div className={`grid${h.loading && p ? " is-busy" : ""}`} aria-live="polite">
           {showSkeleton ? (
             Array.from({ length: 6 }, (_, i) => <PaperCardSkeleton key={i} i={i} />)
-          ) : h.error && !h.items.length ? (
+          ) : h.error ? (
             <div className="empty" data-testid="list-error">
               <EmptyArt />
               <h3>广场暂时打不开</h3>

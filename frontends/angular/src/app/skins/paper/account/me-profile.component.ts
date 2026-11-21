@@ -27,7 +27,6 @@ import { CONTENTS } from '@/shared/host';
           <app-field
             fieldId="p-nick"
             label="昵称"
-            [maxlength]="20"
             autocomplete="nickname"
             [hint]="p.nickHint() ?? '2–20 个字符，全站唯一。'"
             testId="profile-nickname"

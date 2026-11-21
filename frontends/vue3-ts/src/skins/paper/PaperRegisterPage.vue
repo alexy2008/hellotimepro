@@ -40,14 +40,13 @@ const ids = useAvatarIds();
                 id="nickname"
                 v-model="form.nickname"
                 label="昵称"
-                :maxlength="20"
                 autocomplete="nickname"
                 placeholder="2–20 个字符"
                 :hint="nick.hint ?? '全站唯一，注册后可以改。'"
                 :error="errors.nickname ?? (nick.state === 'invalid' ? nick.hint : undefined)"
                 test-id="register-nickname"
               >
-                <template #trail><NickState :state="errors.nickname ? 'taken' : nick.state" /></template>
+                <template #trail><NickState :state="nick.state" /></template>
               </FormField>
             </div>
             <PasswordField

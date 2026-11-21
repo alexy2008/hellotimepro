@@ -142,7 +142,7 @@ const goPage = (n: number) => {
         <template v-if="plaza.loading && !p">
           <AmberCardSkeleton v-for="i in 6" :key="i" :i="i - 1" />
         </template>
-        <AmberEmpty v-else-if="plaza.error && !plaza.items.length" testid="list-error" title="广场暂时打不开" text="没能连上后端。请确认服务已启动，或稍后再试。">
+        <AmberEmpty v-else-if="plaza.error" testid="list-error" title="广场暂时打不开" text="没能连上后端。请确认服务已启动，或稍后再试。">
           <button class="btn btn--ghost" type="button" data-testid="list-retry" @click="plaza.refreshAll()"><AppIcon name="refresh" />重试</button>
         </AmberEmpty>
         <template v-else-if="!plaza.items.length && p">

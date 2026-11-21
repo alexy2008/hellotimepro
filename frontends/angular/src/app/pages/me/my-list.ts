@@ -16,7 +16,6 @@ export function injectMyList(kind: 'created' | 'favorites', onChange?: () => voi
   const feedback = inject(FeedbackStore);
   const items = signal<CapsuleListItem[] | null>(null);
   const total = signal(0);
-  const page = signal(1);
   const moreBusy = signal(false);
   let seq = 0;
   inject(DestroyRef).onDestroy(() => seq++);
@@ -30,7 +29,6 @@ export function injectMyList(kind: 'created' | 'favorites', onChange?: () => voi
       if (my !== seq) return;
       items.set(r.items);
       total.set(r.pagination.total);
-      page.set(1);
     } catch {
       /* 列表拿不到时保持空白，等下次进来 */
     }
@@ -38,8 +36,11 @@ export function injectMyList(kind: 'created' | 'favorites', onChange?: () => voi
   void load();
 
   const drop = (id: string) => {
+    seq++;
+    moreBusy.set(false);
     items.update((list) => (list ?? []).filter((i) => i.id !== id));
     total.update((t) => Math.max(0, t - 1));
+    if (!items()?.length && total() > 0) void load();
   };
 
   return {
@@ -49,22 +50,21 @@ export function injectMyList(kind: 'created' | 'favorites', onChange?: () => voi
     hasMore: computed(() => !!items() && items()!.length < total()),
     left: computed(() => total() - (items()?.length ?? 0)),
 
-    /** 下一页：中间有删除 / 取消收藏时，后一页会前移几枚，按 id 去重即可 */
+    /** 从已显示的条数推算下一条所在的页；删除后重读边界页，补上前移的记录。 */
     async loadMore() {
       if (moreBusy()) return;
       const my = seq;
       moreBusy.set(true);
       try {
-        const r = await fetchPage(page() + 1);
+        const r = await fetchPage(Math.floor((items()?.length ?? 0) / PAGE_SIZE) + 1);
         if (my !== seq) return;
         const have = new Set((items() ?? []).map((i) => i.id));
         items.update((list) => [...(list ?? []), ...r.items.filter((i) => !have.has(i.id))]);
         total.set(r.pagination.total);
-        page.set(r.pagination.page);
       } catch {
-        feedback.toast('加载失败，请稍后再试', { tone: 'error' });
+        if (my === seq) feedback.toast('加载失败，请稍后再试', { tone: 'error' });
       } finally {
-        moreBusy.set(false);
+        if (my === seq) moreBusy.set(false);
       }
     },
 

@@ -142,15 +142,14 @@ function HeroArt() {
 }
 
 function QuickOpen() {
-  const { state, error, shake, go, reset } = useCodeOpen();
-  const value = useRef("");
+  const { state, error, shake, go, value, input: changeCode } = useCodeOpen();
   return (
     <form
       className="quick card"
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        void go(value.current);
+        void go(value);
       }}
     >
       <div className="quick__k">
@@ -162,10 +161,8 @@ function QuickOpen() {
           size="md"
           state={state}
           shake={shake}
-          onChange={(v) => {
-            value.current = v;
-            reset();
-          }}
+          value={value}
+          onChange={changeCode}
           onComplete={(v) => void go(v)}
         />
         <button className="btn btn--soft" type="submit">
@@ -347,7 +344,7 @@ export function AmberHomePage() {
         <div className={`grid${h.loading && p ? " is-busy" : ""}`} aria-live="polite">
           {h.loading && !p ? (
             Array.from({ length: 6 }, (_, i) => <AmberCardSkeleton key={i} i={i} />)
-          ) : h.error && !h.items.length ? (
+          ) : h.error ? (
             <EmptyBox
               testId="list-error"
               title="广场暂时打不开"

@@ -8,6 +8,8 @@
 import { createRouter, createWebHistory, type LocationQueryRaw } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { loginPath, safeRedirect } from "@/lib/redirect";
+import { provideCodeOpen } from "@/composables/useCodeOpen";
+import { provideCreateForm } from "@/composables/useCreateCapsule";
 import { skinned } from "./skinned";
 
 import PaperHomePage from "@/skins/paper/PaperHomePage.vue";
@@ -59,14 +61,14 @@ export const router = createRouter({
   history: createWebHistory(),
   stringifyQuery,
   routes: [
-    { path: "/", component: skinned("PlazaPage", { paper: PaperHomePage, amber: AmberHomePage }), meta: { title: "把此刻寄给未来" } },
-    { path: "/open", component: skinned("OpenPage", { paper: PaperOpenPage, amber: AmberOpenPage }), meta: { title: "开启胶囊" } },
+    { path: "/", component: skinned("PlazaPage", { paper: PaperHomePage, amber: AmberHomePage }, { setup: provideCodeOpen }), meta: { title: "把此刻寄给未来" } },
+    { path: "/open", component: skinned("OpenPage", { paper: PaperOpenPage, amber: AmberOpenPage }, { setup: provideCodeOpen }), meta: { title: "开启胶囊" } },
     { path: "/about", component: skinned("AboutPage", { paper: PaperAboutPage, amber: AmberAboutPage }), meta: { title: "关于" } },
     { path: "/login", component: skinned("LoginPage", { paper: PaperLoginPage, amber: AmberLoginPage }), meta: { title: "登录", guestOnly: true } },
     { path: "/register", component: skinned("RegisterPage", { paper: PaperRegisterPage, amber: AmberRegisterPage }), meta: { title: "注册", guestOnly: true } },
     {
       path: "/create",
-      component: skinned("CreatePage", { paper: PaperCreatePage, amber: AmberCreatePage }, { needsUser: true }),
+      component: skinned("CreatePage", { paper: PaperCreatePage, amber: AmberCreatePage }, { needsUser: true, setup: provideCreateForm }),
       meta: { title: "写给未来", requiresAuth: true },
     },
     // 详情页的标题等胶囊取回来后由 useCapsuleByCode 写

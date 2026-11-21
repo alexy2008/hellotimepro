@@ -1,4 +1,4 @@
-// 首页就地输码：与开启页同一个部件（X3），满 8 位自动查询。输码状态由本组件提供的 CodeOpener 管
+// 首页就地输码：与开启页同一个部件（X3），满 8 位自动查询。输码状态由首页提供的 CodeOpener 管
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CodeOpener } from '@/shared/code-opener';
 import { IconDirective } from '@/shared/icon.directive';
@@ -7,7 +7,6 @@ import { AmberCodeInputComponent } from '../parts/code-input.component';
 @Component({
   selector: 'form[appAmberQuickOpen]',
   imports: [IconDirective, AmberCodeInputComponent],
-  providers: [CodeOpener],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'quick card', novalidate: '', '(submit)': 'submit($event)' },
   template: `

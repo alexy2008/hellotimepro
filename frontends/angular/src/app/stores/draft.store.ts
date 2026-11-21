@@ -21,10 +21,10 @@ const fresh = (): Draft => ({ title: '', content: '', openAt: PRESET_AT['1y'](),
 
 export const DraftStore = signalStore(
   { providedIn: 'root' },
-  withState<Draft>(fresh()),
+  withState({ ...fresh(), revision: 0 }),
   withMethods((store) => ({
-    patch: (p: Partial<Draft>) => patchState(store, p),
-    reset: () => patchState(store, fresh()),
+    patch: (p: Partial<Draft>) => patchState(store, p, { revision: store.revision() + 1 }),
+    reset: () => patchState(store, fresh(), { revision: store.revision() + 1 }),
   })),
   withHooks({
     onInit(store) {

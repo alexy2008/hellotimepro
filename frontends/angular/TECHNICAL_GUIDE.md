@@ -243,7 +243,7 @@ export class PaperLoginComponent {
 
 | 宿主页 | 提供的 Facade | 视图里注入 |
 |---|---|---|
-| `HomePage` | `HomeFacade` | 首页两套视图 |
+| `HomePage` | `HomeFacade`、`CodeOpener` | 首页两套视图共享就地输码状态 |
 | `OpenPage` | `OpenFacade`、`CodeOpener` | 开启页两套视图（输码状态切皮肤也不丢） |
 | `CapsulePage` | `CapsuleFacade` | 详情页两套视图 |
 | `CreatePage` | `CreateFacade` | 创建页两套视图、时笺的长按封缄组件 |
@@ -388,29 +388,41 @@ async function fetchList() {
 | 文件 | 做什么 | 值得看的写法 |
 |---|---|---|
 | `pages/home/home.facade.ts` | 进入 / 换账号时刷新，到点刷新，热度榜 | 两个 `effect`：`auth.user()?.id` 变了、`due()` 变真了就 `refreshAll()` |
-| `pages/capsule/capsule.facade.ts` | 取数、逐秒倒数、`expired`、`awaitOpened()` | 路由参数 `toSignal(route.paramMap)`；归零后以服务端 `isOpened` 为准，1s、2s…≤5s 退避重试 |
+| `pages/capsule/capsule.facade.ts` | 取数、逐秒倒数、`expired`、`awaitOpened(signal)` | 路由参数 `toSignal(route.paramMap)`；归零后以服务端 `isOpened` 为准，1s、2s…≤5s 退避重试 |
 | `pages/create/create.facade.ts` | 草稿字段、校验、AI 推荐与代笔、封存 | AI 请求成功前不动正文，失败原文保留；`DestroyRef` 离开页面时停止打字 |
 | `pages/login|register/*.facade.ts` | 表单值、校验、提交、回跳 | `injectRedirectParam()` 把 `?redirect=` 变成信号 |
 | `pages/me/profile.facade.ts` | 资料与改密码 | `effect` 盯页签，离开「账号设置」就清空 |
 | `pages/me/my-list.ts` | 我创建的 / 我收藏的：分页「加载更多」、删除、取消收藏 | 注入函数 `injectMyList(kind, onChange)` |
-| `shared/code-opener.ts` | 凭码开启 | 组件级服务，首页就地输码与开启页各提供一份 |
+| `shared/code-opener.ts` | 凭码开启 | 首页与开启页的路由组件各提供一份；切换皮肤保留输入，改码或离页作废旧查询 |
 | `core/clock.ts` | 全局整秒节拍 | `injectNow()` 登记使用者，`DestroyRef` 里减一，没人用就停表 |
 
 ### 10.1 详情页：倒数归零 → 等服务端确认
 
 ```ts
-async awaitOpened(): Promise<CapsuleDetail | null> {
-  const my = this.gen;                                // 换了码或离开页面 gen 会变
-  for (let i = 0; my === this.gen; i++) {
-    const d = await this.api.capsuleByCode(this.code());
-    if (d.isOpened) { this.capsule.set(d); return d; }
-    await sleep(Math.min(1000 * (i + 1), 5000));      // 本机时钟可能快几秒：隔一会儿再问
+async awaitOpened(signal: AbortSignal): Promise<CapsuleDetail | null> {
+  const my = this.gen;
+  for (let i = 0; my === this.gen && !signal.aborted; i++) {
+    try {
+      const d = await this.api.capsuleByCode(this.code());
+      if (my !== this.gen || signal.aborted) return null;
+      if (d.isOpened) {
+        this.capsule.set(d);
+        return d;
+      }
+    } catch (e) {
+      if (my !== this.gen || signal.aborted) return null;
+      if (e instanceof ApiError && e.status === 404) {
+        this.status.set('missing');
+        return null;
+      }
+    }
+    await sleep(Math.min(1000 * (i + 1), 5000));
   }
   return null;
 }
 ```
 
-两套视图在 `effect` 里盯着 `f.expired()`，先播开启动画，再 `await f.awaitOpened()`；服务端没确认前停在动画末帧，不提前报「已开启」。
+视图从动画开始就创建 `AbortController`。每段延时结束和详情请求返回后都检查 `signal`；换码、换肤、离开页面时取消。只有服务端确认 `isOpened` 后，当前视图才展示正文。
 
 ## 11. 指令与管道：可复用的小行为
 

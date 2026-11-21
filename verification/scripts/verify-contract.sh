@@ -6,7 +6,7 @@
 #   DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh fastapi
 #
 # 流程：
-#   1. 从 data/.hello-state.json 读取 DB 配置（优先于环境变量硬编码值）
+#   1. 解析 DB_DRIVER / DB_URL，未设置时使用 data/.hello-state.json
 #   2. ./scripts/db reset --seed 显式准备数据库
 #   3. ./scripts/hello start <target>
 #   4. 轮询 /api/v1/health，直到就绪或超时
@@ -21,24 +21,13 @@ set -euo pipefail
 TARGET="${1:-}"
 if [[ -z "$TARGET" ]]; then
   echo "用法: $0 <target>" >&2
-  echo "  当前已实现: fastapi" >&2
+  echo "  target 使用 scripts/hello list 中的后端或全栈登记名" >&2
   exit 2
 fi
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HELLO="$ROOT/scripts/hello"
 DBCTL="$ROOT/scripts/db"
-
-# 自动将常见 Homebrew libpq 路径加入 PATH（macOS 本地开发）
-for _pg_bin in \
-  /opt/homebrew/Cellar/libpq/*/bin \
-  /opt/homebrew/opt/libpq/bin \
-  /opt/homebrew/opt/postgresql@*/bin \
-  /usr/local/opt/libpq/bin \
-  /usr/local/opt/postgresql@*/bin; do
-  # shellcheck disable=SC2231
-  [[ -d "$_pg_bin" ]] && export PATH="$_pg_bin:$PATH" && break
-done
 
 # --- 端口查找 -------------------------------------------------------------
 PORT="$("$HELLO" list | awk -v t="$TARGET" '$2==t {print $4}')"
@@ -48,125 +37,12 @@ if [[ -z "$PORT" ]]; then
 fi
 BASE_URL="http://127.0.0.1:${PORT}"
 
-# --- 从 hello-state.json 加载 DB 配置 ------------------------------------
-# 优先级：环境变量 > hello-state.json > 内置默认值
-_STATE_FILE="$ROOT/data/.hello-state.json"
-
-_read_state_cfg() {
-  python3 - "$_STATE_FILE" <<'PYEOF'
-import json, sys, os
-path = sys.argv[1] if len(sys.argv) > 1 else ""
-try:
-    d = json.load(open(path)) if path and os.path.exists(path) else {}
-except Exception:
-    d = {}
-cfg = d.get("db_config", {})
-print(d.get("db_driver", "postgres"))
-print(cfg.get("pg_host", "127.0.0.1"))
-print(str(cfg.get("pg_port", 5432)))
-print(cfg.get("pg_db",   "hellotime_pro"))
-print(cfg.get("pg_user", "hellotime"))
-print(cfg.get("pg_pass", "hellotime"))
-print(cfg.get("sqlite_path", "data/sqlite/hellotime.db"))
-PYEOF
-}
-
-if command -v python3 >/dev/null 2>&1; then
-  _cfg=()
-  while IFS= read -r _line; do _cfg+=("$_line"); done < <(_read_state_cfg)
-else
-  _cfg=(postgres 127.0.0.1 5432 hellotime_pro hellotime hellotime data/sqlite/hellotime.db)
-fi
-
-_STATE_DRIVER="${_cfg[0]:-postgres}"
-_PG_HOST="${_cfg[1]:-127.0.0.1}"
-_PG_PORT="${_cfg[2]:-5432}"
-_PG_DB="${_cfg[3]:-hellotime_pro}"
-_PG_USER="${_cfg[4]:-hellotime}"
-_PG_PASS="${_cfg[5]:-hellotime}"
-_SQLITE_BASE_REL="${_cfg[6]:-data/sqlite/hellotime.db}"
-
-# 约定：state.sqlite_path 是基名，每个 impl 用 hellotime-<target>.db 独占一份文件，
-# 避免多 impl 共用同一 SQLite 时 schema/数据互相覆盖。与 scripts/hello _sqlite_path_for 保持一致。
-_sqlite_dir="${_SQLITE_BASE_REL%/*}"
-_sqlite_file="${_SQLITE_BASE_REL##*/}"
-if [[ "$_sqlite_file" == *.* ]]; then
-  _sqlite_name="${_sqlite_file%.*}"
-  _sqlite_ext="${_sqlite_file##*.}"
-else
-  _sqlite_name="$_sqlite_file"
-  _sqlite_ext="db"
-fi
-if [[ "$_sqlite_dir" == "$_SQLITE_BASE_REL" ]]; then
-  _SQLITE_REL="${_sqlite_name}-${TARGET}.${_sqlite_ext}"
-else
-  _SQLITE_REL="${_sqlite_dir}/${_sqlite_name}-${TARGET}.${_sqlite_ext}"
-fi
-
-# 环境变量优先覆盖
-DB_DRIVER="${DB_DRIVER:-$_STATE_DRIVER}"
-export DB_DRIVER
-
-# 计算 SQLite 绝对路径
-if [[ "$_SQLITE_REL" == /* ]]; then
-  _SQLITE_ABS="$_SQLITE_REL"
-else
-  _SQLITE_ABS="$ROOT/$_SQLITE_REL"
-fi
-
-# 构建 DB_URL（若环境变量未设置）
-if [[ -z "${DB_URL:-}" ]]; then
-  if [[ "$DB_DRIVER" == "sqlite" ]]; then
-    export DB_URL="sqlite:///$_SQLITE_ABS"
-  else
-    export DB_URL="postgresql+psycopg://$_PG_USER:$_PG_PASS@$_PG_HOST:$_PG_PORT/$_PG_DB"
-  fi
-fi
-
-# DB_URL 中的凭据优先：若外部注入了不同的用户/密码（如 postgres 超级用户），
-# 解析覆盖 _PG_* 变量，让后续 psql 命令使用实际有效的连接参数。
-if [[ "$DB_DRIVER" == "postgres" ]] && command -v python3 >/dev/null 2>&1; then
-  _url_parts=()
-  while IFS= read -r _l; do _url_parts+=("$_l"); done < <(python3 - "$DB_URL" <<'PYEOF'
-import re, sys
-m = re.match(r'postgresql(?:\+\w+)?://([^:@]+):([^@]*)@([^:/]+):(\d+)/([^?]+)', sys.argv[1])
-if m: print('\n'.join(m.groups()))
-PYEOF
-  )
-  if [[ ${#_url_parts[@]} -eq 5 ]]; then
-    _PG_USER="${_url_parts[0]}"
-    _PG_PASS="${_url_parts[1]}"
-    _PG_HOST="${_url_parts[2]}"
-    _PG_PORT="${_url_parts[3]}"
-    _PG_DB="${_url_parts[4]}"
-  fi
-fi
+source "$ROOT/verification/scripts/verification-db.sh"
+configure_verification_db "$TARGET"
 
 # --- reset_db -------------------------------------------------------------
 reset_db() {
   "$DBCTL" reset --seed --yes
-}
-
-# --- cleanup_test_data ----------------------------------------------------
-# 删除测试创建的用户（@hellotime-contract.com），CASCADE 清理其关联数据。
-# 演示用户（@demo.hellotimepro.dev）保留不动。
-cleanup_test_data() {
-  echo "→ 清理测试数据（@hellotime-contract.com）…"
-  if [[ "$DB_DRIVER" == "sqlite" ]]; then
-    if command -v sqlite3 >/dev/null 2>&1 && [[ -f "$_SQLITE_ABS" ]]; then
-      sqlite3 "$_SQLITE_ABS" \
-        "DELETE FROM users WHERE email LIKE '%@hellotime-contract.com';" 2>/dev/null || true
-      echo "✓ 测试数据已清理（SQLite）"
-    fi
-  else
-    if command -v psql >/dev/null 2>&1; then
-      PGPASSWORD="$_PG_PASS" psql \
-        -h "$_PG_HOST" -p "$_PG_PORT" -U "$_PG_USER" -d "$_PG_DB" \
-        -c "DELETE FROM users WHERE email LIKE '%@hellotime-contract.com';" \
-        >/dev/null 2>&1 || true
-      echo "✓ 测试数据已清理（Postgres）"
-    fi
-  fi
 }
 
 # --- seed_demo_data -------------------------------------------------------
@@ -218,8 +94,10 @@ rc=$?
 set -e
 
 # 无论测试成功与否，都清理测试数据并重注入演示数据
-cleanup_test_data
-seed_demo_data
+cleanup_rc=0
+"$DBCTL" cleanup-contract || cleanup_rc=$?
+seed_demo_data || cleanup_rc=$?
+if [[ $rc -eq 0 ]]; then rc=$cleanup_rc; fi
 
 echo
 if [[ $rc -eq 0 ]]; then

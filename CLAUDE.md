@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**HelloTime Pro** is a multi-stack teaching project: the same time-capsule web app implemented across 10 backends, 5 frontends, and 5 full-stacks. All implementations share a single API contract and design system defined in `spec/`. **M0–M3 are complete**: all 20 implementations are built and verified (dual-driver contract 104/104 + UI smoke 25/25). Current work is M4 — cross-stack comparison docs, polish, and v1.0 release.
+**HelloTime Pro** is a multi-stack teaching project: the same time-capsule web app implemented across 10 backends, 5 frontends, and 5 full-stacks. All implementations share a single API contract and design system defined in `spec/`. 当前进行 2.0 升级，参考实现和各栈进度见 `docs/05-upgrade-2.0.md` 第 5 节。
 
 ## Commands
 
@@ -47,7 +47,8 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <next|nuxt>
 
 - **2.0 upgrade guide**: `docs/05-upgrade-2.0.md` — per-implementation checklists (backend / frontend / full-stack), verification targets, rules for parallel agents (contract resets the DB → use a per-backend DB; don't `hello switch`; commit only your own directory), progress table, prompt templates. Read it first when upgrading any implementation.
 - **2.0 upgrade in progress**: contract suite is now 117 cases (2.0 rules: stats endpoints, favorites without status checks, delete cascades, `health.version = 2.0.0`, openAt ≤ now + 10 calendar years, literal `q` matching with escaped LIKE); only `fastapi` passes it so far (PostgreSQL & SQLite 117/117, 2026-11-20). ⚠️ `verify-contract.sh` resets + seeds the DB pointed to by `DB_URL` (else `data/.hello-state.json`) before running. Other backends/full-stacks fail the 2.0 cases until upgraded.
-- UI smoke 2.0: 44 Playwright cases × 2 skins (`paper` / `amber` projects, skin preset via `localStorage['hellotime.skin']`, `reducedMotion: reduce`), located only through `spec/ui/testids.md` hooks (`SKINS=paper` to run one). Only `react` is upgraded so far: 88/88 on PostgreSQL & SQLite (2026-11-20). Design tokens: `./verification/scripts/verify-design-tokens.sh react` (no args = spec only). The 1.x numbers below (104 / 25) are historical.
+- 前端复核交接：创建路由持有提交锁和回执，手动编辑可以打断 AI 代笔；输码、启封动画和轮询随路由或视图生命周期结束。删除或取消收藏后从实际条数续页。昵称、广场和详情的错误状态详见升级指南第 2 节。
+- 2.0 UI 冒烟有 44 个 Playwright 用例，按 `paper`、`amber` 两套皮肤运行。配置通过 `localStorage['hellotime.skin']` 预置皮肤，启用 `reducedMotion: reduce`。定位钩子见 `spec/ui/testids.md`。升级时的历史记录为 React 在 2026-11-20 双库 88/88，Vue、Angular 在 2026-11-21 双库 88/88 并通过令牌检查。三套前端的复核修复仅做静态检查。Svelte、Solid 和 5 个全栈仍待升级。`SKINS=paper` 可单跑一套，`verify-design-tokens.sh react` 检查具体实现，无参数仅查 spec。下方 104 / 25 是 1.x 历史记录。
 - `./verification/scripts/verify-contract.sh <target>` applies to backends and full-stacks as long as the target is registered in `hello list` and exposes `/api/v1/*` on its own port.
 - `./verification/scripts/verify-ui-smoke.sh <react|vue|angular|svelte|solid|next|nuxt|spring-mvc|rails|laravel>` explicitly runs `./scripts/db init` before starting the target; it does not reset or seed data. JVM full-stacks cold-start slowly, so the readiness wait is 120s (override with `UI_READY_TIMEOUT`).
 - Latest full-stack contract run on 2026-06-04 passed: next/nuxt PostgreSQL & SQLite 104/104, spring-mvc PostgreSQL 104/104, spring-mvc SQLite 104/104.

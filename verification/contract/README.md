@@ -14,13 +14,15 @@ BASE_URL=http://127.0.0.1:9080 node --test verification/contract
 
 脚本入口：[`verification/scripts/verify-contract.sh`](../scripts/verify-contract.sh) 会自动启停目标服务 + 重置 DB + 运行本目录。
 
-> ⚠️ **脚本第一步就会重建数据库**（`./scripts/db reset --seed --yes`）：PostgreSQL 重建 `DB_URL` 所指库的 `public` schema，SQLite 重建 `data/sqlite/hellotime-<target>.db`，原有数据全部丢失。
+> ⚠️ **脚本第一步就会重建数据库**（`./scripts/db reset --seed --yes`）：PostgreSQL 重建 `DB_URL` 所指库的 `public` schema，SQLite 重建 `DB_URL` 指定的文件（未指定时按目标实现从配置基名派生），原有数据全部丢失。
 > 库的选择顺序是「环境变量 `DB_URL` > `data/.hello-state.json`」。不想动日常开发库，就指向专门的测试库：
 >
 > ```bash
 > DB_URL=postgresql+psycopg://hellotime:***@127.0.0.1:5432/hellotime_contract ./verification/scripts/verify-contract.sh fastapi
 > DB_DRIVER=sqlite DB_URL=sqlite:////tmp/hellotime-contract.db ./verification/scripts/verify-contract.sh fastapi
 > ```
+
+准备数据库、启动服务、`db cleanup-contract` 和 `db seed --force` 共用入口解析出的 `DB_DRIVER` 和 `DB_URL`。SQLite 相对路径从仓库根目录解析。清理按测试账号邮箱域删除，关联数据由外键级联删除。
 
 ## 设计原则
 

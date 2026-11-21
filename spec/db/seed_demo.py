@@ -72,10 +72,9 @@ def resolve_db_config() -> tuple[str, str]:
 
     # 统一 SQLAlchemy scheme
     if db_driver != "sqlite":
-        if db_url.startswith("postgres://"):
-            db_url = "postgresql+psycopg" + db_url[8:]
-        elif db_url.startswith("postgresql://"):
-            db_url = "postgresql+psycopg" + db_url[13:]
+        scheme, sep, address = db_url.partition("://")
+        if sep and scheme in ("postgres", "postgresql"):
+            db_url = f"postgresql+psycopg://{address}"
 
     return db_driver, db_url
 

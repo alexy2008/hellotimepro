@@ -4,7 +4,7 @@
      结构与类名照 2.0 原型 paper/view-capsule.js
      ============================================================ -->
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onScopeDispose, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { reducedMotion, sleep } from "@/lib/fmt";
 import { toast } from "@/stores/feedback";
@@ -17,36 +17,49 @@ import PaperSeal from "./PaperSeal.vue";
 
 const route = useRoute();
 const code = computed(() => String(route.params.code ?? ""));
-const { capsule, status, now, expired, awaitOpened } = useCapsuleByCode(code);
+const { capsule, status, now, expired, reload, awaitOpened } = useCapsuleByCode(code);
 
 const opening = ref<Opening | null>(null);
 const host = ref("");
 const reveal = ref(false);
-let started = false;
-watch(code, () => (started = false)); // 换了一枚胶囊，重新等它到点
+let openingTask: AbortController | undefined;
+onScopeDispose(() => openingTask?.abort());
+watch(code, () => {
+  openingTask?.abort();
+  openingTask = undefined;
+  reveal.value = false;
+  opening.value = null;
+  host.value = "";
+}, { flush: "sync" });
 
 // 启封：火漆裂开 → 封舌掀起露出朱红内衬 → 信纸升起 → 换成信纸页，字迹逐段显影
 watch(
   expired,
   async (v) => {
-    if (!v || started) return;
-    started = true;
+    if (!v || openingTask) return;
+    openingTask = new AbortController();
+    const { signal } = openingTask;
     opening.value = { crack: "whole", open: false, rising: false };
     host.value = "is-opening";
     if (!reducedMotion()) {
       opening.value = { crack: "split", open: false, rising: false };
       await sleep(60);
+      if (signal.aborted) return;
       opening.value = { crack: "cracked", open: false, rising: false };
       await sleep(620);
+      if (signal.aborted) return;
       opening.value = { crack: "cracked", open: true, rising: false };
       await sleep(760);
+      if (signal.aborted) return;
       opening.value = { crack: "cracked", open: true, rising: true };
       await sleep(900);
+      if (signal.aborted) return;
       host.value = "is-opening is-leaving";
       await sleep(380);
+      if (signal.aborted) return;
     }
     // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-    if (!(await awaitOpened())) return; // 离开了页面，或胶囊已被删除
+    if (!(await awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
     host.value = "";
     opening.value = null;
     reveal.value = true;
@@ -68,7 +81,11 @@ const opened = computed(() => !!capsule.value && capsule.value.isOpened && !open
       :data-state="capsule ? (opened ? 'opened' : 'sealed') : undefined"
       :data-in-plaza="capsule ? String(capsule.inPlaza) : undefined"
     >
-      <div v-if="status === 'missing' || status === 'error'" class="lost" data-testid="detail-not-found">
+      <div v-if="status === 'error'" class="lost" role="alert">
+        <p>暂时无法加载这枚胶囊，请稍后重试。</p>
+        <button class="btn btn--ghost" type="button" @click="reload()">重试</button>
+      </div>
+      <div v-else-if="status === 'missing'" class="lost" data-testid="detail-not-found">
         <div class="lost__mark"><PaperSeal ch="无" variant="line" /></div>
         <h1 class="h1">查无此信</h1>
         <p>

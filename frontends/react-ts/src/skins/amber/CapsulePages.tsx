@@ -4,7 +4,7 @@
 // 结构与类名照 2.0 原型 amber/view-capsule.js
 // ============================================================
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fmt, ms, reducedMotion, sleep } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
@@ -195,28 +195,30 @@ function Letter({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
 
 export function AmberCapsulePage() {
   const { code = "" } = useParams();
-  const { c, status, now, expired, awaitOpened } = useCapsuleByCode(code);
+  const { c, status, now, expired, reload, awaitOpened } = useCapsuleByCode(code);
   const [phase, setPhase] = useState<"" | "shaking" | "open">("");
   const [reveal, setReveal] = useState(false);
-  const started = useRef(false);
-  useEffect(() => {
-    started.current = false; // 换了一枚胶囊，重新等它到点
-  }, [code]);
+  const openingTask = useRef<AbortController | null>(null);
+  useLayoutEffect(() => () => openingTask.current?.abort(), []);
 
   // 开启：胶囊抖动 → 两半分开、迸出一团光 → 信纸自上而下展开，邮戳「啪」地盖上
   useEffect(() => {
-    if (!expired || started.current) return;
-    started.current = true;
+    if (!expired || openingTask.current) return;
+    const task = new AbortController();
+    openingTask.current = task;
+    const { signal } = task;
     void (async () => {
       if (!reducedMotion()) {
         setPhase("shaking");
         window.scrollTo({ top: 0, behavior: "smooth" });
         await sleep(820);
+        if (signal.aborted) return;
         setPhase("open");
         await sleep(1150);
+        if (signal.aborted) return;
       }
       // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-      if (!(await awaitOpened())) return; // 离开了页面，或胶囊已被删除
+      if (!(await awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
       setPhase("");
       setReveal(true);
       toast("胶囊已开启");
@@ -233,7 +235,12 @@ export function AmberCapsulePage() {
         data-state={c ? (opened ? "opened" : "sealed") : undefined}
         data-in-plaza={c ? String(c.inPlaza) : undefined}
       >
-        {status === "missing" || status === "error" ? (
+        {status === "error" ? (
+          <div className="notice card" role="alert">
+            <p>暂时无法加载这枚胶囊，请稍后重试。</p>
+            <button className="btn btn--ghost" type="button" onClick={() => void reload()}>重试</button>
+          </div>
+        ) : status === "missing" ? (
           <div className="notice card" data-testid="detail-not-found">
             <CapsuleArt code="LOST0000" state="opened" width={200} className="notice__art" />
             <div className="eyebrow">Not found</div>
@@ -279,8 +286,7 @@ export function AmberCapsulePage() {
 export function AmberOpenPage() {
   const user = useAuth((s) => s.user);
   const mine = useMySealed();
-  const { state, error, shake, go, reset } = useCodeOpen();
-  const value = useRef("");
+  const { state, error, shake, go, value, input: changeCode } = useCodeOpen();
   const now = Date.now();
 
   return (
@@ -296,7 +302,7 @@ export function AmberOpenPage() {
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
-            void go(value.current);
+            void go(value);
           }}
         >
           <AmberCodeInput
@@ -304,10 +310,8 @@ export function AmberOpenPage() {
             state={state}
             shake={shake}
             autoFocus
-            onChange={(v) => {
-              value.current = v;
-              reset();
-            }}
+            value={value}
+            onChange={changeCode}
             onComplete={(v) => void go(v)}
           />
           <div className="open__err" role="alert" data-testid={error ? "open-error" : undefined}>

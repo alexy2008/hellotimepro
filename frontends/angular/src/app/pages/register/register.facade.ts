@@ -11,11 +11,16 @@ import { ApiError } from '@/types';
 import { injectRedirectParam } from '../login/login.facade';
 
 /** 后端的字段错误（422 details / 409 field）映射到表单字段 */
-export function fieldErrors(e: unknown): Errors {
+export function fieldErrors(e: unknown, nicknameChanged = false): Errors {
   if (!(e instanceof ApiError)) return { form: '网络异常，请稍后再试' };
   const out: Errors = {};
   for (const d of e.details ?? []) out[d.field] = d.message;
+  if (out["nickname"] && e.status === 409) out["nicknameState"] = "taken";
   if (!Object.keys(out).length) out['form'] = e.message;
+  if (nicknameChanged) {
+    delete out['nickname'];
+    delete out['nicknameState'];
+  }
   return out;
 }
 
@@ -34,7 +39,12 @@ export class RegisterFacade {
   readonly busy = signal(false);
   readonly redirect = injectRedirectParam();
   readonly avatarIds = injectAvatarIds();
-  readonly nick = computed(() => nickState(this.nickname()));
+  readonly nick = computed(() => nickState(this.nickname(), this.errors()));
+
+  setNickname(v: string) {
+    this.nickname.set(v);
+    this.errors.update((errors) => ({ ...errors, nickname: undefined, nicknameState: undefined }));
+  }
 
   async submit() {
     const errs: Errors = {};
@@ -43,11 +53,12 @@ export class RegisterFacade {
     else if (!pwdValid(this.password())) errs['password'] = '密码至少 8 位，且同时包含字母和数字';
     this.errors.set(errs);
     if (Object.keys(errs).length) return;
+    const nickname = this.nickname().trim();
     this.busy.set(true);
     try {
       const t = await this.api.register({
         email: this.email().trim(),
-        nickname: this.nickname().trim(),
+        nickname,
         password: this.password(),
         avatarId: this.avatarId(),
       });
@@ -57,7 +68,7 @@ export class RegisterFacade {
       const r = this.redirect();
       await this.router.navigateByUrl(r ? safeRedirect(r, '/') : '/create', { replaceUrl: true });
     } catch (e) {
-      this.errors.set(fieldErrors(e));
+      this.errors.set(fieldErrors(e, nickname !== this.nickname().trim()));
     } finally {
       this.busy.set(false);
     }

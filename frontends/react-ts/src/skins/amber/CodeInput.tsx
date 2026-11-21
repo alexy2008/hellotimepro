@@ -15,6 +15,7 @@ export interface CodeInputHandle {
 
 interface Props {
   size?: "" | "md" | "lg";
+  value: string;
   state: CodeState;
   shake: number;
   onChange?: (v: string) => void;
@@ -24,8 +25,7 @@ interface Props {
   handle?: React.Ref<CodeInputHandle>;
 }
 
-export function AmberCodeInput({ size = "", state, shake, onChange, onComplete, autoFocus, handle }: Props) {
-  const [value, setValue] = useState("");
+export function AmberCodeInput({ size = "", value, state, shake, onChange, onComplete, autoFocus, handle }: Props) {
   const [focused, setFocused] = useState(false);
   const [shaking, setShaking] = useState(false);
   const prev = useRef("");
@@ -48,7 +48,6 @@ export function AmberCodeInput({ size = "", state, shake, onChange, onComplete, 
   useImperativeHandle(handle, () => ({
     set: (v: string) => {
       const s = clean(v);
-      setValue(s);
       onChange?.(s);
       if (s.length === 8) onComplete(s);
     },
@@ -88,13 +87,11 @@ export function AmberCodeInput({ size = "", state, shake, onChange, onComplete, 
         onChange={(e) => {
           if ((e.nativeEvent as InputEvent).isComposing) return;
           const v = clean(e.target.value);
-          setValue(v);
           onChange?.(v);
           if (v.length === 8) onComplete(v);
         }}
         onCompositionEnd={(e) => {
           const v = clean(e.currentTarget.value);
-          setValue(v);
           onChange?.(v);
         }}
         onKeyDown={(e) => {

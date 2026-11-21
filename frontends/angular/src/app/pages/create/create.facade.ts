@@ -9,6 +9,7 @@
 
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { ApiService } from '@/api/api.service';
+import { AuthStore } from '@/stores/auth.store';
 import { DraftStore } from '@/stores/draft.store';
 import { FeedbackStore } from '@/stores/feedback.store';
 import { ApiError, type CapsuleDetail, type CapsuleRecommendation } from '@/types';
@@ -22,6 +23,7 @@ type Errors = Partial<Record<Field, string>>;
 export class CreateFacade {
   private readonly api = inject(ApiService);
   private readonly feedback = inject(FeedbackStore);
+  private readonly auth = inject(AuthStore);
   readonly draft = inject(DraftStore);
 
   readonly errors = signal<Errors>({});
@@ -64,6 +66,7 @@ export class CreateFacade {
   // ---------------------------------------------------------------- 字段
 
   setTitle(title: string) {
+    if (this.aiBusy()) this.stopTyping();
     this.clearErr('title');
     this.patch({ title });
   }
@@ -75,6 +78,7 @@ export class CreateFacade {
   }
 
   setOpenAt(openAt: number, preset: string | null = null) {
+    if (this.aiBusy()) this.stopTyping();
     this.clearErr('openAt');
     this.patch({ openAt, preset });
   }
@@ -180,6 +184,8 @@ export class CreateFacade {
   async submit(): Promise<CapsuleDetail | null> {
     if (this.submitting() || !this.validate()) return null;
     this.submitting.set(true);
+    const owner = this.auth.user()?.id;
+    const revision = this.draft.revision();
     const d = this.draft;
     try {
       const c = await this.api.createCapsule({
@@ -188,8 +194,9 @@ export class CreateFacade {
         openAt: new Date(d.openAt()).toISOString(),
         inPlaza: d.inPlaza(),
       });
+      if (this.auth.user()?.id !== owner) return null;
       this.created.set(c);
-      d.reset();
+      if (revision === d.revision()) d.reset();
       return c;
     } catch (e) {
       this.feedback.toast(e instanceof ApiError ? e.message : '封存失败，请稍后再试', { tone: 'error' });
@@ -204,7 +211,6 @@ export class CreateFacade {
     this.aiDone.set(false);
     this.aiNote.set('');
     this.clearErr();
-    this.draft.reset();
     window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
 }

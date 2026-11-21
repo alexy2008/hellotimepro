@@ -63,8 +63,12 @@ test("切换皮肤与明暗后，草稿与路由都还在", async ({ page }, inf
 test("切换皮肤与明暗时，注册表单里填了一半的内容不丢", async ({ page }, info) => {
   await page.goto("/register");
   await tid(page, "register-email").fill("half-filled@ui-smoke.hellotimepro.dev");
-  await tid(page, "register-nickname").fill("填了一半");
   await tid(page, "register-password").fill("abc12345");
+  await tid(page, "register-nickname").fill("有 空格");
+  await tid(page, "register-submit").click();
+  await expect(tid(page, "nickname-state")).toHaveAttribute("data-state", "invalid");
+  await tid(page, "register-nickname").fill("𠮷的草稿");
+  await expect(tid(page, "nickname-state")).toHaveAttribute("data-state", "valid");
   await expect(tid(page, "avatar-option")).toHaveCount(10, { timeout: 8000 });
   const pick = tid(page, "avatar-option").nth(3);
   const avatar = await pick.getAttribute("data-value");
@@ -73,7 +77,7 @@ test("切换皮肤与明暗时，注册表单里填了一半的内容不丢", as
   const check = async () => {
     await expect(page).toHaveURL(/\/register$/);
     await expect(tid(page, "register-email")).toHaveValue("half-filled@ui-smoke.hellotimepro.dev");
-    await expect(tid(page, "register-nickname")).toHaveValue("填了一半");
+    await expect(tid(page, "register-nickname")).toHaveValue("𠮷的草稿");
     await expect(tid(page, "register-password")).toHaveValue("abc12345");
     await expect(page.locator(`[data-testid="avatar-option"][data-value="${avatar}"]`)).toHaveAttribute("data-selected", "true");
   };

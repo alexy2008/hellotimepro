@@ -88,20 +88,25 @@ test("个人中心页签可在三页之间切换", async ({ page, request }) => 
   await expect(page).toHaveURL(/\/me\/created$/);
 });
 
-test("「我创建的」超过一页时可以加载更多，直到看到全部", async ({ page, request }) => {
+test("「我创建的」删除已显示的一枚后，仍能加载到其余全部", async ({ page, request }) => {
   const me = await apiRegister(request, { nickname: uniqueNickname("多页") });
-  const N = 21;
+  const N = 22;
   for (let i = 0; i < N; i++) await apiCreateCapsule(request, me.accessToken, { title: `第 ${i + 1} 枚 ${rand(4)}` });
 
   await loginViaUi(page, me);
   await page.goto("/me/created");
   await expect(tid(page, "my-capsule").first()).toBeVisible({ timeout: 10_000 });
+  const first = tid(page, "my-capsule").first();
+  const deleted = await first.getAttribute("data-code");
+  await first.getByTestId("delete-capsule").click();
+  await tid(page, "confirm-ok").click();
+  await expect(page.locator(`[data-testid="my-capsule"][data-code="${deleted}"]`)).toHaveCount(0);
   for (let round = 0; round < 10 && (await tid(page, "list-next").count()); round++) {
     const before = await tid(page, "my-capsule").count();
     await tid(page, "list-next").click();
     await expect.poll(() => tid(page, "my-capsule").count(), { timeout: 10_000 }).toBeGreaterThan(before);
   }
-  await expect(tid(page, "my-capsule")).toHaveCount(N);
+  await expect(tid(page, "my-capsule")).toHaveCount(N - 1);
   await expect(tid(page, "list-next")).toHaveCount(0);
-  await expect(tid(page, "me-tab-created")).toHaveAttribute("data-count", String(N));
+  await expect(tid(page, "me-tab-created")).toHaveAttribute("data-count", String(N - 1));
 });

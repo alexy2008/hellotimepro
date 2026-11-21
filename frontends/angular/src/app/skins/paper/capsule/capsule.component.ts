@@ -4,7 +4,7 @@
 // 结构与类名照 2.0 原型 paper/view-capsule.js；取数与「等服务端确认开启」在 CapsuleFacade
 // ============================================================
 
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CapsuleFacade } from '@/pages/capsule/capsule.facade';
 import { FeedbackStore } from '@/stores/feedback.store';
@@ -31,7 +31,12 @@ import { PaperSealedComponent } from './sealed.component';
         [attr.data-state]="cap ? (opened() ? 'opened' : 'sealed') : null"
         [attr.data-in-plaza]="cap ? cap.inPlaza : null"
       >
-        @if (f.status() === 'missing' || f.status() === 'error') {
+        @if (f.status() === 'error') {
+          <div class="lost" role="alert">
+            <p>暂时无法加载这枚胶囊，请稍后重试。</p>
+            <button class="btn btn--ghost" type="button" (click)="f.load()">重试</button>
+          </div>
+        } @else if (f.status() === 'missing') {
           <div class="lost" data-testid="detail-not-found">
             <div class="lost__mark"><span appPaperSeal ch="无" variant="line"></span></div>
             <h1 class="h1">查无此信</h1>
@@ -68,7 +73,8 @@ export class PaperCapsuleComponent {
   protected readonly opened = computed(() => !!this.f.capsule()?.isOpened && !this.opening());
 
   constructor() {
-    let started = false;
+    let openingTask: AbortController | undefined;
+    inject(DestroyRef).onDestroy(() => openingTask?.abort());
     let lastCode = '';
     effect(() => {
       const code = this.f.code();
@@ -76,33 +82,42 @@ export class PaperCapsuleComponent {
       untracked(() => {
         if (code !== lastCode) {
           lastCode = code;
-          started = false; // 换了一枚胶囊，重新等它到点
+          openingTask?.abort();
+          openingTask = undefined;
+          this.reveal.set(false);
+          this.opening.set(null);
+          this.host.set('');
         }
-        if (!expired || started) return;
-        started = true;
-        void this.open();
+        if (!expired || openingTask || this.f.capsule()?.code !== code.toUpperCase()) return;
+        openingTask = new AbortController();
+        void this.open(openingTask.signal);
       });
     });
   }
 
   /** 启封：火漆裂开 → 封舌掀起露出朱红内衬 → 信纸升起 → 换成信纸页，字迹逐段显影 */
-  private async open() {
+  private async open(signal: AbortSignal) {
     this.opening.set({ crack: 'whole', open: false, rising: false });
     this.host.set('is-opening');
     if (!reducedMotion()) {
       this.opening.set({ crack: 'split', open: false, rising: false });
       await sleep(60);
+      if (signal.aborted) return;
       this.opening.set({ crack: 'cracked', open: false, rising: false });
       await sleep(620);
+      if (signal.aborted) return;
       this.opening.set({ crack: 'cracked', open: true, rising: false });
       await sleep(760);
+      if (signal.aborted) return;
       this.opening.set({ crack: 'cracked', open: true, rising: true });
       await sleep(900);
+      if (signal.aborted) return;
       this.host.set('is-opening is-leaving');
       await sleep(380);
+      if (signal.aborted) return;
     }
     // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-    if (!(await this.f.awaitOpened())) return; // 离开了页面，或胶囊已被删除
+    if (!(await this.f.awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
     this.host.set('');
     this.opening.set(null);
     this.reveal.set(true);

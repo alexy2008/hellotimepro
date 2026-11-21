@@ -89,7 +89,7 @@ export function AmberLoginPage() {
 export function AmberRegisterPage() {
   const { email, setEmail, nickname, setNickname, password, setPassword, avatarId, setAvatarId, errors, busy, submit, redirect } = useRegister();
   const ids = useAvatarIds();
-  const ns = nickState(nickname);
+  const ns = nickState(nickname, errors);
   return (
     <div className="page page--auth">
       <div className="container auth">
@@ -112,7 +112,6 @@ export function AmberRegisterPage() {
                 label="昵称"
                 lead="user"
                 req
-                maxLength={20}
                 autoComplete="nickname"
                 placeholder="2–20 个字符"
                 hint={ns.hint ?? "全站唯一，注册后可以改。"}
@@ -120,7 +119,7 @@ export function AmberRegisterPage() {
                 onChange={setNickname}
                 error={errors.nickname ?? (ns.state === "invalid" ? ns.hint : undefined)}
                 testId="register-nickname"
-                trail={<NickState state={errors.nickname ? "taken" : ns.state} />}
+                trail={<NickState state={ns.state} />}
               />
             </div>
             <PasswordField id="password" label="密码" lead="lock" req autoComplete="new-password" placeholder="设置密码" value={password} onChange={setPassword} error={errors.password} testId="register-password" />
@@ -343,7 +342,7 @@ function Favorites({ now, onChange }: { now: number; onChange: () => void }) {
 function Profile({ onSaved }: { onSaved: () => void }) {
   const p = useProfile();
   const ids = useAvatarIds();
-  const ns = nickState(p.nickname);
+  const ns = nickState(p.nickname, p.errors);
   return (
     <div className="profile">
       <section className="card card--pad">
@@ -361,14 +360,13 @@ function Profile({ onSaved }: { onSaved: () => void }) {
             id="p-nick"
             label="昵称"
             lead="user"
-            maxLength={20}
             autoComplete="nickname"
             hint={ns.hint ?? "2–20 个字符，全站唯一。"}
             value={p.nickname}
             onChange={p.setNickname}
             error={p.errors.nickname}
             testId="profile-nickname"
-            trail={<NickState state={p.errors.nickname ? "taken" : p.nickname.trim() === p.user.nickname ? "" : ns.state} />}
+            trail={<NickState state={p.nickname.trim() === p.user.nickname ? "" : ns.state} />}
           />
           <div className="field field--plain">
             <div className="field__head">

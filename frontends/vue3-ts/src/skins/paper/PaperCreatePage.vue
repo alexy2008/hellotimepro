@@ -6,13 +6,13 @@
      结构与类名照 2.0 原型 paper/view-create.js
      ============================================================ -->
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, useTemplateRef, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { clamp, fmt, focusIfIdle, reducedMotion } from "@/lib/fmt";
 import { DAY, LIMITS } from "@/lib/schedule";
 import { useNow } from "@/composables/useNow";
 import { useShake } from "@/composables/useMotion";
-import { useCreateCapsule } from "@/composables/useCreateCapsule";
+import { useCreateForm } from "@/composables/useCreateCapsule";
 import AppIcon from "@/components/AppIcon.vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import PaperAvatarStamp from "./PaperAvatarStamp.vue";
@@ -33,7 +33,7 @@ const PRESETS = [
 
 const auth = useAuthStore();
 const me = computed(() => auth.user!);
-const f = reactive(useCreateCapsule());
+const f = useCreateForm();
 const now = useNow();
 const calOpen = ref(false);
 const titleEl = useTemplateRef<HTMLInputElement>("titleEl");

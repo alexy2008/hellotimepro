@@ -3,7 +3,6 @@
      结构与类名照 2.0 原型 amber/view-capsule.js
      ============================================================ -->
 <script setup lang="ts">
-import { ref } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { ms } from "@/lib/fmt";
 import { paletteOf } from "@/lib/palette";
@@ -17,13 +16,8 @@ import { cdShort } from "./art";
 
 const auth = useAuthStore();
 const mine = useMySealed();
-const { state, error, shake, go, reset } = useCodeOpen();
-const value = ref("");
+const { state, error, shake, go, value, input: onChange } = useCodeOpen();
 const now = Date.now();
-const onChange = (v: string) => {
-  value.value = v;
-  reset();
-};
 </script>
 
 <template>
@@ -35,7 +29,7 @@ const onChange = (v: string) => {
         <p class="page-lead">输入 8 位胶囊码。到了开启时间，就能读到里面的话；还没到，就陪它一起倒数。</p>
       </header>
       <form class="open__form card" novalidate @submit.prevent="go(value)">
-        <AmberCodeInput size="lg" :state="state" :shake="shake" autofocus @change="onChange" @complete="go" />
+        <AmberCodeInput size="lg" :value="value" :state="state" :shake="shake" autofocus @change="onChange" @complete="go" />
         <div class="open__err" role="alert" :data-testid="error ? 'open-error' : undefined">{{ error }}</div>
         <button :class="['btn', 'btn--primary', 'btn--lg', { 'is-busy': state === 'checking' }]" type="submit"><AppIcon name="key" />开启胶囊</button>
         <p class="open__hint">

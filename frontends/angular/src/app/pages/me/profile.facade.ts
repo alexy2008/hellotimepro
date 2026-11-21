@@ -38,7 +38,7 @@ export class ProfileFacade {
 
   /** 昵称右侧的状态点：没改动时不显示 */
   readonly nick = computed<NickStateValue>(() =>
-    this.errors()['nickname'] ? 'taken' : this.nickname().trim() === this.user()?.nickname ? '' : nickState(this.nickname()).state,
+    this.nickname().trim() === this.user()?.nickname ? '' : nickState(this.nickname(), this.errors()).state,
   );
   readonly nickHint = computed(() => nickState(this.nickname()).hint);
 
@@ -99,7 +99,7 @@ export class ProfileFacade {
       this.feedback.toast('资料已更新');
       this.me.refresh();
     } catch (e) {
-      const errs = fieldErrors(e);
+      const errs = fieldErrors(e, patch.nickname !== this.nickname().trim());
       this.errors.set(errs);
       if (errs['form']) this.msg.set({ type: 'err', text: errs['form'] });
     } finally {

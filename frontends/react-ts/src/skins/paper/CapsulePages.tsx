@@ -4,7 +4,7 @@
 // 结构与类名照 2.0 原型 paper/view-capsule.js
 // ============================================================
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fmt, ms, pad2, reducedMotion, sleep } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
@@ -225,36 +225,41 @@ function Opened({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
 
 export function PaperCapsulePage() {
   const { code = "" } = useParams();
-  const { c, status, now, expired, awaitOpened } = useCapsuleByCode(code);
+  const { c, status, now, expired, reload, awaitOpened } = useCapsuleByCode(code);
   const [opening, setOpening] = useState<{ crack: "whole" | "split" | "cracked"; open: boolean; rising: boolean } | null>(null);
   const [host, setHost] = useState("");
   const [reveal, setReveal] = useState(false);
-  const started = useRef(false);
-  useEffect(() => {
-    started.current = false; // 换了一枚胶囊，重新等它到点
-  }, [code]);
+  const openingTask = useRef<AbortController | null>(null);
+  useLayoutEffect(() => () => openingTask.current?.abort(), []);
 
   // 启封：火漆裂开 → 封舌掀起露出朱红内衬 → 信纸升起 → 换成信纸页，字迹逐段显影
   useEffect(() => {
-    if (!expired || started.current) return;
-    started.current = true;
+    if (!expired || openingTask.current) return;
+    const task = new AbortController();
+    openingTask.current = task;
+    const { signal } = task;
     void (async () => {
       setOpening({ crack: "whole", open: false, rising: false });
       setHost("is-opening");
       if (!reducedMotion()) {
         setOpening({ crack: "split", open: false, rising: false });
         await sleep(60);
+        if (signal.aborted) return;
         setOpening({ crack: "cracked", open: false, rising: false });
         await sleep(620);
+        if (signal.aborted) return;
         setOpening({ crack: "cracked", open: true, rising: false });
         await sleep(760);
+        if (signal.aborted) return;
         setOpening({ crack: "cracked", open: true, rising: true });
         await sleep(900);
+        if (signal.aborted) return;
         setHost("is-opening is-leaving");
         await sleep(380);
+        if (signal.aborted) return;
       }
       // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-      if (!(await awaitOpened())) return; // 离开了页面，或胶囊已被删除
+      if (!(await awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
       setHost("");
       setOpening(null);
       setReveal(true);
@@ -273,7 +278,12 @@ export function PaperCapsulePage() {
         data-state={c ? (opened ? "opened" : "sealed") : undefined}
         data-in-plaza={c ? String(c.inPlaza) : undefined}
       >
-        {status === "missing" || status === "error" ? (
+        {status === "error" ? (
+          <div className="lost" role="alert">
+            <p>暂时无法加载这枚胶囊，请稍后重试。</p>
+            <button className="btn btn--ghost" type="button" onClick={() => void reload()}>重试</button>
+          </div>
+        ) : status === "missing" ? (
           <div className="lost" data-testid="detail-not-found">
             <div className="lost__mark">
               <Seal ch="无" variant="line" />
@@ -313,8 +323,7 @@ export function PaperCapsulePage() {
 export function PaperOpenPage() {
   const user = useAuth((s) => s.user);
   const mine = useMySealed();
-  const { state, error, shake, go, reset } = useCodeOpen();
-  const [value, setValue] = useState("");
+  const { state, error, shake, go, value, input: changeCode } = useCodeOpen();
   const input = useRef<CodeInputHandle>(null);
   const now = Date.now();
 
@@ -344,10 +353,8 @@ export function PaperOpenPage() {
             state={state}
             shake={shake}
             autoFocus
-            onChange={(v) => {
-              setValue(v);
-              reset();
-            }}
+            value={value}
+            onChange={changeCode}
             onComplete={(v) => void go(v)}
           />
           <div className="openp__err" role="alert" data-testid={error ? "open-error" : undefined}>

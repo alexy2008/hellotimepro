@@ -766,7 +766,7 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 
 ### 15.2 契约验证脚本
 
-> ⚠️ **会重建数据库**：脚本的第一步是 `./scripts/db reset --seed --yes`——PostgreSQL 会重建 `DB_URL` 指向的库的 `public` schema，SQLite 会重建 `data/sqlite/hellotime-<target>.db`。库里原有的数据都会丢失。
+> ⚠️ **会重建数据库**：脚本的第一步是 `./scripts/db reset --seed --yes`——PostgreSQL 会重建 `DB_URL` 指向的库的 `public` schema，SQLite 会重建 `DB_URL` 指定的文件（省略 URL 时按目标实现从配置基名派生）。库里原有的数据都会丢失。
 > 数据库按「环境变量 `DB_URL` > `data/.hello-state.json` 里的配置」选择。不想动日常开发库时，用一个专门的测试库：
 >
 > ```bash
@@ -797,6 +797,7 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 
 `verification/scripts/verify-ui-smoke.sh <frontend>`：
 
+- 启动前准备 schema，冒烟结束后清理测试账号。两个步骤使用同一组 `DB_DRIVER`、`DB_URL`。纯 SPA 连接已启动的代理后端，使用自定义库时须把后端的 `DB_URL` 同时传给脚本。
 - 对前端启动 dev 服务器
 - 先跑一遍 `paper`，再跑一遍 `amber`（用 Playwright 的 `storageState` / `addInitScript` 预置 `localStorage['hellotime.skin']`），两遍都绿才算通过
 - 用例只通过 `getByTestId` 与 `data-*` 状态属性定位，不读类名，不依赖按钮文案（清单见 `spec/ui/testids.md`）
@@ -807,7 +808,7 @@ SELECT count(*) AS favorites_given FROM favorites WHERE user_id = $me;
 `verification/scripts/verify-design-tokens.sh [实现…]` 静态检查（实现在同目录的 `verify_design_tokens.py`）：
 
 - **spec 本身**（总是检查）：直接调用 `python3 spec/styles/build_tokens.py --check`——两套皮肤的语义令牌（命名规则见 `build_tokens.py` 的 `SEMANTIC`）必须同名同集合，`spec/tokens/skins.json` 必须是最新的
-- **实现必须引入 spec/styles 2.0**：源码里要引用 `base.css` 与 `paper|amber/tokens.css`
+- **实现必须引入 spec/styles 2.0**：分别识别 `base.css`、`paper/tokens.css`、`amber/tokens.css` 的样式导入或 stylesheet 链接；注释中提及文件名不计入
 - **实现自己的样式文件**（`.css` / `.scss` / `.less`，以及 `.vue` / `.svelte` / `.astro` 的 `<style>` 块；跳过 `node_modules`、构建产物，以及与 `spec/styles` 某个文件内容完全相同的拷贝）：
   - `var(--x)` 只能引用 `base.css` 刻度与语义层，或实现内部以 `--_` 开头的局部变量；引用皮肤私有令牌即红灯
   - 声明值里不得出现色值字面量：`#rgb` / `#rrggbb`（含透明度）、`rgb()`、`rgba()`、`hsl()`、`hsla()`、`oklch()` 等（胶囊专属色在脚本里计算，不在样式文件里，不受影响）

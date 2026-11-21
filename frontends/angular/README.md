@@ -116,6 +116,8 @@ src/
 
 ## 2.0 验证
 
+**2026-11-21 复核修复。** 首页和开启页在路由组件提供 `CodeOpener`，创建页的 `CreateFacade` 保管封存请求和回执。`ngc --noEmit` 已检查 TypeScript 和 Angular 模板。分页、昵称、AI 手动编辑和异常重试的共同行为见[升级指南第 2 节](../../docs/05-upgrade-2.0.md)。下列冒烟及其他运行记录均来自修复前，本轮仅做静态检查。
+
 | 项目 | 结果 | 数据库 | 日期 |
 |---|---|---|---|
 | UI 冒烟（`verify-ui-smoke.sh angular`，paper 44 + amber 44） | ✅ 88/88 | PostgreSQL | 2026-11-21 |

@@ -14,7 +14,7 @@ import { paletteOf } from "@/lib/palette";
 import { useAuth } from "@/stores/auth";
 import { Avatar } from "@/components/shared";
 import { useShare } from "@/hooks/useCapsule";
-import { DAY, LIMITS, useCreateCapsule } from "@/hooks/useCreateCapsule";
+import { DAY, LIMITS, type useCreateCapsule } from "@/hooks/useCreateCapsule";
 import { useNow } from "@/hooks/useNow";
 import type { CapsuleDetail } from "@/types";
 import { Badge, CapsuleArt } from "./parts";
@@ -124,9 +124,8 @@ function Sealed({ c, onAgain }: { c: CapsuleDetail; onAgain: () => void }) {
   );
 }
 
-export function AmberCreatePage() {
+export function AmberCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> }) {
   const me = useAuth((s) => s.user)!;
-  const f = useCreateCapsule();
   const now = useNow();
   const titleEl = useRef<HTMLInputElement>(null);
   const contentEl = useRef<HTMLTextAreaElement>(null);

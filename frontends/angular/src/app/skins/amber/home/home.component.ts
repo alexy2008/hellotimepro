@@ -134,7 +134,7 @@ import { AmberQuickOpenComponent } from './quick-open.component';
             @for (i of skeletons; track i) {
               <div appAmberCardSkeleton [i]="i"></div>
             }
-          } @else if (plaza.error() && !plaza.items().length) {
+          } @else if (plaza.error()) {
             <div appAmberEmpty testid="list-error" heading="广场暂时打不开" text="没能连上后端。请确认服务已启动，或稍后再试。">
               <button class="btn btn--ghost" type="button" data-testid="list-retry" (click)="plaza.refreshAll()"><svg appIcon="refresh"></svg>重试</button>
             </div>

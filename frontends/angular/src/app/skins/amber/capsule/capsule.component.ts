@@ -4,7 +4,7 @@
 // 结构与类名照 2.0 原型 amber/view-capsule.js；取数与「等服务端确认开启」在 CapsuleFacade
 // ============================================================
 
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CapsuleFacade } from '@/pages/capsule/capsule.facade';
 import { FeedbackStore } from '@/stores/feedback.store';
@@ -30,7 +30,12 @@ import { AmberLockedComponent } from './locked.component';
         [attr.data-state]="cap ? (opened() ? 'opened' : 'sealed') : null"
         [attr.data-in-plaza]="cap ? cap.inPlaza : null"
       >
-        @if (f.status() === 'missing' || f.status() === 'error') {
+        @if (f.status() === 'error') {
+          <div class="notice card" role="alert">
+            <p>暂时无法加载这枚胶囊，请稍后重试。</p>
+            <button class="btn btn--ghost" type="button" (click)="f.load()">重试</button>
+          </div>
+        } @else if (f.status() === 'missing') {
           <div class="notice card" data-testid="detail-not-found">
             <svg appAmberCapsuleArt code="LOST0000" state="opened" [width]="200" class="notice__art"></svg>
             <div class="eyebrow">Not found</div>
@@ -73,7 +78,8 @@ export class AmberCapsuleComponent {
   protected readonly opened = computed(() => !!this.f.capsule()?.isOpened && !this.phase());
 
   constructor() {
-    let started = false;
+    let openingTask: AbortController | undefined;
+    inject(DestroyRef).onDestroy(() => openingTask?.abort());
     let lastCode = '';
     effect(() => {
       const code = this.f.code();
@@ -81,26 +87,31 @@ export class AmberCapsuleComponent {
       untracked(() => {
         if (code !== lastCode) {
           lastCode = code;
-          started = false; // 换了一枚胶囊，重新等它到点
+          openingTask?.abort();
+          openingTask = undefined;
+          this.reveal.set(false);
+          this.phase.set('');
         }
-        if (!expired || started) return;
-        started = true;
-        void this.open();
+        if (!expired || openingTask || this.f.capsule()?.code !== code.toUpperCase()) return;
+        openingTask = new AbortController();
+        void this.open(openingTask.signal);
       });
     });
   }
 
   /** 开启：胶囊抖动 → 两半分开、迸出一团光 → 信纸自上而下展开，邮戳「啪」地盖上 */
-  private async open() {
+  private async open(signal: AbortSignal) {
     if (!reducedMotion()) {
       this.phase.set('shaking');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       await sleep(820);
+      if (signal.aborted) return;
       this.phase.set('open');
       await sleep(1150);
+      if (signal.aborted) return;
     }
     // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-    if (!(await this.f.awaitOpened())) return; // 离开了页面，或胶囊已被删除
+    if (!(await this.f.awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
     this.phase.set('');
     this.reveal.set(true);
     this.feedback.toast('胶囊已开启');

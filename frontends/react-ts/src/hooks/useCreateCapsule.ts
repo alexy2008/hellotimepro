@@ -113,6 +113,7 @@ export function useCreateCapsule() {
   const d = useDraft();
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [shake, setShake] = useState<Record<Field, number>>({ title: 0, content: 0, openAt: 0 });
+  const submitPending = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<CapsuleDetail | null>(null);
 
@@ -161,6 +162,7 @@ export function useCreateCapsule() {
   const clearErr = (f?: Field) => setErrors((e) => (f ? { ...e, [f]: undefined } : {}));
 
   const setTitle = (title: string) => {
+    if (aiBusy) stopTyping();
     clearErr("title");
     d.patch({ title });
   };
@@ -170,6 +172,7 @@ export function useCreateCapsule() {
     d.patch({ content });
   };
   const setOpenAt = (openAt: number, preset: string | null = null) => {
+    if (aiBusy) stopTyping();
     clearErr("openAt");
     d.patch({ openAt, preset });
   };
@@ -246,7 +249,8 @@ export function useCreateCapsule() {
   }
 
   async function submit(): Promise<CapsuleDetail | null> {
-    if (submitting || !validate()) return null;
+    if (submitPending.current || !validate()) return null;
+    submitPending.current = true;
     setSubmitting(true);
     const s = useDraft.getState();
     try {
@@ -257,12 +261,13 @@ export function useCreateCapsule() {
         inPlaza: s.inPlaza,
       });
       setCreated(c);
-      useDraft.getState().reset();
+      if (useDraft.getState() === s) s.reset();
       return c;
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "封存失败，请稍后再试", { tone: "error" });
       return null;
     } finally {
+      submitPending.current = false;
       setSubmitting(false);
     }
   }
@@ -272,7 +277,6 @@ export function useCreateCapsule() {
     setAiDone(false);
     setAiNote("");
     clearErr();
-    useDraft.getState().reset();
     window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
   }
 

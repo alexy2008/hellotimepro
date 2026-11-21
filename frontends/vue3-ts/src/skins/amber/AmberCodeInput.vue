@@ -8,14 +8,13 @@ import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from "vue";
 import { focusIfIdle } from "@/lib/fmt";
 import type { CodeState } from "@/composables/useCodeOpen";
 
-const props = withDefaults(defineProps<{ size?: "" | "md" | "lg"; state: CodeState; shake: number; autofocus?: boolean }>(), {
+const props = withDefaults(defineProps<{ value: string; size?: "" | "md" | "lg"; state: CodeState; shake: number; autofocus?: boolean }>(), {
   size: "",
   autofocus: false,
 });
 const emit = defineEmits<{ change: [v: string]; complete: [v: string] }>();
 
 const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
-const value = ref("");
 const focused = ref(false);
 const shaking = ref(false);
 /** 本次新敲进来的格子「弹」一下：从第几格开始弹 */
@@ -38,8 +37,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout));
 
 function update(raw: string, complete: boolean) {
   const v = clean(raw);
-  popFrom.value = v.length > value.value.length ? value.value.length : 8;
-  value.value = v;
+  popFrom.value = v.length > props.value.length ? props.value.length : 8;
   if (input.value && input.value.value !== v) input.value.value = v;
   emit("change", v);
   if (complete && v.length === 8) emit("complete", v);

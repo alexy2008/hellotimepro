@@ -4,7 +4,7 @@
      结构与类名照 2.0 原型 amber/view-capsule.js
      ============================================================ -->
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onScopeDispose, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { reducedMotion, sleep } from "@/lib/fmt";
 import { toast } from "@/stores/feedback";
@@ -16,28 +16,37 @@ import AmberDetailLocked from "./AmberDetailLocked.vue";
 
 const route = useRoute();
 const code = computed(() => String(route.params.code ?? ""));
-const { capsule, status, now, expired, awaitOpened } = useCapsuleByCode(code);
+const { capsule, status, now, expired, reload, awaitOpened } = useCapsuleByCode(code);
 
 const phase = ref<"" | "shaking" | "open">("");
 const reveal = ref(false);
-let started = false;
-watch(code, () => (started = false)); // 换了一枚胶囊，重新等它到点
+let openingTask: AbortController | undefined;
+onScopeDispose(() => openingTask?.abort());
+watch(code, () => {
+  openingTask?.abort();
+  openingTask = undefined;
+  reveal.value = false;
+  phase.value = "";
+}, { flush: "sync" });
 
 // 开启：胶囊抖动 → 两半分开、迸出一团光 → 信纸自上而下展开，邮戳「啪」地盖上
 watch(
   expired,
   async (v) => {
-    if (!v || started) return;
-    started = true;
+    if (!v || openingTask) return;
+    openingTask = new AbortController();
+    const { signal } = openingTask;
     if (!reducedMotion()) {
       phase.value = "shaking";
       window.scrollTo({ top: 0, behavior: "smooth" });
       await sleep(820);
+      if (signal.aborted) return;
       phase.value = "open";
       await sleep(1150);
+      if (signal.aborted) return;
     }
     // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-    if (!(await awaitOpened())) return; // 离开了页面，或胶囊已被删除
+    if (!(await awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
     phase.value = "";
     reveal.value = true;
     toast("胶囊已开启");
@@ -57,7 +66,11 @@ const opened = computed(() => !!capsule.value && capsule.value.isOpened && !phas
       :data-state="capsule ? (opened ? 'opened' : 'sealed') : undefined"
       :data-in-plaza="capsule ? String(capsule.inPlaza) : undefined"
     >
-      <div v-if="status === 'missing' || status === 'error'" class="notice card" data-testid="detail-not-found">
+      <div v-if="status === 'error'" class="notice card" role="alert">
+        <p>暂时无法加载这枚胶囊，请稍后重试。</p>
+        <button class="btn btn--ghost" type="button" @click="reload()">重试</button>
+      </div>
+      <div v-else-if="status === 'missing'" class="notice card" data-testid="detail-not-found">
         <AmberCapsuleArt code="LOST0000" state="opened" :width="200" class="notice__art" />
         <div class="eyebrow">Not found</div>
         <h1 class="page-title">找不到这枚胶囊</h1>

@@ -9,14 +9,14 @@ import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { focusIfIdle } from "@/lib/fmt";
 import type { CodeState } from "@/composables/useCodeOpen";
 
-const props = withDefaults(defineProps<{ size?: "" | "sm"; state: CodeState; shake: number; autofocus?: boolean }>(), {
+const props = withDefaults(defineProps<{ value: string; size?: "" | "sm"; state: CodeState; shake: number; autofocus?: boolean }>(), {
   size: "",
   autofocus: false,
 });
 const emit = defineEmits<{ change: [v: string]; complete: [v: string] }>();
 
 const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
-const cells = ref<string[]>(Array(8).fill(""));
+const cells = ref<string[]>(Array.from({ length: 8 }, (_, i) => props.value[i] ?? ""));
 /** 8 个格子的 DOM：用函数式 ref 按下标存（v-for 里的字符串 ref 不保证顺序） */
 const inputs: Array<HTMLInputElement | null> = [];
 const shaking = ref(false);
@@ -60,7 +60,7 @@ function onInput(i: number, e: Event) {
   const next = [...cells.value];
   next[i] = v;
   el.value = v; // 丢掉的非法字符不留在框里
-  commit(next, v && i < 7 ? i + 1 : i, i === 7 && !!v);
+  commit(next, v && i < 7 ? i + 1 : i, !!v);
 }
 
 function onKey(i: number, e: KeyboardEvent) {

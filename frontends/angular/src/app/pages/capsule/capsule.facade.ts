@@ -1,7 +1,7 @@
 // ============================================================
 // 胶囊详情的页面逻辑（/capsules/:code）：取数、逐秒倒数、到点后等服务端确认开启。
 // 未开启时逐秒倒数，归零那一刻 expired 变 true——皮肤据此播放开启动画，
-// 并调用 awaitOpened() 拿到正文（不用刷新页面）。
+// 并调用 awaitOpened(signal) 拿到正文（不用刷新页面）。
 // ============================================================
 
 import { computed, DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
@@ -60,7 +60,7 @@ export class CapsuleFacade {
     inject(DestroyRef).onDestroy(() => this.gen++);
   }
 
-  private async load() {
+  async load() {
     const my = ++this.loadSeq;
     const g = this.gen;
     const stale = () => my !== this.loadSeq || g !== this.gen;
@@ -79,18 +79,18 @@ export class CapsuleFacade {
    * 这时接口仍返回未开启——隔一会儿再问（1s、2s…最多 5s 一次），直到真正开启；
    * 离开页面、换了码或胶囊已被删除（404）时返回 null
    */
-  async awaitOpened(): Promise<CapsuleDetail | null> {
+  async awaitOpened(signal: AbortSignal): Promise<CapsuleDetail | null> {
     const my = this.gen;
-    for (let i = 0; my === this.gen; i++) {
+    for (let i = 0; my === this.gen && !signal.aborted; i++) {
       try {
         const d = await this.api.capsuleByCode(this.code());
-        if (my !== this.gen) return null;
+        if (my !== this.gen || signal.aborted) return null;
         if (d.isOpened) {
           this.capsule.set(d);
           return d;
         }
       } catch (e) {
-        if (my !== this.gen) return null;
+        if (my !== this.gen || signal.aborted) return null;
         if (e instanceof ApiError && e.status === 404) {
           this.status.set('missing');
           return null;

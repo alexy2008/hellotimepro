@@ -15,7 +15,7 @@ import { AVATARS } from "@/lib/avatars";
 import { ApiError, type CapsuleListItem, type MyStats } from "@/types";
 
 export const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
-export const NICK_RE = /^[一-龥A-Za-z0-9_-]{2,20}$/;
+export const NICK_RE = /^[\p{L}\p{N}_-]{2,20}$/u;
 export const pwdRules = (v: string) => ({ len: v.length >= 8, alpha: /[A-Za-z]/.test(v), digit: /\d/.test(v) });
 export const pwdValid = (v: string) => {
   const r = pwdRules(v);
@@ -23,11 +23,12 @@ export const pwdValid = (v: string) => {
 };
 
 /** 昵称的即时检查：没有专门的唯一性接口，这里只做格式；重名在提交时由后端告诉我们 */
-export function nickState(v: string): { state: "" | "valid" | "invalid"; hint?: string } {
+export function nickState(v: string, errors?: Errors): { state: "" | "valid" | "invalid" | "taken"; hint?: string } {
+  if (errors?.nickname) return { state: errors.nicknameState === "taken" ? "taken" : "invalid", hint: errors.nickname };
   const t = v.trim();
   if (!t) return { state: "" };
   if (Array.from(t).length < 2) return { state: "", hint: "至少 2 个字符" };
-  if (!NICK_RE.test(t)) return { state: "invalid", hint: "只能用中英文、数字、下划线和连字符" };
+  if (!NICK_RE.test(t)) return { state: "invalid", hint: "只能用字母、数字、下划线和连字符" };
   return { state: "valid" };
 }
 
@@ -56,11 +57,16 @@ export function useAvatarIds() {
 type Errors = Record<string, string | undefined>;
 
 /** 后端的字段错误（422 details / 409 field）映射到表单字段 */
-function fieldErrors(e: unknown, map: Record<string, string> = {}): Errors {
+function fieldErrors(e: unknown, nicknameChanged = false): Errors {
   if (!(e instanceof ApiError)) return { form: "网络异常，请稍后再试" };
   const out: Errors = {};
-  for (const d of e.details ?? []) out[map[d.field] ?? d.field] = d.message;
+  for (const d of e.details ?? []) out[d.field] = d.message;
+  if (out["nickname"] && e.status === 409) out["nicknameState"] = "taken";
   if (!Object.keys(out).length) out.form = e.message;
+  if (nicknameChanged) {
+    delete out.nickname;
+    delete out.nicknameState;
+  }
   return out;
 }
 
@@ -172,7 +178,7 @@ export function useRegister() {
     const v = useForms.getState().register;
     const errs: Errors = {};
     if (!emailOk(v.email)) errs.email = "请输入有效的邮箱地址";
-    else if (!NICK_RE.test(v.nickname.trim())) errs.nickname = "昵称需为 2–20 个字符：中英文、数字、下划线或连字符";
+    else if (!NICK_RE.test(v.nickname.trim())) errs.nickname = "昵称需为 2–20 个字符：字母、数字、下划线或连字符";
     else if (!pwdValid(v.password)) errs.password = "密码至少 8 位，且同时包含字母和数字";
     setErrors(errs);
     if (Object.keys(errs).length) return;
@@ -184,7 +190,7 @@ export function useRegister() {
       toast(`你好，${t.user.nickname}`);
       navigate(redirect ? safeRedirect(redirect, "/") : "/create", { replace: true });
     } catch (e) {
-      setErrors(fieldErrors(e));
+      setErrors(fieldErrors(e, v.nickname !== useForms.getState().register.nickname));
     } finally {
       setBusy(false);
     }
@@ -193,7 +199,10 @@ export function useRegister() {
   return {
     ...form,
     setEmail: set("email"),
-    setNickname: set("nickname"),
+    setNickname: (v: string) => {
+      patchForm("register", { nickname: v });
+      setErrors((e) => ({ ...e, nickname: undefined, nicknameState: undefined }));
+    },
     setPassword: set("password"),
     setAvatarId: set("avatarId"),
     errors,
@@ -222,7 +231,6 @@ const PAGE_SIZE = 20;
 export function useMyList(kind: "created" | "favorites", onChange?: () => void) {
   const [items, setItems] = useState<CapsuleListItem[] | null>(null);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [error, setError] = useState(false);
   const [moreBusy, setMoreBusy] = useState(false);
   const seq = useRef(0);
@@ -239,7 +247,6 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
       if (my !== seq.current) return;
       setItems(r.items);
       setTotal(r.pagination.total);
-      setPage(1);
       setError(false);
     } catch {
       if (my === seq.current) setError(true);
@@ -248,27 +255,37 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
   useEffect(() => {
     setItems(null);
     void load();
+    return () => { seq.current++; };
   }, [load]);
+  useEffect(() => {
+    if (items?.length === 0 && total > 0) void load();
+  }, [items, total, load]);
 
-  /** 下一页：中间有删除 / 取消收藏时，后一页会前移几枚，按 id 去重即可 */
+  /** 从已显示的条数推算下一条所在的页；删除后重读边界页，补上前移的记录。 */
   async function loadMore() {
     if (moreBusy) return;
     const my = seq.current;
     setMoreBusy(true);
     try {
-      const r = await fetchPage(page + 1);
+      const r = await fetchPage(Math.floor((items?.length ?? 0) / PAGE_SIZE) + 1);
       if (my !== seq.current) return;
       setItems((list) => {
         const have = new Set((list ?? []).map((i) => i.id));
         return [...(list ?? []), ...r.items.filter((i) => !have.has(i.id))];
       });
       setTotal(r.pagination.total);
-      setPage(r.pagination.page);
     } catch {
-      toast("加载失败，请稍后再试", { tone: "error" });
+      if (my === seq.current) toast("加载失败，请稍后再试", { tone: "error" });
     } finally {
-      setMoreBusy(false);
+      if (my === seq.current) setMoreBusy(false);
     }
+  }
+
+  function drop(id: string) {
+    seq.current++;
+    setMoreBusy(false);
+    setItems((list) => (list ?? []).filter((i) => i.id !== id));
+    setTotal((t) => Math.max(0, t - 1));
   }
 
   /** 删除：确认框写明后果（spec/ui/copy.md §3） */
@@ -291,8 +308,7 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
     if (!ok) return false;
     try {
       await api.deleteMyCapsule(c.id);
-      setItems((list) => (list ?? []).filter((i) => i.id !== c.id));
-      setTotal((t) => Math.max(0, t - 1));
+      drop(c.id);
       toast(`已删除《${c.title}》`);
       onChange?.();
       return true;
@@ -305,8 +321,7 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
   /** 在「我收藏的」里取消收藏：从列表里拿掉 */
   function onFavChange(id: string, favorited: boolean) {
     if (kind === "favorites" && !favorited) {
-      setItems((list) => (list ?? []).filter((i) => i.id !== id));
-      setTotal((t) => Math.max(0, t - 1));
+      drop(id);
     }
     onChange?.();
   }
@@ -351,7 +366,7 @@ export function useProfile() {
       return;
     }
     if (patch.nickname != null && !NICK_RE.test(patch.nickname)) {
-      setErrors({ nickname: "昵称需为 2–20 个字符：中英文、数字、下划线或连字符" });
+      setErrors({ nickname: "昵称需为 2–20 个字符：字母、数字、下划线或连字符" });
       return;
     }
     setBusy(true);
@@ -361,7 +376,7 @@ export function useProfile() {
       setMsg({ type: "ok", text: "已保存" });
       toast("资料已更新");
     } catch (e) {
-      const errs = fieldErrors(e);
+      const errs = fieldErrors(e, nickname !== useForms.getState().profile.nickname);
       setErrors(errs);
       if (errs.form) setMsg({ type: "err", text: errs.form });
     } finally {

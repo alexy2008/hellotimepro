@@ -17,7 +17,11 @@ export const useDraftStore = defineStore("draft", () => {
   const preset = ref<string | null>("1y");
   const inPlaza = ref(true);
 
+  const revision = ref(0);
+  watch([title, content, openAt, preset, inPlaza], () => revision.value++, { flush: "sync" });
+
   function reset() {
+    revision.value++;
     title.value = "";
     content.value = "";
     openAt.value = PRESET_AT["1y"]();
@@ -35,5 +39,5 @@ export const useDraftStore = defineStore("draft", () => {
     },
   );
 
-  return { title, content, openAt, preset, inPlaza, reset };
+  return { revision, title, content, openAt, preset, inPlaza, reset };
 });

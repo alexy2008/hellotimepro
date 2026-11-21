@@ -93,7 +93,7 @@ const SORT_OPTIONS: SegOption<PlazaSort>[] = [
             @for (i of skeletons; track i) {
               <div appPaperCardSkeleton [i]="i"></div>
             }
-          } @else if (plaza.error() && !plaza.items().length) {
+          } @else if (plaza.error()) {
             <div class="empty" data-testid="list-error">
               <ng-container *ngTemplateOutlet="emptyArt" />
               <h3>广场暂时打不开</h3>

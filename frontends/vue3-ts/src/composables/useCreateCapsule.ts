@@ -5,20 +5,22 @@
 // - 校验：文案以 spec/ui/copy.md 为准
 // - AI：推荐主题（序号守卫防乱序、空列表不覆盖已有推荐）、代笔（打字机效果，可被打断）
 // - 封存：调接口，返回胶囊给皮肤展示回执
-// 视图里用 reactive(useCreateCapsule()) 拿到一个可以直接点属性的对象。
+// 路由提供 reactive 表单，皮肤通过 useCreateForm() 注入同一份状态。
 // ============================================================
 
-import { computed, onScopeDispose, reactive, ref, shallowRef } from "vue";
+import { computed, inject, onScopeDispose, provide, reactive, ref, shallowRef, type InjectionKey } from "vue";
 import { api } from "@/api/client";
 import { ApiError, type CapsuleDetail, type CapsuleRecommendation } from "@/types";
 import { fmt, reducedMotion, sleep } from "@/lib/fmt";
 import { LIMITS, MSG, PRESET_AT } from "@/lib/schedule";
 import { toast } from "@/stores/feedback";
+import { useAuthStore } from "@/stores/auth";
 import { useDraftStore } from "@/stores/draft";
 
 type Field = "title" | "content" | "openAt";
 
 export function useCreateCapsule() {
+  const auth = useAuthStore();
   const draft = useDraftStore();
   const errors = reactive<Partial<Record<Field, string>>>({});
   /** 每次校验失败给对应字段加一，视图据此「抖一下」 */
@@ -41,7 +43,7 @@ export function useCreateCapsule() {
     draft.openAt = PRESET_AT["1y"]();
     draft.preset = "1y";
   }
-  onScopeDispose(() => typeToken++); // 离开页面（或换皮肤）时停止打字
+  onScopeDispose(() => typeToken++); // 离开创建路由时停止打字
 
   const fail = (f: Field, msg: string) => {
     errors[f] = msg;
@@ -56,6 +58,7 @@ export function useCreateCapsule() {
   const title = computed({
     get: () => draft.title,
     set: (v: string) => {
+      if (aiBusy.value) stopTyping();
       clearErr("title");
       draft.title = v;
     },
@@ -74,6 +77,7 @@ export function useCreateCapsule() {
   });
 
   function setOpenAt(t: number, preset: string | null = null) {
+    if (aiBusy.value) stopTyping();
     clearErr("openAt");
     draft.openAt = t;
     draft.preset = preset;
@@ -172,6 +176,8 @@ export function useCreateCapsule() {
   async function submit(): Promise<CapsuleDetail | null> {
     if (submitting.value || !validate()) return null;
     submitting.value = true;
+    const owner = auth.user?.id;
+    const revision = draft.revision;
     try {
       const c = await api.createCapsule({
         title: draft.title.trim(),
@@ -179,8 +185,9 @@ export function useCreateCapsule() {
         openAt: new Date(draft.openAt).toISOString(),
         inPlaza: draft.inPlaza,
       });
+      if (auth.user?.id !== owner) return null;
       created.value = c;
-      draft.reset();
+      if (draft.revision === revision) draft.reset();
       return c;
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "封存失败，请稍后再试", { tone: "error" });
@@ -195,7 +202,6 @@ export function useCreateCapsule() {
     aiDone.value = false;
     aiNote.value = "";
     clearErr();
-    draft.reset();
     window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
   }
 
@@ -224,4 +230,17 @@ export function useCreateCapsule() {
     submit,
     again,
   };
+}
+
+const createFormKey: InjectionKey<ReturnType<typeof createForm>> = Symbol("createForm");
+const createForm = () => reactive(useCreateCapsule());
+
+export function provideCreateForm() {
+  provide(createFormKey, createForm());
+}
+
+export function useCreateForm() {
+  const form = inject(createFormKey);
+  if (!form) throw new Error("创建表单需要使用创建路由的状态");
+  return form;
 }

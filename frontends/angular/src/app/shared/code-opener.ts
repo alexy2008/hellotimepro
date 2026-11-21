@@ -1,10 +1,10 @@
 // ============================================================
 // 凭码开启：首页就地输码与开启页共用。输满 8 位自动查询，
 // 命中后短暂亮一下「对了」再跳到 /capsules/:code；没命中就地提示。
-// 用法：在组件的 providers 里提供一份（每个输码框各自一份状态）。
+// 用法：首页和开启页各在路由组件的 providers 里提供一份，两套皮肤共享。
 // ============================================================
 
-import { inject, Injectable, signal } from '@angular/core';
+import { DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from '@/api/api.service';
 import { ApiError } from '@/types';
@@ -26,7 +26,12 @@ export class CodeOpener {
   readonly shake = signal(0);
   /** 当前已输入的码（开启按钮是否可点用） */
   readonly value = signal('');
-  private busy = false;
+  private generation = 0;
+  private pending: string | null = null;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.generation++);
+  }
 
   private fail(msg: string) {
     this.state.set('error');
@@ -35,28 +40,32 @@ export class CodeOpener {
   }
 
   async go(code = this.value()) {
-    if (this.busy) return;
+    if (this.pending === code) return;
+    const request = ++this.generation;
     if (code.length !== 8) return this.fail(MSG_FORMAT);
-    this.busy = true;
+    this.pending = code;
     this.error.set('');
     this.state.set('checking');
     try {
       // 至少停留一小会儿，让「正在查」的波浪被看见
       const [c] = await Promise.all([this.api.capsuleByCode(code), sleep(480)]);
+      if (request !== this.generation) return;
       this.state.set('ok');
       await sleep(260);
-      await this.router.navigateByUrl(`/capsules/${c.code}`);
+      if (request === this.generation) await this.router.navigateByUrl(`/capsules/${c.code}`);
     } catch (e) {
-      this.fail(e instanceof ApiError && e.status === 404 ? MSG_NOT_FOUND : '查询失败，请稍后再试');
+      if (request === this.generation) this.fail(e instanceof ApiError && e.status === 404 ? MSG_NOT_FOUND : '查询失败，请稍后再试');
     } finally {
-      this.busy = false;
+      if (request === this.generation) this.pending = null;
     }
   }
 
   /** 用户又开始输入：记下值，清掉错误态 */
   input(v: string) {
     this.value.set(v);
-    if (this.state() === 'error') this.state.set('');
+    this.generation++;
+    this.pending = null;
+    this.state.set('');
     this.error.set('');
   }
 }

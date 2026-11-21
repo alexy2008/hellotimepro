@@ -2,6 +2,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { UiStore } from '@/stores/ui.store';
 import { CONTENTS } from '@/shared/host';
+import { CodeOpener } from '@/shared/code-opener';
 import { HomeFacade } from './home.facade';
 import { PaperHomeComponent } from '@/skins/paper/home/home.component';
 import { AmberHomeComponent } from '@/skins/amber/home/home.component';
@@ -9,7 +10,7 @@ import { AmberHomeComponent } from '@/skins/amber/home/home.component';
 @Component({
   selector: 'app-home-page',
   imports: [PaperHomeComponent, AmberHomeComponent],
-  providers: [HomeFacade],
+  providers: [HomeFacade, CodeOpener],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: CONTENTS,
   template: `@if (ui.skin() === 'paper') { <app-paper-home /> } @else { <app-amber-home /> }`,

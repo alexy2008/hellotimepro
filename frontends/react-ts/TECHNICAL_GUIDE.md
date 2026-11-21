@@ -516,23 +516,15 @@ fetch: async () => {
 ### 10.1 一个页面的三层
 
 ```tsx
-// pages/CreatePage.tsx —— 路由入口：只决定画哪套皮肤
-export function CreatePage() {
+// pages/CreatePage.tsx：CreatePage 按 user.id 挂载 CreateForm
+function CreateForm() {
   const skin = useUi((s) => s.skin);
-  return skin === "paper" ? <PaperCreatePage /> : <AmberCreatePage />;
-}
-
-// hooks/useCreateCapsule.ts —— 业务逻辑：草稿、校验、AI、封存
-export function useCreateCapsule() { /* ... */ return { title, setTitle, aiWrite, submit, ... }; }
-
-// skins/paper/CreatePage.tsx —— 视图：照原型写结构与类名，调用 Hook
-export function PaperCreatePage() {
   const f = useCreateCapsule();
-  return <input data-testid="create-title" value={f.title} onChange={(e) => f.setTitle(e.target.value)} />;
+  return skin === "paper" ? <PaperCreatePage f={f} /> : <AmberCreatePage f={f} />;
 }
 ```
 
-两套皮肤的「创建页」长得完全不同——时笺是红格信笺 + 对数时间标尺 + 长按火漆，琥珀是表单卡 + 实时预览 + 按钮——但它们调用的是同一个 `useCreateCapsule()`。读代码时先看 Hook，再对照两份视图，就能看清「逻辑」与「表现」的分界。
+`CreateForm` 在当前账号的创建路由上持有提交锁、AI 任务和成功回执。切皮肤只替换子视图，因此正在封存的请求仍由同一实例接收。请求成功后先核对草稿快照，才能清空已提交的内容；等待期间编辑的新草稿会保留。
 
 ### 10.2 表单：受控组件
 

@@ -20,7 +20,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import { focusIfIdle } from '@/lib/fmt';
-import type { CodeState } from '@/shared/code-opener';
+import { CodeOpener, type CodeState } from '@/shared/code-opener';
 import { CONTENTS } from '@/shared/host';
 
 const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -79,7 +79,8 @@ export class PaperCodeInputComponent {
   readonly changed = output<string>();
   readonly complete = output<string>();
 
-  protected readonly cells = signal<string[]>(Array(8).fill(''));
+  private readonly opener = inject(CodeOpener);
+  protected readonly cells = signal(Array.from({ length: 8 }, (_, i) => this.opener.value()[i] ?? ''));
   protected readonly shaking = signal(false);
   /** viewChildren 按模板顺序给出 8 个格子 */
   private readonly inputs = viewChildren<ElementRef<HTMLInputElement>>('cell');
@@ -130,7 +131,7 @@ export class PaperCodeInputComponent {
     el.value = v; // 丢掉的非法字符不留在框里
     const next = [...this.cells()];
     next[i] = v;
-    this.commit(next, v && i < 7 ? i + 1 : i, i === 7 && !!v);
+    this.commit(next, v && i < 7 ? i + 1 : i, !!v);
   }
 
   protected onKey(i: number, e: KeyboardEvent) {

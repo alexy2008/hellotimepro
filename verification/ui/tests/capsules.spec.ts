@@ -40,10 +40,18 @@ test("未公开的胶囊不出现在广场，但可凭码打开", async ({ page 
   await expect(tid(page, "capsule-detail")).toHaveAttribute("data-in-plaza", "false", { timeout: 10_000 });
 });
 
-test("开启页一次填入 8 位码，自动跳转到胶囊详情", async ({ page, request }) => {
+test("开启页换肤保留半截胶囊码，填入完整码后自动跳转", async ({ page, request }, info) => {
   const user = await apiRegister(request, { nickname: uniqueNickname("开启") });
   const cap = await apiCreateCapsule(request, user.accessToken);
   await page.goto("/open");
+  const prefix = cap.code.slice(0, 4);
+  await enterCode(page, prefix.toLowerCase());
+  const other = info.project.name === "paper" ? "amber" : "paper";
+  await page.locator(`[data-testid="skin-option"][data-value="${other}"]`).click();
+  await expect(page.locator("html")).toHaveAttribute("data-skin", other);
+  for (let i = 0; i < prefix.length; i++) {
+    await expect(page.locator("[data-code-cell]").nth(i)).toHaveAttribute("data-value", prefix[i]);
+  }
   await enterCode(page, cap.code.toLowerCase());
   await expect(page).toHaveURL(new RegExp(`/capsules/${cap.code}$`), { timeout: 10_000 });
 });

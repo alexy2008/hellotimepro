@@ -147,7 +147,7 @@ watch(count, (n, old) => console.log(n, old));        // 状态变了执行副�
   ```
 
 - **`watch` 的三个常用选项**：`immediate: true`（先跑一次，首页「进来就拉数据」靠它）；`flush: "post"`（等 DOM 更新完再跑，量元素尺寸时需要，见 `useSlider`）；回调第三个参数 `onCleanup`（下次触发或销毁前清理，`DialogHost` 用它解绑键盘监听）。
-- **`reactive(useXxx())`**：组合式函数通常返回一个装着 ref 的普通对象；在模板里 `f.title` 这种「对象里的 ref」不会自动解包。用 `reactive()` 包一层就能直接点属性，写入也会落到 ref（或可写 computed）上——创建页、资料页都是 `const f = reactive(useCreateCapsule())`。
+- **`reactive(useXxx())`**：组合式函数通常返回一个装着 ref 的普通对象；在模板里 `f.title` 这种「对象里的 ref」不会自动解包。用 `reactive()` 包一层就能直接点属性，写入也会落到 ref（或可写 computed）上。创建路由在 `provideCreateForm()` 内包装一次，两套皮肤用 `useCreateForm()` 注入同一份表单。
 
 > 心智模型：你只管改数据，Vue 记得「哪个模板片段读过哪个数据」，数据变了就只更新那一小块。没有「什么时候重渲染」的心智负担，也没有依赖数组。
 
@@ -173,15 +173,13 @@ watch(count, (n, old) => console.log(n, old));        // 状态变了执行副�
 `<script setup>` 里顶层声明的变量、函数、导入的组件，模板里都能直接用，不需要 `return`。一段可复用的逻辑抽成 `useXxx()` 函数，就是「组合式函数」（composable）：
 
 ```ts
-export function useCodeOpen() {
-  const router = useRouter();
-  const state = ref<CodeState>("");
-  const error = ref("");
-  const shake = ref(0);
-  async function go(code: string) { /* 查询、命中后跳详情、没命中就地提示 */ }
-  return { state, error, shake, go, reset };
+// 首页与开启页各有自己的路由实例
+export function provideCodeOpen() {
+  provide(codeOpenKey, createCodeOpen());
 }
 ```
+
+两套皮肤调用 `useCodeOpen()` 注入路由提供的对象。`input(value)` 保存输入并使旧请求失效；`go(code)` 在响应到达时和延迟跳转前分别核对请求序号。
 
 组合式函数里可以用一切 Vue API——`ref`、`watch`、生命周期（`onMounted` / `onBeforeUnmount`）、`onScopeDispose`（所在组件销毁时清理）、路由守卫 `onBeforeRouteLeave`、模板引用 `useTemplateRef`。它们会自动挂到调用它的那个组件上。
 
@@ -279,10 +277,11 @@ export const router = createRouter({
 ### 7.2 `skinned()`：同一条路由，两份视图
 
 ```ts
-export function skinned(name: string, views: Record<Skin, Component>, opts: { needsUser?: boolean } = {}) {
+export function skinned(name: string, views: Record<Skin, Component>, opts: { needsUser?: boolean; setup?: () => void } = {}) {
   return defineComponent({
     name,
     setup() {
+      opts.setup?.();
       const ui = useUiStore();
       const auth = useAuthStore();
       return () => (opts.needsUser && !auth.user ? null : h(views[ui.skin]));
@@ -422,7 +421,7 @@ function typeQ(v: string) {          // 搜索框每敲一个字
 | `usePlazaHome` | 首页：进入 / 换账号时刷新、`/` 聚焦搜索、到点刷新、v-model 用的 `sort / filter / qInput` | `useTemplateRef("plazaSearch")` 在组合式函数里拿视图的输入框；`watch(due, …)` 到点刷新 |
 | `useCountUp` | 年鉴数字进入视口时数上来 | `IntersectionObserver` + rAF；减少动效时直接显示终值 |
 | `useCodeOpen` | 凭码开启：校验、查询、命中后跳详情 | 首页就地输码与开启页共用 |
-| `useCapsuleByCode` | 详情：取数、逐秒倒数、`expired`、`awaitOpened()` | 归零后以服务端 `isOpened` 为准，1s、2s…≤5s 退避重试；换码或离开页面作废等待 |
+| `useCapsuleByCode` | 详情：取数、逐秒倒数、`expired`、`awaitOpened(signal)` | 归零后以服务端 `isOpened` 为准，1s、2s…≤5s 退避重试；换码或离开页面作废等待 |
 | `useCreateCapsule` | 创建：草稿字段、校验、AI 推荐与代笔、封存 | 可写 computed 给 v-model；AI 请求成功前不动正文，失败原文保留 |
 | `useAccount` | 登录、注册、我的统计与列表、资料与密码 | `onBeforeRouteLeave` / `onBeforeRouteUpdate` 判断「真的离开」再清表单 |
 | `useShell` | 导航项、滚动态、明暗切换、`/health` | `/health` 只请求一次，页脚与关于页共用 |
@@ -431,18 +430,30 @@ function typeQ(v: string) {          // 搜索框每敲一个字
 ### 11.1 详情页：倒数归零 → 等服务端确认
 
 ```ts
-async function awaitOpened(): Promise<CapsuleDetail | null> {
-  const my = gen;                                    // 换了码或离开页面 gen 会变
-  for (let i = 0; my === gen; i++) {
-    const d = await api.capsuleByCode(toValue(code));
-    if (d.isOpened) { capsule.value = d; return d; }
-    await sleep(Math.min(1000 * (i + 1), 5000));     // 本机时钟可能快几秒：隔一会儿再问
+async function awaitOpened(signal: AbortSignal): Promise<CapsuleDetail | null> {
+  const my = gen;
+  for (let i = 0; my === gen && !signal.aborted; i++) {
+    try {
+      const d = await api.capsuleByCode(toValue(code));
+      if (my !== gen || signal.aborted) return null;
+      if (d.isOpened) {
+        capsule.value = d;
+        return d;
+      }
+    } catch (e) {
+      if (my !== gen || signal.aborted) return null;
+      if (e instanceof ApiError && e.status === 404) {
+        status.value = "missing";
+        return null;
+      }
+    }
+    await sleep(Math.min(1000 * (i + 1), 5000));
   }
   return null;
 }
 ```
 
-两套皮肤在 `watch(expired, …)` 里先播开启动画，再 `await awaitOpened()`；服务端没确认前停在动画末帧，不提前报「已开启」。
+视图从动画开始就创建 `AbortController`。每段延时结束和详情请求返回后都检查 `signal`；换码、换肤、离开页面时取消。只有服务端确认 `isOpened` 后，当前视图才展示正文。
 
 ### 11.2 离开页面才清表单
 
@@ -463,13 +474,13 @@ function useClearOnLeave(keys: FormKey[], stays: (to: RouteLocationNormalized) =
 ### 12.1 一个页面的三层
 
 ```
-router/index.ts           /create → skinned("CreatePage", { paper, amber }, { needsUser: true })
+router/index.ts           /create → skinned("CreatePage", { paper, amber }, { needsUser: true, setup: provideCreateForm })
 composables/              useCreateCapsule()：草稿、校验、AI、封存
 skins/paper/PaperCreatePage.vue   信笺 + 对数时间标尺 + 日历 + 长按火漆 + 封缄仪式
 skins/amber/AmberCreatePage.vue   表单卡 + 实时预览 + 按钮 + 码牌回执
 ```
 
-两套创建页长得完全不同，却调用同一个 `useCreateCapsule()`。读代码时先看组合式函数，再对照两份视图，就能看清「逻辑」与「表现」的分界。时笺把大块拆成了子组件：`PaperTimeRuler`（拖动 / 点按 / 方向键调整，外部改了时刻时平滑滑过去）、`PaperCalendar` + `PaperTimeInput`、`PaperHoldSeal`（按住 1.15 秒才提交，完成由定时器驱动，空格键同样可用）、`PaperCeremony`（`<Teleport>`）。
+创建路由调用 `provideCreateForm()`，两套创建页都通过 `useCreateForm()` 取得同一次提交的状态、草稿与回执。读代码时先看组合式函数，再对照两份视图，就能看清「逻辑」与「表现」的分界。时笺把大块拆成了子组件：`PaperTimeRuler`（拖动 / 点按 / 方向键调整，外部改了时刻时平滑滑过去）、`PaperCalendar` + `PaperTimeInput`、`PaperHoldSeal`（按住 1.15 秒才提交，完成由定时器驱动，空格键同样可用）、`PaperCeremony`（`<Teleport>`）。
 
 ### 12.2 结构两套相同的部件（`components/`）
 

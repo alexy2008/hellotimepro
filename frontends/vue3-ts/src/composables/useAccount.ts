@@ -16,8 +16,8 @@ import { AVATARS } from "@/lib/avatars";
 import { ApiError, type CapsuleListItem, type MyStats } from "@/types";
 
 export const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
-export const NICK_RE = /^[一-龥A-Za-z0-9_-]{2,20}$/;
-export const NICK_MSG = "昵称需为 2–20 个字符：中英文、数字、下划线或连字符";
+export const NICK_RE = /^[\p{L}\p{N}_-]{2,20}$/u;
+export const NICK_MSG = "昵称需为 2–20 个字符：字母、数字、下划线或连字符";
 export const pwdRules = (v: string) => ({ len: v.length >= 8, alpha: /[A-Za-z]/.test(v), digit: /\d/.test(v) });
 export const pwdValid = (v: string) => {
   const r = pwdRules(v);
@@ -27,11 +27,12 @@ export const pwdValid = (v: string) => {
 export type NickStateValue = "" | "valid" | "invalid" | "taken";
 
 /** 昵称的即时检查：没有专门的唯一性接口，这里只做格式；重名在提交时由后端告诉我们 */
-export function nickState(v: string): { state: "" | "valid" | "invalid"; hint?: string } {
+export function nickState(v: string, errors?: Errors): { state: "" | "valid" | "invalid" | "taken"; hint?: string } {
+  if (errors?.nickname) return { state: errors.nicknameState === "taken" ? "taken" : "invalid", hint: errors.nickname };
   const t = v.trim();
   if (!t) return { state: "" };
   if (Array.from(t).length < 2) return { state: "", hint: "至少 2 个字符" };
-  if (!NICK_RE.test(t)) return { state: "invalid", hint: "只能用中英文、数字、下划线和连字符" };
+  if (!NICK_RE.test(t)) return { state: "invalid", hint: "只能用字母、数字、下划线和连字符" };
   return { state: "valid" };
 }
 
@@ -63,11 +64,16 @@ export function useAvatarIds() {
 type Errors = Record<string, string | undefined>;
 
 /** 后端的字段错误（422 details / 409 field）映射到表单字段 */
-function fieldErrors(e: unknown): Errors {
+function fieldErrors(e: unknown, nicknameChanged = false): Errors {
   if (!(e instanceof ApiError)) return { form: "网络异常，请稍后再试" };
   const out: Errors = {};
   for (const d of e.details ?? []) out[d.field] = d.message;
+  if (out["nickname"] && e.status === 409) out["nicknameState"] = "taken";
   if (!Object.keys(out).length) out.form = e.message;
+  if (nicknameChanged) {
+    delete out.nickname;
+    delete out.nicknameState;
+  }
   return out;
 }
 
@@ -138,10 +144,11 @@ export function useRegister() {
   const redirect = useRedirectParam();
   const errors = reactive<Errors>({});
   const busy = ref(false);
+  watch(() => forms.register.nickname, () => { delete errors.nickname; delete errors.nicknameState; });
   useClearOnLeave(["register"], (to) => to.path === "/register");
 
   async function submit() {
-    const v = forms.register;
+    const v = { ...forms.register };
     const errs: Errors = {};
     if (!emailOk(v.email)) errs.email = "请输入有效的邮箱地址";
     else if (!NICK_RE.test(v.nickname.trim())) errs.nickname = NICK_MSG;
@@ -156,7 +163,7 @@ export function useRegister() {
       toast(`你好，${t.user.nickname}`);
       await router.replace(redirect.value ? safeRedirect(redirect.value, "/") : "/create");
     } catch (e) {
-      setErrors(errors, fieldErrors(e));
+      setErrors(errors, fieldErrors(e, v.nickname !== forms.register.nickname));
     } finally {
       busy.value = false;
     }
@@ -164,7 +171,7 @@ export function useRegister() {
 
   return {
     form: forms.register,
-    nick: computed(() => nickState(forms.register.nickname)),
+    nick: computed(() => nickState(forms.register.nickname, errors)),
     errors,
     busy,
     submit,
@@ -193,7 +200,6 @@ const PAGE_SIZE = 20;
 export function useMyList(kind: "created" | "favorites", onChange?: () => void) {
   const items = ref<CapsuleListItem[] | null>(null);
   const total = ref(0);
-  const page = ref(1);
   const error = ref(false);
   const moreBusy = ref(false);
   let seq = 0;
@@ -208,7 +214,6 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
       if (my !== seq) return;
       items.value = r.items;
       total.value = r.pagination.total;
-      page.value = 1;
       error.value = false;
     } catch {
       if (my === seq) error.value = true;
@@ -216,28 +221,30 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
   }
   void load();
 
-  /** 下一页：中间有删除 / 取消收藏时，后一页会前移几枚，按 id 去重即可 */
+  /** 从已显示的条数推算下一条所在的页；删除后重读边界页，补上前移的记录。 */
   async function loadMore() {
     if (moreBusy.value) return;
     const my = seq;
     moreBusy.value = true;
     try {
-      const r = await fetchPage(page.value + 1);
+      const r = await fetchPage(Math.floor((items.value?.length ?? 0) / PAGE_SIZE) + 1);
       if (my !== seq) return;
       const have = new Set((items.value ?? []).map((i) => i.id));
       items.value = [...(items.value ?? []), ...r.items.filter((i) => !have.has(i.id))];
       total.value = r.pagination.total;
-      page.value = r.pagination.page;
     } catch {
-      toast("加载失败，请稍后再试", { tone: "error" });
+      if (my === seq) toast("加载失败，请稍后再试", { tone: "error" });
     } finally {
-      moreBusy.value = false;
+      if (my === seq) moreBusy.value = false;
     }
   }
 
   const drop = (id: string) => {
+    seq++;
+    moreBusy.value = false;
     items.value = (items.value ?? []).filter((i) => i.id !== id);
     total.value = Math.max(0, total.value - 1);
+    if (!items.value?.length && total.value > 0) void load();
   };
 
   /** 删除：确认框写明后果（spec/ui/copy.md §3）；mark 是各皮肤的小插画 */
@@ -334,7 +341,7 @@ export function useProfile() {
 
   /** 昵称右侧的状态点：没改动时不显示 */
   const nick = computed<NickStateValue>(() =>
-    errors.nickname ? "taken" : prof.nickname.trim() === user.value.nickname ? "" : nickState(prof.nickname).state,
+    prof.nickname.trim() === user.value.nickname ? "" : nickState(prof.nickname, errors).state,
   );
   const nickHint = computed(() => nickState(prof.nickname).hint);
 
@@ -361,7 +368,7 @@ export function useProfile() {
       msg.value = { type: "ok", text: "已保存" };
       toast("资料已更新");
     } catch (e) {
-      const errs = fieldErrors(e);
+      const errs = fieldErrors(e, patch.nickname !== prof.nickname.trim());
       setErrors(errors, errs);
       if (errs.form) msg.value = { type: "err", text: errs.form };
     } finally {

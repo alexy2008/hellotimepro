@@ -16,6 +16,7 @@ export interface CodeInputHandle {
 
 interface Props {
   size?: "" | "sm";
+  value: string;
   state: CodeState;
   shake: number;
   onChange?: (v: string) => void;
@@ -26,8 +27,8 @@ interface Props {
   id?: string;
 }
 
-export function PaperCodeInput({ size = "", state, shake, onChange, onComplete, autoFocus, id, handle }: Props) {
-  const [cells, setCells] = useState<string[]>(() => Array(8).fill(""));
+export function PaperCodeInput({ size = "", value, state, shake, onChange, onComplete, autoFocus, id, handle }: Props) {
+  const [cells, setCells] = useState<string[]>(() => Array.from({ length: 8 }, (_, i) => value[i] ?? ""));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const [shaking, setShaking] = useState(false);
 
@@ -110,7 +111,7 @@ export function PaperCodeInput({ size = "", state, shake, onChange, onComplete, 
               if (v.length > 1) return fill(v, v.length >= 8 ? 0 : i);
               const next = [...cells];
               next[i] = v;
-              commit(next, v && i < 7 ? i + 1 : i, i === 7 && !!v);
+              commit(next, v && i < 7 ? i + 1 : i, !!v);
             }}
             onKeyDown={(e) => {
               if (e.key === "Backspace" && !cells[i] && i > 0) {

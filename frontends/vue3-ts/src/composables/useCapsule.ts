@@ -14,7 +14,7 @@ export type DetailStatus = "loading" | "ok" | "missing" | "error";
 
 /**
  * 按码取胶囊。未开启时逐秒倒数，归零那一刻 expired 变 true——
- * 皮肤据此播放开启动画，并调用 awaitOpened() 拿到正文（不用刷新页面）。
+ * 皮肤据此播放开启动画，并调用 awaitOpened(signal) 拿到正文（不用刷新页面）。
  */
 export function useCapsuleByCode(code: MaybeRefOrGetter<string>) {
   const auth = useAuthStore();
@@ -62,18 +62,18 @@ export function useCapsuleByCode(code: MaybeRefOrGetter<string>) {
    * 这时接口仍返回未开启——隔一会儿再问（1s、2s…最多 5s 一次），直到真正开启；
    * 离开页面、换了码或胶囊已被删除（404）时返回 null
    */
-  async function awaitOpened(): Promise<CapsuleDetail | null> {
+  async function awaitOpened(signal: AbortSignal): Promise<CapsuleDetail | null> {
     const my = gen;
-    for (let i = 0; my === gen; i++) {
+    for (let i = 0; my === gen && !signal.aborted; i++) {
       try {
         const d = await api.capsuleByCode(toValue(code));
-        if (my !== gen) return null;
+        if (my !== gen || signal.aborted) return null;
         if (d.isOpened) {
           capsule.value = d;
           return d;
         }
       } catch (e) {
-        if (my !== gen) return null;
+        if (my !== gen || signal.aborted) return null;
         if (e instanceof ApiError && e.status === 404) {
           status.value = "missing";
           return null;

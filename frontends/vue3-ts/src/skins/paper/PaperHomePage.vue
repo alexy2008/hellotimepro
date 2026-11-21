@@ -96,7 +96,7 @@ const goPage = (n: number) => {
         <template v-if="plaza.loading && !p">
           <PaperCardSkeleton v-for="i in 6" :key="i" :i="i - 1" />
         </template>
-        <div v-else-if="plaza.error && !plaza.items.length" class="empty" data-testid="list-error">
+        <div v-else-if="plaza.error" class="empty" data-testid="list-error">
           <PaperEmptyArt />
           <h3>广场暂时打不开</h3>
           <p>没能连上后端。请确认服务已启动，或稍后再试。</p>

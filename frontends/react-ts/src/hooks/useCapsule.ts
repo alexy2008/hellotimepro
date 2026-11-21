@@ -12,7 +12,7 @@ import { ms, sleep } from "@/lib/fmt";
 
 /**
  * 按码取胶囊。未开启时逐秒倒数，归零那一刻 expired 变 true——
- * 皮肤据此播放开启动画，并调用 awaitOpened() 拿到正文（不用刷新页面）。
+ * 皮肤据此播放开启动画，并调用 awaitOpened(signal) 拿到正文（不用刷新页面）。
  */
 export function useCapsuleByCode(code: string) {
   const user = useAuth((s) => s.user);
@@ -22,12 +22,15 @@ export function useCapsuleByCode(code: string) {
   const gen = useRef(0); // 换了码或离开页面就作废进行中的等待
 
   const load = useCallback(async () => {
+    const my = ++gen.current;
     try {
       const d = await api.capsuleByCode(code);
+      if (my !== gen.current) return null;
       setC(d);
       setStatus("ok");
       return d;
     } catch (e) {
+      if (my !== gen.current) return null;
       setStatus(e instanceof ApiError && e.status === 404 ? "missing" : "error");
       return null;
     }
@@ -37,33 +40,25 @@ export function useCapsuleByCode(code: string) {
     setStatus("loading");
     setC(null);
     void load();
-    // 登录态变了，favoritedByMe 也会变
+    return () => { gen.current++; };
   }, [load, user?.id]);
-
-  useEffect(() => {
-    const my = ++gen.current;
-    return () => {
-      if (gen.current === my) gen.current++;
-    };
-  }, [code]);
 
   /**
    * 倒数归零后取正文：以服务端的 isOpened 为准。本机时钟可能比服务端快几秒，
    * 这时接口仍返回未开启——隔一会儿再问（1s、2s…最多 5s 一次），直到真正开启；
    * 离开页面、换了码或胶囊已被删除（404）时返回 null
    */
-  const awaitOpened = useCallback(async (): Promise<CapsuleDetail | null> => {
-    const my = gen.current;
-    for (let i = 0; my === gen.current; i++) {
+  const awaitOpened = useCallback(async (signal: AbortSignal): Promise<CapsuleDetail | null> => {
+    for (let i = 0; !signal.aborted; i++) {
       try {
         const d = await api.capsuleByCode(code);
-        if (my !== gen.current) return null;
+        if (signal.aborted) return null;
         if (d.isOpened) {
           setC(d);
           return d;
         }
       } catch (e) {
-        if (my !== gen.current) return null;
+        if (signal.aborted) return null;
         if (e instanceof ApiError && e.status === 404) {
           setStatus("missing");
           return null;

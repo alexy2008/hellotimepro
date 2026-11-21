@@ -5,7 +5,7 @@
     python3 verification/scripts/verify_design_tokens.py react vue    # 再查这些实现自己的样式
 
 1. spec：调用 `spec/styles/build_tokens.py --check`——两套皮肤语义令牌同名同集合、skins.json 是最新的
-2. 实现：必须引入 spec/styles 2.0（base.css + 皮肤 tokens.css）
+2. 实现：必须引入 spec/styles 2.0（base.css、paper/tokens.css、amber/tokens.css）
 3. 实现自己的样式（.css / .scss / .less 与 .vue / .svelte / .astro 的 <style> 块）：
    - var(--x) 只能引用 base.css 刻度、语义层、或实现内部以 `--_` 开头的局部变量
    - 声明值里不得出现色值字面量：#rgb[a] / #rrggbb[aa]、rgb()、rgba()、hsl()、hsla()、oklch()、oklab()、lab()、lch()
@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -80,27 +81,50 @@ def walk(d: Path):
             yield p
 
 
-def style_text(p: Path) -> str | None:
-    s = p.read_text(errors="replace")
+def style_text(p: Path, s: str) -> str | None:
     if p.suffix in STYLE_EXT:
         return s
     if p.suffix in SFC_EXT:
+        s = re.sub(r"<!--.*?-->", "", s, flags=re.S)
         blocks = re.findall(r"<style[^>]*>(.*?)</style>", s, flags=re.S)
         return "\n".join(blocks) if blocks else None
     return None
 
 
+class StylesheetLinks(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.paths: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        attr = dict(attrs)
+        if tag == "link" and "stylesheet" in (attr.get("rel") or "").lower().split():
+            self.paths.append(attr.get("href") or "")
+
+
+def stylesheet_imports(p: Path, raw: str, css: str | None):
+    if css:
+        body = build_tokens.strip_comments(css)
+        yield from re.findall(r"""^\s*@import\s+(?:url\(\s*)?["']?([^\s"');]+)""", body, re.M)
+    if p.suffix in {".html", ".erb", ".php", ".vue", ".svelte", ".astro"}:
+        links = StylesheetLinks()
+        links.feed(raw)
+        yield from links.paths
+    if p.suffix in {".js", ".jsx", ".ts", ".tsx", ".mjs"} | SFC_EXT:
+        body = re.sub(r"/\*.*?\*/|<!--.*?-->", "", raw, flags=re.S)
+        yield from re.findall(r"""^\s*import\s*["']([^"']+\.css)["']""", body, re.M)
+
+
 def check_impl(name: str, d: Path, allowed: set[str], copies: set[str]) -> list[str]:
     errs: list[str] = []
-    imports_base = imports_skin = False
+    required = {"base.css", "paper/tokens.css", "amber/tokens.css"}
+    imported: set[str] = set()
     scanned = 0
     for p in walk(d):
         raw = p.read_text(errors="replace")
-        if "base.css" in raw:
-            imports_base = True
-        if re.search(r"(paper|amber)/tokens\.css", raw):
-            imports_skin = True
-        css = style_text(p)
+        css = style_text(p, raw)
+        for path in stylesheet_imports(p, raw, css):
+            imported.update(name for name in required if path == name or path.endswith("/" + name))
         if css is None or raw in copies:
             continue
         scanned += 1
@@ -116,8 +140,9 @@ def check_impl(name: str, d: Path, allowed: set[str], copies: set[str]) -> list[
             if c:
                 line = body.count("\n", 0, m.start()) + 1
                 errs.append(f"{rel}:{line}  {m.group(1)} 里写了色值字面量 {c.group(0).rstrip('(')}…（改用语义令牌）")
-    if not (imports_base and imports_skin):
-        errs.insert(0, f"{show(d)}  没有引入 spec/styles 2.0（base.css 与 paper|amber/tokens.css）")
+    missing = sorted(required - imported)
+    if missing:
+        errs.insert(0, f"{show(d)}  缺少样式导入：{', '.join(missing)}")
     print(f"  · {name}: 扫描 {scanned} 个样式文件")
     return errs
 
