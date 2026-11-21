@@ -37,8 +37,8 @@
 7. **`openAt` 上限 = 此刻往后 10 个日历年**（UTC）；目标年没有该日期（2 月 29 日）时取当月最后一天。1.x 多数实现按 3650 天算，**必须改**。下限仍是 > now + 60s。参考 `add_calendar_years`（`app/schemas/capsule.py`）。
 8. **`q` 字面匹配**：大小写不敏感子串；用 `LIKE` 时先转义 `\` → `\\`、`%` → `\%`、`_` → `\_`，再加 `ESCAPE '\'`（PostgreSQL 与 SQLite 都要）。标题与作者昵称任一匹配。
 9. **头像**改读 `spec/avatars/v2/`（`catalog.json` + svg），不再用根目录的 1.x 头像。
-10. 空值字段（`message`、`errorCode`、`favoritedAt`、`content`、`farthestOpenAt`…）照 openapi 返回 `null`，不要省略字段。
-11. 单元测试同步：统计、收藏口径、删除连带、日历年上限、字面匹配。
+10. 空值字段（`message`、`errorCode`、`favoritedAt`、`content`、`farthestOpenAt`…）照 openapi 返回 `null`，不要省略字段。序列化器默认跳过空值的要关掉或绕开（如 Swift Codable 的 `encodeIfPresent`、Go 的 `omitempty`）。
+11. 单元测试同步：统计、收藏口径、删除连带、日历年上限、字面匹配。删除连带的回归测试要**关闭 SQLite 外键**再跑，证明不依赖级联（aspnet、axum、vapor、drogon 都这样做）。
 12. **路径里的胶囊 id 也要校验 UUID 格式**：`GET /plaza/capsules/{id}`、`DELETE /me/capsules/{id}`、`DELETE /me/favorites/{capsuleId}` 格式不合法 → 422 `VALIDATION_ERROR`（与 fastapi 的 `uuid.UUID` 路径参数一致）；格式合法但不存在 → 404（取消收藏仍幂等 204）。不要让解析异常落到通用处理器变成 500，也不要吞掉变成 204。Java 的 `UUID.fromString` 过于宽松（`1-1-1-1-1` 也能解析），先用正则判格式。契约目前只测了 `POST /me/favorites` 的非法 UUID，这几条要靠单测兜住。
 
 第一批（gin、spring-boot、ktor、nest、elysia）踩到的 SQLite 坑，后面的实现照做即可：
@@ -47,6 +47,13 @@
 - **时间是 ISO 文本**：手写 SQL 里和 `open_at` 比较的 `now` 必须按种子的格式绑定（`YYYY-MM-DDTHH:MM:SS[.ffffff]+00:00`）。部分 ORM 在手写条件里不走实体的时间转换器（TypeORM 会绑成空格分隔的格式，同一天内比较出错）。
 - **最远 / 最近开启时刻建议用 `ORDER BY open_at … LIMIT 1` 取列**：SQLite 下 `MAX/MIN` 聚合的结果是字符串，丢了列的类型映射（fastapi 用 `_as_utc` 兜底）。
 - **先读后写的事务要一开始就拿写锁**：`BEGIN IMMEDIATE`（Go `_txlock=immediate`、sqlite-jdbc `transaction_mode=IMMEDIATE`）或单连接池，否则并发时读锁升级为写锁会 `SQLITE_BUSY`。
+
+第二批（aspnet、axum、vapor、drogon）补充的坑，全栈的接口层同样适用：
+
+- **SQLite 地址恰好去掉 `sqlite:///` 前缀**：验证脚本会把 `DB_URL` 规范成 `sqlite:////绝对路径`，去掉 `sqlite:///` 后正好是 `/绝对路径`。多去或少去一个斜杠，就会变成相对路径或带双前导斜杠的路径（axum、vapor）。
+- **日历年加法别让标准库把闰日进位**：C 的 `timegm` / `mktime` 这类会归一化日期的函数，会把非闰年的 2 月 29 日算成 3 月 1 日。要先判断目标年有没有这一天，没有就显式回退到 2 月 28 日（drogon）。
+- **`FOR UPDATE` 只锁胶囊行**：加锁查询别连 `users` 表，PostgreSQL 会把 FROM 里所有表的命中行都锁上，连作者行一起锁住。确实要连表时写 `FOR UPDATE OF capsules`（axum）。
+- **统计在空集上也要返回 0**：分组聚合遇到空集合时可能一行都不返回，或者返回 `NULL`。`counts` 各项要落成 `0`，最远 / 最近时刻落成 `null`（aspnet）。
 
 验证（**PostgreSQL 与 SQLite 都要 117/117**）：
 
@@ -76,7 +83,14 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
    - 广场新查询失败时显示本次错误和重试入口，旧查询的卡片不得作为新查询结果显示。
    - 匿名点击**任何**「创建」入口（首页、导航、底栏、空状态）和收藏：先弹 `confirm-dialog`，确认后去 `/login?redirect=…`
    - 登录态在首次渲染前恢复（守卫第一帧就能拿到）；后台标签页里定时器驱动的长按不能卡住（不要依赖 rAF）
-7. 文档：重写 `README.md` 与 `TECHNICAL_GUIDE.md`（参考 React 的两份）。
+7. **svelte、solid 升级时补充的坑**（全栈的页面层同样适用）：
+   - **首帧守卫跳转要确认页面真的切过去了**：直接打开 `/create`、`/me`，或已登录时打开 `/login`，如果路由器还没开始监听 history 就调用 `navigate()`，只有地址栏变了，页面仍停在原处。冒烟只断言 URL，测不出这个问题。Svelte 的做法是先 `await tick()` 再跳转。
+   - **琥珀输码框：一次输入事件带进完整 8 位码时，从头填入**。粘贴、自动填充和 Playwright 的 `fill` 都属于这种情况，可以从 `InputEvent.data` 判断，不要接在已有字符后面。不要指望自动聚焦先完成：Chrome 对没有焦点的输入框调用 `select()` 不生效，换皮肤后马上整码填入就会把新码接在旧码后面（冒烟「开启页换肤保留半截胶囊码」）。
+   - **`/me` 请求单飞**：启动时的登录态校验与守卫或资料刷新会同时请求 `/me`，`refreshMe()` 共用进行中的请求。登出或换账号后，旧会话的响应不得写入用户信息。
+   - **广场搜索的输入值和防抖计时器放在共享 store**，输入后 300ms 内切皮肤也不丢字（vue、solid）。
+   - **挂载时会先执行一次的副作用要跳过初值**：Svelte 的 `$effect`、Solid 的 `createEffect` 都是这样。「出错次数加一就抖动」「校验失败就滚到出错字段」如果不跳过初值，换皮肤后新视图一挂载就会抖动、滚动。
+   - 标题、正文、广场搜索都按 Unicode 码点计数和限长（React 用 `Array.from(s).length`），与昵称校验同一口径。
+8. 文档：重写 `README.md` 与 `TECHNICAL_GUIDE.md`（参考 React 的两份）。
 
 验证（**两套皮肤 × PostgreSQL / SQLite 都要 88/88**；后端用 fastapi）：
 
@@ -85,6 +99,7 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 ./verification/scripts/verify-ui-smoke.sh <frontend>
 ./verification/scripts/verify-design-tokens.sh <frontend>
 # SQLite 轮：让 FastAPI 和冒烟入口使用同一个 DB_DRIVER=sqlite 和 DB_URL；结束后恢复原后端配置
+# hello status 显示的 DB_DRIVER 是保存的默认值，实际驱动以 /api/v1/health 返回的技术栈为准
 ```
 
 ## 3. 全栈清单
@@ -120,11 +135,11 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 | 后端 | fastapi | ✅ 117/117 双库（2026-11-20） |
 | 后端 | gin · ktor · nest · elysia | ✅ 117/117 双库（2026-11-21）；已静态评审，nest 修了一处错误码 |
 | 后端 | spring-boot | ✅ 117/117 双库（2026-11-21）；评审后补了路径 UUID 校验（第 1 节第 12 条），复验 117/117 双库 |
-| 后端 | aspnet | ✅ 117/117 双库（2026-11-21，README 自报，尚未评审） |
-| 后端 | axum · vapor · drogon | ⬜ |
+| 后端 | aspnet · axum · vapor · drogon | ✅ 117/117 双库（2026-11-21，README 自报，尚未评审） |
 | 前端 | react-ts | 升级时记录 88/88 双库 + 令牌（2026-11-20）；11-21 复核修复后通过类型检查，仅做静态验证 |
 | 前端 | vue3-ts · angular | 升级时 README 记录 88/88 双库 + 令牌（2026-11-21）；同日复核修复后通过模板与类型检查，仅做静态验证 |
-| 前端 | svelte · solid | ⬜ |
+| 前端 | svelte | 升级时 README 记录 88/88 双库 + 令牌（2026-11-21）；同日复核修复后通过模板与类型检查，仅做静态验证（新增的会话竞态单测尚未运行） |
+| 前端 | solid | 升级时 README 记录 88/88 双库 + 令牌（2026-11-21）；同日复核修复后通过类型检查，仅做静态验证 |
 | 全栈 | next · nuxt · spring-mvc · rails · laravel | ⬜ |
 
 ## 6. 任务提示词模板
