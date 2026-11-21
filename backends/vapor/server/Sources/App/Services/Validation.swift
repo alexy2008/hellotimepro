@@ -74,14 +74,31 @@ enum Validation {
         return v
     }
 
-    static func openAt(_ value: String?) throws -> Date {
+    static func openAt(_ value: String?, now: Date) throws -> Date {
         guard let v = value, !v.isEmpty else {
             throw ApiError.validation("openAt 不能为空", "openAt")
         }
         guard let date = IsoDate.parse(v) else {
             throw ApiError.validation("openAt 必须是 ISO-8601 时间", "openAt")
         }
+        if date <= now.addingTimeInterval(60) {
+            throw ApiError.validation("openAt 必须晚于当前时间 60 秒以上", "openAt")
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let limit = calendar.date(byAdding: .year, value: 10, to: now)!
+        if date > limit {
+            throw ApiError.validation("openAt 不得超出当前时间 10 年", "openAt")
+        }
         return date
+    }
+
+    static func capsuleId(_ value: String?, field: String = "capsuleId") throws -> UUID {
+        guard let value, value == value.trimmingCharacters(in: .whitespacesAndNewlines),
+              let id = AppDatabase.parseUuid(value) else {
+            throw ApiError.validation("必须提供合法的胶囊 UUID", field)
+        }
+        return id
     }
 
     @discardableResult

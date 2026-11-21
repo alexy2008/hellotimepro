@@ -97,10 +97,8 @@ SwiftPM 报 `cyclic dependency between packages`。挪进 `server/` 子目录即
 ./scripts/hello start vapor                # 注入 DB_DRIVER/DB_URL/LLM_*
 curl -s localhost:29060/api/v1/health | python3 -m json.tool
 
-./verification/scripts/verify-contract.sh vapor                   # 契约 104 用例（PG）
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh vapor  # SQLite
 
-cd backends/vapor && ./test                # 13 个纯函数单元测试
+cd backends/vapor && ./test                # 单元与服务测试
 ```
 
 冷启动注意：`run` 里有增量 `swift build -c release`。第一次必须先 `./build` 预热
@@ -381,9 +379,9 @@ Axum 手写 `finish` 更省心的一版。
 
 ## 14. 测试与契约验证
 
-- `./test`：13 个纯函数用例——IsoDate 解析/往返/字符串序、Validation 规则、JWT 往返/过期/篡改、
+- `./test`：覆盖 IsoDate 解析/往返/字符串序、Validation 规则、JWT 往返/过期/篡改、
   refresh token 形状、UUID hex 往返、推荐解析去重钳位。不碰数据库，秒级完成。
-- 契约：`verify-contract.sh vapor`（黑盒 104 用例 × PG/SQLite 双驱动）。
+- 2.0 服务测试使用临时 SQLite，验证统计、收藏和显式删除；独立双库契约各 117 条，隔离执行方式见 README。
 - UI 冒烟不单独跑 vapor（SPA 通过 :9080 代理，对后端无感知；`hello switch vapor` 后任一前端可用）。
 
 ## 15. 常见改动应该改哪里

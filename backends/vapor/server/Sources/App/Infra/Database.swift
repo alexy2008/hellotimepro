@@ -96,7 +96,7 @@ final class AppDatabase: @unchecked Sendable {
 
     private static func sqlitePath(config: AppConfig) -> String {
         if let url = config.dbUrl, url.hasPrefix("sqlite:///") {
-            return String(url.dropFirst("sqlite:///".count - 1)) // 保留前导 /
+            return String(url.dropFirst("sqlite:///".count))
         }
         return config.absRepoRoot + "/data/sqlite/hellotime-vapor.db"
     }

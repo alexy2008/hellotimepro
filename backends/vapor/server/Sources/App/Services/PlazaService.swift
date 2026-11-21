@@ -24,12 +24,7 @@ struct PlazaService: Sendable {
         case "unopened": plazaFilter = .unopened
         default: throw ApiError.validation("filter 仅支持 all/opened/unopened", "filter")
         }
-        // q：trim 后为空视为未传；超 50 → 422；大小写不敏感子串匹配。
-        let trimmedSearch = q?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let search = trimmedSearch?.isEmpty == true ? nil : trimmedSearch
-        if let s = search, s.count > 50 {
-            throw ApiError.validation("q 长度不得超过 50", "q")
-        }
+        let search = try searchTerm(q)
         let now = Date()
 
         return try await db.withSQL { sql in
@@ -42,6 +37,44 @@ struct PlazaService: Sendable {
                 items: rows.map { mapper.listItem($0, now: now) },
                 total: total, page: page, pageSize: pageSize
             )
+        }
+    }
+
+    private func searchTerm(_ raw: String?) throws -> String? {
+        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        if trimmed.unicodeScalars.count > 50 {
+            throw ApiError.validation("q 长度不得超过 50", "q")
+        }
+        return trimmed.lowercased()
+    }
+
+    func plazaStats(q: String?) async throws -> JSON {
+        let search = try searchTerm(q)
+        let now = Date()
+        return try await db.withSQL { sql in
+            let counts = try await capsules.plazaCounts(sql, now: now, search: search)
+            let farthest = try await capsules.farthestOpenAt(sql)
+            let next = try await capsules.nextOpenAt(sql, now: now)
+            return .object([
+                "counts": .object(["all": .int(counts.all), "opened": .int(counts.opened), "unopened": .int(counts.unopened)]),
+                "farthestOpenAt": farthest.map { .string(IsoDate.jsonString($0)) } ?? .null,
+                "nextOpenAt": next.map { .string(IsoDate.jsonString($0)) } ?? .null,
+            ])
+        }
+    }
+
+    func myStats(_ user: User) async throws -> JSON {
+        let now = Date()
+        return try await db.withSQL { sql in
+            let counts = try await capsules.ownedCounts(sql, ownerId: user.id, now: now)
+            let given = try await capsules.countFavoritesByUser(sql, user.id)
+            return .object([
+                "created": .int(counts.states.all), "opened": .int(counts.states.opened),
+                "unopened": .int(counts.states.unopened), "inPlaza": .int(counts.inPlaza),
+                "favoritesReceived": .int(counts.favoritesReceived), "favoritesGiven": .int(given),
+            ])
         }
     }
 

@@ -13,17 +13,8 @@ struct CapsuleService: Sendable {
     func create(_ owner: User, _ req: CreateCapsuleRequest) async throws -> JSON {
         let title = try Validation.title(req.title)
         let content = try Validation.content(req.content)
-        let openAt = try Validation.openAt(req.openAt)
         let now = Date()
-        if openAt < now.addingTimeInterval(60) {
-            throw ApiError.validation("openAt 必须晚于当前时间 60 秒以上", "openAt")
-        }
-        var utcCal = Calendar(identifier: .gregorian)
-        utcCal.timeZone = TimeZone(identifier: "UTC")!
-        let tenYears = utcCal.date(byAdding: .year, value: 10, to: now)!
-        if openAt > tenYears {
-            throw ApiError.validation("openAt 不得超出当前时间 10 年", "openAt")
-        }
+        let openAt = try Validation.openAt(req.openAt, now: now)
         let inPlaza = req.inPlaza ?? true
 
         return try await db.transaction { sql in
@@ -63,11 +54,9 @@ struct CapsuleService: Sendable {
         }
     }
 
-    /// 广场详情：仅 inPlaza=true；非法 UUID / 不在广场 → 404。
+    /// 广场详情：仅 inPlaza=true；非法 UUID → 422，不在广场 → 404。
     func getPlazaDetail(_ idRaw: String, viewerId: UUID?) async throws -> JSON {
-        guard let id = AppDatabase.parseUuid(idRaw) else {
-            throw ApiError.notFound("胶囊不存在")
-        }
+        let id = try Validation.capsuleId(idRaw, field: "id")
         return try await db.withSQL { sql in
             guard let view = try await capsules.findById(sql, id), view.capsule.inPlaza else {
                 throw ApiError.notFound("胶囊不存在")
@@ -79,14 +68,12 @@ struct CapsuleService: Sendable {
 
     /// 删除自己的胶囊（无论是否到期）；连同收藏关系一起删。
     func deleteOwn(_ user: User, _ idRaw: String) async throws {
-        guard let id = AppDatabase.parseUuid(idRaw) else {
-            throw ApiError.notFound("胶囊不存在")
-        }
+        let id = try Validation.capsuleId(idRaw, field: "id")
         try await db.transaction { sql in
-            guard let view = try await capsules.findById(sql, id) else {
+            guard let ownerId = try await capsules.lockOwnerId(sql, id) else {
                 throw ApiError.notFound("胶囊不存在")
             }
-            guard view.capsule.ownerId == user.id else {
+            guard ownerId == user.id else {
                 throw ApiError.forbidden("无权删除他人胶囊")
             }
             try await favorites.deleteByCapsule(sql, id)

@@ -5,7 +5,7 @@ import Foundation
 func registerRoutes(_ app: Application, _ c: AppComponents) {
     // ── 静态资源：头像 / 技术栈图标（相对仓库根的 spec/ 目录） ────────────
     app.get("static", "avatars", ":file") { req in
-        try serveSpecFile(req, root: c.config.absRepoRoot, subdir: "spec/avatars")
+        try serveSpecFile(req, root: c.config.absRepoRoot, subdir: "spec/avatars/v2")
     }
     app.get("static", "icons", ":file") { req in
         try serveSpecFile(req, root: c.config.absRepoRoot, subdir: "spec/icons")
@@ -54,6 +54,10 @@ func registerRoutes(_ app: Application, _ c: AppComponents) {
         try await c.authService.changePassword(user, body)
         return Envelope.noContent()
     }
+    app.get("api", "v1", "me", "stats") { req in
+        let user = try await c.authContext.required(req)
+        return Envelope.ok(try await c.plazaService.myStats(user))
+    }
     app.get("api", "v1", "me", "capsules") { req in
         let user = try await c.authContext.required(req)
         return Envelope.ok(try await c.plazaService.myCapsules(
@@ -80,6 +84,9 @@ func registerRoutes(_ app: Application, _ c: AppComponents) {
     }
 
     // ── Plaza ─────────────────────────────────────────────────────────────
+    app.get("api", "v1", "plaza", "stats") { req in
+        Envelope.ok(try await c.plazaService.plazaStats(q: req.query[String.self, at: "q"]))
+    }
     app.get("api", "v1", "plaza", "capsules") { req in
         let viewer = try await c.authContext.optional(req)
         return Envelope.ok(try await c.plazaService.plazaList(

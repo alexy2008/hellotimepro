@@ -70,8 +70,7 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
   `open_at <= now` / `ORDER BY created_at` 正确）、0/1 整数；Postgres 用原生 `uuid` / `timestamptz` / `boolean` 直传。
 - **SQLite 单连接 + FIFO 门闩**：actor 实现的异步互斥把全部 SQLite 访问串行化，
   配合 `BEGIN IMMEDIATE` 避免写竞争。
-- **收藏计数并发安全**：幂等 UPSERT（`ON CONFLICT DO NOTHING RETURNING`）判定是否真插入 +
-  原子 `favorite_count = favorite_count + 1`，无需行锁也不会重复计数。
+- **收藏计数并发安全**：幂等 UPSERT 和原子更新维护计数；PostgreSQL 的收藏、取消与删除统一先锁胶囊行。
 - **refresh token 轮转 + 家族吊销**：重用检测分支先提交家族吊销再抛 401（事务内不抛异常、用 outcome 枚举区分）；
   Postgres 路径对 token 行加 `FOR UPDATE`。
 - **显式 null 输出**：响应统一手工构造 `JSON` 枚举树——Swift 合成 Encodable 对 Optional 走 `encodeIfPresent`
@@ -82,15 +81,26 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
   CF-1010 UA / chat 风格跳过 `/responses` 等坑的处理（见 `docs/dev-notes.md §3`）。
   未配置时建议端点本地兜底、推荐端点返回空列表。
 
-## 验证
-
-```bash
-./verification/scripts/verify-contract.sh vapor                   # PostgreSQL，104/104
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh vapor  # SQLite，104/104
-```
-
 ## 注意事项
 
 - `hello start` 不注入 `PORT`，默认端口直接是登记端口 29060。
 - 运行环境用 `--env production` + `LOG_LEVEL=info`（LLM 日志规范要求 INFO 可见）。
 - 详细代码导读见 [TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)。
+
+## 2.0 验证
+
+2026-11-21，直接访问 Vapor 的 `:29060`，不经过共享反代。
+
+| 检查 | 数据库 | 结果 |
+|---|---|---|
+| `./test -c release` | 涉及数据库的测试使用独立临时 SQLite 文件 | 16/16 |
+| `./verification/scripts/verify-contract.sh vapor` | 独立 PostgreSQL 库 `hellotime_contract_vapor_*` | 117/117 |
+| 同一契约脚本 | 独立临时 SQLite 文件 | 117/117 |
+
+`./build` 通过。复跑契约时须显式传入 `DB_DRIVER` 和独立库的 `DB_URL`；不适用 UI 冒烟和设计令牌检查。
+
+## 2.0 迁移笔记
+
+- 无 schema 迁移。SQLKit 以 `SQLQueryString` 插入统计投影，保留时间参数绑定；列表与统计共用搜索谓词，两个开启时刻不受 `q` 影响。
+- 继续使用 JSON 枚举树，空时间字段输出显式 `null`，不经 Codable 的 `encodeIfPresent`。
+- SQLite 文件路径恰好移除 `sqlite:///`；继续沿用 actor 门闩和 `BEGIN IMMEDIATE`。回归测试关闭外键，验证删除在事务中先显式清理收藏。

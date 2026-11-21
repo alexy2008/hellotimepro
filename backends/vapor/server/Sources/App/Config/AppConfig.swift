@@ -5,7 +5,7 @@ import Foundation
 /// 教学项目：JWT secret 默认值等生产级问题不作处理。
 struct AppConfig: Sendable {
     let serviceName = "hellotime-pro"
-    let serviceVersion = "0.1.0"
+    let serviceVersion = "2.0.0"
     let host: String
     /// hello CLI 不注入 PORT，默认端口必须直接是登记端口 29060（见 docs/dev-notes.md §6.5）。
     let port: Int

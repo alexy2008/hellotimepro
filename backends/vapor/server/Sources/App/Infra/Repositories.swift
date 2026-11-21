@@ -76,6 +76,34 @@ enum PlazaFilter {
 struct CapsuleRepository {
     let dbx: AppDatabase
 
+    struct OpenCounts {
+        let all: Int
+        let opened: Int
+        let unopened: Int
+    }
+
+    struct OwnedCounts {
+        let states: OpenCounts
+        let inPlaza: Int
+        let favoritesReceived: Int
+    }
+
+    private func openCountsProjection(_ now: Date) -> SQLQueryString {
+        """
+        COUNT(*) AS total,
+        COUNT(CASE WHEN c.open_at <= \(bind: dbx.dateValue(now)) THEN 1 END) AS opened,
+        COUNT(CASE WHEN c.open_at > \(bind: dbx.dateValue(now)) THEN 1 END) AS unopened
+        """
+    }
+
+    private func openCounts(_ row: SQLRow) throws -> OpenCounts {
+        try OpenCounts(
+            all: row.decode(column: "total", as: Int.self),
+            opened: row.decode(column: "opened", as: Int.self),
+            unopened: row.decode(column: "unopened", as: Int.self)
+        )
+    }
+
     /// 联表查询的公共列：胶囊全列 + 创建者摘要。
     private static let viewColumns = """
         c.id, c.owner_id, c.code, c.title, c.content, c.open_at, c.in_plaza,
@@ -117,6 +145,12 @@ struct CapsuleRepository {
         q.appendLiteral("SELECT \(Self.viewColumns) FROM capsules c JOIN users u ON u.id = c.owner_id WHERE c.id = ")
         q.appendInterpolation(bind: dbx.uuidValue(id))
         return try await sql.raw(q).first().map { try mapView($0) }
+    }
+
+    func lockOwnerId(_ sql: any SQLDatabase, _ id: UUID) async throws -> UUID? {
+        var stmt: SQLQueryString = "SELECT owner_id FROM capsules WHERE id = \(bind: dbx.uuidValue(id))"
+        if !dbx.isSqlite { stmt.appendLiteral(" FOR UPDATE") }
+        return try await sql.raw(stmt).first().map { try dbx.uuid($0, "owner_id") }
     }
 
     func existsByCode(_ sql: any SQLDatabase, _ code: String) async throws -> Bool {
@@ -177,13 +211,55 @@ struct CapsuleRepository {
             q.appendInterpolation(bind: dbx.dateValue(now))
         }
         if let search {
-            let pattern = "%\(search)%"
+            let literal = search.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "%", with: "\\%")
+                .replacingOccurrences(of: "_", with: "\\_")
+            let pattern = "%\(literal)%"
             q.appendLiteral(" AND (lower(c.title) LIKE ")
             q.appendInterpolation(bind: pattern)
-            q.appendLiteral(" OR lower(u.nickname) LIKE ")
+            q.appendLiteral(" ESCAPE '\\' OR lower(u.nickname) LIKE ")
             q.appendInterpolation(bind: pattern)
-            q.appendLiteral(")")
+            q.appendLiteral(" ESCAPE '\\')")
         }
+    }
+
+    func plazaCounts(_ sql: any SQLDatabase, now: Date, search: String?) async throws -> OpenCounts {
+        var stmt: SQLQueryString = "SELECT \(openCountsProjection(now)) FROM capsules c JOIN users u ON u.id = c.owner_id"
+        appendPlazaConditions(&stmt, filter: .all, now: now, search: search)
+        guard let row = try await sql.raw(stmt).first() else {
+            throw ApiError(status: .internalServerError, code: "INTERNAL_ERROR", message: "广场统计未返回结果", details: nil)
+        }
+        return try openCounts(row)
+    }
+
+    func farthestOpenAt(_ sql: any SQLDatabase) async throws -> Date? {
+        try await sql.raw("""
+            SELECT open_at FROM capsules WHERE in_plaza = \(bind: dbx.boolValue(true))
+            ORDER BY open_at DESC LIMIT 1
+            """).first().map { try dbx.date($0, "open_at") }
+    }
+
+    func nextOpenAt(_ sql: any SQLDatabase, now: Date) async throws -> Date? {
+        try await sql.raw("""
+            SELECT open_at FROM capsules
+            WHERE in_plaza = \(bind: dbx.boolValue(true)) AND open_at > \(bind: dbx.dateValue(now))
+            ORDER BY open_at LIMIT 1
+            """).first().map { try dbx.date($0, "open_at") }
+    }
+
+    func ownedCounts(_ sql: any SQLDatabase, ownerId: UUID, now: Date) async throws -> OwnedCounts {
+        guard let row = try await sql.raw("""
+            SELECT \(openCountsProjection(now)), COUNT(CASE WHEN c.in_plaza THEN 1 END) AS in_plaza,
+                   COALESCE(SUM(c.favorite_count), 0) AS favorites_received
+            FROM capsules c WHERE c.owner_id = \(bind: dbx.uuidValue(ownerId))
+            """).first() else {
+            throw ApiError(status: .internalServerError, code: "INTERNAL_ERROR", message: "个人统计未返回结果", details: nil)
+        }
+        return try OwnedCounts(
+            states: openCounts(row),
+            inPlaza: row.decode(column: "in_plaza", as: Int.self),
+            favoritesReceived: row.decode(column: "favorites_received", as: Int.self)
+        )
     }
 
     func countPlaza(_ sql: any SQLDatabase, filter: PlazaFilter, now: Date, search: String?) async throws -> Int {
@@ -233,13 +309,19 @@ struct CapsuleRepository {
 
     func findByOwnerPage(_ sql: any SQLDatabase, _ ownerId: UUID, limit: Int, offset: Int) async throws -> [CapsuleView] {
         var q: SQLQueryString = ""
-        q.appendLiteral("SELECT \(Self.viewColumns) FROM capsules c JOIN users u ON u.id = c.owner_id WHERE c.owner_id = ")
+        q.appendLiteral("""
+            SELECT \(Self.viewColumns), (fv.user_id IS NOT NULL) AS favorited_by_me
+            FROM capsules c JOIN users u ON u.id = c.owner_id
+            LEFT JOIN favorites fv ON fv.capsule_id = c.id AND fv.user_id = c.owner_id
+            WHERE c.owner_id =
+            """)
+        q.appendLiteral(" ")
         q.appendInterpolation(bind: dbx.uuidValue(ownerId))
         q.appendLiteral(" ORDER BY c.created_at DESC LIMIT ")
         q.appendInterpolation(bind: limit)
         q.appendLiteral(" OFFSET ")
         q.appendInterpolation(bind: offset)
-        return try await sql.raw(q).all().map { try mapView($0) }
+        return try await sql.raw(q).all().map { try mapView($0, favoritedColumn: true) }
     }
 
     // ── 我收藏的 ───────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 单元测试（纯函数层：校验/时间格式/JWT/跨库 UUID，无需数据库）。
+# 单元与服务测试（数据库用例使用独立临时 SQLite 文件）。
 # 契约行为由 verification/contract 黑盒覆盖。
 set -euo pipefail
 

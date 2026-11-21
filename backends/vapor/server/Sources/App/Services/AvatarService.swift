@@ -1,6 +1,6 @@
 import Foundation
 
-/// 从 spec/avatars/catalog.json 加载内置头像目录（启动时一次）。
+/// 从 spec/avatars/v2/catalog.json 加载内置头像目录（启动时一次）。
 struct AvatarService: Sendable {
     private struct CatalogAvatar: Decodable {
         let id: String
@@ -17,7 +17,7 @@ struct AvatarService: Sendable {
     private let ids: Set<String>
 
     init(config: AppConfig) throws {
-        let path = config.absRepoRoot + "/spec/avatars/catalog.json"
+        let path = config.absRepoRoot + "/spec/avatars/v2/catalog.json"
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
         let catalog = try JSONDecoder().decode(Catalog.self, from: data)
         self.avatars = catalog.avatars.map { ($0.id, $0.name, $0.primaryColor, $0.svgUrl) }
