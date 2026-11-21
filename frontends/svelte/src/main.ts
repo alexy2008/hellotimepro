@@ -1,9 +1,11 @@
 import { mount } from "svelte";
 import App from "./App.svelte";
-import { wireAuthApi } from "./stores/auth.svelte.ts";
+import { authStore, wireAuthApi } from "./stores/auth.svelte.ts";
 import "./styles/index.css";
 
-// 把 auth store 注入到 api client（一次性配置）
+// 登录态在挂载之前从 localStorage 恢复：受保护页面与登录 / 注册页第一帧就能拿到正确的 user
+authStore.hydrate();
+// 把 auth store 注入到 api client（refresh 单飞、401 重放）
 wireAuthApi();
 
 const target = document.getElementById("app");

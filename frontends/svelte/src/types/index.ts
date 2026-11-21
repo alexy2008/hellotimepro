@@ -70,6 +70,23 @@ export interface CapsuleDetail extends CapsuleBase {
   favoritedByMe: boolean;
 }
 
+/** 2.0：GET /plaza/stats。counts 与列表同口径（受 q 影响），两个时刻不受 q 影响 */
+export interface PlazaStats {
+  counts: { all: number; opened: number; unopened: number };
+  farthestOpenAt: string | null;
+  nextOpenAt: string | null;
+}
+
+/** 2.0：GET /me/stats */
+export interface MyStats {
+  created: number;
+  opened: number;
+  unopened: number;
+  inPlaza: number;
+  favoritesReceived: number;
+  favoritesGiven: number;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -95,11 +112,13 @@ export interface HealthData {
 
 
 export interface CapsuleSuggestionRequest {
+  // 留空（或不传）时由 AI 同时生成标题
   title?: string;
   locale?: string;
 }
 
 export interface CapsuleSuggestion {
+  // 仅当请求未传 title 时返回
   title?: string;
   content: string;
   openInDays: number;

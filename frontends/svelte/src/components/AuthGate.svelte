@@ -1,27 +1,26 @@
+<!-- ============================================================
+     需要登录的路由（创建、我的）：
+     - 本地只剩 refresh token（user 还没拿到）：接口会自动续期，先把 user 取回来再判断
+     - 没登录（或登录态中途丢了）：换成 /login?redirect=<当前路径>
+     - 子内容按 user.id 加 {#key}：换账号就重建页面状态（草稿表单、资料表单…）
+     ============================================================ -->
 <script lang="ts">
-  // 路由守卫：未登录用户访问受保护页面时跳 /login?from=<currentPath>。
-  // 已登录或拥有 refresh token 的状态都放行（refresh token 路径会自动 refresh）。
-
   import type { Snippet } from "svelte";
-  import { navigate, useLocation } from "svelte-routing";
   import { authStore } from "@/stores/auth.svelte.ts";
+  import { loginPath } from "@/lib/redirect";
+  import { redirect } from "@/lib/nav";
 
-  interface Props {
-    children: Snippet;
-  }
+  let { children }: { children: Snippet } = $props();
 
-  let { children }: Props = $props();
-
-  const location = useLocation();
+  const needCheck = !authStore.user && !!authStore.refreshToken;
+  let checking = $state(needCheck);
+  if (needCheck) void authStore.refreshMe().finally(() => (checking = false));
 
   $effect(() => {
-    if (!authStore.hydrated) return;
-    if (authStore.user || authStore.refreshToken) return;
-    const from = $location.pathname + $location.search;
-    navigate(`/login?from=${encodeURIComponent(from)}`, { replace: true });
+    if (!checking && !authStore.user) redirect(loginPath(location.pathname + location.search));
   });
 </script>
 
-{#if authStore.hydrated && (authStore.user || authStore.refreshToken)}
-  {@render children()}
+{#if authStore.user}
+  {#key authStore.user.id}{@render children()}{/key}
 {/if}

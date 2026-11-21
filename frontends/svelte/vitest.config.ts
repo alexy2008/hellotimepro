@@ -5,6 +5,8 @@ import path from "node:path";
 export default defineConfig({
   plugins: [svelte({ hot: false })],
   resolve: {
+    // svelte-routing 只在 exports 里声明了 svelte 条件
+    conditions: ["svelte", "browser"],
     alias: {
       "@": path.resolve(__dirname, "src"),
       "@spec": path.resolve(__dirname, "../../spec"),

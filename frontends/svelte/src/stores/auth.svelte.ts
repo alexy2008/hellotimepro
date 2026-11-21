@@ -1,6 +1,7 @@
 // ============================================================
 // 鉴权状态：access token 在内存 + refresh token + user 持久化到 localStorage
 // 与 api/client 通过 configureApi 解耦（避免循环依赖）
+// main.ts 在挂载应用之前调用 hydrate()：守卫第一帧就能拿到登录态
 //
 // 教学版方案：refresh token 持久化到 localStorage，对应 docs/02-design.md §7.2
 // "更简单方案"。XSS 风险在生产环境需要切换到 httpOnly cookie。
@@ -86,14 +87,21 @@ class AuthStore {
     }
   }
 
-  async refreshMe() {
-    try {
-      const me = await api.me();
-      this.user = me;
-      persist({ user: me, refreshToken: this.refreshToken });
-    } catch {
-      // me 拿不到通常是 token 已失效；保持现状由 401 路径接管
-    }
+  #me: Promise<void> | null = null;
+
+  /** 拉一次 /me 刷新资料；同一时刻只发一个请求（启动校验与路由守卫可能同时要） */
+  refreshMe(): Promise<void> {
+    this.#me ??= api
+      .me()
+      .then((me) => {
+        this.user = me;
+        persist({ user: me, refreshToken: this.refreshToken });
+      })
+      .catch(() => {
+        // me 拿不到通常是 token 已失效；保持现状由 401 路径接管
+      })
+      .finally(() => (this.#me = null));
+    return this.#me;
   }
 
   dropFromAuthLost() {

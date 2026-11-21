@@ -1,843 +1,515 @@
 # HelloTime Pro Svelte 5 前端技术手册与代码导读
 
-本文面向已经熟悉 HTML / CSS / JavaScript 基本语法，但还没系统接触过 Svelte 5、TypeScript、Vite、单页应用（SPA）这套现代前端栈的读者。读完后，你应该能回答三件事：
+本文面向已经熟悉 HTML / CSS / JavaScript 基本语法，但还没系统接触过 Svelte、TypeScript、单页应用（SPA）这套现代前端栈的读者。读完后，你应该能回答三件事：
 
 - 用户在浏览器输入 URL 后，代码按什么顺序执行。
-- Svelte 5 Runes、TypeScript、Vite、svelte-routing 分别在做什么。
+- Svelte 5 的 Runes、组件、context、附件、svelte-routing 与 spec/styles 分别在做什么。
 - 想新增一个页面、状态或接口调用时，应该改哪些文件。
 
-> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 Svelte 5 的核心概念（Runes、组件、模板语法）；第 6 节快速过 TypeScript；第 7～14 节按一次「打开页面」的生命周期分层细讲；第 15 节给出常见改动的步骤清单。
+> 阅读建议：第 1 节介绍技术栈与设计特色；第 2～4 节建立整体地图与入口链路；第 5 节集中讲 Svelte 5 的核心概念（Runes、模板语法、片段、附件）；第 6 节是本项目最有 Svelte 味的部分——用「状态类 + context」实现「逻辑一份、视图按皮肤分」；第 7～13 节按一次「打开页面」的生命周期分层细讲；第 14～17 节是样式、测试、常见改动与框架对照。
+> 同一个应用的 React 版本在 `frontends/react-ts`、Vue 版本在 `frontends/vue3-ts`、Angular 版本在 `frontends/angular`，对照着读，最能看出几个框架各自的思路。
 
 ## 1. 技术选型与设计特色
 
-HelloTime Pro 的 Svelte 5 前端实现基于 **Svelte 5 + TypeScript + Vite** 核心骨架，并选用 **svelte-routing** 控制路由、基于原生 **Runes Class Singletons** 建立零依赖的状态管理、**Tailwind CSS v4** 配合 **Design Tokens**（设计令牌）定制视觉系统。其具体选型考量与设计特色如下：
+本前端基于 **Svelte 5**（Runes）+ **TypeScript**，构建用 **Vite 6**，路由用 **svelte-routing**，样式原样引入 `spec/styles` 的两套皮肤（2.0）。没有额外的状态管理库。
 
-* **Svelte 5 与 svelte-routing（编译期响应式与单页体验）**：利用 Svelte 5 革命性的 **Runes**（类符文）特性，通过编译期静态分析实现无虚拟 DOM 的极致运行效率与精确重绘。配合 svelte-routing 的声明式跳转，提供流畅的单页应用（SPA）体验。
-* **TypeScript（强类型约束与契约对齐）**：通过静态类型检查，使前端数据结构与后端的 OpenAPI 合约保持高度一致。在编写代码阶段即可拦截绝大多数因字段拼写错误或未处理空值（null/undefined）导致的运行时异常。
-* **Vite 构建（极速的开发与编译体验）**：基于原生 ESM 的极速热更新（HMR）特性，能实现代码改动的即时响应，并完美对接 Svelte 的编译流程，在生产环境下输出极其轻量的静态资源。
-* **Runes Class Singletons（零冗余的状态管理）**：摒弃繁重状态管理库，直接利用 Svelte 5 原生的 `$state` 在标准类中声明响应式状态，以模块化 class 单例形式暴露全局状态。这种机制不仅在组件内自然追踪，也使得在组件外的 API 请求库中直接读取和修改状态变得极为优雅。
-* **Design Tokens 与 Tailwind CSS v4（规范化视觉与主题）**：将颜色、字号等样式规范抽离为跨前端通用的设计令牌（CSS 变量）。配合 Tailwind v4 使得暗/亮主题切换和视觉一致性的维护变得十分高效。
+* **Svelte（编译器框架）**：`.svelte` 文件在构建期被编译成直接操作 DOM 的 JavaScript，运行时很小，没有虚拟 DOM。模板里读到的响应式值变了，编译器生成的代码只更新用到它的那个文本节点或属性。
+* **Runes（显式的响应式）**：Svelte 5 用 `$state`、`$derived`、`$effect`、`$props` 这几个「符文」声明响应式。它们不只能写在组件里，也能写在 `.svelte.ts` 模块和 class 字段里——所以全局 store 和页面逻辑都是普通的 TypeScript class，不需要 Pinia / Zustand 这类库。
+* **context**：Svelte 的「依赖注入」。父组件 `setContext`，子孙组件 `getContext`；`createContext<T>()` 直接给出一对带类型的 get / set。本前端用它把「路由页持有的状态」交给两套皮肤的视图（§6）。
+* **附件（attachments）**：`{@attach fn}` 在元素挂上后运行 `fn(element)`，`fn` 里读到的响应式值变了就先清理再重跑。React 里散落各处的 `useEffect(() => { …el… })`，在这里收拢成一个个小函数（§11）。
+* **svelte-routing**：一个轻量的声明式路由。`<Router>` 里平铺若干 `<Route path>`，`navigate()` 编程式跳转，`links` 动作接管页面里的 `<a>`。
+* **双皮肤与设计令牌（2.0）**：「时笺」「琥珀」两套皮肤 × 明暗，全部样式来自 `spec/styles`（每条规则按 `:root[data-skin]` 限定，两套同时加载）。本前端几乎不写样式，只按 2.0 原型写出相同的 DOM 结构与类名；切换皮肤 / 明暗只改 `<html>` 上的两个属性。
 
 ## 2. 先建立整体地图
 
-HelloTime Pro 是一个时间胶囊应用。Svelte 前端的职责是：
+HelloTime Pro 是一个时间胶囊应用。这个前端的职责是：
 
-- 渲染所有 UI 页面（广场 / 开启 / 创建 / 我的 / 登录 / 注册 / 关于）。
-- 通过 HTTP 调用后端 `/api/v1/*` 接口，把 JSON 渲染成卡片、表单、详情。
-- 维护客户端状态：登录态、主题（暗/亮）、广场筛选条件、我创建的 / 收藏的列表。
-- 守卫需要登录的路由（`/create`、`/me/*`），自动用 refresh token 续期 access token。
-- 跑在浏览器里，是一个**单页应用**（SPA）：所有跳转都不刷新页面，由 JS 重新渲染。
+- 渲染所有页面（首页广场 / 开启 / 详情 / 创建 / 我的 / 登录 / 注册 / 关于 / 404），每个页面都有「时笺」「琥珀」两套视图。
+- 调用后端 `/api/v1/*`（经 `:9080` 反代），把 JSON 画成卡片、表单、详情；2.0 新增 `/plaza/stats`、`/me/stats`。
+- 维护客户端状态：登录态、皮肤与明暗、广场查询条件、创建页草稿、各页面的表单。
+- 守卫需要登录的路由（`/create`、`/me/*`），未登录跳 `/login?redirect=…`；access token 过期自动刷新并重放。
 
-核心目录：
-
-```text
-frontends/svelte/
-├── index.html                  # SPA 唯一的 HTML 文件，含主题提前注入脚本
-├── vite.config.ts              # Vite 配置：dev server、API 代理、路径别名
-├── svelte.config.js            # Svelte 预处理配置（vitePreprocess，不开全局 runes）
-├── tsconfig.app.json           # TypeScript 编译配置（含 allowImportingTsExtensions）
-├── package.json                # 依赖与 npm 脚本
-├── run / build / test          # 三个 Bash 脚本，封装 npm 命令
-└── src/
-    ├── main.ts                 # 入口：Svelte 5 mount() 挂载到 #app + wireAuthApi()
-    ├── App.svelte              # 根组件：hydrate auth/theme + 路由表（扁平 Route 列表）
-    ├── styles/                 # 全局样式（导入 spec/styles 的设计令牌 + Tailwind v4）
-    ├── types/index.ts          # 与后端 spec/api/openapi.yaml 对齐的 TypeScript 类型
-    ├── api/client.ts           # fetch 封装 + 解响应包装 + 自动 refresh
-    ├── stores/                 # .svelte.ts 单例：auth · plaza · theme（$state class）
-    ├── lib/                    # Runes 工具：clickOutside（action）/ countdown / debounce
-    ├── utils/                  # 纯函数：倒计时 / 时间格式化 / 头像 URL
-    ├── components/             # 16 个可复用 .svelte 组件
-    └── pages/                  # 12 个路由页面 .svelte
+```
+src/
+├── main.ts / App.svelte   入口：恢复登录态、挂载；总布局与路由表
+├── stores/      全局 .svelte.ts 单例：auth · ui · plaza · draft · feedback · clock · health
+├── state/       页面状态类 + 它们的 context（CodeOpen、CapsuleState、CreateForm、LoginForm…）
+├── pages/       路由页：创建本页状态、放进 context、按皮肤渲染视图；AuthGate 之外的守卫
+├── components/  两套皮肤结构相同的部件
+├── skins/       paper/ 与 amber/：两套视图
+├── api/ · types/   接口客户端与类型
+└── lib/         纯函数工具 + 附件（attach.ts）+ 抖一下（motion.svelte.ts）
 ```
 
-一次「打开广场页」的流向：
-
-```text
-浏览器
-  │ GET /
-  ▼
-Vite dev server（开发）/ 静态文件（生产）
-  │ 返回 index.html
-  ▼
-浏览器解析 HTML → 加载 /src/main.ts
-  │ ESM 动态加载所有 import 的模块
-  ▼
-main.ts: wireAuthApi() + mount(App, { target: document.getElementById("app") })
-  │ Svelte 把响应式 DOM 树挂到 #app
-  ▼
-App.svelte
-  │ $effect → themeStore.hydrate() / authStore.hydrate()
-  │ 渲染 <Router> → 按 URL 匹配 <Route> → <MainLayout><PlazaPage /></MainLayout>
-  ▼
-PlazaPage 的 $effect → plazaStore.fetch()
-  │
-  ▼
-api.plaza({...}) → fetch("/api/v1/plaza/capsules")
-  │ Vite dev server 反代到 :9080
-  ▼
-后端返回 JSON → plazaStore.items 更新 → Svelte 重渲染卡片列表
-```
-
-返回方向上完全相反：用户点收藏按钮 → `FavoriteButton` 里的 `toggle()` → `api.favorite(id)` → 收到新计数 → `active = true; count = n; plazaStore.patchFavorited(...)` → 触发 Svelte 重渲染。**只有响应式状态（$state）变更会触发渲染，没有人手动操作 DOM**。
+一次「打开首页」的数据流：svelte-routing 匹配到 `<Route path="/">` → 渲染 `pages/PlazaPage.svelte` → 它调用 `provideCodeOpen()`（创建输码状态放进 context）和 `plazaHome()`（登记「进入时刷新」的 effect）→ 按 `ui.skin` 渲染 `AmberHomePage` → effect 调 `plaza.refreshAll()` → `api` 发请求 → `plaza` 单例的 `$state` 字段被赋值 → 读了这些字段的模板自动更新。换成时笺时，只有视图换成 `PaperHomePage`，它从 context 取到的仍是同一个 `CodeOpen`。
 
 ## 3. 如何运行和验证
 
 ```bash
 cd frontends/svelte
-./run                          # 开发模式，端口 7176
-./build                        # 类型检查 + 生产构建到 dist/
-./test                         # vitest 单测
+./run                          # Vite dev server，端口 7176
+./build                        # svelte-check（类型 + 模板）→ vite build 到 dist/
+./test                         # vitest：纯函数、API 客户端、store 与页面状态类
 ```
 
-打开浏览器访问 `http://localhost:7176`。`./run` 做的事：
-
-1. 检查 `node_modules` 是否存在，没有就 `npm install`。
-2. 执行 `npm run dev`，即 `vite --host 0.0.0.0 --port 7176`。
-3. Vite 启动一个开发服务器，按需编译 `.ts/.svelte`（使用 `@sveltejs/vite-plugin-svelte`），**修改文件自动热更新**（HMR），不需要手动刷新。
-
-API 代理由 `vite.config.ts` 配置：所有 `/api/*` 和 `/static/*` 转发到 `BACKEND_PROXY`（默认 `http://localhost:9080`；可以直连后端：`BACKEND_PROXY=http://localhost:29010 ./run`）。
-
-生产构建（`./build`）：
+`vite.config.ts` 把 `/api` 与 `/static` 代理到 `BACKEND_PROXY`（默认 `http://localhost:9080`）。也可以在仓库根目录用 `./scripts/hello start svelte`。
 
 ```bash
-svelte-check --tsconfig ./tsconfig.app.json   # 类型检查（含 Svelte 专用规则）
-vite build                                     # 把 src/ 打包到 dist/
+./verification/scripts/verify-ui-smoke.sh svelte        # UI 冒烟：44 条 × 两套皮肤
+./verification/scripts/verify-design-tokens.sh svelte   # 自己的样式只用语义令牌
 ```
+
+`svelte.config.js` 只配了 `vitePreprocess`，**没有**全局开 `runes: true`：本项目的 `.svelte` 文件都用了 Runes，编译器会按文件自动进入 Runes 模式；而 svelte-routing 自带的旧式组件仍要以兼容模式编译。
 
 ## 4. 入口链路：`index.html` → `main.ts` → `App.svelte`
 
-### 3.1 `index.html`：SPA 的唯一 HTML
+### 4.1 `index.html`
 
-```html
-<!doctype html>
-<html lang="zh-CN" data-theme="dark">
-  <head>
-    <script>
-      (function () {                          // 提早注入主题，避免首屏闪白
-        try {
-          var t = localStorage.getItem("hellotime.theme");
-          if (t === "dark" || t === "light")
-            document.documentElement.setAttribute("data-theme", t);
-        } catch (e) {}
-      })();
-    </script>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
-</html>
-```
+只有一个 `<div id="app">` 和一段内联脚本：在第一帧画出来之前，从 `localStorage` 读出 `hellotime.skin` / `hellotime.theme`，写到 `<html data-skin data-theme>` 上，并同步地址栏颜色（`<meta name="theme-color">`）。这样刷新页面不会先闪一下另一套皮肤。
 
-- 整个应用只有一个 `<div id="app"></div>`，所有页面都在它内部渲染——这就是 SPA 的「单页」含义。
-- 内联 `<script>` 在 Svelte 启动前同步读 localStorage 设置 `data-theme`，避免「主题闪白」。
-
-### 3.2 `main.ts`：挂载入口
+### 4.2 `main.ts`
 
 ```ts
-import { mount } from "svelte";
-import App from "./App.svelte";
-import "./styles/index.css";
-import { wireAuthApi } from "./stores/auth.svelte.ts";
-
-wireAuthApi();                            // 把 store 的 token getter 注入 api client
-
+authStore.hydrate();   // 登录态在挂载之前从 localStorage 恢复：守卫第一帧就能拿到 user
+wireAuthApi();         // 把 auth store 注入到 api client（refresh 单飞、401 重放）
 mount(App, { target: document.getElementById("app")! });
 ```
 
-- `mount()`：Svelte 5 引入的挂载 API（取代了旧版 `new App()`）。
-- `wireAuthApi()` 必须在 `mount()` 前调用——原因见第 9.3 节。
+注意导入写的是 `./stores/auth.svelte.ts`——带 `.ts` 后缀（§9.4）。
 
-### 3.3 `App.svelte`：根组件 + 路由表
+### 4.3 `App.svelte`：总布局与路由表
 
 ```svelte
-<script lang="ts">
-  import { Router, Route } from "svelte-routing";
-  import { authStore } from "@/stores/auth.svelte.ts";
-  import { themeStore } from "@/stores/theme.svelte.ts";
-  // ... 导入所有页面组件
-
-  $effect(() => {
-    themeStore.hydrate();
-    authStore.hydrate();
-  });
-
-  $effect(() => {
-    if (authStore.hydrated && authStore.refreshToken && !authStore.user) {
-      void authStore.refreshMe();        // 有 refresh token 但没有 user → 静默续期
-    }
-  });
-</script>
-
+<PaperFilters />            <!-- 时笺的油墨毛边 SVG 滤镜 -->
+<AmberBackdrop />           <!-- 琥珀的光晕与星空画布（时笺下由 shell.css 隐藏） -->
+<a class="skip" href="#view" noroute>跳到正文</a>
 <Router>
-  <Route path="/"><MainLayout><PlazaPage /></MainLayout></Route>
-  <Route path="/login"><MainLayout><LoginPage /></MainLayout></Route>
-  <Route path="/capsules/:code" let:params>
-    <MainLayout><CapsuleByCodePage code={params.code} /></MainLayout>
-  </Route>
-  <Route path="/plaza/:id" let:params>
-    <MainLayout><PlazaDetailPage id={params.id} /></MainLayout>
-  </Route>
-  <!-- ... 其他路由 -->
-  <Route><MainLayout><NotFoundPage /></MainLayout></Route>  <!-- 兜底 -->
+  <RouteMeta />             <!-- body[data-route] 与页面标题 -->
+  {#if paper}<PaperHeader />{:else}<AmberHeader />{/if}
+  <main id="view" tabindex="-1">
+    <Route path="/"><PlazaPage /></Route>
+    <Route path="/create"><AuthGate><CreatePage /></AuthGate></Route>
+    <Route path="/capsules/:code" let:params>
+      {#key params.code}<CapsulePage code={params.code} />{/key}
+    </Route>
+    …
+    <Route><NotFoundPage /></Route>   <!-- 没有 path：兜底 -->
+  </main>
+  {#if paper}<PaperFooter />{:else}<AmberFooter />{/if}
+  {#if paper}<PaperTabBar />{:else}<AmberTabBar />{/if}
 </Router>
+<ToastHost />
+<DialogHost />
 ```
 
-**注意**：svelte-routing 2.13 + Svelte 5 要求 **路由扁平化**，不能嵌套 `<Route>` 到另一个 `<Route>` 的内容里。嵌套会触发 Svelte 5 的 `effect_update_depth_exceeded` 错误（子 Route 注册 → 触发父 Route 重渲染 → 子 Route 再注册 → 无限循环）。解决方案：每个 Route 直接内联自己的布局组件。
+外壳的 DOM 约定照 2.0 原型：`header.hdr / main#view / footer.ftr / nav.tabbar` 是 `body` 的直接子项（皮肤样式里 `body` 是纵向 flex）。挂载点 `#app` 用 `:global(#app) { display: contents }` 不参与布局——这是本前端仅有的两条样式胶水之一。
+
+`App.svelte` 里还有两件事：`$effect(() => links(document.body).destroy)` 让 svelte-routing 接管整页的站内链接（包括挂到 `body` 下的仪式层与确认框）；有 refresh token 时调一次 `authStore.refreshMe()` 确认登录态。
 
 ## 5. Svelte 5 的核心概念：Runes
 
-Svelte 5 引入了 **Runes**（类符文）——一套以 `$` 开头的特殊语法，用于声明响应式状态、副作用和推导值。这是 Svelte 5 与旧版（Svelte 4）最大的区别，也是与 React Hooks、Vue Composition API 最直接的对标。
+### 5.1 `$state`：响应式状态
 
-### 4.1 `$state`：响应式状态
-
-```svelte
-<script lang="ts">
-  let count = $state(0);
-  let user = $state<User | null>(null);
-</script>
-
-<button onclick={() => count++}>{count}</button>
+```ts
+let open = $state(false);          // 组件里的局部状态
+open = true;                       // 直接赋值就会触发更新
 ```
 
-- `$state(初始值)` 声明一个响应式变量。**只有 `$state` 变量的变化才会触发组件重渲染**。
-- 与 React 的 `useState` 对比：无需 `setCount(n)`，直接 `count++` 就能触发更新——Svelte 在编译期把赋值语句变成通知。
-- 与 Vue 的 `ref()` 对比：无需 `.value`，直接读写变量名。
+对象和数组会被包成深层代理，改 `errors.email = "…"`、`toasts.push(…)` 都能被追踪。不需要深层追踪、整体替换的数据（列表、接口返回的对象）用 `$state.raw`，更省。
 
-**对象和数组**：`$state` 会递归代理对象的字段，可以直接改字段：
+`$state` 也能当 class 字段（本项目的 store 与页面状态都这么写）：
 
-```svelte
-let items = $state<string[]>([]);
-items.push("x");                    // ✅ 直接 push，触发更新
-// React 需要 setItems([...items, "x"])
+```ts
+class PlazaStore {
+  sort = $state<PlazaSort>("new");
+  items = $state.raw<CapsuleListItem[]>([]);
+  setSort(v: PlazaSort) { this.sort = v; this.page = 1; void this.fetchList(); }
+}
+export const plaza = new PlazaStore();
 ```
 
-### 4.2 `$derived`：推导值
+### 5.2 `$derived`：推导值
 
-```svelte
-<script lang="ts">
-  let content = $state("");
-  const contentLen = $derived(content.length);       // 自动追踪 content
-  const isLong = $derived(contentLen > 3000);        // 追踪 contentLen
-</script>
+```ts
+const opened = $derived(c.isOpened || ms(c.openAt) <= now);
+const days = $derived.by(() => { … return list; });   // 多行计算用 .by
 ```
 
-- `$derived(表达式)` 等效于 Vue 的 `computed`、React 的 `useMemo`。
-- 当被追踪的状态变化时，Svelte 自动重算，不需要手动声明依赖数组。
+推导值是惰性的、有缓存的；依赖不变就不重算。Svelte 5 的推导值还**可写**：赋值会临时覆盖它，依赖一变又回到推导结果。这正好对应「外部数据驱动、本地可以改」的状态：
 
-复杂推导用 `$derived.by(() => { ... })`：
-
-```svelte
-const sortedItems = $derived.by(() => {
-  return [...items].sort((a, b) => b.favoriteCount - a.favoriteCount);
-});
+```ts
+let on = $derived(capsule.favoritedByMe);   // 列表刷新了就跟上
+on = !on;                                    // 点击时就地改写（乐观更新）
 ```
 
-### 4.3 `$effect`：副作用
+收藏按钮的 on / count、日历正在看的月份、时分输入框都这么写。
 
-```svelte
-<script lang="ts">
-  let page = $state(1);
+### 5.3 `$effect`：副作用
 
-  $effect(() => {
-    page;                // 追踪 page
-    void load();         // page 变化时重新加载
-  });
-</script>
-```
-
-- `$effect(fn)` 等效于 React 的 `useEffect`：每当依赖变化时执行。
-- **Svelte 自动追踪**：`fn` 运行时读了哪些 `$state`，就追踪哪些——不需要手动写 `[deps]` 数组。
-- 返回一个函数即为清理：
-
-```svelte
+```ts
 $effect(() => {
-  const t = setInterval(() => { now = Date.now(); }, 1000);
-  return () => clearInterval(t);                          // 卸载或重跑前清理
+  if (!open) return;
+  document.addEventListener("click", onDoc);
+  return () => document.removeEventListener("click", onDoc);   // 清理：重跑前、销毁时
 });
 ```
 
-**`untrack()`**：有时想在 effect 里读一个值，但不想把它加入追踪：
+effect 在 DOM 更新之后运行，读到的响应式值变了就重跑。两个要点：
 
-```svelte
-import { untrack } from "svelte";
-$effect(() => {
-  active;                                  // 追踪 active
-  const current = untrack(() => count);    // 读 count 但不追踪
-});
+- **挂载时会先跑一次**（Vue 的 `watch` 默认不会）。「出错次数加一就抖一下」这类逻辑要记住上一次的值，只在变化时动作，否则换皮肤时新视图一挂载就会抖。
+- **不想被追踪的读取**包进 `untrack(() => …)`。比如进入首页时刷新广场：只想跟着 `user.id` 变，不想因为 `refreshAll()` 内部读了别的状态而被反复触发。
+
+在 class 构造函数里也能写 `$effect`——前提是这个实例在组件初始化期间创建，effect 就挂在那个组件上、随它销毁。`$effect(() => () => gen++)` 是「组件销毁时作废进行中的请求」的惯用写法。脱离组件的模块级 effect 用 `$effect.root`（§9.3）。
+
+### 5.4 `$props` 与 `$bindable`
+
+```ts
+let { value = $bindable(""), label, error, trail }: Props = $props();
 ```
 
-### 4.4 `$props`：接受父组件传入的值
+- 解构就是声明 prop，默认值写在解构里；`...rest` 收集剩下的属性（`CreateLink` 把 `class`、`data-testid` 原样放到 `<a>` 上）。
+- `$bindable` 让父组件可以 `bind:value={f.email}` 双向绑定。
+- 事件就是函数 prop：`onchange`、`oncomplete`，调用方写 `oncomplete={o.go}`。
+- 名字叫 `state` 的 prop 要改名解构（`state: codeState`），否则和 `$state` 冲突（编译器会把 `$state` 当成对 `state` 的 store 订阅）。
+- `$props.id()` 生成在本组件实例里唯一的 id，SVG 的渐变、`textPath` 用它防撞。
+
+### 5.5 模板语法
 
 ```svelte
+<div class={["field", { "is-error": error }, shake.on && "is-shake"]} style:--i={i}>
+  {#if ui.skin === "paper"} … {:else} … {/if}
+  {#each list.items as c, i (c.id)} <PaperCard {c} {i} /> {/each}
+  {#each { length: 6 }, i (i)} <PaperCardSkeleton {i} /> {/each}
+  {#key pop} <button class="fav is-pop">…</button> {/key}     <!-- pop 变了就重建，动画重播 -->
+  {@const r = row(c)}                                          <!-- 块内局部常量 -->
+  {@html ICONS[name]}                                          <!-- 仅用于构建期常量 -->
+</div>
+```
+
+- `class` 接受数组和对象，不必手拼字符串；`style:--x={v}` 写 CSS 变量。
+- 事件写成属性：`onclick={…}`、`onsubmit={…}`（表单要自己 `e.preventDefault()`）。
+- `bind:value` 可以绑到对象属性（`bind:value={f.title}` 调用 class 的 setter），也可以写成**函数绑定** `bind:value={() => plaza.qInput, (v) => plaza.typeQ(v)}`——读写分别走两个函数，正好把输入框接到 store 的动作上。
+- `bind:this={el}` 拿 DOM 元素，也能拿子组件实例（调用它 `export` 的函数，如输码框的 `set()`、长按封缄的 `reset()`）。
+
+### 5.6 片段（snippet）
+
+片段是模板里可传递的一段标记，取代了旧的插槽：
+
+```svelte
+<FormField id="p-nick" bind:value={p.nickname} label="昵称">
+  {#snippet trail()}<NickState state={p.nick} />{/snippet}
+</FormField>
+```
+
+`FormField` 里 `{@render trail?.()}`。组件标签之间的内容就是名为 `children` 的片段（`AuthGate`、`AmberBadge`、`PaperEnvelope` 都用它）。
+
+## 6. 本项目的核心：用「状态类 + context」实现「逻辑一份、视图按皮肤分」
+
+两套皮肤的同一个页面长得完全不同，但逻辑必须只有一份；切换皮肤时，正在填的表单、错误提示、已输入的胶囊码都不能丢（`spec/ui/testids.md` X5）。React 用「Hook + 全局 store」，Vue 用「组合式函数 + provide / inject」，Angular 用「组件级 provider」；Svelte 的写法是**页面状态类 + context**：
+
+```ts
+// state/account.svelte.ts —— 页面状态
+export class LoginForm {
+  email = $state("");
+  password = $state("");
+  errors = $state<Errors>({});
+  busy = $state(false);
+  readonly redirect = redirectParam();
+  submit = async () => { … };          // 箭头函数：当回调传出去时 this 不丢
+}
+const [getLogin, setLogin] = createContext<LoginForm>();
+export const provideLogin = () => setLogin(new LoginForm());
+export const useLogin = getLogin;
+```
+
+```svelte
+<!-- pages/LoginPage.svelte —— 路由页 -->
 <script lang="ts">
-  interface Props {
-    capsule: CapsuleListItem;
-    size?: "sm" | "md";
-    onChange?: (favorited: boolean, count: number) => void;
-  }
-
-  let { capsule, size = "sm", onChange }: Props = $props();
+  provideLogin();
 </script>
-```
+{#if ui.skin === "paper"}<PaperLoginPage />{:else}<AmberLoginPage />{/if}
 
-- `$props()` 取代了旧版 `export let xxx`，**统一解构**，默认值写在解构里。
-- 等效于 React 的 `function Btn({ capsule, size = "sm", onChange }: Props)`。
-- 在 `.svelte.ts` 文件里（非 Svelte 组件），不能用 `$props()`——用普通函数参数即可。
-
-### 4.5 模板语法
-
-Svelte 模板不是 JSX，它是**增强版 HTML**，在 `{...}` 里嵌入 JS 表达式：
-
-```svelte
-<!-- 条件 -->
-{#if user}
-  <span>{user.nickname}</span>
-{:else}
-  <a href="/login">登录</a>
-{/if}
-
-<!-- 列表 -->
-{#each items as c (c.id)}
-  <CapsuleCard capsule={c} />
-{/each}
-
-<!-- key 是第三个参数，等效于 React 的 key prop -->
-```
-
-**Snippet**（Svelte 5 取代 slot 的新原语）：
-
-```svelte
-<!-- 父组件定义 snippet 内容 -->
-<CapsuleGrid {items}>
-  {#snippet empty()}
-    <p>暂无数据</p>
-  {/snippet}
-  {#snippet card(c)}
-    <button onclick={() => withdraw(c.id)}>撤回</button>
-  {/snippet}
-</CapsuleGrid>
-
-<!-- 子组件 CapsuleGrid.svelte -->
+<!-- skins/paper/PaperLoginPage.svelte —— 视图 -->
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  let { empty, card }: { empty?: Snippet; card?: Snippet<[CapsuleListItem]> } = $props();
+  const f = useLogin();
 </script>
-
-{#if items.length === 0}
-  {@render empty?.()}          <!-- 渲染 snippet -->
-{:else}
-  {#each items as c}
-    {@render card?.(c)}        <!-- 渲染带参数的 snippet -->
-  {/each}
-{/if}
+<FormField id="email" bind:value={f.email} error={f.errors.email} testId="login-email" />
 ```
 
-Snippet 等效于 React 的 render prop / slot。本项目用 `empty` 和 `card` 两个 snippet 分别自定义 CapsuleGrid 的空态和每张卡片的右侧操作区。
+于是：
 
-## 6. TypeScript 快速概览
+- **切换皮肤**：只有 `{#if}` 的两个分支在换，路由页不动，`LoginForm` 还是那个实例——表单值原样还在。
+- **离开页面**：路由换走路由页，实例随之丢弃，表单自然清空；实例里的 `$effect` 也跟着销毁（作废进行中的请求、停止 AI 打字）。
+- **跨页面要留的东西**放在全局单例：登录态（`authStore`）、广场筛选（`plaza`）、创建页草稿（`draft`，离开再回来接着写）。
 
-`.ts` 与 `.svelte` 文件（`<script lang="ts">`）本质是带类型注解的 JavaScript。读代码时几乎可以「把冒号后面的内容当注释」忽略。
-
-```ts
-interface User { id: string; email: string; nickname: string; }
-type ErrorCode = "VALIDATION_ERROR" | "UNAUTHORIZED" | ...;  // 联合类型
-
-const user: User | null = null;
-const email = $state<string>("");                 // 泛型参数告诉 TS 类型
-```
-
-本项目频繁出现的写法：
-
-```ts
-Pick<CapsuleListItem, "id" | "favoritedByMe">   // 从类型里摘出几个字段
-e instanceof ApiError                            // 运行时类型检查
-e as Error                                       // 类型断言
-```
-
-`tsconfig.app.json` 里开了 `"allowImportingTsExtensions": true`——这是**关键配置**，允许 `import { authStore } from "@/stores/auth.svelte.ts"` 带 `.ts` 后缀，是防止 store 单例破裂的必要条件（详见第 10.4 节）。
-
-## 7. 路由层：`App.svelte` + svelte-routing
-
-本项目用 `svelte-routing@2.13` 实现客户端路由：
-
-```svelte
-<Router>
-  <Route path="/"><MainLayout><PlazaPage /></MainLayout></Route>
-  <Route path="/capsules/:code" let:params>
-    <MainLayout><CapsuleByCodePage code={params.code} /></MainLayout>
-  </Route>
-  <Route path="/plaza/:id" let:params>
-    <MainLayout><PlazaDetailPage id={params.id} /></MainLayout>
-  </Route>
-  <Route path="/me/created">
-    <MeLayout><AuthGate><MeCreatedPage /></AuthGate></MeLayout>
-  </Route>
-  <Route><MainLayout><NotFoundPage /></MainLayout></Route>
-</Router>
-```
-
-要点：
-
-- **`<Router>`**：根容器，拦截 `<a>` 点击和 `popstate` 事件，保证 SPA 跳转不刷页面。
-- **`<Route path="...">`**：按当前 URL 匹配，匹配到才渲染内部内容；不匹配则不渲染。
-- **路径参数**：`let:params` 是 svelte-routing 的特殊指令，把 `:code`、`:id` 等注入为 `params.code`、`params.id`。
-- **兜底路由**：最后一个没有 `path` 的 `<Route>` 匹配所有未匹配路径，用来渲染 `NotFoundPage`。
-- **已登录重定向**：`LoginPage` / `RegisterPage` 在 `$effect` 里检测 `authStore.hydrated && authStore.user`，满足条件就 `navigate("/", { replace: true })`。
-
-页面跳转三种方式：
-
-```svelte
-<a href="/login" use:link>登录</a>              <!-- use:link action：阻止默认行为，走前端路由 -->
-<a href="/plaza/{id}" use:link>查看</a>
-
-navigate("/login");                             <!-- 编程式跳转 -->
-navigate("/login?from=/create");               <!-- 携带参数 -->
-navigate(from, { replace: true });             <!-- 不留历史记录 -->
-
-const location = useLocation();               <!-- 读当前 URL -->
-const from = new URLSearchParams($location.search).get("from");
-```
-
-## 8. 关键模式：布局与守卫
-
-### 7.1 `MainLayout.svelte` / `MeLayout.svelte`：共享外壳
-
-```svelte
-<!-- MainLayout.svelte -->
-<script lang="ts">
-  import type { Snippet } from "svelte";
-  let { children }: { children: Snippet } = $props();
-</script>
-
-<AppHeader />
-{@render children()}
-<AppFooter />
-```
-
-- `children` 是 Svelte 5 内置 snippet prop，等效于 React 的 `children`。
-- `{@render children()}` 渲染被 `<MainLayout>` 包裹的内容。
-- 因为 svelte-routing 不支持嵌套 Route，每个路由都要**直接内联布局组件**，而不是靠 Router 的嵌套机制注入 Outlet。
-
-### 7.2 `AuthGate.svelte`：路由守卫
-
-```svelte
-<script lang="ts">
-  import type { Snippet } from "svelte";
-  import { navigate } from "svelte-routing";
-  import { authStore } from "@/stores/auth.svelte.ts";
-
-  let { children }: { children: Snippet } = $props();
-
-  $effect(() => {
-    if (!authStore.hydrated) return;
-    if (!authStore.user && !authStore.refreshToken) {
-      navigate("/login", { replace: true });
-    }
-  });
-</script>
-
-{#if authStore.user || authStore.refreshToken}
-  {@render children()}
-{/if}
-```
-
-- 等 `hydrated` 之后才判断——避免页面刷新时 localStorage 还没读完就跳登录。
-- 如果有 `refreshToken` 但没 `user`，允许进入——因为下一个 API 请求会自动 refresh（见第 9.2 节），用户看不到打断。
-
-## 9. 数据层：`api/client.ts`
-
-### 8.1 通用 `request<T>(path, opts)`
-
-```ts
-async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const useAuth = opts.auth ?? true;
-  const accessToken = await accessTokenForRequest(useAuth);
-  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
-
-  const res = await fetch(`${BASE}${path}`, { ...opts, headers, body: ... });
-
-  if (res.status === 204) return undefined as T;
-
-  const env = (await res.json()) as Envelope<T>;
-  if (!res.ok || !env.success) {
-    if (shouldTryRefresh(...)) {
-      const newAt = await tryRefresh();
-      if (newAt) return request<T>(path, { ...opts, _retry: true });
-    }
-    throw new ApiError(env.message ?? "请求失败", res.status, env.errorCode, env.details);
-  }
-  return env.data as T;
-}
-```
-
-做的事：
-
-1. 自动注入 `Authorization` 头、序列化 `body`、设置 `Content-Type`。
-2. 解开后端的统一外壳 `{ success, data, message, errorCode }`，调用者只看到 `data`。
-3. 失败时抛 `ApiError`，页面用 `e instanceof ApiError ? e.message : "失败"` 展示。
-4. **泛型 `<T>`**：`api.plaza()` 返回 `Promise<PaginatedCapsules>`，TS 全程检查字段拼写。
-
-### 8.2 自动 refresh：去重 + 重放
-
-```ts
-let refreshing: Promise<string | null> | null = null;
-
-async function tryRefresh() {
-  if (refreshing) return refreshing;               // 并发请求共用同一个 Promise
-  refreshing = (async () => { /* POST /auth/refresh */ })();
-  return refreshing;
-}
-```
-
-模块级单例变量 `refreshing`：当一波 401 同时触发（比如页面挂载后同时调了 3 个接口），只发一次 refresh，其余 `await` 同一个 Promise。`_retry` 标记防止重放后又 401 陷入无限循环。
-
-### 8.3 与 store 解耦：`configureApi()` / `wireAuthApi()`
-
-`api/client.ts` **不 import store**（否则 `auth.svelte.ts` → `client.ts` → `auth.svelte.ts` 形成循环依赖）。解法是依赖注入：
-
-```ts
-// api/client.ts
-let getAccessToken: () => string | null = () => null;
-export function configureApi(opts: { getAccessToken: ...; ... }) {
-  getAccessToken = opts.getAccessToken;
-}
-
-// stores/auth.svelte.ts
-export function wireAuthApi() {
-  configureApi({
-    getAccessToken: () => authStore.accessToken,
-    getRefreshToken: () => authStore.refreshToken,
-    onTokensRefreshed: (a, r) => authStore.patchTokens(a, r),
-    onAuthLost: () => authStore.dropFromAuthLost(),
-  });
-}
-```
-
-`wireAuthApi()` 在 `main.ts` 里 `mount()` 前调用一次，后续 client 拿 token 都走这些函数。
-
-## 10. 状态层：`.svelte.ts` 单例
-
-### 9.1 Svelte 5 的 class 单例模式
-
-与 React（Zustand）或 Vue（Pinia）不同，Svelte 5 允许把 `$state` 写在**普通 class 字段**上：
-
-```ts
-// stores/auth.svelte.ts
-class AuthStore {
-  user = $state<User | null>(null);
-  accessToken = $state<string | null>(null);
-  refreshToken = $state<string | null>(null);
-  hydrated = $state(false);
-
-  hydrate() {
-    const persisted = load();
-    if (persisted) {
-      this.user = persisted.user;
-      this.refreshToken = persisted.refreshToken;
-    }
-    this.hydrated = true;
-  }
-
-  async logout() { ... }
-}
-
-export const authStore = new AuthStore();
-```
-
-- `$state` 在 class 字段上声明，让实例的每个字段都具备响应性。
-- `export const authStore = new AuthStore()` 是**模块级单例**：所有组件 `import { authStore }` 时拿到的是同一个实例——这是跨组件共享状态的机制，等效于 Zustand store 的全局单例。
-
-### 9.2 本项目的三个 store
-
-| Store | 关心什么 | 持久化 |
+| 路由页 | 放进 context 的状态 | 谁在用 |
 |---|---|---|
-| `authStore` | user / accessToken / refreshToken / hydrated | refreshToken + user → localStorage |
-| `themeStore` | "dark" / "light" | localStorage `hellotime.theme` |
-| `plazaStore` | sort / filter / q / page + items / pagination / loading | 否（每次进页面重新拉） |
+| `PlazaPage` | `CodeOpen`（另调用 `plazaHome()`） | 首页两套视图里的就地输码 |
+| `OpenPage` | `CodeOpen` | 开启页两套视图（已输入的码切皮肤也不丢） |
+| `CapsulePage` | `CapsuleState`（App 按 `code` 加了 `{#key}`） | 详情页两套视图 |
+| `CreatePage` | `CreateForm`（外层 AuthGate 按 `user.id` 加了 `{#key}`） | 创建页两套视图 |
+| `LoginPage` / `RegisterPage` | `LoginForm` / `RegisterForm` | 登录 / 注册两套视图 |
+| `MePage` | `MeState`：`tab`、`MyStatsState`、`ProfileForm` | 「我的」两套视图及其页签 |
 
-### 9.3 一致性：跨 store 联动
+`MePage` 在三个页签之间切换时不重建（同一条路由、参数不同），所以 `ProfileForm` 一直活着；它用一个 effect 盯着 `tab`，离开「账号设置」就把资料改回当前值、清空密码框。
 
-`FavoriteButton` 收藏/取消后，同时**直接调** `plazaStore.patchFavorited(...)` 更新广场列表里这条胶囊的 `favoritedByMe / favoriteCount`：
+## 7. 路由层：svelte-routing
 
-```ts
-// FavoriteButton.svelte
-await api.unfavorite(capsule.id);
-active = false;
-count = next;
-plazaStore.patchFavorited(capsule.id, false, next);  // 同步更新广场 store
-onChange?.(false, next);                             // 通知父组件（如 MeFavoritesPage）
+### 7.1 路由表
+
+全部 `<Route>` 平铺在同一个 `<Router>` 下（**不要嵌套**，嵌套的 Router 会让匹配与 effect 互相触发）。svelte-routing 按「静态段 > 动态段 > 通配」打分挑最匹配的一条，所以 `/me/:tab` 与 `/me/*` 可以共存。
+
+路由内容用插槽写法：`<Route path="/capsules/:code" let:params>…</Route>`。`component={…}` 属性不能用——它会把不是 class 的值当作懒加载函数去调用，而 Svelte 5 组件本身就是函数。
+
+### 7.2 链接
+
+组件里直接写 `<a href="/open">`。`App.svelte` 把 `links` 挂在 `body` 上：同源、没有 `target`、没有 `noroute` 属性、没被 `preventDefault` 的点击，都改成 `navigate()`。所以：
+
+- 需要拦截的链接（匿名点「创建」先确认）在自己的 `onclick` 里 `preventDefault()`——Svelte 的事件委托在 `#app` 上，比 `body` 上的 `links` 先执行（`CreateLink.svelte`）。
+- 卡片上的收藏按钮在链接之上，点击时 `preventDefault` + `stopPropagation`。
+- 「跳到正文」`href="#view"` 带 `noroute`，留给浏览器处理（类型扩充见 `src/svelte-elements.d.ts`）。
+
+### 7.3 守卫
+
+```svelte
+<!-- components/AuthGate.svelte -->
+<script lang="ts">
+  const needCheck = !authStore.user && !!authStore.refreshToken;
+  let checking = $state(needCheck);
+  if (needCheck) void authStore.refreshMe().finally(() => (checking = false));   // 只剩 refresh token：先换回 user
+  $effect(() => {
+    if (!checking && !authStore.user) redirect(loginPath(location.pathname + location.search));
+  });
+</script>
+{#if authStore.user}{#key authStore.user.id}{@render children()}{/key}{/if}
 ```
 
-这样从「我收藏的」列表里取消，再切回广场，那一条不会显示成已收藏。
+- 登录态中途丢了（refresh 失败、在别处登出）时 effect 重跑，同样会跳去登录。
+- `{#key authStore.user.id}`：换了账号就重建里面的页面状态（创建表单、资料表单）。
+- `GuestOnly` 只在进入时判断一次：已登录访问 `/login`、`/register` 直接去 `?redirect=`（或首页）。在本页登录成功后由表单自己跳转，不能让守卫抢先。
+- `loginPath()` 用 `encodeURIComponent` 生成 `/login?redirect=%2Fcreate`；`navigate()` 原样写进地址栏。
 
-### 9.4 ⚠️ 关键陷阱：`.svelte.ts` 必须带 `.ts` 后缀导入
+**守卫类跳转要等 Router 挂好**：`Router` 在自己的 `onMount` 里才开始监听 history，而子组件的 effect / `onMount` 比父组件先运行。首屏直接打开受保护页面时，如果在子组件里立刻 `navigate()`，地址栏变了，页面却不跟着变。所以守卫、`/me` 补全、无效页签都调用 `lib/nav` 的 `redirect()`：
 
 ```ts
-// ✅ 正确
-import { authStore } from "@/stores/auth.svelte.ts";
-
-// ❌ 错误（会破坏单例）
-import { authStore } from "@/stores/auth.svelte";
+export function redirect(to: string) {
+  void tick().then(() => navigate(to, { replace: true }));
+}
 ```
 
-原因：`@sveltejs/vite-plugin-svelte` 在处理 `auth.svelte` 时，会同时把它当成「Svelte 组件」和「TS 模块」两条加载路径解析，产生**两个不同的模块实例**。`authStore` 在 A 实例里 hydrate，但 AppHeader 读的是 B 实例（没有 user）——store 单例彻底破裂。
+### 7.4 标题、`data-route` 与回顶
 
-带 `.ts` 后缀后，Vite 只走 TS 模块路径，不会触发 Svelte 组件解析器，始终是一个实例。
+`pages/RouteMeta.svelte` 用 `useLocation()`（一个 store，`$location` 自动订阅）在每次换页时写 `body[data-route]` 与 `document.title`；详情页的标题等胶囊取回来后由 `CapsuleState` 写。svelte-routing 每次激活路由都会 `scrollTo(0, 0)`，换页回顶不用另外处理。
 
-项目里所有 store 导入都必须显式带 `.ts`，`tsconfig.app.json` 里开的 `allowImportingTsExtensions: true` 就是为了支持这个写法。
+## 8. 数据层：`api/client.ts`
+
+与 React 版逐字对齐：
+
+- `request<T>(path, opts)`：`fetch` + 统一响应解包（`{ success, data, message, errorCode, details }`），失败抛 `ApiError`（带 `status`、`errorCode`、字段错误 `details`）。
+- 401 时自动用 refresh token 换新 token 再重放一次；`refreshing` 是一个共享的 Promise——同时有多个请求 401 时只刷新一次（单飞）。
+- 与 store 解耦：客户端不 import store，而是由 `wireAuthApi()` 调用 `configureApi({ getAccessToken, getRefreshToken, onTokensRefreshed, onAuthLost })` 注入回调，避免循环依赖。
+
+## 9. 状态层：`.svelte.ts` 单例
+
+### 9.1 class 单例
+
+`stores/*.svelte.ts` 每个文件导出一个 class 实例。字段是 `$state`，方法直接改字段；组件里 `import { plaza } from "@/stores/plaza.svelte.ts"`，在模板里读 `plaza.items` 就自动订阅。
+
+| store | 内容 |
+|---|---|
+| `auth` | user、access / refresh token；`hydrate`、`setTokens`、`logout`、`refreshMe`（单飞） |
+| `ui` | 皮肤与明暗；`setSkin` / `toggleTheme` 用 View Transition，回调里改完状态 `await tick()` |
+| `plaza` | 排序、筛选、搜索词（`qInput` 防抖 300ms 后写进 `q`）、页码、列表、数量、年鉴、精选 |
+| `draft` | 创建页草稿；`patch()` 每次把 `revision` 加一，`reset()` |
+| `feedback` | toast 队列与确认框；`copyText`、`share.code / share.link` |
+| `clock` | 整秒节拍 `clock.now` |
+| `health` | `/health`，页脚与关于页共用，只请求一次 |
+
+搜索防抖的计时器放在 `plaza` 里而不是视图里：防抖途中切换皮肤（视图整个换掉）也不会丢字。
+
+### 9.2 `createSubscriber`：有人用才走表
+
+```ts
+class Clock {
+  #now = Date.now();
+  #subscribe = createSubscriber((update) => {
+    let timer = 0;
+    const loop = () => { timer = setTimeout(() => { this.#now = Date.now(); update(); loop(); }, 1000 - (Date.now() % 1000) + 4); };
+    loop();
+    return () => clearTimeout(timer);      // 最后一个读者离开时调用
+  });
+  get now() { this.#subscribe(); return this.#now; }
+}
+```
+
+页面上十几个倒计时读同一个 `clock.now`，对齐到整秒一起跳；离开有倒计时的页面，定时器自动停。
+
+### 9.3 `$effect.root`：store 之间的联动
+
+草稿属于写它的人：登出、换账号时清空。这是两个全局单例之间的关系，不属于任何组件，所以在 `draft.svelte.ts` 的模块顶层用 `$effect.root` 建一个常驻的 effect：
+
+```ts
+$effect.root(() => {
+  let prev = untrack(() => authStore.user?.id);
+  $effect(() => {
+    const id = authStore.user?.id;
+    untrack(() => { if (prev && id !== prev) draft.reset(); prev = id; });
+  });
+});
+```
+
+### 9.4 ⚠️ `.svelte.ts` 必须带 `.ts` 后缀导入
+
+`import { authStore } from "@/stores/auth.svelte"` 与 `"@/stores/auth.svelte.ts"` 会被 Vite 当成两个不同的模块 id，单例就变成了两个实例（一处登录、另一处看不到）。全项目统一写 `.svelte.ts`（`tsconfig` 打开了 `allowImportingTsExtensions`）。
 
 ### 9.5 并发请求的「序列号」模式
 
 ```ts
-// stores/plaza.svelte.ts
-class PlazaStore {
-  #fetchSeq = 0;
-
-  async fetch() {
-    const myId = ++this.#fetchSeq;
-    this.loading = true;
-    const data = await api.plaza({ sort: this.sort, ... });
-    if (myId !== this.#fetchSeq) return;    // 我已经被新请求淘汰了
-    this.items = data.items;
-    this.loading = false;
-  }
+async fetchList() {
+  const my = ++this.#listSeq;
+  const data = await api.plaza(…);
+  if (my !== this.#listSeq) return;     // 期间又发了新请求：这次的结果作废
+  this.items = data.items;
 }
 ```
 
-用户快速切 sort/filter 时连发好几个请求，网络响应顺序不确定。`#fetchSeq` 保证「只有最后发起的那个请求才能写状态」，避免老结果覆盖新结果。
+广场列表与数量、AI 推荐、输码查询（`generation` + `pending`）、「我的」列表（删除时把 `seq` 加一，作废进行中的「加载更多」）都用这个模式。
 
-## 11. 工具库：`lib/` 里的 Runes 工具
+## 10. 页面逻辑层：`state/*.svelte.ts`
 
-### 10.1 `createCountdown`：每秒倒计时
+| 文件 | 做什么 | 值得看的写法 |
+|---|---|---|
+| `code-open.svelte.ts` | 凭码开启 | 输满 8 位自动查询；`input()` 作废旧查询；`pending === code` 防重复；构造函数里 `$effect(() => () => gen++)` 离页作废 |
+| `capsule.svelte.ts` | 取数、`expired`、`awaitOpened(signal)` | `expired` 是读 `clock.now` 的 `$derived`；登录态变了重取（`favoritedByMe` 会变） |
+| `create-form.svelte.ts` | 草稿字段、校验、AI 推荐与代笔、封存 | 字段是 getter / setter：写入时清错误、打断 AI 打字；提交前记下 `revision`，成功后草稿没再改过才清空 |
+| `account.svelte.ts` | 登录、注册、资料、改密码、「我的」列表 | 字段错误映射：409 才标昵称「已被占用」；请求途中改了昵称就不再标；`MyList.loadMore` 按已显示条数推算下一页并按 id 去重 |
+| `plaza-home.svelte.ts` | 首页刷新、到点刷新、热度榜、页码 | `due` 是 `$derived`，变真时 effect 刷新整页 |
+
+### 10.1 详情页：倒数归零 → 等服务端确认
 
 ```ts
-// lib/countdown.svelte.ts
-export function createCountdown(active: () => boolean) {
-  let now = $state(Date.now());
-
-  $effect(() => {
-    if (!active()) return;                           // 已开启的胶囊不 setInterval
-    const t = setInterval(() => { now = Date.now(); }, 1000);
-    return () => clearInterval(t);                  // effect 清理
-  });
-
-  return { get now() { return now; } };             // 暴露 getter 而非直接暴露 state
-}
-```
-
-在组件里用：
-
-```svelte
-<script lang="ts">
-  const cd = createCountdown(() => !opened);
-  const left = $derived(countdownTo(capsule.openAt, cd.now));
-</script>
-
-<p>还剩 {left.days} 天 {left.hours} 时 {left.minutes} 分 {left.seconds} 秒</p>
-```
-
-`active` 是函数而非值，因为 `$effect` 需要在每次运行时读取最新状态来决定是否追踪。已开启 (`opened = true`) 时 `active()` 返回 `false`，`$effect` 直接 return，不创建 interval。
-
-### 10.2 `createDebounced`：防抖
-
-```ts
-// lib/debounce.svelte.ts
-export function createDebounced<T>(source: () => T, delay: number) {
-  let value = $state<T>(source());
-
-  $effect(() => {
-    const v = source();                              // 追踪 source 的变化
-    const t = setTimeout(() => { value = v; }, delay);
-    return () => clearTimeout(t);
-  });
-
-  return { get value() { return value; } };
-}
-```
-
-在 `PlazaToolbar` 里搜索框输入后 300ms 才触发请求：
-
-```svelte
-const debouncedQ = createDebounced(() => rawQ, 300);
-$effect(() => { plazaStore.setQ(debouncedQ.value); });
-```
-
-### 10.3 `clickOutside`：Svelte action
-
-```ts
-// lib/clickOutside.ts
-export function clickOutside(
-  node: HTMLElement,
-  opts: { handler: () => void; active: () => boolean }
-) {
-  function handle(e: MouseEvent) {
-    if (opts.active() && !node.contains(e.target as Node)) {
-      opts.handler();
-    }
-  }
-  document.addEventListener("click", handle, true);
-  return {
-    destroy() { document.removeEventListener("click", handle, true); }  // 卸载时清理
-  };
-}
-```
-
-用法：
-
-```svelte
-<div use:clickOutside={{ handler: close, active: () => menuOpen }}>
-  ...
-</div>
-```
-
-Svelte action 是「DOM 生命周期的副作用函数」：挂载时 Svelte 调用它，卸载时调 `destroy()`。比在 `$effect` 里手动 `addEventListener` 更封装，比组合式钩子更轻量。
-
-## 12. 页面层：几个典型模式
-
-### 11.1 数据拉取页（PlazaPage / MeCreatedPage）
-
-```svelte
-<script lang="ts">
-  let items = $state<CapsuleListItem[]>([]);
-  let page = $state(1);
-
-  $effect(() => {
-    page;                     // 读 page → 追踪 page
-    void load();              // page 变化时重新加载
-  });
-
-  async function load() {
-    const r = await api.myCapsules(page, PAGE_SIZE);
-    items = r.items;
-  }
-</script>
-```
-
-- `page;` 这一行孤零零地读 `page` 变量，唯一目的是**让 `$effect` 追踪 page**。这是 Svelte 5 里常见的「显式追踪」写法。
-
-### 11.2 受控表单（LoginPage / CreatePage）
-
-```svelte
-<script lang="ts">
-  let email = $state("");
-  let busy = $state(false);
-  let err = $state<string | null>(null);
-
-  async function submit(e: SubmitEvent) {
-    e.preventDefault();                             // 阻止浏览器整页 POST
-    err = null;
-    busy = true;
+awaitOpened = async (signal: AbortSignal) => {
+  const my = this.#gen;
+  for (let i = 0; my === this.#gen && !signal.aborted; i++) {
     try {
-      const tokens = await api.login({ email: email.trim(), password });
-      authStore.setTokens(tokens);
-      navigate(from ?? "/me/created", { replace: true });
-    } catch (e2) {
-      err = e2 instanceof ApiError ? e2.message : "登录失败";
-    } finally {
-      busy = false;
+      const d = await api.capsuleByCode(this.code);
+      if (my !== this.#gen || signal.aborted) return null;
+      if (d.isOpened) { this.capsule = d; return d; }
+    } catch (e) {
+      if (my !== this.#gen || signal.aborted) return null;
+      if (e instanceof ApiError && e.status === 404) { this.status = "missing"; return null; }
     }
+    await sleep(Math.min(1000 * (i + 1), 5000));
   }
-</script>
-
-<input bind:value={email} />   <!-- bind:value 等效于 Vue v-model / React value+onChange -->
-<button disabled={busy}>登录</button>
+  return null;
+};
 ```
 
-`bind:value={email}` 是 Svelte 的双向绑定语法糖：等效于 `value={email} oninput={(e) => email = e.currentTarget.value}`。
+本机时钟可能比服务端快几秒，接口仍返回未开启——隔一会儿再问（1s、2s…最多 5s 一次）。开启动画归视图所有：视图在 `expired` 变真时创建 `AbortController` 播动画，`$effect(() => () => task?.abort())` 保证换皮肤、离开页面时取消。只有服务端确认 `isOpened` 后才换成信笺。加载失败显示「暂时无法加载」与重试按钮，404 显示 `detail-not-found`。
 
-### 11.3 Snippet 传递（MeCreatedPage 自定义卡片操作）
+## 11. 附件与小工具：可复用的小行为
 
-```svelte
-<!-- MeCreatedPage.svelte -->
-<CapsuleGrid {items} {loading}>
-  {#snippet card(c)}
-    <div style:display="flex" style:align-items="center" style:gap="var(--space-2)">
-      {#if c.isOpened}
-        <span>♥ {fmtNumber(c.favoriteCount)}</span>
-      {/if}
-      <button onclick={() => withdraw(c.id)}>
-        {c.isOpened ? "删除" : "撤回"}
-      </button>
-    </div>
-  {/snippet}
-</CapsuleGrid>
+`lib/attach.ts` 里的附件（`{@attach …}`）：
+
+| 附件 | 用在 | 做什么 |
+|---|---|---|
+| `slider(item, thumb, deps, hideWhenNone)` | 分段控件、「我的」页签、琥珀顶栏 | 量出当前项的位置，让滑块对齐过去；第一次不带过渡；`deps()` 里读到的值变了就重量，窗口尺寸变化、字体晚到也重量 |
+| `slashFocus` | 广场搜索框 | 按 `/` 聚焦 |
+| `countUp(to, from, format)` | 时笺年鉴 | 进入视口时从 from 数到 to，直接写元素文字；减少动效时直接显示终值 |
+| `portal` | 时笺封缄仪式 | 把元素挪到 `<body>` 下（不受 `#view` 层叠上下文限制）；只用在块里单根的元素上 |
+| `autofocus(delay)` | 表单首个字段、创建页标题 | 等入场动画再聚焦，不抢用户已经聚焦的控件 |
+| 行内附件 | 琥珀星空画布 | `{@attach (c) => ui.skin === "amber" ? startSky(c, ui.theme !== "light") : undefined}`：换皮肤 / 明暗先停掉上一轮再重画 |
+
+`lib/motion.svelte.ts` 的 `useShake(() => source)`：值变了就亮 480ms，视图加 `is-shake`（挂载时的初值不算）。
+
+## 12. 视图层：皮肤与组件
+
+### 12.1 一个页面的三层
+
+```
+pages/CreatePage.svelte          provideCreateForm()，按皮肤二选一
+  ├── skins/paper/PaperCreatePage.svelte    useCreateForm()：信笺 + 封缄台 + 长按封缄 + 封缄仪式
+  └── skins/amber/AmberCreatePage.svelte    useCreateForm()：表单卡 + 实时预览 + 封存回执
 ```
 
-Snippet 让父组件「注入」一段 UI 到子组件指定的槽位，而不需要子组件知道具体逻辑。`CapsuleGrid` 的 `{@render card?.(c)}` 负责在每张卡片上调用这段注入的 UI。
+视图只管长相：结构与类名照 2.0 原型（`2.0版原型byClaude-合集/<skin>/view-*.js`），数据与动作都来自 context 里的状态。Svelte 组件不产生宿主元素，模板里写什么，DOM 就是什么——原型的选择器（`.almanac__cell + .almanac__cell`、`.code__cell:nth-child(n)`）原样生效。
 
-## 13. 工具层：`utils/format.ts` 等
+### 12.2 表单字段：`$bindable` + 片段
 
-纯函数，没有 Svelte 依赖，可以直接 import 用：
+`FormField.svelte` 一份逻辑、两种外框（时笺是下划线信笺栏，琥珀是带图标的输入框）。值 `bind:value`，右侧小部件走 `trail` 片段，出错时自带 `field-error` 测试钩子并抖一下。`PasswordField` 包一层，`trail` 里放明文 / 密文切换的眼睛。
 
-```ts
-countdownTo(iso, now)          // 返回 { days, hours, minutes, seconds, expired }
-fmtDateTime(iso)               // 本地化日期时间字符串
-fmtNumber(n)                   // 数字格式化（千分位）
-localInputToIso(local)         // <input type="datetime-local"> 值 → ISO UTC
-isoToLocalInput(iso)           // 反向
-avatarUrl(avatarId)            // → "/static/avatars/<id>.svg"
-```
+### 12.3 确认框：组件 + props
 
-## 14. 样式层：Tailwind v4 + 设计令牌
+`confirmDialog({ title, body, mark, … })` 返回一个 Promise。`body` 是纯文本或 `{ component, props }`，`mark` 是 `{ component, props }`（时笺盖一枚朱文印，琥珀放一枚胶囊插画）。`DialogHost` 把它们当动态组件渲染：`<d.body.component {...d.body.props} />`。用户写的标题、胶囊码走插值，照常转义，不需要 `{@html}`。
 
-```css
-/* src/styles/index.css */
-@import "tailwindcss";
-@import "../../../../spec/styles/palette.css";   /* 色阶变量 --brand-500 等 */
-@import "../../../../spec/styles/tokens.css";    /* 语义令牌 --color-text-primary 等 */
-@import "../../../../spec/styles/cyber.css";     /* 共享类 cy-btn / cy-card / cy-capsule */
-@import "./layout.css";
-```
+### 12.4 输码框
 
-- `spec/styles/tokens.css` 是设计系统的**单一来源**。所有前端实现（React / Vue / Angular / Svelte / Solid）共用同一份。修改一次，五个前端同步生效。
-- 主题切换靠 `data-theme="dark" | "light"`：tokens.css 里用 `[data-theme="dark"] { --color-text-primary: ... }` 重写变量。
-- 组件用 **`cy-*` 共享类**（如 `cy-btn cy-btn--primary`），底层是 CSS 变量。**不允许直接写 `color: #ff00aa` 或用色阶变量 `--brand-500`**——这是为了保证多前端实现视觉一致和暗/亮主题正确切换。
-- Tailwind v4 主要用 utility 类做微调（间距、对齐）；一次性的微调用内联 `style:margin-top="var(--space-4)"` 语法（Svelte 特有的简写，等效于 `:style="{ marginTop: 'var(--space-4)' }"`）。
+- 时笺：8 个真实输入框（四四分组）。粘贴、自动填充或一次填入整码会分发到各格；格子从路由状态的 `value` 初始化，任何一格的编辑凑满 8 位就提交。
+- 琥珀：8 个展示格 + 一个盖在上面的透明原生输入框（键盘、粘贴、输入法都交给它）。一次进来一整串 8 位码时从头填，不接在已有的几位后面。
 
-## 15. 常见改动指南
+### 12.5 测试钩子
 
-| 想做什么 | 改哪里 |
+所有关键元素带 `spec/ui/testids.md` 规定的 `data-testid` 与 `data-state` / `data-value` / `data-count` 等状态属性。新增元素时先查这份清单，不要自己发明。
+
+## 13. 工具层：`lib/`
+
+| 文件 | 内容 |
 |---|---|
-| 加一个新页面 | ① `src/pages/XxxPage.svelte` 写组件；② `src/App.svelte` 加 `<Route path="..." ...>` |
-| 加一个登录后才能访问的页面 | 同上，但在 Route 内容里套 `<AuthGate>` |
-| 加一个 API 端点 | ① `src/types/index.ts` 加请求/响应类型；② `src/api/client.ts` 在 `api` 对象里加方法 |
-| 加一个跨组件状态域 | `src/stores/xxx.svelte.ts` 写 class，`export const xxxStore = new XxxStore()` |
-| 加一个可复用 UI | `src/components/Xxx.svelte` 写组件，接受 `$props()` |
-| 自定义某个列表的卡片操作 | 向 `CapsuleGrid` 传 `{#snippet card(c)} ... {/snippet}` |
-| 加一个全局样式 | 优先到 `spec/styles/cyber.css` 加 `cy-*` 类；只服务本前端的放 `src/styles/layout.css` |
-| 加一个表单字段 | 在组件里加 `let xxx = $state("")` + `<input bind:value={xxx}>` |
-| 改 API 代理目标 | `BACKEND_PROXY=http://localhost:29010 ./run` |
-| 改主题色 / 间距 | 修改 `spec/styles/tokens.css` 的 CSS 变量，所有前端同步生效 |
-| 需要防抖的输入 | `const db = createDebounced(() => rawVal, 300ms)` → 读 `db.value` |
-| 需要每秒倒计时 | `const cd = createCountdown(() => !opened)` → 读 `cd.now` |
-| 在模板里检测「点击外部」 | `use:clickOutside={{ handler: close, active: () => menuOpen }}` |
+| `fmt.ts` | 时间与数字的说法（与原型的 `HT.fmt` 一致）、农历、倒计时、等待进度、`reducedMotion`、`focusIfIdle`、`addCalendarYears` |
+| `schedule.ts` | 开启时间上下限（≥ 此刻 + 61 秒，≤ 10 个日历年）、预设、校验文案 |
+| `account.ts` | 邮箱、昵称（Unicode 字母数字、下划线、连字符，2–20）、密码规则 |
+| `avatars.ts` | 构建期用 `import.meta.glob` 内联 `spec/avatars/v2/*.svg` |
+| `palette.ts` | 由胶囊码算出专属色（琥珀卡片与插画） |
+| `icons.ts` · `about.ts` | 线性图标路径；关于页与页脚的文字和前端技术栈 |
+| `redirect.ts` | `safeRedirect`（只接受站内路径）、`loginPath` |
+| `nav.ts` | 导航项、`data-route`、页面标题、`redirect()` |
 
-## 16. Svelte 5 vs React vs Vue 对照表
+## 14. 样式层：spec/styles
 
-| 概念 | Svelte 5 | React | Vue 3 |
-|---|---|---|---|
-| 响应式状态 | `let x = $state(v)` | `const [x, setX] = useState(v)` | `const x = ref(v)` |
-| 更新状态 | `x = newVal` | `setX(newVal)` | `x.value = newVal` |
-| 推导值 | `$derived(expr)` | `useMemo(() => expr, [deps])` | `computed(() => expr)` |
-| 副作用 | `$effect(() => { ... })` | `useEffect(() => { ... }, [deps])` | `watchEffect(() => { ... })` |
-| 副作用清理 | `$effect` 返回函数 | `useEffect` 返回函数 | `watchEffect` 返回的 stop / `onUnmounted` |
-| 依赖追踪 | 自动（编译期分析） | 手动声明 `[deps]` | 自动（运行期 Proxy）|
-| 接受 props | `let { x } = $props()` | `function Comp({ x })` | `const { x } = defineProps()` |
-| 子内容注入 | `{#snippet name()} ... {/snippet}` | `render prop` / `children` | `<template #name>` |
-| DOM 生命周期副作用 | Svelte action `use:fn` | `useEffect` + `ref` | `v-directive` 自定义指令 |
-| 跨组件状态 | `.svelte.ts` class 单例 | Zustand / Context | Pinia |
-| 路由 | svelte-routing | React Router | Vue Router |
+`src/styles/index.css` 引入 `@fontsource` 自托管字体，再按「base → 时笺三件 → 琥珀三件 → shell」的顺序引入 `spec/styles`。本前端只有两条样式胶水，写在用到它们的组件的 `<style>` 里：`App.svelte` 的 `:global(#app) { display: contents }`，`ListMore.svelte` 的「加载更多」居中。令牌检查会扫描 `.css` 文件与 `.svelte` 的 `<style>`：只能引用 `base.css` 刻度与语义令牌，不能写色值。
 
-## 17. 学到这里之后
+想改长相：改 `spec/styles/<skin>/*.css`（所有实现一起受益），并在原型里两套皮肤、明暗都看一遍。
 
-读到这里，你已经掌握了现代 Svelte 5 SPA 最常见的部分：Runes（`$state / $derived / $effect / $props`）、组件与 Snippet、svelte-routing、fetch 封装 + 自动 refresh、`.svelte.ts` class 单例、CSS 变量主题。
+## 15. 测试
+
+- 单元测试（vitest + happy-dom，`./test`）：
+  - `lib/lib.test.ts`：时间说法、日历年上限（含 2 月 29 日）、专属色确定性、登录回跳
+  - `lib/account.test.ts`：邮箱、昵称、密码的校验规则
+  - `api/client.test.ts`：refresh 单飞与重放
+  - `stores/stores.test.ts`：草稿随登出 / 换账号清空、同一人刷新资料不清、`revision`；注册表单的 409 / 422 映射与「请求途中改了昵称」
+  - 测试里用 `flushSync()` 让 effect 立刻跑完；`vitest.config.ts` 用 svelte 插件编译 `.svelte.ts`，并加了 `resolve.conditions: ["svelte", "browser"]`（svelte-routing 只声明了 `svelte` 条件）
+- UI 冒烟（Playwright，`verification/ui`）：44 条用例 × 两套皮肤，靠测试钩子定位；`SKINS=paper` 可只跑一套。
+
+## 16. 常见改动指南
+
+- **新增一个页面**：在 `state/` 写状态类与 `createContext`（需要的话）→ 在 `pages/` 写路由页（创建状态、按皮肤 `{#if}`）→ 在 `skins/paper` 与 `skins/amber` 各写一份视图（照原型的结构与类名）→ 在 `App.svelte` 加 `<Route>`（需要登录就包 `<AuthGate>`），在 `lib/nav.ts` 加标题 → 按 `spec/ui/testids.md` 加测试钩子。
+- **新增一个接口**：先改 `spec/api/openapi.yaml` → 在 `types/` 加类型 → 在 `api/client.ts` 加方法 → 在状态类或 store 里调用。
+- **新增一份要跨皮肤保留的状态**：页面内的放进该页的状态类；要跨页面保留的放进 `stores/` 单例。
+- **调整视觉**：改 `spec/styles`，不要在组件里写样式。
+
+## 17. Svelte vs React vs Vue vs Angular 对照
+
+| 概念 | React | Vue | Angular | Svelte |
+|---|---|---|---|---|
+| 局部状态 | `useState` | `ref` / `reactive` | `signal` | `$state` |
+| 推导值 | `useMemo` | `computed` | `computed` | `$derived` |
+| 外部驱动、本地可改 | `useState` + `useEffect` | `ref` + `watch` | `linkedSignal` | 可写 `$derived` |
+| 副作用 | `useEffect` | `watch` / `watchEffect` | `effect` | `$effect` |
+| 双向绑定 | 受控组件 | `v-model` / `defineModel` | `model()` + `[(x)]` | `$bindable` + `bind:` |
+| 子树共享 | Context | `provide` / `inject` | 组件级 provider | `createContext` |
+| 内容分发 | `children` / props | 插槽 | 内容投影 | 片段 `{#snippet}` / `{@render}` |
+| 复用 DOM 行为 | 自定义 Hook + ref | 指令 / 组合式函数 | 指令 | 附件 `{@attach}` |
+| 重建子树 | `key` | `:key` | 结构型指令 | `{#key}` |
+| 全局状态 | Zustand | Pinia | NgRx Signal Store | `.svelte.ts` class 单例 |
+
+## 18. 学到这里之后
+
+读到这里，你已经掌握了 Svelte 5 应用最常见的 80%：Runes（含 class 字段、可写推导、`$effect.root`、`untrack`）、`$props` 与 `$bindable`、模板控制流与 `{#key}`、片段、附件、context、`createSubscriber`、函数绑定，以及 svelte-routing 的平铺路由与守卫。
 
 下一步建议：
 
-- 翻 `src/pages/CreatePage.svelte`（最复杂的页面），跟读「填表单 → 调 AI 建议 → 提交 → 跳详情」整条路径。
-- 在 `plazaStore.fetch()` 加 `console.log`，切换 sort/filter 观察「序列号丢弃旧请求」的行为。
-- 比较一下 `frontends/react-ts` 或 `frontends/vue3-ts` 的同名页面，理解相同 UI 在 React Hooks / Vue Composition API 下怎么写——这是这个项目最大的价值。
+- 从 `state/create-form.svelte.ts` 跟读「填表 → AI 代笔 → 长按封缄 → 封缄仪式」整条路径，再对照两套创建页视图。
+- 在 `pages/LoginPage.svelte` 的 `provideLogin()` 处打断点，切换皮肤，观察它没有被再次调用。
+- 对照 `frontends/react-ts`、`frontends/vue3-ts`、`frontends/angular` 的同名页面：Hook、组合式函数、组件级 provider、状态类 + context 四种「共享页面逻辑」的写法，是这个项目最大的价值。
 
-之后可以再深入研究 Svelte 5 的进阶主题：`$bindable()`（子组件可写的 prop）、Svelte stores 兼容层（`.svelte.ts` 是 Svelte 5 推荐的替代方案）、Svelte 5 的细粒度响应性原理（编译期代码转换）、SvelteKit 全栈框架（本项目用 Vite 纯 SPA 模式，没有用 SvelteKit）。本项目刻意保持极简，把这些留给后续。
+之后可以再深入：SvelteKit（文件路由、服务端渲染、`load` 函数）、`svelte/transition` 与 `animate:` 指令、`$inspect` 调试、`<svelte:boundary>` 错误边界与异步 `await` 表达式。本项目刻意保持极简，把这些留给后续。
