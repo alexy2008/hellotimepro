@@ -26,7 +26,9 @@ std::string nickname(const std::optional<std::string> &value);
 std::string avatarFormat(const std::optional<std::string> &value);
 std::string title(const std::optional<std::string> &value);
 std::string content(const std::optional<std::string> &value);
-int64_t openAt(const std::optional<std::string> &value);  // 返回 UTC 微秒
+int64_t openAt(const std::optional<std::string> &value, int64_t now);
+std::string capsuleId(const std::optional<std::string> &value, const std::string &field);
+std::optional<std::string> searchTerm(const std::optional<std::string> &value);
 void code(const std::string &value);
 void page(int64_t page, int64_t pageSize);
 }  // namespace validation

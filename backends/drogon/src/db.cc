@@ -64,9 +64,9 @@ std::string pgConnInfo(const std::string &url)
 
 std::string sqlitePath(const AppConfig &config)
 {
-    const std::string prefix = "sqlite://";
+    const std::string prefix = "sqlite:///";
     if (config.dbUrl.rfind(prefix, 0) == 0)
-        return config.dbUrl.substr(prefix.size());  // sqlite:///abs → /abs
+        return config.dbUrl.substr(prefix.size());
     return config.absRepoRoot() + "/data/sqlite/hellotime-drogon.db";
 }
 }  // namespace

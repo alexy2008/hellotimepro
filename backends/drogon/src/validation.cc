@@ -3,6 +3,7 @@
 #include <regex>
 
 #include "api_error.h"
+#include "db.h"
 #include "iso_date.h"
 
 namespace validation
@@ -123,14 +124,40 @@ std::string content(const std::optional<std::string> &value)
     return *value;
 }
 
-int64_t openAt(const std::optional<std::string> &value)
+int64_t openAt(const std::optional<std::string> &value, int64_t now)
 {
     if (!value || value->empty())
         throw ApiError::validation("openAt 不能为空", "openAt");
     const auto t = iso_date::parse(*value);
     if (!t)
         throw ApiError::validation("openAt 必须是 ISO-8601 时间", "openAt");
+    if (*t <= iso_date::addSeconds(now, 60))
+        throw ApiError::validation("openAt 必须晚于当前时间 60 秒以上", "openAt");
+    if (*t > iso_date::addYearsUtc(now, 10))
+        throw ApiError::validation("openAt 不得超出当前时间 10 年", "openAt");
     return *t;
+}
+
+std::string capsuleId(const std::optional<std::string> &value, const std::string &field)
+{
+    if (value && *value == trim(*value))
+    {
+        if (auto id = normalizeUuid(*value))
+            return *id;
+    }
+    throw ApiError::validation("必须提供合法的胶囊 UUID", field);
+}
+
+std::optional<std::string> searchTerm(const std::optional<std::string> &value)
+{
+    if (!value)
+        return std::nullopt;
+    auto search = trim(*value);
+    if (search.empty())
+        return std::nullopt;
+    if (codepointCount(search) > 50)
+        throw ApiError::validation("q 长度不得超过 50", "q");
+    return search;
 }
 
 void code(const std::string &value)

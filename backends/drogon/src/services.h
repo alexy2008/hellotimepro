@@ -48,6 +48,8 @@ std::string generateCode();
 
 namespace plaza_service
 {
+drogon::Task<Json::Value> plazaStats(std::shared_ptr<AppState> state, std::optional<std::string> rawSearch);
+drogon::Task<Json::Value> myStats(std::shared_ptr<AppState> state, User user);
 drogon::Task<Json::Value> plazaList(std::shared_ptr<AppState> state, std::string sort,
                                     std::string filter, std::optional<std::string> q,
                                     int64_t page, int64_t pageSize,

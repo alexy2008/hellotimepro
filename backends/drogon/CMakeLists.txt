@@ -36,6 +36,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(drogon)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+  target_compile_options(trantor PRIVATE -Wno-error=unused-result)
+endif()
+
 find_package(OpenSSL REQUIRED)
 
 # ── OpenBSD bcrypt（自 backends/nest/node_modules/bcrypt 复制，ISC/BSD 许可） ──
@@ -72,6 +76,8 @@ target_link_libraries(hellotime-drogon PRIVATE hellotime_lib)
 
 add_executable(hellotime-drogon-tests tests/unit_tests.cc)
 target_link_libraries(hellotime-drogon-tests PRIVATE hellotime_lib)
+target_compile_definitions(hellotime-drogon-tests PRIVATE
+  HELLOTIME_TEST_SCHEMA="${CMAKE_CURRENT_SOURCE_DIR}/../../spec/db/schema.sqlite.sql")
 
 enable_testing()
 add_test(NAME hellotime-drogon-tests COMMAND hellotime-drogon-tests)

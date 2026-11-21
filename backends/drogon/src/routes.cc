@@ -158,7 +158,7 @@ void registerRoutes(std::shared_ptr<AppState> state)
         "/static/avatars/{file}",
         [state](HttpRequestPtr req, std::string file) -> Task<HttpResponsePtr> {
             co_return co_await guarded([&]() -> Task<HttpResponsePtr> {
-                co_return serveSpecFile(state, "spec/avatars", file);
+                co_return serveSpecFile(state, "spec/avatars/v2", file);
             });
         },
         {drogon::Get});
@@ -265,6 +265,15 @@ void registerRoutes(std::shared_ptr<AppState> state)
         },
         {drogon::Post});
     app.registerHandler(
+        "/api/v1/me/stats",
+        [state](HttpRequestPtr req) -> Task<HttpResponsePtr> {
+            co_return co_await guarded([&]() -> Task<HttpResponsePtr> {
+                const User user = co_await auth_context::requiredUser(state, req);
+                co_return envelope::ok(co_await plaza_service::myStats(state, user));
+            });
+        },
+        {drogon::Get});
+    app.registerHandler(
         "/api/v1/me/capsules",
         [state](HttpRequestPtr req) -> Task<HttpResponsePtr> {
             co_return co_await guarded([&]() -> Task<HttpResponsePtr> {
@@ -309,6 +318,14 @@ void registerRoutes(std::shared_ptr<AppState> state)
         {drogon::Get});
 
     // ── Plaza ────────────────────────────────────────────────────────────────
+    app.registerHandler(
+        "/api/v1/plaza/stats",
+        [state](HttpRequestPtr req) -> Task<HttpResponsePtr> {
+            co_return co_await guarded([&]() -> Task<HttpResponsePtr> {
+                co_return envelope::ok(co_await plaza_service::plazaStats(state, strParam(req, "q")));
+            });
+        },
+        {drogon::Get});
     app.registerHandler(
         "/api/v1/plaza/capsules",
         [state](HttpRequestPtr req) -> Task<HttpResponsePtr> {

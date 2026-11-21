@@ -29,7 +29,7 @@ struct LlmConfig
 struct AppConfig
 {
     std::string serviceName{"hellotime-pro"};
-    std::string serviceVersion{"0.1.0"};
+    std::string serviceVersion{"2.0.0"};
     std::string host{"0.0.0.0"};
     // hello CLI 不注入 PORT，默认端口必须直接是登记端口 29080（见 docs/dev-notes.md §6.5）。
     int port{29080};

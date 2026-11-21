@@ -1,4 +1,5 @@
 #include "repos.h"
+#include "api_error.h"
 
 using drogon::Task;
 using drogon::orm::DbClientPtr;
@@ -149,6 +150,17 @@ Task<std::optional<CapsuleView>> findById(const Db &db, DbClientPtr exec, std::s
     co_return mapView(r[0], false, false);
 }
 
+Task<std::optional<std::string>> lockOwnerId(const Db &db, DbClientPtr exec, std::string id)
+{
+    std::string sql = "SELECT owner_id FROM capsules WHERE id = ?";
+    if (!db.isSqlite())
+        sql += " FOR UPDATE";
+    const auto rows = co_await Db::query(exec, sql, {db.uuidValue(id)});
+    if (rows.empty())
+        co_return std::nullopt;
+    co_return row_get::uuid(rows[0], "owner_id");
+}
+
 Task<bool> existsByCode(const Db &db, DbClientPtr exec, std::string code)
 {
     auto r =
@@ -203,6 +215,15 @@ Task<int64_t> favoriteCountOf(const Db &db, DbClientPtr exec, std::string id)
 
 namespace
 {
+constexpr auto kOpenCounts = "COUNT(*) AS total, "
+    "COUNT(CASE WHEN c.open_at <= ? THEN 1 END) AS opened, "
+    "COUNT(CASE WHEN c.open_at > ? THEN 1 END) AS unopened";
+
+OpenCounts openCounts(const Row &row)
+{
+    return {row_get::i64(row, "total"), row_get::i64(row, "opened"), row_get::i64(row, "unopened")};
+}
+
 // WHERE 子句公共部分：in_plaza + filter + q。
 void plazaConditions(const Db &db, std::string &sql, std::vector<std::string> &params,
                      PlazaFilter filter, int64_t now,
@@ -222,13 +243,63 @@ void plazaConditions(const Db &db, std::string &sql, std::vector<std::string> &p
     }
     if (search)
     {
-        const std::string pattern = "%" + *search + "%";
-        sql += " AND (lower(c.title) LIKE ? OR lower(u.nickname) LIKE ?)";
+        std::string pattern = "%";
+        for (const auto ch : *search)
+        {
+            if (ch == '\\' || ch == '%' || ch == '_')
+                pattern += '\\';
+            pattern += ch;
+        }
+        pattern += '%';
+        sql += R"( AND (lower(c.title) LIKE lower(?) ESCAPE '\' OR lower(u.nickname) LIKE lower(?) ESCAPE '\'))";
         params.push_back(pattern);
         params.push_back(pattern);
     }
 }
 }  // namespace
+
+Task<OpenCounts> plazaCounts(const Db &db, DbClientPtr exec, int64_t now, std::optional<std::string> search)
+{
+    std::string sql = std::string("SELECT ") + kOpenCounts + " FROM capsules c JOIN users u ON u.id = c.owner_id";
+    std::vector<std::string> params{db.tsValue(now), db.tsValue(now)};
+    plazaConditions(db, sql, params, PlazaFilter::All, now, search);
+    const auto rows = co_await Db::query(exec, sql, params);
+    if (rows.empty())
+        throw ApiError::internal("广场统计未返回结果");
+    co_return openCounts(rows[0]);
+}
+
+Task<std::optional<int64_t>> farthestOpenAt(const Db &db, DbClientPtr exec)
+{
+    const auto rows = co_await Db::query(exec,
+        "SELECT open_at FROM capsules WHERE in_plaza = ? ORDER BY open_at DESC LIMIT 1",
+        {db.boolValue(true)});
+    if (rows.empty())
+        co_return std::nullopt;
+    co_return row_get::ts(rows[0], "open_at");
+}
+
+Task<std::optional<int64_t>> nextOpenAt(const Db &db, DbClientPtr exec, int64_t now)
+{
+    const auto rows = co_await Db::query(exec,
+        "SELECT open_at FROM capsules WHERE in_plaza = ? AND open_at > ? ORDER BY open_at LIMIT 1",
+        {db.boolValue(true), db.tsValue(now)});
+    if (rows.empty())
+        co_return std::nullopt;
+    co_return row_get::ts(rows[0], "open_at");
+}
+
+Task<OwnedCounts> ownedCounts(const Db &db, DbClientPtr exec, std::string ownerId, int64_t now)
+{
+    const std::string sql = std::string("SELECT ") + kOpenCounts +
+        ", COUNT(CASE WHEN c.in_plaza THEN 1 END) AS in_plaza, "
+        "COALESCE(SUM(c.favorite_count), 0) AS favorites_received FROM capsules c WHERE c.owner_id = ?";
+    const auto rows = co_await Db::query(exec, sql, {db.tsValue(now), db.tsValue(now), db.uuidValue(ownerId)});
+    if (rows.empty())
+        throw ApiError::internal("个人统计未返回结果");
+    co_return OwnedCounts{openCounts(rows[0]), row_get::i64(rows[0], "in_plaza"),
+                          row_get::i64(rows[0], "favorites_received")};
+}
 
 Task<int64_t> countPlaza(const Db &db, DbClientPtr exec, PlazaFilter filter, int64_t now,
                          std::optional<std::string> search)
@@ -295,14 +366,16 @@ Task<std::vector<CapsuleView>> findByOwnerPage(const Db &db, DbClientPtr exec,
                                                int64_t offset)
 {
     const std::string sql = std::string("SELECT ") + kViewColumns +
+                            ", (fv.user_id IS NOT NULL) AS favorited_by_me"
                             " FROM capsules c JOIN users u ON u.id = c.owner_id "
+                            "LEFT JOIN favorites fv ON fv.capsule_id = c.id AND fv.user_id = c.owner_id "
                             "WHERE c.owner_id = ? ORDER BY c.created_at DESC LIMIT " +
                             std::to_string(limit) + " OFFSET " + std::to_string(offset);
     auto r = co_await Db::query(exec, sql, {db.uuidValue(ownerId)});
     std::vector<CapsuleView> views;
     views.reserve(r.size());
     for (const auto &row : r)
-        views.push_back(mapView(row, false, false));
+        views.push_back(mapView(row, true, false));
     co_return views;
 }
 

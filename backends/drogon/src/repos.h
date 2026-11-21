@@ -48,8 +48,23 @@ namespace repo_capsules
 using drogon::Task;
 using drogon::orm::DbClientPtr;
 
+struct OpenCounts
+{
+    int64_t all;
+    int64_t opened;
+    int64_t unopened;
+};
+
+struct OwnedCounts
+{
+    OpenCounts states;
+    int64_t inPlaza;
+    int64_t favoritesReceived;
+};
+
 Task<std::optional<CapsuleView>> findByCode(const Db &db, DbClientPtr exec, std::string code);
 Task<std::optional<CapsuleView>> findById(const Db &db, DbClientPtr exec, std::string id);
+Task<std::optional<std::string>> lockOwnerId(const Db &db, DbClientPtr exec, std::string id);
 Task<bool> existsByCode(const Db &db, DbClientPtr exec, std::string code);
 Task<void> insert(const Db &db, DbClientPtr exec, Capsule capsule);
 Task<void> remove(const Db &db, DbClientPtr exec, std::string id);
@@ -61,6 +76,10 @@ Task<int64_t> favoriteCountOf(const Db &db, DbClientPtr exec, std::string id);
 
 Task<int64_t> countPlaza(const Db &db, DbClientPtr exec, PlazaFilter filter, int64_t now,
                          std::optional<std::string> search);
+Task<OpenCounts> plazaCounts(const Db &db, DbClientPtr exec, int64_t now, std::optional<std::string> search);
+Task<std::optional<int64_t>> farthestOpenAt(const Db &db, DbClientPtr exec);
+Task<std::optional<int64_t>> nextOpenAt(const Db &db, DbClientPtr exec, int64_t now);
+Task<OwnedCounts> ownedCounts(const Db &db, DbClientPtr exec, std::string ownerId, int64_t now);
 Task<std::vector<CapsuleView>> findPlazaPage(const Db &db, DbClientPtr exec,
                                              PlazaFilter filter, int64_t now,
                                              std::optional<std::string> search,

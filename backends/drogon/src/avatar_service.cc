@@ -5,7 +5,7 @@
 
 AvatarService::AvatarService(const AppConfig &config)
 {
-    const std::string path = config.absRepoRoot() + "/spec/avatars/catalog.json";
+    const std::string path = config.absRepoRoot() + "/spec/avatars/v2/catalog.json";
     std::ifstream in(path);
     if (!in)
         throw std::runtime_error("读取头像目录失败: " + path);

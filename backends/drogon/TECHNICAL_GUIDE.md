@@ -39,7 +39,7 @@ HelloTime Pro 是一个时间胶囊应用。Drogon 后端的职责是：
 - 处理注册、登录、JWT access token、refresh token 轮转（含令牌族追踪）。
 - 读写用户/胶囊/收藏/refresh token，并维护反规范化字段 `favorite_count`。
 - 在 PostgreSQL 和 SQLite 间无缝切换，同一份业务 SQL 两边都跑。
-- 暴露 `spec/avatars/*`、`spec/icons/*` 静态资源，提供 LLM 胶囊建议/推荐接口。
+- 暴露 `spec/avatars/v2/*.svg`、`spec/icons/*` 静态资源，提供 LLM 胶囊建议/推荐接口。
 
 核心目录：
 
@@ -98,9 +98,7 @@ cd backends/drogon
 ./build                                                  # 首次 4-5 分钟（编译 drogon 本体）
 ./run                                                    # DB_DRIVER=postgres（默认）
 DB_DRIVER=sqlite ./run                                   # SQLite，零外部依赖
-./test                                                   # 35 项单元测试
-../../verification/scripts/verify-contract.sh drogon         # 契约 104 用例（PG）
-DB_DRIVER=sqlite ../../verification/scripts/verify-contract.sh drogon
+./test                                                   # 单元与服务测试
 ```
 
 - **首次构建慢**：`CMakeLists.txt` 用 FetchContent 把 drogon 源码拉下来静态链接，第一次要编 4-5 分钟；
@@ -252,7 +250,7 @@ PG 文本结果与 SQLite 存储都以 `Field::as<std::string>()` 读出，再�
 
 C++ 标准库没有 UUID。`newUuid()` 用 `arc4random_buf` 取 16 字节、手动置 version 4 / variant 位、`snprintf`
 成带横线串；`normalizeUuid()` 接受 36 位（校验横线在 8-4-4-4-12 位置）或 32 位 hex，统一归一成带横线小写。
-非法返回 `std::nullopt`，调用方据此转 404。
+非法返回 `std::nullopt`；胶囊路径和收藏请求由 `validation::capsuleId` 转为 422，格式合法但查不到才返回 404（取消收藏仍是 204）。
 
 ## 7. 事务：异步析构提交的坑（必读）
 
@@ -409,10 +407,10 @@ catch 回滚 → awaitCommit**，正是这个后端处理写请求的标准姿�
 
 ## 14. 测试（./test）
 
-35 项纯函数断言（assert 风格，不引测试框架）：iso_date 解析变体（含 PG 短偏移）/格式往返/文本序、
+原有纯函数断言覆盖 iso_date 解析变体（含 PG 短偏移）/格式往返/文本序、
 UUID 归一化、validation 全规则、JWT 往返/过期/篡改、refresh token 形态、bcrypt 往返 + seed 向量互验、
 `?`→`$n` 转换、8 位码、LLM 围栏/花括号/浮点容忍、推荐去重钳位、标题清洗、码点截断。
-契约行为（104 用例）由 `verification/` 黑盒覆盖，不在单元层重复。
+2.0 服务测试使用内存 SQLite，验证字面搜索、统计、收藏和显式删除。独立双库契约各 117 条，隔离执行方式见 README。
 
 ## 15. 改代码从哪里下手
 

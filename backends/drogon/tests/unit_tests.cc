@@ -1,7 +1,8 @@
-// 纯函数层单元测试（无需数据库/网络）。普通 assert 风格，与 v1 一致不引测试框架。
+// 纯函数与服务测试；服务用例使用内存 SQLite，不启动 HTTP 服务。
 // 契约行为由 verification/contract 黑盒覆盖。
 
 #include <cassert>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -13,6 +14,7 @@
 #include "llm_client.h"
 #include "mapper.h"
 #include "recommendation_service.h"
+#include "repos.h"
 #include "security.h"
 #include "services.h"
 #include "suggestion_service.h"
@@ -45,10 +47,121 @@ bool throwsValidation(const std::function<void()> &f)
         return e.status == 422;
     }
 }
+
+std::shared_ptr<AppState> sqliteTestState()
+{
+    auto state = std::make_shared<AppState>();
+    state->config.dbDriver = "sqlite";
+    state->config.dbUrl = "sqlite:///:memory:";
+    state->db = Db::connect(state->config);
+    const auto connection = state->db->client();
+    std::ifstream schema(HELLOTIME_TEST_SCHEMA);
+    if (!schema)
+        throw std::runtime_error("无法读取测试 schema");
+    for (std::string statement; std::getline(schema, statement, ';');)
+    {
+        if (statement.find_first_not_of(" \t\r\n") != std::string::npos)
+            connection->execSqlSync(statement);
+    }
+    connection->execSqlSync("PRAGMA foreign_keys = OFF");
+    return state;
+}
+
+User insertUser(const std::shared_ptr<AppState> &state, const std::string &nickname)
+{
+    const auto now = iso_date::now();
+    User user;
+    user.id = newUuid();
+    user.email = user.id + "@example.test";
+    user.nickname = nickname;
+    user.passwordHash = "test";
+    user.avatarId = "neo";
+    user.createdAt = now;
+    user.updatedAt = now;
+    drogon::sync_wait(repo_users::insert(*state->db, state->db->client(), user));
+    return user;
+}
+
+std::string insertCapsule(const std::shared_ptr<AppState> &state, const User &owner,
+                          const std::string &title, int64_t openAt, bool inPlaza)
+{
+    const auto createdAt = iso_date::addSeconds(openAt, -3600);
+    Capsule capsule{newUuid(), owner.id, capsule_service::generateCode(), title, "test",
+                    openAt, inPlaza, 0, createdAt, createdAt};
+    drogon::sync_wait(repo_capsules::insert(*state->db, state->db->client(), capsule));
+    return capsule.id;
+}
+
+void checkCapsuleRules()
+{
+    const auto state = sqliteTestState();
+    const auto empty = drogon::sync_wait(plaza_service::plazaStats(state, std::nullopt));
+    check(empty["counts"]["all"].asInt64() == 0 && empty.isMember("nextOpenAt") &&
+          empty["nextOpenAt"].isNull() && empty.isMember("farthestOpenAt") &&
+          empty["farthestOpenAt"].isNull(), "plaza: 空统计与显式 null");
+
+    const auto owner = insertUser(state, "Writer_One");
+    const auto other = insertUser(state, "WriterXOne");
+    const auto now = iso_date::now();
+    const auto next = iso_date::addSeconds(now, 3600);
+    const auto farthest = iso_date::addSeconds(now, 7200);
+    insertCapsule(state, owner, "Report%_\\", iso_date::addSeconds(now, -3600), true);
+    insertCapsule(state, other, "Other title", next, true);
+    insertCapsule(state, other, "ReportXYZ", farthest, true);
+    const auto privateId = insertCapsule(state, owner, "Report%_\\", iso_date::addSeconds(now, 10800), false);
+    bool searchAgrees = true;
+    for (const std::string search : {"  REPORT%_\\  ", "\\", "%", "_", "WRITER_ONE"})
+    {
+        const auto stats = drogon::sync_wait(plaza_service::plazaStats(state, search));
+        searchAgrees = searchAgrees && stats["nextOpenAt"].asString() == iso_date::jsonString(next) &&
+            stats["farthestOpenAt"].asString() == iso_date::jsonString(farthest);
+        for (const auto &filter : {"all", "opened", "unopened"})
+        {
+            const auto expected = std::string_view(filter) == "unopened" ? 0U : 1U;
+            const auto list = drogon::sync_wait(plaza_service::plazaList(state, "new", filter, search, 1, 20, std::nullopt));
+            searchAgrees = searchAgrees && stats["counts"][filter].asInt64() == expected &&
+                list["pagination"]["total"].asInt64() == expected && list["items"].size() == expected;
+        }
+    }
+    check(searchAgrees, "plaza: 字面搜索共用口径，时刻不受 q 影响");
+
+    check(throwsValidation([&] { drogon::sync_wait(capsule_service::getPlazaDetail(state, "invalid", std::nullopt)); }) &&
+          throwsValidation([&] { drogon::sync_wait(capsule_service::deleteOwn(state, owner, "invalid")); }) &&
+          throwsValidation([&] { drogon::sync_wait(favorite_service::removeFavorite(state, owner, "invalid")); }) &&
+          throwsValidation([&] { drogon::sync_wait(favorite_service::addFavorite(state, owner, "invalid")); }),
+          "validation: 非法胶囊 UUID 在请求体与路径均为 422");
+
+    const auto first = drogon::sync_wait(favorite_service::addFavorite(state, owner, privateId));
+    const auto again = drogon::sync_wait(favorite_service::addFavorite(state, owner, privateId));
+    drogon::sync_wait(favorite_service::addFavorite(state, other, privateId));
+    const auto mine = drogon::sync_wait(plaza_service::myCapsules(state, owner, 1, 20));
+    const auto favorites = drogon::sync_wait(plaza_service::myFavorites(state, other, 1, 20));
+    const auto stats = drogon::sync_wait(plaza_service::myStats(state, owner));
+    check(first["favoriteCount"].asInt64() == 1 && first == again &&
+          mine["items"][0]["favoritedByMe"].asBool() && mine["items"][0]["favoritedAt"].isNull() &&
+          !favorites["items"][0]["inPlaza"].asBool() && stats["created"].asInt64() == 2 &&
+          stats["unopened"].asInt64() == 1 && stats["inPlaza"].asInt64() == 1 &&
+          stats["favoritesReceived"].asInt64() == 2 && stats["favoritesGiven"].asInt64() == 1,
+          "favorites: 可收藏自己未公开的胶囊，幂等且统计一致");
+    drogon::sync_wait(capsule_service::deleteOwn(state, owner, privateId));
+    const auto ownerAfter = drogon::sync_wait(plaza_service::myStats(state, owner));
+    const auto otherAfter = drogon::sync_wait(plaza_service::myStats(state, other));
+    check(ownerAfter["created"].asInt64() == 1 && ownerAfter["favoritesReceived"].asInt64() == 0 &&
+          ownerAfter["favoritesGiven"].asInt64() == 0 && otherAfter["favoritesGiven"].asInt64() == 0 &&
+          state->db->client()->execSqlSync("SELECT * FROM favorites").empty(),
+          "favorites: 关闭 SQLite 外键时仍显式连带删除");
+}
 }  // namespace
 
 int main()
 {
+    checkCapsuleRules();
+    const auto leapNow = *iso_date::parse("2028-03-01T01:30:45.123+08:00");
+    check(throwsValidation([&] { validation::openAt("2028-02-29T17:31:45.123Z", leapNow); }) &&
+          validation::openAt("2028-02-29T17:31:45.124Z", leapNow) == iso_date::addSeconds(leapNow, 60) + 1000 &&
+          validation::openAt("2038-02-28T17:30:45.123Z", leapNow) == iso_date::addYearsUtc(leapNow, 10) &&
+          throwsValidation([&] { validation::openAt("2038-02-28T17:30:45.124Z", leapNow); }),
+          "validation: UTC 日历年及严格 60 秒下限");
     // ── iso_date ────────────────────────────────────────────────────────────
     {
         const auto t = iso_date::parse("2026-06-12T08:30:00.123Z");

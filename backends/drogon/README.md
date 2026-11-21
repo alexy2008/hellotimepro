@@ -74,10 +74,9 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
   `'0'/'1'`。读取同样文本化后由 `row_get` 按格式还原（能读回 PG `+00` 短偏移时间戳）。
 - **显式等待事务提交**（`Db::awaitCommit`）：drogon `Transaction` 析构是**异步**发 COMMIT，
   若不等待，响应可能先于提交发出，PG 连接池（8 连接）下一请求读不到刚写的数据——
-  这是双驱动 104 用例从"偶发挂"到"稳定绿"的关键一步。
+  因此写操作等提交落地后才返回。
 - **SQLite 连接数 1**：天然串行（对应 Axum 的池上限 1 / Vapor 的 FIFO 门闩）。
-- **收藏计数并发安全**：幂等 UPSERT（`ON CONFLICT DO NOTHING RETURNING`）判定是否真插入 +
-  原子 `favorite_count = favorite_count + 1`。
+- **收藏计数并发安全**：幂等 UPSERT 和原子更新维护计数；PostgreSQL 的收藏、取消与删除统一先锁胶囊行。
 - **refresh token 轮转 + 家族吊销**：outcome 枚举 + `awaitCommit` 后再转 401
   （吊销必须先提交）；Postgres 路径对 token 行加 `FOR UPDATE`。
 - **OpenBSD bcrypt**：源码复制自本仓库 nest 后端的 `node_modules/bcrypt`（ISC/BSD 许可，
@@ -90,13 +89,6 @@ DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
   网关瞬时错误重试 / CF-1010 UA / chat 风格跳过 `/responses` 等坑的处理
   （见 `docs/dev-notes.md §3`）。未配置时建议端点本地兜底、推荐端点返回空列表。
 
-## 验证
-
-```bash
-./verification/scripts/verify-contract.sh drogon                   # PostgreSQL，104/104
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh drogon  # SQLite，104/104
-```
-
 ## 注意事项
 
 - `hello start` 不注入 `PORT`，默认端口直接是登记端口 29080。
@@ -104,3 +96,22 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh drogon  # SQLite，10
 - std::regex 不支持 lookahead / `\p{L}`：密码改字符扫描；昵称改 UTF-8 码点扫描
   （ASCII 严格、非 ASCII 放行，比 Unicode 属性表略宽）。
 - 详细代码导读见 [TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)。
+
+## 2.0 验证
+
+2026-11-21，直接访问 Drogon 的 `:29080`，不经过共享反代。
+
+| 检查 | 数据库 | 结果 |
+|---|---|---|
+| `./test` | 涉及数据库的测试使用内存 SQLite | 41/41 项断言 |
+| `./verification/scripts/verify-contract.sh drogon` | 独立 PostgreSQL 库 `hellotime_contract_drogon_*` | 117/117 |
+| 同一契约脚本 | 独立临时 SQLite 文件 | 117/117 |
+
+`./build` 通过。复跑契约时须显式传入 `DB_DRIVER` 和独立库的 `DB_URL`；不适用 UI 冒烟和设计令牌检查。
+
+## 2.0 迁移笔记
+
+- 无 schema 迁移。统计复用列表的 WHERE 条件，按列语境绑定时间和 UUID；字面搜索转义在绑定参数内完成，不拼入 SQL。
+- UTC 日历年加法要显式回退闰日，否则 `timegm` 会把非闰年的 2 月 29 日进位到 3 月 1 日。
+- PostgreSQL 三条写路径都先锁胶囊行；删除显式清理收藏并等待 `Db::awaitCommit`，不在 `try` 中提前返回。SQLite 仍用单连接；回归测试关闭外键以验证不依赖级联。
+- 新版 AppleClang 会把上游 Trantor 忽略 `nodiscard` 返回值的告警提升为错误；CMake 仅对该依赖目标将 `unused-result` 保留为告警，未关闭业务代码告警。

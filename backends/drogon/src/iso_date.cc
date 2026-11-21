@@ -136,6 +136,8 @@ Micros addYearsUtc(Micros t, int years)
     std::tm tm{};
     gmtime_r(&seconds, &tm);
     tm.tm_year += years;
+    if (tm.tm_mon == 1 && tm.tm_mday == 29 && !std::chrono::year(tm.tm_year + 1900).is_leap())
+        tm.tm_mday = 28;
     const time_t shifted = timegm(&tm);
     return static_cast<int64_t>(shifted) * 1000000 + micros;
 }

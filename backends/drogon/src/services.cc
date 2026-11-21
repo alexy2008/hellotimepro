@@ -341,12 +341,8 @@ Task<Json::Value> create(std::shared_ptr<AppState> state, User owner, Json::Valu
 {
     const std::string title = validation::title(optStr(body, "title"));
     const std::string content = validation::content(optStr(body, "content"));
-    const int64_t openAt = validation::openAt(optStr(body, "openAt"));
     const int64_t now = iso_date::now();
-    if (openAt < iso_date::addSeconds(now, 60))
-        throw ApiError::validation("openAt 必须晚于当前时间 60 秒以上", "openAt");
-    if (openAt > iso_date::addYearsUtc(now, 10))
-        throw ApiError::validation("openAt 不得超出当前时间 10 年", "openAt");
+    const int64_t openAt = validation::openAt(optStr(body, "openAt"), now);
     const bool inPlaza = optBool(body, "inPlaza").value_or(true);
 
     auto trans = co_await state->db->transaction();
@@ -405,15 +401,13 @@ Task<Json::Value> getByCode(std::shared_ptr<AppState> state, std::string code,
     co_return mapper::detail(*view, favorited, iso_date::now());
 }
 
-// 广场详情：仅 inPlaza=true；非法 UUID / 不在广场 → 404。
+// 广场详情：仅 inPlaza=true；非法 UUID → 422，不在广场 → 404。
 Task<Json::Value> getPlazaDetail(std::shared_ptr<AppState> state, std::string idRaw,
                                  std::optional<std::string> viewerId)
 {
-    const auto id = normalizeUuid(idRaw);
-    if (!id)
-        throw ApiError::notFound("胶囊不存在");
+    const auto id = validation::capsuleId(idRaw, "id");
     auto client = state->db->client();
-    const auto view = co_await repo_capsules::findById(*state->db, client, *id);
+    const auto view = co_await repo_capsules::findById(*state->db, client, id);
     if (!view || !view->capsule.inPlaza)
         throw ApiError::notFound("胶囊不存在");
     const bool favorited = co_await isFavorited(state, client, viewerId, view->capsule.id);
@@ -423,19 +417,17 @@ Task<Json::Value> getPlazaDetail(std::shared_ptr<AppState> state, std::string id
 // 删除自己的胶囊（无论是否到期）；连同收藏关系一起删。
 Task<void> deleteOwn(std::shared_ptr<AppState> state, User user, std::string idRaw)
 {
-    const auto id = normalizeUuid(idRaw);
-    if (!id)
-        throw ApiError::notFound("胶囊不存在");
+    const auto id = validation::capsuleId(idRaw, "id");
     auto trans = co_await state->db->transaction();
     try
     {
-        const auto view = co_await repo_capsules::findById(*state->db, trans, *id);
-        if (!view)
+        const auto ownerId = co_await repo_capsules::lockOwnerId(*state->db, trans, id);
+        if (!ownerId)
             throw ApiError::notFound("胶囊不存在");
-        if (view->capsule.ownerId != user.id)
+        if (*ownerId != user.id)
             throw ApiError::forbidden("无权删除他人胶囊");
-        co_await repo_favorites::removeByCapsule(*state->db, trans, *id);
-        co_await repo_capsules::remove(*state->db, trans, *id);
+        co_await repo_favorites::removeByCapsule(*state->db, trans, id);
+        co_await repo_capsules::remove(*state->db, trans, id);
     }
     catch (...)
     {
@@ -472,25 +464,7 @@ Task<Json::Value> plazaList(std::shared_ptr<AppState> state, std::string sort,
     else
         throw ApiError::validation("filter 仅支持 all/opened/unopened", "filter");
 
-    // q：trim 后为空视为未传；超 50 → 422；大小写不敏感子串匹配。
-    std::optional<std::string> search;
-    if (q)
-    {
-        std::string s = *q;
-        const auto begin = s.find_first_not_of(" \t\r\n");
-        const auto end = s.find_last_not_of(" \t\r\n");
-        s = begin == std::string::npos ? "" : s.substr(begin, end - begin + 1);
-        if (!s.empty())
-        {
-            if (validation::codepointCount(s) > 50)
-                throw ApiError::validation("q 长度不得超过 50", "q");
-            // 仅 ASCII 小写化（DB 端 lower() 行为跨库一致也仅 ASCII）。
-            std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
-                return c < 0x80 ? std::tolower(c) : c;
-            });
-            search = s;
-        }
-    }
+    const auto search = validation::searchTerm(q);
     const int64_t now = iso_date::now();
 
     auto client = state->db->client();
@@ -503,6 +477,39 @@ Task<Json::Value> plazaList(std::shared_ptr<AppState> state, std::string sort,
     for (const auto &v : rows)
         items.append(mapper::listItem(v, now));
     co_return mapper::paginated(std::move(items), total, page, pageSize);
+}
+
+Task<Json::Value> plazaStats(std::shared_ptr<AppState> state, std::optional<std::string> rawSearch)
+{
+    const auto search = validation::searchTerm(rawSearch);
+    const int64_t now = iso_date::now();
+    const auto client = state->db->client();
+    const auto counts = co_await repo_capsules::plazaCounts(*state->db, client, now, search);
+    const auto farthest = co_await repo_capsules::farthestOpenAt(*state->db, client);
+    const auto next = co_await repo_capsules::nextOpenAt(*state->db, client, now);
+    Json::Value stats(Json::objectValue);
+    stats["counts"]["all"] = Json::Int64(counts.all);
+    stats["counts"]["opened"] = Json::Int64(counts.opened);
+    stats["counts"]["unopened"] = Json::Int64(counts.unopened);
+    stats["farthestOpenAt"] = farthest ? Json::Value(iso_date::jsonString(*farthest)) : Json::Value();
+    stats["nextOpenAt"] = next ? Json::Value(iso_date::jsonString(*next)) : Json::Value();
+    co_return stats;
+}
+
+Task<Json::Value> myStats(std::shared_ptr<AppState> state, User user)
+{
+    const int64_t now = iso_date::now();
+    const auto client = state->db->client();
+    const auto counts = co_await repo_capsules::ownedCounts(*state->db, client, user.id, now);
+    const auto given = co_await repo_capsules::countFavoritesByUser(*state->db, client, user.id);
+    Json::Value stats(Json::objectValue);
+    stats["created"] = Json::Int64(counts.states.all);
+    stats["opened"] = Json::Int64(counts.states.opened);
+    stats["unopened"] = Json::Int64(counts.states.unopened);
+    stats["inPlaza"] = Json::Int64(counts.inPlaza);
+    stats["favoritesReceived"] = Json::Int64(counts.favoritesReceived);
+    stats["favoritesGiven"] = Json::Int64(given);
+    co_return stats;
 }
 
 Task<Json::Value> myCapsules(std::shared_ptr<AppState> state, User user, int64_t page,
@@ -544,37 +551,32 @@ namespace favorite_service
 Task<Json::Value> addFavorite(std::shared_ptr<AppState> state, User user,
                               std::optional<std::string> capsuleIdRaw)
 {
-    const auto capsuleId = capsuleIdRaw ? normalizeUuid(*capsuleIdRaw) : std::nullopt;
-    if (!capsuleId)
-        throw ApiError::notFound("胶囊不存在");
+    const auto capsuleId = validation::capsuleId(capsuleIdRaw, "capsuleId");
 
     auto trans = co_await state->db->transaction();
     Json::Value result;
     try
     {
-        const auto view = co_await repo_capsules::findById(*state->db, trans, *capsuleId);
-        if (!view || !view->capsule.inPlaza)
+        if (!co_await repo_capsules::lockOwnerId(*state->db, trans, capsuleId))
             throw ApiError::notFound("胶囊不存在");
-        if (view->capsule.ownerId == user.id)
-            throw ApiError::badRequest("不能收藏自己创建的胶囊");
 
         const int64_t now = iso_date::now();
         const bool inserted = co_await repo_favorites::insertIgnore(
-            *state->db, trans, user.id, view->capsule.id, now);
+            *state->db, trans, user.id, capsuleId, now);
         int64_t favoritedAt = now;
         if (inserted)
             co_await repo_capsules::incrementFavoriteCount(*state->db, trans,
-                                                           view->capsule.id, now);
+                                                           capsuleId, now);
         else
         {
             // 幂等：已收藏时返回原收藏时间，计数不变。
             const auto existing =
-                co_await repo_favorites::find(*state->db, trans, user.id, view->capsule.id);
+                co_await repo_favorites::find(*state->db, trans, user.id, capsuleId);
             favoritedAt = existing.value_or(now);
         }
         const int64_t count =
-            co_await repo_capsules::favoriteCountOf(*state->db, trans, view->capsule.id);
-        result["capsuleId"] = view->capsule.id;
+            co_await repo_capsules::favoriteCountOf(*state->db, trans, capsuleId);
+        result["capsuleId"] = capsuleId;
         result["favoriteCount"] = Json::Int64(count);
         result["favoritedAt"] = iso_date::jsonString(favoritedAt);
     }
@@ -587,20 +589,21 @@ Task<Json::Value> addFavorite(std::shared_ptr<AppState> state, User user,
     co_return result;
 }
 
-// 取消收藏幂等：胶囊不存在/格式非法/原本未收藏都返回成功（204）。
+// 合法 UUID 取消收藏幂等：胶囊不存在/原本未收藏返回 204。
 Task<void> removeFavorite(std::shared_ptr<AppState> state, User user, std::string capsuleIdRaw)
 {
-    const auto capsuleId = normalizeUuid(capsuleIdRaw);
-    if (!capsuleId)
-        co_return;
+    const auto capsuleId = validation::capsuleId(capsuleIdRaw, "capsuleId");
     auto trans = co_await state->db->transaction();
     try
     {
-        const bool deleted =
-            co_await repo_favorites::remove(*state->db, trans, user.id, *capsuleId);
-        if (deleted)
-            co_await repo_capsules::decrementFavoriteCount(*state->db, trans, *capsuleId,
-                                                           iso_date::now());
+        if (co_await repo_capsules::lockOwnerId(*state->db, trans, capsuleId))
+        {
+            const bool deleted =
+                co_await repo_favorites::remove(*state->db, trans, user.id, capsuleId);
+            if (deleted)
+                co_await repo_capsules::decrementFavoriteCount(*state->db, trans, capsuleId,
+                                                               iso_date::now());
+        }
     }
     catch (...)
     {
