@@ -44,8 +44,11 @@ function update(raw: string, complete: boolean) {
 }
 
 function onInput(e: Event) {
-  if ((e as InputEvent).isComposing) return;
-  update((e.target as HTMLInputElement).value, true);
+  const ev = e as InputEvent;
+  if (ev.isComposing) return;
+  // 一次进来一整串码（粘贴、自动填充）：与时笺一样整码从头填，不接在已经输入的几位后面
+  const chunk = clean(ev.data ?? "");
+  update(chunk.length === 8 ? chunk : (e.target as HTMLInputElement).value, true);
 }
 function onFocus(e: FocusEvent) {
   focused.value = true;

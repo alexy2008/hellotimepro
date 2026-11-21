@@ -85,8 +85,11 @@ export function AmberCodeInput({ size = "", value, state, shake, onChange, onCom
         data-testid="code-input"
         value={value}
         onChange={(e) => {
-          if ((e.nativeEvent as InputEvent).isComposing) return;
-          const v = clean(e.target.value);
+          const ev = e.nativeEvent as InputEvent;
+          if (ev.isComposing) return;
+          // 一次进来一整串码（粘贴、自动填充）：与时笺一样整码从头填，不接在已经输入的几位后面
+          const chunk = clean(ev.data ?? "");
+          const v = chunk.length === 8 ? chunk : clean(e.target.value);
           onChange?.(v);
           if (v.length === 8) onComplete(v);
         }}
