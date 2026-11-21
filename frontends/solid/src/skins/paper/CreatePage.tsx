@@ -8,7 +8,7 @@
 
 import { For, Index, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
-import { clamp, fmt, focusIfIdle, pad2, reducedMotion, sleep } from "@/lib/fmt";
+import { clamp, fmt, focusIfIdle, pad2, readLimitedInput, reducedMotion, sleep } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { auth } from "@/stores/auth";
 import { Avatar } from "@/components/shared";
@@ -529,13 +529,12 @@ export function PaperCreatePage(props: { f: CapsuleForm }) {
               <input
                 ref={titleEl}
                 type="text"
-                maxLength={60}
                 autocomplete="off"
                 placeholder="给这封信起个标题"
                 aria-label="标题，最多 60 字"
                 data-testid="create-title"
                 value={d.title}
-                onInput={(e) => f.setTitle(e.currentTarget.value)}
+                onInput={(e) => f.setTitle(readLimitedInput(e.currentTarget, 60))}
               />
               <span class="sheet__n mono">
                 <b>{titleN()}</b>/60
@@ -574,13 +573,12 @@ export function PaperCreatePage(props: { f: CapsuleForm }) {
             <div class={`sheet__body${contentShake()}`}>
               <textarea
                 ref={contentEl}
-                maxLength={5000}
                 rows={9}
                 aria-label="正文，最多 5000 字"
                 placeholder={"在这里写下想传到未来的话。\n可以是此刻的天气、正在读的书、一个小小的许诺，\n或者只是一句：嘿，你还好吗？"}
                 data-testid="create-content"
                 value={d.content}
-                onInput={(e) => f.setContent(e.currentTarget.value)}
+                onInput={(e) => f.setContent(readLimitedInput(e.currentTarget, 5000))}
               />
               <div class="sheet__think" aria-hidden="true">
                 <i />
@@ -600,7 +598,7 @@ export function PaperCreatePage(props: { f: CapsuleForm }) {
                 </Show>
               </span>
               <span class="sheet__n mono">
-                <b>{fmt.num(d.content.length)}</b> / 5000
+                <b>{fmt.num(Array.from(d.content).length)}</b> / 5000
               </span>
             </div>
 
@@ -653,7 +651,7 @@ export function PaperCreatePage(props: { f: CapsuleForm }) {
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={Math.round(v() * 100)}
-                aria-valuetext={`${fmt.span(span())}后，${fmt.full(d.openAt)}`}
+                aria-valuetext={d.openAtMissing ? "请选择启封时刻" : `${fmt.span(span())}后，${fmt.full(d.openAt)}`}
                 onPointerDown={onRulerDown}
                 onKeyDown={onRulerKey}
               >
@@ -672,9 +670,11 @@ export function PaperCreatePage(props: { f: CapsuleForm }) {
               </div>
 
               <div class="when">
-                <div class="when__rel serif">{fmt.span(span())}后</div>
-                <div class="when__abs" data-testid="create-openat" data-value={new Date(d.openAt).toISOString()}>
-                  {fmt.full(d.openAt)}
+                <Show when={!d.openAtMissing}>
+                  <div class="when__rel serif">{fmt.span(span())}后</div>
+                </Show>
+                <div class="when__abs" data-testid="create-openat" data-value={d.openAtMissing ? undefined : new Date(d.openAt).toISOString()}>
+                  {d.openAtMissing ? "请选择启封时刻" : fmt.full(d.openAt)}
                 </div>
                 <button class={`linkbtn when__more${calOpen() ? " is-open" : ""}`} type="button" aria-expanded={calOpen()} onClick={() => setCalOpen((o) => !o)}>
                   <Icon name="calendar" />
@@ -727,12 +727,14 @@ export function PaperCreatePage(props: { f: CapsuleForm }) {
                   <AvatarStamp id={me().avatarId} class="stamp--sm" label={false} />
                 </div>
                 <div class="envf__pm">
-                  <Postmark line1={fmt.date(d.openAt)} line2={`${fmt.time(d.openAt)} 启`} class="pm--envf" />
+                  <Show when={!d.openAtMissing}>
+                    <Postmark line1={fmt.date(d.openAt)} line2={`${fmt.time(d.openAt)} 启`} class="pm--envf" />
+                  </Show>
                 </div>
                 <div class="envf__to">
                   <small>寄往</small>
-                  <b>{fmt.cn(d.openAt)}</b>
-                  <span>{fmt.span(span())}后的未来</span>
+                  <b>{d.openAtMissing ? "待选择" : fmt.cn(d.openAt)}</b>
+                  <Show when={!d.openAtMissing}><span>{fmt.span(span())}后的未来</span></Show>
                 </div>
                 <div class="envf__title serif">{d.title.trim() ? `《${d.title.trim()}》` : "《未命名的信》"}</div>
                 <div class="envf__from mono">

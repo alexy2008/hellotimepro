@@ -6,7 +6,7 @@
 
 import { Index, Show, createEffect, createSignal, on, onCleanup, onMount, untrack } from "solid-js";
 import { focusIfIdle } from "@/lib/fmt";
-import type { CodeState } from "@/primitives/codeOpen";
+import { EMPTY_CODE_CELL, isCompleteCode, type CodeState } from "@/primitives/codeOpen";
 
 const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
@@ -29,7 +29,12 @@ interface Props {
 
 export function PaperCodeInput(props: Props) {
   // 各格自己的内容：从路由里已填的码起步（切皮肤后接着填），之后由这里分发
-  const [cells, setCells] = createSignal<string[]>(untrack(() => Array.from({ length: 8 }, (_, i) => props.value[i] ?? "")));
+  const [cells, setCells] = createSignal<string[]>(
+    untrack(() => Array.from({ length: 8 }, (_, i) => {
+      const char = props.value[i];
+      return char === EMPTY_CODE_CELL ? "" : char ?? "";
+    })),
+  );
   const refs: HTMLInputElement[] = [];
   const [shaking, setShaking] = createSignal(false);
 
@@ -58,10 +63,10 @@ export function PaperCodeInput(props: Props) {
     setCells(next);
     // 受控输入：信号值没变（比如敲了非法字符被丢掉）时 Solid 不会回写 DOM，这里手动对齐
     next.forEach((ch, k) => refs[k] && refs[k].value !== ch && (refs[k].value = ch));
-    const v = next.join("");
+    const v = next.map((char) => char || EMPTY_CODE_CELL).join("").trimEnd();
     props.onChange?.(v);
     refs[Math.min(7, focusAt)]?.focus();
-    if (completeNow && v.length === 8) props.onComplete(v);
+    if (completeNow && isCompleteCode(v)) props.onComplete(v);
   };
 
   props.handle?.({
@@ -139,7 +144,7 @@ export function PaperCodeInput(props: Props) {
                   refs[i + 1]?.focus();
                 } else if (e.key === "Enter") {
                   e.preventDefault();
-                  props.onComplete(cells().join(""));
+                  props.onComplete(props.value);
                 }
               }}
               onPaste={(e) => {

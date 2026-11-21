@@ -13,7 +13,7 @@ import { copyText, toast } from "@/stores/feedback";
 import { useNow } from "@/primitives/now";
 import type { LoginForm, MyList, MyStatsState, ProfileForm, RegisterForm } from "@/primitives/account";
 import { AvatarPicker, Field, NickState, PasswordField, PwdRules } from "@/components/forms";
-import { FormMsg, ListMore } from "@/components/shared";
+import { FormMsg, ListMore, MyListStatus } from "@/components/shared";
 import { CreateLink } from "@/components/LoginPrompt";
 import { createSlider } from "@/components/Seg";
 import type { MeBody, MeTab } from "@/pages/MePage";
@@ -193,7 +193,7 @@ const VisTag = (props: { inPlaza: boolean }) => (
 function Created(props: { list: MyList; now: number }) {
   const l = props.list;
   return (
-    <Show when={l.items()}>
+    <Show when={l.readyItems()} fallback={<MyListStatus error={l.error()} onRetry={() => void l.reload()} />}>
       {(items) => (
         <Show
           when={items().length}
@@ -317,7 +317,7 @@ function Created(props: { list: MyList; now: number }) {
 function Favorites(props: { list: MyList; now: number }) {
   const l = props.list;
   return (
-    <Show when={l.items()}>
+    <Show when={l.readyItems()} fallback={<MyListStatus error={l.error()} onRetry={() => void l.reload()} />}>
       {(items) => (
         <Show
           when={items().length}

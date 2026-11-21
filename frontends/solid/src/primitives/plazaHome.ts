@@ -17,7 +17,7 @@ export function createPlazaHome() {
   let searchEl: HTMLInputElement | undefined;
 
   // 进入首页、登录态变化时刷新（on 只跟踪 user.id，refreshAll 内部的读取不算依赖）
-  createEffect(on(() => auth.user?.id, () => void refreshAll()));
+  createEffect(on(() => auth.user?.id, () => void refreshAll(true)));
 
   // 「/」聚焦搜索
   const onKey = (e: KeyboardEvent) => {

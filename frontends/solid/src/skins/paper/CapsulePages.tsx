@@ -12,7 +12,8 @@ import { auth } from "@/stores/auth";
 import { Avatar } from "@/components/shared";
 import { FavButton } from "@/components/FavButton";
 import { paragraphs, shareOf, type CapsuleByCode } from "@/primitives/capsule";
-import { useCodeOpen } from "@/primitives/codeOpen";
+import { useNow } from "@/primitives/now";
+import { isCompleteCode, useCodeOpen } from "@/primitives/codeOpen";
 import type { CapsuleDetail, CapsuleListItem } from "@/types";
 import { Envelope, FlipDigits, LetterSlip, Postmark, Scale, Seal, type Crack } from "./parts";
 import { PaperCodeInput, type CodeInputHandle } from "./CodeInput";
@@ -36,11 +37,11 @@ function VisTag(props: { c: CapsuleDetail }) {
   );
 }
 
-function Actions(props: { c: CapsuleDetail }) {
+function Actions(props: { c: CapsuleDetail; onFavChange: CapsuleByCode["updateFavorite"] }) {
   const share = () => shareOf(props.c.code);
   return (
     <div class="detail__actions">
-      <FavButton capsule={props.c} size="md" />
+      <FavButton capsule={props.c} size="md" onChange={props.onFavChange} />
       <button class="btn btn--ghost" type="button" data-testid="copy-code" onClick={() => share().copyCode()}>
         <Icon name="copy" />
         复制胶囊码
@@ -66,7 +67,7 @@ interface Opening {
   rising: boolean;
 }
 
-function Sealed(props: { c: CapsuleDetail; now: number; opening: Opening | null }) {
+function Sealed(props: { c: CapsuleDetail; onFavChange: CapsuleByCode["updateFavorite"]; now: number; opening: Opening | null }) {
   const openAt = () => ms(props.c.openAt);
   const createdAt = () => ms(props.c.createdAt);
   const cd = () => fmt.cd(openAt(), props.now);
@@ -153,7 +154,7 @@ function Sealed(props: { c: CapsuleDetail; now: number; opening: Opening | null 
         <Scale p={p()} class="scale--lg" />
       </section>
 
-      <Actions c={props.c} />
+      <Actions c={props.c} onFavChange={props.onFavChange} />
       <p class="note">
         <Icon name="info" />
         <span>未开启的胶囊只显示标题与倒计时。正文会在启封的那一刻，对所有持码的人同时公开。</span>
@@ -185,7 +186,7 @@ function Body(props: { content: string | null }) {
   );
 }
 
-function Opened(props: { c: CapsuleDetail; reveal: boolean }) {
+function Opened(props: { c: CapsuleDetail; onFavChange: CapsuleByCode["updateFavorite"]; reveal: boolean }) {
   const openAt = () => ms(props.c.openAt);
   const createdAt = () => ms(props.c.createdAt);
   return (
@@ -227,7 +228,7 @@ function Opened(props: { c: CapsuleDetail; reveal: boolean }) {
           <Seal ch="启" variant="line" class="letter__seal" />
         </footer>
       </article>
-      <Actions c={props.c} />
+      <Actions c={props.c} onFavChange={props.onFavChange} />
       <Show
         when={props.c.inPlaza}
         fallback={
@@ -281,12 +282,15 @@ export function PaperCapsulePage(props: { d: CapsuleByCode }) {
         if (signal.aborted) return;
       }
       // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-      if (!(await d.awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
+      const result = await d.awaitOpened(signal);
+      if (signal.aborted) return;
       batch(() => {
         setHost("");
         setOpening(null);
-        setReveal(true);
+        setReveal(Boolean(result));
       });
+      task = null;
+      if (!result) return;
       window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
       toast("胶囊已启封");
     })();
@@ -337,8 +341,8 @@ export function PaperCapsulePage(props: { d: CapsuleByCode }) {
           </Match>
           <Match when={d.c()}>
             {(c) => (
-              <Show when={opened()} fallback={<Sealed c={c()} now={d.now()} opening={opening()} />}>
-                <Opened c={c()} reveal={reveal()} />
+              <Show when={opened()} fallback={<Sealed c={c()} onFavChange={d.updateFavorite} now={d.now()} opening={opening()} />}>
+                <Opened c={c()} onFavChange={d.updateFavorite} reveal={reveal()} />
               </Show>
             )}
           </Match>
@@ -351,7 +355,7 @@ export function PaperCapsulePage(props: { d: CapsuleByCode }) {
 export function PaperOpenPage(props: { mine: () => CapsuleListItem[] }) {
   const o = useCodeOpen();
   let input: CodeInputHandle | undefined;
-  const now = Date.now();
+  const now = useNow();
 
   const paste = async () => {
     try {
@@ -401,7 +405,7 @@ export function PaperOpenPage(props: { mine: () => CapsuleListItem[] }) {
             <button
               class={`btn btn--primary btn--lg${o.state() === "checking" ? " is-busy" : ""}`}
               type="button"
-              disabled={o.value().length !== 8 || o.state() === "checking"}
+              disabled={!isCompleteCode(o.value()) || o.state() === "checking"}
               onClick={() => void o.go(o.value())}
             >
               <Icon name="key" />
@@ -452,7 +456,7 @@ export function PaperOpenPage(props: { mine: () => CapsuleListItem[] }) {
                           <b class="serif">{c.title}</b>
                           <span class="mono">{c.code}</span>
                         </span>
-                        <span class="mylist__st">{c.isOpened ? "已开启" : "距启封 " + fmt.span(ms(c.openAt) - now)}</span>
+                        <span class="mylist__st">{c.isOpened ? "已开启" : "距启封 " + fmt.span(ms(c.openAt) - now())}</span>
                         <Icon name="chev-right" />
                       </a>
                     </li>

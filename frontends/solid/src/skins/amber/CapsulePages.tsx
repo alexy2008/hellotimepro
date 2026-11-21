@@ -14,6 +14,7 @@ import { Avatar } from "@/components/shared";
 import { FavButton } from "@/components/FavButton";
 import { CreateLink } from "@/components/LoginPrompt";
 import { paragraphs, shareOf, type CapsuleByCode } from "@/primitives/capsule";
+import { useNow } from "@/primitives/now";
 import { useCodeOpen } from "@/primitives/codeOpen";
 import type { CapsuleDetail, CapsuleListItem } from "@/types";
 import { Badge, CapsuleArt, Countdown, Stamp, VisBadge, cdShort } from "./parts";
@@ -29,11 +30,11 @@ const Back = () => (
   </a>
 );
 
-function Actions(props: { c: CapsuleDetail; letter?: boolean }) {
+function Actions(props: { c: CapsuleDetail; onFavChange: CapsuleByCode["updateFavorite"]; letter?: boolean }) {
   const share = () => shareOf(props.c.code);
   return (
     <div class="detail__actions">
-      <FavButton capsule={props.c} size="md" />
+      <FavButton capsule={props.c} size="md" onChange={props.onFavChange} />
       <button class="btn btn--ghost" type="button" data-testid="copy-code" onClick={() => share().copyCode()}>
         <Icon name="copy" />
         复制胶囊码
@@ -52,7 +53,7 @@ function Actions(props: { c: CapsuleDetail; letter?: boolean }) {
   );
 }
 
-function Locked(props: { c: CapsuleDetail; now: number }) {
+function Locked(props: { c: CapsuleDetail; onFavChange: CapsuleByCode["updateFavorite"]; now: number }) {
   const openAt = () => ms(props.c.openAt);
   const createdAt = () => ms(props.c.createdAt);
   const pct = () => Math.min(100, Math.max(0, ((props.now - createdAt()) / (openAt() - createdAt())) * 100));
@@ -124,14 +125,14 @@ function Locked(props: { c: CapsuleDetail; now: number }) {
             <Icon name="sparkle" />
             <span>不用刷新页面——倒计时归零的那一刻，它会自己打开。</span>
           </p>
-          <Actions c={props.c} />
+          <Actions c={props.c} onFavChange={props.onFavChange} />
         </div>
       </section>
     </>
   );
 }
 
-function Letter(props: { c: CapsuleDetail; reveal: boolean }) {
+function Letter(props: { c: CapsuleDetail; onFavChange: CapsuleByCode["updateFavorite"]; reveal: boolean }) {
   const openAt = () => ms(props.c.openAt);
   const createdAt = () => ms(props.c.createdAt);
   return (
@@ -185,7 +186,7 @@ function Letter(props: { c: CapsuleDetail; reveal: boolean }) {
             </div>
           </footer>
         </article>
-        <Actions c={props.c} letter />
+        <Actions c={props.c} onFavChange={props.onFavChange} letter />
         <Show when={!props.c.inPlaza}>
           <p class="tip tip--quiet">
             <Icon name="lock" />
@@ -221,11 +222,14 @@ export function AmberCapsulePage(props: { d: CapsuleByCode }) {
         if (signal.aborted) return;
       }
       // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-      if (!(await d.awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
+      const result = await d.awaitOpened(signal);
+      if (signal.aborted) return;
       batch(() => {
         setPhase("");
-        setReveal(true);
+        setReveal(Boolean(result));
       });
+      task = null;
+      if (!result) return;
       toast("胶囊已开启");
     })();
   });
@@ -282,8 +286,8 @@ export function AmberCapsulePage(props: { d: CapsuleByCode }) {
           </Match>
           <Match when={d.c()}>
             {(c) => (
-              <Show when={opened()} fallback={<Locked c={c()} now={d.now()} />}>
-                <Letter c={c()} reveal={reveal()} />
+              <Show when={opened()} fallback={<Locked c={c()} onFavChange={d.updateFavorite} now={d.now()} />}>
+                <Letter c={c()} onFavChange={d.updateFavorite} reveal={reveal()} />
               </Show>
             )}
           </Match>
@@ -295,7 +299,7 @@ export function AmberCapsulePage(props: { d: CapsuleByCode }) {
 
 export function AmberOpenPage(props: { mine: () => CapsuleListItem[] }) {
   const o = useCodeOpen();
-  const now = Date.now();
+  const now = useNow();
   return (
     <div class="page page--open">
       <div class="container open">
@@ -352,7 +356,7 @@ export function AmberOpenPage(props: { mine: () => CapsuleListItem[] }) {
                         <b>{c.title}</b>
                         <span class="mono">{c.code}</span>
                       </span>
-                      <Show when={c.isOpened} fallback={<Badge kind="locked" icon="lock">{cdShort(ms(c.openAt), now)} 后</Badge>}>
+                      <Show when={c.isOpened} fallback={<Badge kind="locked" icon="lock">{cdShort(ms(c.openAt), now())} 后</Badge>}>
                         <Badge kind="opened" icon="mail">
                           已开启
                         </Badge>

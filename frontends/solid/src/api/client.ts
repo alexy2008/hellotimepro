@@ -36,14 +36,14 @@ export function configureApi(opts: {
   onAuthLost = opts.onAuthLost;
 }
 
-let refreshing: Promise<string | null> | null = null;
+let refreshing: { token: string; request: Promise<string | null> } | null = null;
 
 async function tryRefresh(): Promise<string | null> {
-  if (refreshing) return refreshing;
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
+  if (refreshing?.token === refreshToken) return refreshing.request;
 
-  refreshing = (async () => {
+  const request = (async () => {
     try {
       const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
         method: "POST",
@@ -54,6 +54,8 @@ async function tryRefresh(): Promise<string | null> {
         accessToken: string;
         refreshToken: string;
       }>;
+      // 登出或换账号时，旧令牌的刷新响应不能改写当前登录态。
+      if (getRefreshToken() !== refreshToken) return null;
       if (!res.ok || !env.success || !env.data) {
         onAuthLost();
         return null;
@@ -61,14 +63,17 @@ async function tryRefresh(): Promise<string | null> {
       onTokensRefreshed(env.data.accessToken, env.data.refreshToken);
       return env.data.accessToken;
     } catch {
-      onAuthLost();
+      if (getRefreshToken() === refreshToken) onAuthLost();
       return null;
-    } finally {
-      refreshing = null;
     }
   })();
 
-  return refreshing;
+  refreshing = { token: refreshToken, request };
+  try {
+    return await request;
+  } finally {
+    if (refreshing?.request === request) refreshing = null;
+  }
 }
 
 async function accessTokenForRequest(useAuth: boolean): Promise<string | null> {

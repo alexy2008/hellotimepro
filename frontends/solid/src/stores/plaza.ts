@@ -55,27 +55,30 @@ export { plaza };
 // 请求序列号：只有「最新发起」的请求才回写结果，避免乱序覆盖
 let listSeq = 0;
 let countSeq = 0;
+let overviewSeq = 0;
+let featuredSeq = 0;
 let debounce = 0;
 
 export function setSort(sort: PlazaSort) {
   setPlaza({ sort, page: 1 });
-  void fetchList();
+  void fetchList(true);
 }
 
 export function setFilter(filter: PlazaFilter) {
   setPlaza({ filter, page: 1 });
-  void fetchList();
+  void fetchList(true);
 }
 
 export function setPage(page: number) {
   setPlaza({ page });
-  void fetchList();
+  void fetchList(true);
 }
 
 export function setQ(q: string) {
   clearTimeout(debounce);
+  if (q.trim() !== plaza.q.trim()) setPlaza("counts", null);
   setPlaza({ q, qInput: q, page: 1 });
-  void fetchList();
+  void fetchList(true);
   void fetchCounts();
 }
 
@@ -86,20 +89,25 @@ export function setQInput(v: string) {
   if (v !== plaza.q) debounce = window.setTimeout(() => setQ(v), 300);
 }
 
-export async function fetchList() {
+async function fetchList(resetResults = false): Promise<void> {
   const my = ++listSeq;
   const { sort, filter, q, page, pageSize } = plaza;
-  setPlaza({ loading: true, error: null });
+  setPlaza({ loading: true, error: null, ...(resetResults ? { items: [], pagination: null } : {}) });
   try {
     const data = await api.plaza({ sort, filter, q: q.trim() || undefined, page, pageSize });
     if (my !== listSeq) return;
+    const lastPage = Math.max(1, data.pagination.totalPages);
+    if (page > lastPage) {
+      setPlaza("page", lastPage);
+      return fetchList(true);
+    }
     batch(() => {
       setPlaza("items", reconcile(data.items, { key: "id" }));
       setPlaza({ pagination: data.pagination, loading: false });
     });
   } catch (e) {
     if (my !== listSeq) return;
-    setPlaza({ loading: false, error: e instanceof Error ? e.message : "加载失败" });
+    setPlaza({ items: [], pagination: null, loading: false, error: e instanceof Error ? e.message : "加载失败" });
   }
 }
 
@@ -109,23 +117,33 @@ async function fetchCounts() {
     const s = await api.plazaStats(plaza.q.trim() || undefined);
     if (my === countSeq) setPlaza("counts", s.counts);
   } catch {
-    /* 数量拿不到时筛选标签上不显示数字 */
+    if (my === countSeq) setPlaza("counts", null);
+  }
+}
+
+async function fetchFeatured() {
+  const my = ++featuredSeq;
+  try {
+    const result = await api.plaza({ sort: "hot", filter: "unopened", page: 1, pageSize: 1 });
+    if (my === featuredSeq) setPlaza("featured", result.items[0] ? reconcile(result.items[0]) : null);
+  } catch {
+    // 保留上一次成功取得的精选。
   }
 }
 
 /** 首页进入、或有胶囊到点开启时：列表、数量、年鉴、精选一起刷新 */
-export async function refreshAll() {
+export async function refreshAll(resetResults = false) {
+  const my = ++overviewSeq;
   await Promise.all([
-    fetchList(),
+    fetchList(resetResults),
     fetchCounts(),
     api
       .plazaStats()
-      .then((overview) => setPlaza("overview", overview))
+      .then((overview) => {
+        if (my === overviewSeq) setPlaza("overview", overview);
+      })
       .catch(() => undefined),
-    api
-      .plaza({ sort: "hot", filter: "unopened", page: 1, pageSize: 1 })
-      .then((r) => setPlaza("featured", r.items[0] ? reconcile(r.items[0]) : null))
-      .catch(() => undefined),
+    fetchFeatured(),
   ]);
 }
 
@@ -134,4 +152,8 @@ export function patchFavorited(capsuleId: string, favorited: boolean, count: num
   const patch = { favoritedByMe: favorited, favoriteCount: count };
   setPlaza("items", (it) => it.id === capsuleId, patch);
   if (plaza.featured?.id === capsuleId) setPlaza("featured", patch);
+
+  // 热度影响跨页排名与首页精选，由服务端按最新票数重新排序。
+  if (plaza.sort === "hot" || plaza.loading) void fetchList();
+  void fetchFeatured();
 }

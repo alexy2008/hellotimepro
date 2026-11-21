@@ -7,7 +7,7 @@
 // ============================================================
 
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
-import { fmt, focusIfIdle, pad2, reducedMotion } from "@/lib/fmt";
+import { fmt, focusIfIdle, pad2, readLimitedInput, reducedMotion } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { paletteOf } from "@/lib/palette";
 import { auth } from "@/stores/auth";
@@ -111,6 +111,7 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
   const me = () => auth.user!;
   const now = useNow();
   let titleEl: HTMLInputElement | undefined;
+  let openAtEl: HTMLInputElement | undefined;
   let contentEl: HTMLTextAreaElement | undefined;
   const titleShake = createShake(() => f.shake.title);
   const contentShake = createShake(() => f.shake.content);
@@ -172,6 +173,7 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
               novalidate
               onSubmit={(e) => {
                 e.preventDefault();
+                if (openAtEl && !openAtEl.value && !d.openAtMissing) f.setOpenAt(NaN);
                 void f.submit();
               }}
             >
@@ -189,12 +191,11 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
                     ref={titleEl}
                     class="input"
                     id="title"
-                    maxLength={60}
                     autocomplete="off"
                     placeholder="给这枚胶囊起个名字"
                     data-testid="create-title"
                     value={d.title}
-                    onInput={(e) => f.setTitle(e.currentTarget.value)}
+                    onInput={(e) => f.setTitle(readLimitedInput(e.currentTarget, 60))}
                   />
                   <button
                     class={`ai-btn${f.aiBusy() ? " is-busy" : ""}`}
@@ -247,7 +248,7 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
                     内容 <em>*</em>
                   </label>
                   <span class="field__count mono">
-                    <b>{fmt.num(d.content.length)}</b>/5000
+                    <b>{fmt.num(Array.from(d.content).length)}</b>/5000
                   </span>
                 </div>
                 <div class={`paper${f.aiBusy() ? " is-ai" : ""}${f.aiThinking() ? " is-thinking" : ""}`}>
@@ -255,12 +256,11 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
                     ref={contentEl}
                     class="paper__text"
                     id="content"
-                    maxLength={5000}
                     rows={9}
                     placeholder={"在这里写下想交给未来的话。\n可以是此刻的天气、正在读的书、一个小小的约定，\n或者只是一句：嘿，你还好吗？"}
                     data-testid="create-content"
                     value={d.content}
-                    onInput={(e) => f.setContent(e.currentTarget.value)}
+                    onInput={(e) => f.setContent(readLimitedInput(e.currentTarget, 5000))}
                   />
                   <div class="paper__think" aria-hidden="true">
                     <i />
@@ -292,17 +292,15 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
                   <Icon name="calendar" class="input-wrap__icon" />
                   <input
                     class="input mono"
+                    ref={openAtEl}
                     id="openAt"
                     type="datetime-local"
                     min={toLocal(LIMITS.minOpen())}
                     max={toLocal(LIMITS.maxOpen())}
-                    value={toLocal(d.openAt)}
+                    value={d.openAtMissing ? "" : toLocal(d.openAt)}
                     data-testid="create-openat"
-                    data-value={new Date(d.openAt).toISOString()}
-                    onInput={(e) => {
-                      const t = new Date(e.currentTarget.value).getTime();
-                      if (!Number.isNaN(t)) f.setOpenAt(t);
-                    }}
+                    data-value={d.openAtMissing ? undefined : new Date(d.openAt).toISOString()}
+                    onInput={(e) => f.setOpenAt(new Date(e.currentTarget.value).getTime())}
                   />
                 </div>
                 <div class="chips">
@@ -341,7 +339,7 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
               <div class="create__foot">
                 <div class="create__sum">
                   <Icon name="hourglass" />
-                  <Show when={span() > 0} fallback={<span>选一个开启的时刻</span>}>
+                  <Show when={!d.openAtMissing && span() > 0} fallback={<span>选一个开启的时刻</span>}>
                     <span>
                       将沉睡 <b>{fmt.span(span())}</b>，于 {fmt.full(d.openAt)} 开启
                     </span>
@@ -371,15 +369,15 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
                 <dl class="preview__table">
                   <div>
                     <dt>开启时间</dt>
-                    <dd class="mono">{dash(d.openAt)}</dd>
+                    <dd class="mono">{d.openAtMissing ? "待选择" : dash(d.openAt)}</dd>
                   </div>
                   <div>
                     <dt>沉睡时长</dt>
-                    <dd>{span() > 0 ? fmt.span(span()) : "—"}</dd>
+                    <dd>{!d.openAtMissing && span() > 0 ? fmt.span(span()) : "—"}</dd>
                   </div>
                   <div>
                     <dt>正文</dt>
-                    <dd>{fmt.num(d.content.length)} 字</dd>
+                    <dd>{fmt.num(Array.from(d.content).length)} 字</dd>
                   </div>
                 </dl>
                 <div class="badges">

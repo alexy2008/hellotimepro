@@ -14,6 +14,10 @@ import { sleep } from "@/lib/fmt";
 
 export type CodeState = "" | "checking" | "ok" | "error";
 
+// 用不换行空格记录中间的空格位，琥珀的原生输入框也能选中这些位置。
+export const EMPTY_CODE_CELL = "\u00a0";
+export const isCompleteCode = (value: string) => /^[A-Z0-9]{8}$/.test(value);
+
 export const MSG_FORMAT = "胶囊码是 8 位大写字母与数字";
 export const MSG_NOT_FOUND = "没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1";
 
@@ -36,8 +40,8 @@ export function createCodeOpen() {
 
   async function go(code: string) {
     if (pending === code) return;
+    if (!isCompleteCode(code)) return fail(MSG_FORMAT);
     const request = ++generation;
-    if (code.length !== 8) return fail(MSG_FORMAT);
     pending = code;
     setError("");
     setState("checking");
@@ -56,6 +60,7 @@ export function createCodeOpen() {
   }
 
   function input(v: string) {
+    if (v === value()) return;
     generation++;
     pending = null;
     setValue(v);

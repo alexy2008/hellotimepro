@@ -5,7 +5,7 @@
 // ============================================================
 
 import { For, Index, Match, Show, Switch, onCleanup, onMount, type JSX } from "solid-js";
-import { fmt, ms, reducedMotion } from "@/lib/fmt";
+import { fmt, ms, readLimitedInput, reducedMotion } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { paletteOf } from "@/lib/palette";
 import { Seg } from "@/components/Seg";
@@ -300,12 +300,11 @@ export function AmberHomePage(props: { h: PlazaHome }) {
               class="input"
               type="search"
               placeholder="搜索标题或昵称…"
-              maxLength={50}
               autocomplete="off"
               aria-label="搜索胶囊"
               data-testid="plaza-search"
               value={plaza.qInput}
-              onInput={(e) => h.setQInput(e.currentTarget.value)}
+              onInput={(e) => h.setQInput(readLimitedInput(e.currentTarget, 50))}
               onKeyDown={h.escSearch}
             />
             <kbd class="kbd">/</kbd>

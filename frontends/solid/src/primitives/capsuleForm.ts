@@ -32,6 +32,7 @@ export const LIMITS = {
 export const MSG = {
   title: "先给这枚胶囊起个标题",
   content: "还没写内容呢，写点什么吧",
+  openMissing: "请选择完整的开启日期和时间",
   openMin: "开启时间至少要在 1 分钟之后",
   openMax: "开启时间不能超过 10 年",
 };
@@ -66,11 +67,12 @@ export interface Draft {
   title: string;
   content: string;
   openAt: number;
+  openAtMissing: boolean;
   preset: string | null;
   inPlaza: boolean;
 }
 
-const freshDraft = (): Draft => ({ title: "", content: "", openAt: PRESET_AT["1y"](), preset: "1y", inPlaza: true });
+const freshDraft = (): Draft => ({ title: "", content: "", openAt: PRESET_AT["1y"](), openAtMissing: false, preset: "1y", inPlaza: true });
 
 const [draft, setDraft] = createStore<Draft>(freshDraft());
 /** 每次改动草稿加一：封存成功时只有版本没变（等待期间没人再改过）才清空 */
@@ -111,7 +113,7 @@ export function createCapsuleForm() {
   let typeToken = 0;
 
   // 开启时间：草稿里的时刻可能已经过期（离开太久），进来时顺延到合法范围
-  if (draft.openAt < LIMITS.minOpen()) patchDraft({ openAt: PRESET_AT["1y"](), preset: "1y" });
+  if (!draft.openAtMissing && draft.openAt < LIMITS.minOpen()) patchDraft({ openAt: PRESET_AT["1y"](), preset: "1y" });
   // 离开页面（或换账号）时停止打字
   onCleanup(() => typeToken++);
 
@@ -189,7 +191,7 @@ export function createCapsuleForm() {
       if (auto && !(await typeInto("title", title, token))) return;
       patchDraft({ content: "" });
       const openAt = Math.min(Math.max(new Date(s.openAt).getTime(), LIMITS.minOpen() + 30000), LIMITS.maxOpen());
-      patchDraft({ openAt, preset: null });
+      patchDraft(Number.isFinite(openAt) ? { openAt, openAtMissing: false, preset: null } : { openAtMissing: true, preset: null });
       if (!(await typeInto("content", s.content, token))) return;
       const source = s.generatedBy === "local-template" ? "本地模板（LLM 未启用）" : s.generatedBy;
       setAiNote(`${auto ? "标题与正文均由 AI 代笔" : "已为你代笔"}，建议 ${fmt.num(s.openInDays)} 天后开启 · 来源 ${source}`);
@@ -209,6 +211,7 @@ export function createCapsuleForm() {
     if (aiBusy()) stopTyping();
     if (!draft.title.trim()) return fail("title", MSG.title), false;
     if (!draft.content.trim()) return fail("content", MSG.content), false;
+    if (draft.openAtMissing) return fail("openAt", MSG.openMissing), false;
     if (draft.openAt < LIMITS.minOpen()) return fail("openAt", MSG.openMin), false;
     if (draft.openAt > LIMITS.maxOpen()) return fail("openAt", MSG.openMax), false;
     return true;
@@ -266,8 +269,9 @@ export function createCapsuleForm() {
     aiNote,
     setTitle: (title: string) => edit("title", { title }),
     setContent: (content: string) => edit("content", { content }),
-    setOpenAt: (openAt: number, preset: string | null = null) => edit("openAt", { openAt, preset }),
-    pickPreset: (key: string) => edit("openAt", { openAt: PRESET_AT[key](), preset: key }),
+    setOpenAt: (openAt: number) =>
+      edit("openAt", Number.isFinite(openAt) ? { openAt, openAtMissing: false, preset: null } : { openAtMissing: true, preset: null }),
+    pickPreset: (key: string) => edit("openAt", { openAt: PRESET_AT[key](), openAtMissing: false, preset: key }),
     setInPlaza: (inPlaza: boolean) => patchDraft({ inPlaza }),
     refreshRecos: loadRecos,
     aiWrite,

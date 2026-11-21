@@ -309,7 +309,7 @@ export function AuthGate(props: { children: JSX.Element }) {
 
 | 模块 | 关心什么 | 持久化 |
 |---|---|---|
-| `stores/auth` | user / accessToken / refreshToken / hydrated；`refreshMe()` 单飞；`onAccountChange(fn)` | refreshToken + user → localStorage（`main.tsx` 在首次渲染前恢复） |
+| `stores/auth` | user / accessToken / refreshToken / hydrated；`refreshMe()` 按会话单飞；`onAccountChange(fn)` | refreshToken + user → localStorage（`main.tsx` 在首次渲染前恢复） |
 | `stores/ui` | skin（paper / amber）· theme（light / dark）及带转场的切换 | localStorage `hellotime.skin` / `hellotime.theme` |
 | `stores/plaza` | sort / filter / q / qInput / page + 列表、筛选数量、年鉴、精选；搜索防抖计时器 | 否；两套皮肤共用，切皮肤后条件与正在输入的字都在 |
 | `stores/feedback` | Toast 列表、当前确认框；`toast()`、`confirmDialog()`、`copyText()` | 否 |
@@ -317,11 +317,11 @@ export function AuthGate(props: { children: JSX.Element }) {
 几个要点：
 
 - **只读导出 + 动作函数**：模块导出 store 本身（只读用）与 `setSort` / `refreshAll` / `patchFavorited` 这样的动作，写操作集中在模块里，组件不直接 `setPlaza`。
-- **并发请求的序列号**：`fetchList` 每次发请求先 `++listSeq`，回来时序号对不上就丢弃——用户快速切筛选时，旧响应不会覆盖新结果。详情、「我的」列表、输码查询都用同样的「代数」守卫。
-- **跨 store 联动**：`FavButton` 收藏成功后调 `patchFavorited(id, favorited, count)`，广场列表与精选里那一枚同步更新；「我收藏的」里取消收藏则通过回调把它从列表移出、并刷新 `/me/stats`。
+- **并发请求的序列号**：`fetchList` 每次发请求先 `++listSeq`，回来时序号对不上就丢弃——用户快速切筛选时，旧响应不会覆盖新结果。详情、「我的」列表与统计、输码查询也用请求序号忽略过期响应。广场查询条件变化时清理旧列表和分页，搜索词变化时清理旧数量。若服务端返回的总页数小于当前页，重新读取最后一个有效页。
+- **跨 store 联动**：`FavButton` 通过回调把收藏结果写回详情，或从「我收藏的」移除取消收藏的行并刷新 `/me/stats`。对公开胶囊还会调用 `patchFavorited(id, favorited, count)`，同步广场票数并重新读取最热排序和精选。
 - **View Transition 不必等**：`setSkin` 在 `document.startViewTransition(cb)` 的回调里写信号，Solid 的 DOM 更新是同步的，回调返回时新皮肤已经画好（Vue 需要 `return nextTick()`）。
 - **确认框的正文写成函数**：`confirmDialog({ body: () => <p>…</p>, mark: () => <Seal … /> })`。Solid 的 JSX 一写出来就是真实节点，在点击回调里直接创建的话没有 owner 管它；交给 `DialogHost` 在自己的组件树里调用就归它管了。
-- **草稿**是 `primitives/capsuleForm.ts` 里的模块级 store：切皮肤、离开再回来都在；`onAccountChange(resetDraft)` 让登出、换账号时清空；每次改动 `draftVersion++`，封存成功时只有版本没变（等待期间没人再改过）才清空。
+- **草稿**是 `primitives/capsuleForm.ts` 里的模块级 store：切皮肤、离开再回来都在；`onAccountChange(resetDraft)` 让登出、换账号时清空；每次改动 `draftVersion++`，封存成功时只有版本没变（等待期间没人再改过）才清空。日期尚未选全时记录 `openAtMissing`，两套皮肤都提示补全日期，阻止封存。
 
 ## 11. 路由页、primitives 与皮肤视图
 
@@ -372,6 +372,8 @@ memo 重跑时，上一次在它里面建的状态（和它们的 effect、onCle
 ### 11.3 表单：受控输入
 
 所有输入都是受控的：值在 primitive 的信号里，`onInput` 写回去，`value={f.email()}` 读出来。注意一个和 React 不同的细节：Solid 只在信号值**变了**时才写 `input.value`。如果处理函数把输入清洗掉了（输码框丢掉非法字符），信号值没变，DOM 里就会留着用户刚敲的那个字符——两套输码框都在 `onInput` 里把清洗后的值写回 `el.value`。
+
+输码状态使用不换行空格保留中间空格位，视图按格渲染，查询只接收完整的八位码。标题、正文和广场搜索用 `readLimitedInput` 按 Unicode 码点限长，并把处理后的值写回原生输入框。
 
 ### 11.4 组件分类
 

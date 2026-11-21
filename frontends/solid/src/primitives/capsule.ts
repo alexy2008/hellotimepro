@@ -21,15 +21,31 @@ export function createCapsuleByCode(code: string) {
   const [c, setC] = createSignal<CapsuleDetail | null>(null);
   const [status, setStatus] = createSignal<DetailStatus>("loading");
   const now = useNow();
+  let favoriteVersion = 0;
+
+  function updateFavorite(favoritedByMe: boolean, favoriteCount: number) {
+    favoriteVersion++;
+    setC((current) => current && { ...current, favoritedByMe, favoriteCount });
+  }
+
+  function applyDetail(detail: CapsuleDetail, readVersion: number) {
+    setC((current) =>
+      current && favoriteVersion !== readVersion
+        ? { ...detail, favoritedByMe: current.favoritedByMe, favoriteCount: current.favoriteCount }
+        : detail,
+    );
+  }
+
   let gen = 0; // 离开页面、登录态变了就作废进行中的请求
   onCleanup(() => gen++);
 
   async function load() {
     const my = ++gen;
+    const readVersion = favoriteVersion;
     try {
       const d = await api.capsuleByCode(code);
       if (my !== gen) return null;
-      setC(d);
+      applyDetail(d, readVersion);
       setStatus("ok");
       return d;
     } catch (e) {
@@ -57,17 +73,20 @@ export function createCapsuleByCode(code: string) {
    * 视图销毁（离页、换码、换皮肤）时 abort，或胶囊已被删除（404）时返回 null
    */
   async function awaitOpened(signal: AbortSignal): Promise<CapsuleDetail | null> {
-    for (let i = 0; !signal.aborted; i++) {
+    const generation = gen;
+    for (let i = 0; !signal.aborted && generation === gen; i++) {
+      const readVersion = favoriteVersion;
       try {
         const d = await api.capsuleByCode(code);
-        if (signal.aborted) return null;
+        if (signal.aborted || generation !== gen) return null;
         if (d.isOpened) {
-          setC(d);
+          applyDetail(d, readVersion);
           return d;
         }
       } catch (e) {
-        if (signal.aborted) return null;
+        if (signal.aborted || generation !== gen) return null;
         if (e instanceof ApiError && e.status === 404) {
+          setC(null);
           setStatus("missing");
           return null;
         }
@@ -87,7 +106,7 @@ export function createCapsuleByCode(code: string) {
     return !!d && !d.isOpened && ms(d.openAt) <= now();
   });
 
-  return { code, c, status, now, expired, reload: load, awaitOpened };
+  return { code, c, status, now, expired, reload: load, awaitOpened, updateFavorite };
 }
 
 export type CapsuleByCode = ReturnType<typeof createCapsuleByCode>;
@@ -107,13 +126,33 @@ export function createMySealed() {
     on(
       () => auth.user?.id,
       (id) => {
-        if (!id) return setItems([]);
+        setItems([]);
+        if (!id) return;
         let alive = true;
-        api
-          .myCapsules(1, 3)
-          .then((r) => alive && setItems(r.items))
-          .catch(() => undefined);
-        onCleanup(() => (alive = false));
+        let timer = 0;
+
+        async function load() {
+          let delay: number | undefined;
+          try {
+            const { items: recent } = await api.myCapsules(1, 3);
+            if (!alive) return;
+            setItems(recent);
+            const next = Math.min(...recent.filter((item) => !item.isOpened).map((item) => ms(item.openAt)));
+            if (Number.isFinite(next)) delay = Math.max(1000, next - Date.now());
+          } catch {
+            delay = 5000;
+          }
+          if (alive && delay !== undefined) {
+            // 很远的开启时刻也能安全交给浏览器计时。
+            timer = window.setTimeout(() => void load(), Math.min(delay, 2_147_483_647));
+          }
+        }
+
+        void load();
+        onCleanup(() => {
+          alive = false;
+          clearTimeout(timer);
+        });
       },
     ),
   );

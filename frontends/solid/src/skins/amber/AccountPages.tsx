@@ -14,7 +14,7 @@ import { copyText, toast } from "@/stores/feedback";
 import { useNow } from "@/primitives/now";
 import type { LoginForm, MyList, MyStatsState, ProfileForm, RegisterForm } from "@/primitives/account";
 import { AvatarPicker, Field, NickState, PasswordField, PwdRules } from "@/components/forms";
-import { Avatar, FormMsg, ListMore } from "@/components/shared";
+import { Avatar, FormMsg, ListMore, MyListStatus } from "@/components/shared";
 import { CreateLink } from "@/components/LoginPrompt";
 import { createSlider } from "@/components/Seg";
 import type { MeBody, MeTab } from "@/pages/MePage";
@@ -170,7 +170,7 @@ function Empty(props: { state: "locked" | "opened"; title: string; text: string;
 function Created(props: { list: MyList; now: number }) {
   const l = props.list;
   return (
-    <Show when={l.items()}>
+    <Show when={l.readyItems()} fallback={<MyListStatus error={l.error()} onRetry={() => void l.reload()} />}>
       {(items) => (
         <Show
           when={items().length}
@@ -286,7 +286,7 @@ function Created(props: { list: MyList; now: number }) {
 function Favorites(props: { list: MyList; now: number }) {
   const l = props.list;
   return (
-    <Show when={l.items()}>
+    <Show when={l.readyItems()} fallback={<MyListStatus error={l.error()} onRetry={() => void l.reload()} />}>
       {(items) => (
         <Show
           when={items().length}

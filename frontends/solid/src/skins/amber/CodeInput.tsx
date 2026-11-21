@@ -5,7 +5,7 @@
 
 import { Index, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 import { focusIfIdle } from "@/lib/fmt";
-import type { CodeState } from "@/primitives/codeOpen";
+import { EMPTY_CODE_CELL, isCompleteCode, type CodeState } from "@/primitives/codeOpen";
 
 const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 
@@ -49,11 +49,17 @@ export function AmberCodeInput(props: Props) {
     { v: props.value, from: props.value.length, grew: false },
   );
 
-  const emit = (el: HTMLInputElement, v: string) => {
+  const activeCell = () => {
+    const gap = props.value.indexOf(EMPTY_CODE_CELL);
+    return gap === -1 ? Math.min(props.value.length, 7) : gap;
+  };
+
+  const emit = (el: HTMLInputElement, raw: string) => {
+    const v = raw.toUpperCase().replace(/[^A-Z0-9\u00a0]/g, "").slice(0, 8).trimEnd();
     // 受控输入：小写转大写、非法字符被丢掉时信号值可能没变，Solid 不会回写，这里手动对齐 DOM
     if (el.value !== v) el.value = v;
     props.onChange?.(v);
-    if (v.length === 8) props.onComplete(v);
+    if (isCompleteCode(v)) props.onComplete(v);
   };
 
   return (
@@ -86,30 +92,37 @@ export function AmberCodeInput(props: Props) {
           if (e.isComposing) return;
           // 一次进来一整串码（粘贴、自动填充）：与时笺一样整码从头填，不接在已经输入的几位后面
           const chunk = clean(e.data ?? "");
-          emit(e.currentTarget, chunk.length === 8 ? chunk : clean(e.currentTarget.value));
+          emit(e.currentTarget, isCompleteCode(chunk) ? chunk : e.currentTarget.value);
         }}
-        onCompositionEnd={(e) => {
-          const v = clean(e.currentTarget.value);
-          e.currentTarget.value = v;
-          props.onChange?.(v);
+        onPaste={(e) => {
+          const pasted = clean(e.clipboardData?.getData("text") ?? "");
+          if (!isCompleteCode(pasted)) return;
+          e.preventDefault();
+          emit(e.currentTarget, pasted);
         }}
+        onCompositionEnd={(e) => emit(e.currentTarget, e.currentTarget.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
+          if (e.key === "Enter" && !e.isComposing) {
             e.preventDefault();
             props.onComplete(props.value);
           }
         }}
         onFocus={(e) => {
           setFocused(true);
-          const n = e.currentTarget.value.length;
-          e.currentTarget.setSelectionRange(n, n);
+          const value = e.currentTarget.value;
+          const gap = value.indexOf(EMPTY_CODE_CELL);
+          if (gap === -1) e.currentTarget.setSelectionRange(value.length, value.length);
+          else e.currentTarget.setSelectionRange(gap, gap + 1);
         }}
         onBlur={() => setFocused(false)}
       />
       <div class="code__cells" aria-hidden="true">
         <Index each={Array.from({ length: 8 })}>
           {(_, i) => {
-            const ch = () => props.value[i] ?? "";
+            const ch = () => {
+              const char = props.value[i];
+              return char === EMPTY_CODE_CELL ? "" : char ?? "";
+            };
             return (
               <span
                 class={[
@@ -117,7 +130,7 @@ export function AmberCodeInput(props: Props) {
                   i === 4 ? "has-gap" : "",
                   ch() ? "is-filled" : "",
                   ch() && grow().grew && i >= grow().from ? "is-pop" : "",
-                  i === Math.min(props.value.length, 7) ? "is-active" : "",
+                  i === activeCell() ? "is-active" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}

@@ -9,7 +9,7 @@
 import { batch, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { api } from "@/api/client";
-import { auth, logout, refreshMe, setTokens } from "@/stores/auth";
+import { auth, getSessionVersion, logout, refreshMe, setTokens } from "@/stores/auth";
 import { confirmDialog, toast } from "@/stores/feedback";
 import { safeRedirect } from "@/lib/redirect";
 import { AVATARS } from "@/lib/avatars";
@@ -142,10 +142,21 @@ export type RegisterForm = ReturnType<typeof createRegister>;
 /** 页头统计：/me/stats；列表有增删时调用 refresh */
 export function createMyStats() {
   const [stats, setStats] = createSignal<MyStats | null>(null);
-  const refresh = () => {
-    api.myStats().then(setStats).catch(() => undefined);
+  let sequence = 0;
+  let alive = true;
+  onCleanup(() => (alive = false));
+  const refresh = async () => {
+    if (!alive) return;
+    const request = ++sequence;
+    const session = getSessionVersion();
+    try {
+      const result = await api.myStats();
+      if (alive && request === sequence && session === getSessionVersion()) setStats(result);
+    } catch {
+      // 同一次登录中暂时保留上次成功加载的统计。
+    }
   };
-  refresh();
+  void refresh();
   return { stats, refresh };
 }
 
@@ -166,6 +177,7 @@ export function createMyList(kind: "created" | "favorites", onChange?: () => voi
 
   async function load() {
     const my = ++seq;
+    setError(false);
     try {
       const r = await fetchPage(1);
       if (my !== seq) return;
@@ -254,7 +266,9 @@ export function createMyList(kind: "created" | "favorites", onChange?: () => voi
   }
 
   const hasMore = createMemo(() => !!items() && items()!.length < total());
-  return { kind, items, total, hasMore, moreBusy, loadMore, error, reload: load, remove, onFavChange };
+  // 删掉唯一一行后，等边界页重读完成再展示空状态。
+  const readyItems = () => (items()?.length === 0 && total() > 0 ? null : items());
+  return { kind, readyItems, total, hasMore, moreBusy, loadMore, error, reload: load, remove, onFavChange };
 }
 
 export type MyList = ReturnType<typeof createMyList>;
@@ -325,12 +339,16 @@ export function createProfile() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setPwdBusy(true);
+    const session = getSessionVersion();
     try {
       await api.changePassword({ currentPassword: p.current, newPassword: p.next });
+      if (session !== getSessionVersion()) return;
       setPwdState({ current: "", next: "", confirm: "" });
       setPwdMsg({ type: "ok", text: "密码已更新。3 秒后将自动登出，请用新密码重新登录。" });
       setTimeout(() => {
-        void logout(false).then(() => navigate("/login"));
+        if (session !== getSessionVersion()) return;
+        void logout(false);
+        navigate("/login");
       }, 3000);
     } catch (e) {
       setPwdBusy(false);

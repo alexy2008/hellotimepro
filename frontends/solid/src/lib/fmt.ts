@@ -137,3 +137,10 @@ export function addCalendarYears(t: number, n: number): number {
   if (out.getUTCMonth() !== d.getUTCMonth()) out.setUTCDate(0);
   return out.getTime();
 }
+
+/** 用 Unicode 码点限长，并在清洗后同步原生输入框。 */
+export function readLimitedInput(input: HTMLInputElement | HTMLTextAreaElement, maxLength: number): string {
+  const chars = Array.from(input.value);
+  if (chars.length > maxLength) input.value = chars.slice(0, maxLength).join("");
+  return input.value;
+}

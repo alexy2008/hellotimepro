@@ -70,20 +70,24 @@ export function confirmDialog(opt: DialogOptions): Promise<boolean> {
 }
 
 export async function copyText(text: string, okMsg?: string) {
+  let copied = false;
   try {
     await navigator.clipboard.writeText(text);
+    copied = true;
   } catch {
     const ta = document.createElement("textarea");
     ta.value = text;
     ta.style.cssText = "position:fixed;opacity:0;left:-99px";
     document.body.appendChild(ta);
-    ta.select();
     try {
-      document.execCommand("copy");
+      ta.select();
+      copied = document.execCommand("copy");
     } catch {
-      /* 两种方式都失败时只能放弃 */
+      // 浏览器也可能禁用回退复制。
+    } finally {
+      ta.remove();
     }
-    ta.remove();
   }
-  if (okMsg) toast(okMsg);
+  if (!copied) toast("复制失败，请手动复制", { tone: "error" });
+  else if (okMsg) toast(okMsg);
 }

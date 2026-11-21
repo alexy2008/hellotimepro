@@ -100,6 +100,20 @@ export function onThemeClick(e: MouseEvent & { currentTarget: HTMLButtonElement 
   toggleTheme({ x: kb ? r.left + r.width / 2 : e.clientX, y: kb ? r.top + r.height / 2 : e.clientY });
 }
 
+/** 「我的」首次读取或重试时的列表反馈。 */
+export function MyListStatus(props: { error: boolean; onRetry: () => void }) {
+  return (
+    <Show when={props.error} fallback={<p role="status">正在加载胶囊…</p>}>
+      <div class="empty" data-testid="list-error" role="alert">
+        <p>胶囊列表暂时无法加载。</p>
+        <button class="btn btn--ghost" type="button" data-testid="list-retry" onClick={() => props.onRetry()}>
+          重试
+        </button>
+      </div>
+    </Show>
+  );
+}
+
 /** 「我的」列表底部的「加载更多」：还有下一页时才出现（测试钩子 list-next） */
 export function ListMore(props: { show: boolean; busy: boolean; left: number; onMore: () => void }) {
   return (

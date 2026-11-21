@@ -8,7 +8,7 @@
 import { For, Show, createEffect, createSignal, on } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { api } from "@/api/client";
-import { auth } from "@/stores/auth";
+import { auth, getSessionVersion } from "@/stores/auth";
 import { patchFavorited } from "@/stores/plaza";
 import { toast } from "@/stores/feedback";
 import { askLogin } from "@/components/LoginPrompt";
@@ -16,8 +16,11 @@ import { loginPath } from "@/lib/redirect";
 import { fmt, reducedMotion } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 
+// 同一枚胶囊的请求可以跨换肤完成，由当前会话共享提交锁。
+const pending = new Map<string, number>();
+
 interface Props {
-  capsule: { id: string; favoritedByMe: boolean; favoriteCount: number };
+  capsule: { id: string; inPlaza: boolean; favoritedByMe: boolean; favoriteCount: number };
   size?: "sm" | "md";
   onChange?: (favorited: boolean, count: number) => void;
 }
@@ -29,7 +32,6 @@ export function FavButton(props: Props) {
   const [count, setCount] = createSignal(props.capsule.favoriteCount);
   const [pop, setPop] = createSignal(false);
   const [burst, setBurst] = createSignal(false);
-  let busy = false;
   let el!: HTMLButtonElement;
 
   // 外部数据变了（列表刷新、另一处收藏）时跟上
@@ -51,8 +53,11 @@ export function FavButton(props: Props) {
       if (await askLogin("favorite")) navigate(loginPath(location.pathname + location.search));
       return;
     }
-    if (busy) return;
-    busy = true;
+    const session = getSessionVersion();
+    const { id, inPlaza } = props.capsule;
+    const onChange = props.onChange;
+    if (pending.get(id) === session) return;
+    pending.set(id, session);
     const next = !on_();
     const prev = { on: on_(), count: count() };
     const guess = Math.max(0, prev.count + (next ? 1 : -1));
@@ -68,20 +73,22 @@ export function FavButton(props: Props) {
     }
     try {
       let final = guess;
-      if (next) final = (await api.favorite(props.capsule.id)).favoriteCount;
-      else {
-        await api.unfavorite(props.capsule.id);
-        toast("已取消收藏");
-      }
+      if (next) final = (await api.favorite(id)).favoriteCount;
+      else await api.unfavorite(id);
+
+      if (session !== getSessionVersion()) return;
+      if (!next) toast("已取消收藏");
+      setOn(next);
       setCount(final);
-      patchFavorited(props.capsule.id, next, final);
-      props.onChange?.(next, final);
+      onChange?.(next, final);
+      if (inPlaza) patchFavorited(id, next, final);
     } catch {
+      if (session !== getSessionVersion()) return;
       setOn(prev.on);
       setCount(prev.count);
       toast("收藏没有成功，请稍后再试", { tone: "error" });
     } finally {
-      busy = false;
+      if (pending.get(id) === session) pending.delete(id);
     }
   }
 
