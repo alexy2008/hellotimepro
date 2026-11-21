@@ -2,13 +2,13 @@
      「时笺」8 格输码：8 个真实输入框（四四分组）。
      粘贴、自动填充或一次填入整码（测试里的 fill）都会分发到各格。
      size：'' 为开启页的大号，'sm' 为首页的小号。
-     格子从 value 初始化（换皮肤后接着显示已输入的码）；改动经 onchange / oncomplete 交给路由的输码状态。
+     格子从路由的 value 派生，保留中间空位；改动经 onchange / oncomplete 交给路由。
      导出 set()：父组件 bind:this 后供「粘贴识别」写入整码。
      ============================================================ -->
 <script lang="ts">
   import { untrack } from "svelte";
   import { focusIfIdle } from "@/lib/fmt";
-  import type { CodeState } from "@/state/code-open.svelte.ts";
+  import { EMPTY_CODE_CELL, isCompleteCode, type CodeState } from "@/state/code-open.svelte.ts";
 
   interface Props {
     value: string;
@@ -23,7 +23,10 @@
   let { value, size = "", state: codeState, shake, autofocus = false, id, onchange, oncomplete }: Props = $props();
 
   const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  let cells = $state<string[]>(untrack(() => Array.from({ length: 8 }, (_, i) => value[i] ?? "")));
+  const cells = $derived(Array.from({ length: 8 }, (_, i) => {
+    const ch = value[i];
+    return ch === EMPTY_CODE_CELL ? "" : ch ?? "";
+  }));
   const inputs: Array<HTMLInputElement | null> = $state([]);
   let shaking = $state(false);
   const timers: number[] = [];
@@ -44,11 +47,10 @@
   });
 
   function commit(next: string[], focusAt: number, completeNow: boolean) {
-    cells = next;
-    const v = next.join("");
+    const v = next.map((ch) => ch || EMPTY_CODE_CELL).join("").trimEnd();
     onchange(v);
     inputs[Math.min(7, focusAt)]?.focus();
-    if (completeNow && v.length === 8) oncomplete(v);
+    if (completeNow && isCompleteCode(v)) oncomplete(v);
   }
 
   /** 从第 from 格开始填入一串字符 */
@@ -84,7 +86,7 @@
       inputs[i + 1]?.focus();
     } else if (e.key === "Enter") {
       e.preventDefault();
-      oncomplete(cells.join(""));
+      oncomplete(value);
     }
   }
 

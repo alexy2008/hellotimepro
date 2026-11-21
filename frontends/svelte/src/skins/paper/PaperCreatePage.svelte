@@ -45,6 +45,7 @@
 
   const span = $derived(f.draft.openAt - now);
   const titleN = $derived(Array.from(f.title).length);
+  const contentLength = $derived(Array.from(f.content).length);
   const clampOpen = (t: number) => clamp(t, LIMITS.minOpen() + 30_000, LIMITS.maxOpen());
 
   // 正文框随内容长高
@@ -111,7 +112,6 @@
             bind:this={titleEl}
             bind:value={f.title}
             type="text"
-            maxlength="60"
             autocomplete="off"
             placeholder="给这封信起个标题"
             aria-label="标题，最多 60 字"
@@ -147,7 +147,6 @@
           <textarea
             bind:this={contentEl}
             bind:value={f.content}
-            maxlength="5000"
             rows="9"
             aria-label="正文，最多 5000 字"
             placeholder={"在这里写下想传到未来的话。\n可以是此刻的天气、正在读的书、一个小小的许诺，\n或者只是一句：嘿，你还好吗？"}
@@ -161,7 +160,7 @@
           <span class="sheet__ainote">
             {#if f.aiNote}<AppIcon name="sparkle" />{f.aiNote}{/if}
           </span>
-          <span class="sheet__n mono"><b>{fmt.num(f.content.length)}</b> / 5000</span>
+          <span class="sheet__n mono"><b>{fmt.num(contentLength)}</b> / 5000</span>
         </div>
 
         <div class="sheet__sign">
@@ -196,8 +195,8 @@
           <PaperTimeRuler openAt={f.draft.openAt} {now} onpick={(t) => f.setOpenAt(t)} />
 
           <div class="when">
-            <div class="when__rel serif">{fmt.span(span)}后</div>
-            <div class="when__abs" data-testid="create-openat" data-value={new Date(f.draft.openAt).toISOString()}>{fmt.full(f.draft.openAt)}</div>
+            {#if !f.draft.openAtMissing}<div class="when__rel serif">{fmt.span(span)}后</div>{/if}
+            <div class="when__abs" data-testid="create-openat" data-value={f.draft.openAtMissing ? undefined : new Date(f.draft.openAt).toISOString()}>{f.draft.openAtMissing ? "请选择启封时刻" : fmt.full(f.draft.openAt)}</div>
             <button class={["linkbtn", "when__more", calOpen && "is-open"]} type="button" aria-expanded={calOpen} onclick={() => (calOpen = !calOpen)}>
               <AppIcon name="calendar" />
               <span>精确到分钟</span>
@@ -230,12 +229,12 @@
           <div class={["envf", !f.inPlaza && "is-private"]} aria-hidden="true">
             <div class="envf__stamp"><PaperAvatarStamp id={me.avatarId} class="stamp--sm" label={false} /></div>
             <div class="envf__pm">
-              <PaperPostmark line1={fmt.date(f.draft.openAt)} line2={`${fmt.time(f.draft.openAt)} 启`} class="pm--envf" />
+              {#if !f.draft.openAtMissing}<PaperPostmark line1={fmt.date(f.draft.openAt)} line2={`${fmt.time(f.draft.openAt)} 启`} class="pm--envf" />{/if}
             </div>
             <div class="envf__to">
               <small>寄往</small>
-              <b>{fmt.cn(f.draft.openAt)}</b>
-              <span>{fmt.span(span)}后的未来</span>
+              <b>{f.draft.openAtMissing ? "待选择" : fmt.cn(f.draft.openAt)}</b>
+              {#if !f.draft.openAtMissing}<span>{fmt.span(span)}后的未来</span>{/if}
             </div>
             <div class="envf__title serif">{f.title.trim() ? `《${f.title.trim()}》` : "《未命名的信》"}</div>
             <div class="envf__from mono">

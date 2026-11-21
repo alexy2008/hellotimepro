@@ -4,8 +4,9 @@
      页签名由 App 先校验过（只认 created / favorites / profile）。
      ============================================================ -->
 <script lang="ts">
+  import { untrack } from "svelte";
   import { ui } from "@/stores/ui.svelte.ts";
-  import { MyStatsState, ProfileForm, provideMe, type MeTab } from "@/state/account.svelte.ts";
+  import { MyList, MyStatsState, ProfileForm, provideMe, type MeTab } from "@/state/account.svelte.ts";
   import PaperMePage from "@/skins/paper/PaperMePage.svelte";
   import AmberMePage from "@/skins/amber/AmberMePage.svelte";
 
@@ -13,16 +14,23 @@
 
   const stats = new MyStatsState();
   const profile = new ProfileForm();
+  const created = new MyList("created", stats.refresh);
+  const favorites = new MyList("favorites", stats.refresh);
   provideMe({
     get tab() {
       return tab;
     },
     stats,
     profile,
+    created,
+    favorites,
   });
 
   $effect(() => {
-    if (tab !== "profile") profile.reset();
+    if (tab === "profile") return;
+    profile.reset();
+    const list = tab === "created" ? created : favorites;
+    untrack(() => void list.reload());
   });
 </script>
 

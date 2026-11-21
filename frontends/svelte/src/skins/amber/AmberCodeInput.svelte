@@ -6,7 +6,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { focusIfIdle } from "@/lib/fmt";
-  import type { CodeState } from "@/state/code-open.svelte.ts";
+  import { EMPTY_CODE_CELL, isCompleteCode, type CodeState } from "@/state/code-open.svelte.ts";
 
   interface Props {
     value: string;
@@ -20,6 +20,10 @@
   let { value, size = "", state: codeState, shake, autofocus = false, onchange, oncomplete }: Props = $props();
 
   const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+  const cells = $derived(Array.from({ length: 8 }, (_, i) => {
+    const ch = value[i];
+    return ch === EMPTY_CODE_CELL ? "" : ch ?? "";
+  }));
   let focused = $state(false);
   let shaking = $state(false);
   /** 本次新敲进来的格子「弹」一下：从第几格开始弹 */
@@ -41,12 +45,12 @@
     return () => timers.forEach(clearTimeout);
   });
 
-  function update(raw: string, complete: boolean) {
-    const v = clean(raw);
+  function update(raw: string) {
+    const v = raw.toUpperCase().replace(/[^A-Z0-9\u00a0]/g, "").slice(0, 8).trimEnd();
     popFrom = v.length > value.length ? value.length : 8;
     if (input && input.value !== v) input.value = v;
     onchange(v);
-    if (complete && v.length === 8) oncomplete(v);
+    if (isCompleteCode(v)) oncomplete(v);
   }
 
   function oninput(e: Event) {
@@ -54,7 +58,13 @@
     if (ev.isComposing) return;
     // 一次进来一整串码（粘贴、自动填充）：与时笺一样整码从头填，不接在已经输入的几位后面
     const chunk = clean(ev.data ?? "");
-    update(chunk.length === 8 ? chunk : (e.target as HTMLInputElement).value, true);
+    update(chunk.length === 8 ? chunk : (e.target as HTMLInputElement).value);
+  }
+  function onpaste(e: ClipboardEvent) {
+    const code = clean(e.clipboardData?.getData("text") ?? "");
+    if (!isCompleteCode(code)) return;
+    e.preventDefault();
+    update(code);
   }
   function onfocus(e: FocusEvent) {
     focused = true;
@@ -89,19 +99,20 @@
     data-testid="code-input"
     {value}
     {oninput}
-    oncompositionend={(e) => update(e.currentTarget.value, false)}
+    {onpaste}
+    oncompositionend={(e) => update(e.currentTarget.value)}
     {onkeydown}
     {onfocus}
     onblur={() => (focused = false)}
   />
   <div class="code__cells" aria-hidden="true">
-    {#each { length: 8 }, i (i)}
+    {#each cells as ch, i (i)}
       <span
-        class={["code__cell", { "has-gap": i === 4, "is-filled": value[i], "is-pop": value[i] && i >= popFrom, "is-active": i === Math.min(value.length, 7) }]}
+        class={["code__cell", { "has-gap": i === 4, "is-filled": ch, "is-pop": ch && i >= popFrom, "is-active": i === Math.min(value.length, 7) }]}
         data-code-cell=""
-        data-value={value[i] ?? ""}
+        data-value={ch}
       >
-        {value[i] ?? ""}
+        {ch}
       </span>
     {/each}
   </div>

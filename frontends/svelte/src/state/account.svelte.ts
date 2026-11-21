@@ -178,7 +178,6 @@ export class MyList {
     readonly kind: "created" | "favorites",
     private onChange?: () => void,
   ) {
-    void this.reload();
     $effect(() => () => void this.#seq++);
   }
 
@@ -188,6 +187,8 @@ export class MyList {
 
   reload = async () => {
     const my = ++this.#seq;
+    this.moreBusy = false;
+    this.error = false;
     try {
       const r = await this.#fetchPage(1);
       if (my !== this.#seq) return;
@@ -221,7 +222,11 @@ export class MyList {
   #drop(id: string) {
     this.#seq++;
     this.moreBusy = false;
-    this.items = (this.items ?? []).filter((i) => i.id !== id);
+    if (!this.items?.some((i) => i.id === id)) {
+      void this.reload();
+      return;
+    }
+    this.items = this.items.filter((i) => i.id !== id);
     this.total = Math.max(0, this.total - 1);
     if (!this.items.length && this.total > 0) void this.reload();
   }
@@ -391,11 +396,13 @@ export const ME_TABS = ["created", "favorites", "profile"] as const;
 export type MeTab = (typeof ME_TABS)[number];
 export const isMeTab = (t: string): t is MeTab => (ME_TABS as readonly string[]).includes(t);
 
-/** 「我的」路由的状态：页头统计 + 资料表单（切皮肤、切页签都还在） */
+/** 「我的」路由持有页头统计、资料表单和个人列表。 */
 export interface MeState {
   readonly tab: MeTab;
   stats: MyStatsState;
   profile: ProfileForm;
+  created: MyList;
+  favorites: MyList;
 }
 const [getMe, setMe] = createContext<MeState>();
 export const provideMe = setMe;

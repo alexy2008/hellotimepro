@@ -3,7 +3,7 @@
   import type { CapsuleListItem } from "@/types";
   import { fmt, ms, pad2 } from "@/lib/fmt";
   import { share } from "@/stores/feedback.svelte.ts";
-  import { MyList } from "@/state/account.svelte.ts";
+  import type { MyList } from "@/state/account.svelte.ts";
   import AppIcon from "@/components/AppIcon.svelte";
   import CreateLink from "@/components/CreateLink.svelte";
   import ListMore from "@/components/ListMore.svelte";
@@ -11,8 +11,7 @@
   import PaperSeal from "./PaperSeal.svelte";
   import PaperDlgMark from "./PaperDlgMark.svelte";
 
-  let { now, onchange }: { now: number; onchange: () => void } = $props();
-  const list = new MyList("created", () => onchange());
+  let { now, list }: { now: number; list: MyList } = $props();
 
   const row = (c: CapsuleListItem) => {
     const openAt = ms(c.openAt);
@@ -23,7 +22,12 @@
   const mark = { component: PaperDlgMark, props: { ch: "删" } };
 </script>
 
-{#if list.items}
+{#if list.error}
+  <div class="empty" role="alert">
+    <p>暂时无法加载我创建的胶囊。</p>
+    <button class="btn btn--ghost" type="button" onclick={list.reload}>重试</button>
+  </div>
+{:else if list.items}
   {#if !list.items.length}
     <div class="empty empty--inline" data-testid="list-empty">
       <PaperSeal ch="空" variant="line" />

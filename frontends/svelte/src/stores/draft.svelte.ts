@@ -12,19 +12,21 @@ class DraftStore {
   title = $state("");
   content = $state("");
   openAt = $state(PRESET_AT["1y"]());
+  /** 最近选中的时间仍用于定位日历，清空输入后须重新确认。 */
+  openAtMissing = $state(false);
   /** 当前选中的预设；用标尺 / 日历 / AI 改了时刻后为 null */
   preset = $state<string | null>("1y");
   inPlaza = $state(true);
   /** 版本号：每改一次加一。封存成功时只有草稿还是提交那一版才清空 */
   revision = $state(0);
 
-  patch(p: Partial<{ title: string; content: string; openAt: number; preset: string | null; inPlaza: boolean }>) {
+  patch(p: Partial<{ title: string; content: string; openAt: number; openAtMissing: boolean; preset: string | null; inPlaza: boolean }>) {
     Object.assign(this, p);
     this.revision++;
   }
 
   reset() {
-    this.patch({ title: "", content: "", openAt: PRESET_AT["1y"](), preset: "1y", inPlaza: true });
+    this.patch({ title: "", content: "", openAt: PRESET_AT["1y"](), openAtMissing: false, preset: "1y", inPlaza: true });
   }
 }
 

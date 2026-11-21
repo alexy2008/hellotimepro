@@ -1,17 +1,21 @@
 <!-- 「我收藏的」：信封卡片网格；在这里取消收藏会从列表里拿掉 -->
 <script lang="ts">
   import { authStore } from "@/stores/auth.svelte.ts";
-  import { MyList } from "@/state/account.svelte.ts";
+  import type { MyList } from "@/state/account.svelte.ts";
   import AppIcon from "@/components/AppIcon.svelte";
   import ListMore from "@/components/ListMore.svelte";
   import PaperCard from "./PaperCard.svelte";
   import PaperSeal from "./PaperSeal.svelte";
 
-  let { now, onchange }: { now: number; onchange: () => void } = $props();
-  const list = new MyList("favorites", () => onchange());
+  let { now, list }: { now: number; list: MyList } = $props();
 </script>
 
-{#if list.items}
+{#if list.error}
+  <div class="empty" role="alert">
+    <p>暂时无法加载我收藏的胶囊。</p>
+    <button class="btn btn--ghost" type="button" onclick={list.reload}>重试</button>
+  </div>
+{:else if list.items}
   {#if !list.items.length}
     <div class="empty empty--inline" data-testid="list-empty">
       <PaperSeal ch="藏" variant="line" />

@@ -1,6 +1,6 @@
 <!-- 首页就地输码：与开启页同一个部件（X3），满 8 位自动查询 -->
 <script lang="ts">
-  import { useCodeOpen } from "@/state/code-open.svelte.ts";
+  import { isCompleteCode, useCodeOpen } from "@/state/code-open.svelte.ts";
   import AppIcon from "@/components/AppIcon.svelte";
   import PaperCodeInput from "./PaperCodeInput.svelte";
 
@@ -12,7 +12,7 @@
   }
 </script>
 
-<form class={["hquick", o.value.length === 8 && "is-full"]} novalidate {onsubmit}>
+<form class={["hquick", isCompleteCode(o.value) && "is-full"]} novalidate {onsubmit}>
   <div class="hquick__k"><AppIcon name="key" />已有胶囊码？在这里开启</div>
   <div class="hquick__row">
     <PaperCodeInput size="sm" value={o.value} state={o.state} shake={o.shake} onchange={o.input} oncomplete={o.go} />

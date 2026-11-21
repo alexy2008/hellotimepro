@@ -249,9 +249,9 @@ export const useLogin = getLogin;
 | `CapsulePage` | `CapsuleState`（App 按 `code` 加了 `{#key}`） | 详情页两套视图 |
 | `CreatePage` | `CreateForm`（外层 AuthGate 按 `user.id` 加了 `{#key}`） | 创建页两套视图 |
 | `LoginPage` / `RegisterPage` | `LoginForm` / `RegisterForm` | 登录 / 注册两套视图 |
-| `MePage` | `MeState`：`tab`、`MyStatsState`、`ProfileForm` | 「我的」两套视图及其页签 |
+| `MePage` | `MeState` 包含页签、统计、资料表单和两份个人列表 | 「我的」两套视图及其页签 |
 
-`MePage` 在三个页签之间切换时不重建（同一条路由、参数不同），所以 `ProfileForm` 一直活着；它用一个 effect 盯着 `tab`，离开「账号设置」就把资料改回当前值、清空密码框。
+`MePage` 在三个页签之间切换时不重建（同一条路由、参数不同），所以 `ProfileForm` 一直活着；它用一个 effect 盯着 `tab`，离开「账号设置」就把资料改回当前值、清空密码框。进入列表页签时请求第一页。两套皮肤从同一路由取得列表，删除或取消收藏在换肤后仍作用于当前列表。加载失败时由视图显示重试入口。
 
 ## 7. 路由层：svelte-routing
 
@@ -317,7 +317,7 @@ export function redirect(to: string) {
 
 | store | 内容 |
 |---|---|
-| `auth` | user、access / refresh token；`hydrate`、`setTokens`、`logout`、`refreshMe`（单飞） |
+| `auth` | user、access / refresh token；`hydrate`、`setTokens`、`logout`、`refreshMe`（在同一登录会话内复用请求） |
 | `ui` | 皮肤与明暗；`setSkin` / `toggleTheme` 用 View Transition，回调里改完状态 `await tick()` |
 | `plaza` | 排序、筛选、搜索词（`qInput` 防抖 300ms 后写进 `q`）、页码、列表、数量、年鉴、精选 |
 | `draft` | 创建页草稿；`patch()` 每次把 `revision` 加一，`reset()` |
@@ -325,7 +325,7 @@ export function redirect(to: string) {
 | `clock` | 整秒节拍 `clock.now` |
 | `health` | `/health`，页脚与关于页共用，只请求一次 |
 
-搜索防抖的计时器放在 `plaza` 里而不是视图里：防抖途中切换皮肤（视图整个换掉）也不会丢字。
+`plaza` 保存搜索防抖计时器，换肤后尚未提交的输入仍会生效。新查询开始时清理上一查询的列表及分页，关键词变化时也清理筛选计数。请求失败时保留重试入口，计数请求失败时隐藏计数。
 
 ### 9.2 `createSubscriber`：有人用才走表
 
@@ -422,6 +422,8 @@ awaitOpened = async (signal: AbortSignal) => {
 
 `lib/motion.svelte.ts` 的 `useShake(() => source)`：值变了就亮 480ms，视图加 `is-shake`（挂载时的初值不算）。
 
+清空琥珀的日期时间控件会让共享草稿进入待选状态。两套皮肤都要求重新选定完整时刻才能封存。标题和正文按 Unicode 码点计数及校验，超限时在原字段提示。详情收藏成功后，回调同步更新路由持有的胶囊，换肤和启封后的视图继续使用最新状态。复制操作根据 Clipboard API 或兼容复制的实际结果提示用户。
+
 ## 12. 视图层：皮肤与组件
 
 ### 12.1 一个页面的三层
@@ -444,8 +446,8 @@ pages/CreatePage.svelte          provideCreateForm()，按皮肤二选一
 
 ### 12.4 输码框
 
-- 时笺：8 个真实输入框（四四分组）。粘贴、自动填充或一次填入整码会分发到各格；格子从路由状态的 `value` 初始化，任何一格的编辑凑满 8 位就提交。
-- 琥珀：8 个展示格 + 一个盖在上面的透明原生输入框（键盘、粘贴、输入法都交给它）。一次进来一整串 8 位码时从头填，不接在已有的几位后面。
+- 时笺：8 个真实输入框（四四分组）。粘贴、自动填充或一次填入整码会分发到各格；格子由路由状态的 `value` 派生。输入值保留中间空位，换肤后字符仍在原来的格子，全部填满才自动查询。
+- 琥珀：8 个展示格 + 一个盖在上面的透明原生输入框（键盘、粘贴、输入法都交给它）。整码粘贴从第一格覆盖，局部编辑时原生输入框用不换行空格表示中间空位。胶囊码完整且符合格式后才发起查询。
 
 ### 12.5 测试钩子
 

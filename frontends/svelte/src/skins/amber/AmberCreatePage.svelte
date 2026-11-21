@@ -46,7 +46,8 @@
   const titleShake = useShake(() => f.shake.title);
   const contentShake = useShake(() => f.shake.content);
   const openShake = useShake(() => f.shake.openAt);
-  const span = $derived(f.draft.openAt - now);
+  const span = $derived(f.draft.openAtMissing ? 0 : f.draft.openAt - now);
+  const contentLength = $derived(Array.from(f.content).length);
 
   // 正文框随内容长高
   $effect(() => {
@@ -71,10 +72,13 @@
 
   function onOpenAt(e: Event) {
     const t = new Date((e.target as HTMLInputElement).value).getTime();
-    if (!Number.isNaN(t)) f.setOpenAt(t);
+    f.setOpenAt(t);
   }
   function onsubmit(e: SubmitEvent) {
     e.preventDefault();
+    // 浏览器可能只改了日期控件中的一段，提交前也核对实际值。
+    const input = (e.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>("#openAt");
+    if (input && !input.value && !f.draft.openAtMissing) f.setOpenAt(NaN);
     void f.submit();
   }
 </script>
@@ -103,7 +107,6 @@
                 bind:this={titleEl}
                 bind:value={f.title}
                 class="input"
-                maxlength="60"
                 autocomplete="off"
                 placeholder="给这枚胶囊起个名字"
                 data-testid="create-title"
@@ -147,7 +150,7 @@
           <div class={["field", contentShake.on && "is-shake"]} data-field="content">
             <div class="field__head">
               <label class="field__label" for="content">内容 <em>*</em></label>
-              <span class="field__count mono"><b>{fmt.num(f.content.length)}</b>/5000</span>
+              <span class="field__count mono"><b>{fmt.num(contentLength)}</b>/5000</span>
             </div>
             <div class={["paper", { "is-ai": f.aiBusy, "is-thinking": f.aiThinking }]}>
               <textarea
@@ -155,7 +158,6 @@
                 bind:this={contentEl}
                 bind:value={f.content}
                 class="paper__text"
-                maxlength="5000"
                 rows="9"
                 placeholder={"在这里写下想交给未来的话。\n可以是此刻的天气、正在读的书、一个小小的约定，\n或者只是一句：嘿，你还好吗？"}
                 data-testid="create-content"
@@ -181,9 +183,9 @@
                 type="datetime-local"
                 min={toLocal(LIMITS.minOpen())}
                 max={toLocal(LIMITS.maxOpen())}
-                value={toLocal(f.draft.openAt)}
+                value={f.draft.openAtMissing ? "" : toLocal(f.draft.openAt)}
                 data-testid="create-openat"
-                data-value={new Date(f.draft.openAt).toISOString()}
+                data-value={f.draft.openAtMissing ? undefined : new Date(f.draft.openAt).toISOString()}
                 oninput={onOpenAt}
               />
             </div>
@@ -245,7 +247,7 @@
             <dl class="preview__table">
               <div>
                 <dt>开启时间</dt>
-                <dd class="mono">{dash(f.draft.openAt)}</dd>
+                <dd class="mono">{f.draft.openAtMissing ? "待选择" : dash(f.draft.openAt)}</dd>
               </div>
               <div>
                 <dt>沉睡时长</dt>
@@ -253,12 +255,12 @@
               </div>
               <div>
                 <dt>正文</dt>
-                <dd>{fmt.num(f.content.length)} 字</dd>
+                <dd>{fmt.num(contentLength)} 字</dd>
               </div>
             </dl>
             <div class="badges">
               <AmberVisBadge inPlaza={f.inPlaza} />
-              <AmberBadge kind="amber" icon="clock">{fmt.span(Math.max(span, 0))}后</AmberBadge>
+              {#if span > 0}<AmberBadge kind="amber" icon="clock">{fmt.span(span)}后</AmberBadge>{/if}
             </div>
           </div>
           <ul class="notes">

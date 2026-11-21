@@ -58,6 +58,32 @@ describe("草稿跟着账号走", () => {
   });
 });
 
+describe("当前会话的资料请求", () => {
+  it("登出后丢弃旧资料，旧请求结束也不会清除新会话的请求", async () => {
+    let resolveAlice!: (value: User) => void;
+    let resolveBob!: (value: User) => void;
+    const me = vi.spyOn(api, "me")
+      .mockReturnValueOnce(new Promise((resolve) => (resolveAlice = resolve)))
+      .mockReturnValueOnce(new Promise((resolve) => (resolveBob = resolve)));
+
+    authStore.setTokens(tokens("alice"));
+    const aliceRequest = authStore.refreshMe();
+    await authStore.logout(false);
+    authStore.setTokens(tokens("bob"));
+    const bobRequest = authStore.refreshMe();
+
+    resolveAlice(user("alice"));
+    await aliceRequest;
+    expect(authStore.user?.id).toBe("bob");
+    expect(authStore.refreshMe()).toBe(bobRequest);
+    expect(me).toHaveBeenCalledTimes(2);
+
+    resolveBob({ ...user("bob"), nickname: "鲍勃" });
+    await bobRequest;
+    expect(authStore.user?.nickname).toBe("鲍勃");
+  });
+});
+
 describe("注册表单的昵称错误", () => {
   const fill = (f: RegisterForm) => {
     f.email = "new@x.dev";

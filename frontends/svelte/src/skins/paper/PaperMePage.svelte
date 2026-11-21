@@ -83,9 +83,9 @@
     {#key me.tab}
       <div class="me__body is-swap" data-tab={me.tab}>
         {#if me.tab === "created"}
-          <PaperMeCreated now={clock.now} onchange={me.stats.refresh} />
+          <PaperMeCreated now={clock.now} list={me.created} />
         {:else if me.tab === "favorites"}
-          <PaperMeFavorites now={clock.now} onchange={me.stats.refresh} />
+          <PaperMeFavorites now={clock.now} list={me.favorites} />
         {:else}
           <PaperMeProfile />
         {/if}

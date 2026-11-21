@@ -6,7 +6,7 @@
   import { authStore } from "@/stores/auth.svelte.ts";
   import { toast } from "@/stores/feedback.svelte.ts";
   import { fmt, ms } from "@/lib/fmt";
-  import { useCodeOpen } from "@/state/code-open.svelte.ts";
+  import { isCompleteCode, useCodeOpen } from "@/state/code-open.svelte.ts";
   import { MySealed } from "@/state/capsule.svelte.ts";
   import AppIcon from "@/components/AppIcon.svelte";
   import PaperCodeInput from "./PaperCodeInput.svelte";
@@ -51,7 +51,7 @@
         <button
           class={["btn", "btn--primary", "btn--lg", o.state === "checking" && "is-busy"]}
           type="button"
-          disabled={o.value.length !== 8 || o.state === "checking"}
+          disabled={!isCompleteCode(o.value) || o.state === "checking"}
           onclick={() => o.go(o.value)}
         >
           <AppIcon name="key" />

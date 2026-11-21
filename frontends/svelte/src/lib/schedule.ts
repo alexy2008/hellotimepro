@@ -17,9 +17,13 @@ export const LIMITS = {
   maxOpen: () => addCalendarYears(Date.now(), 10) - 5 * 60 * 1000,
 };
 
+export const TITLE_MAX = 60;
+export const CONTENT_MAX = 5000;
+
 export const MSG = {
   title: "先给这枚胶囊起个标题",
   content: "还没写内容呢，写点什么吧",
+  openMissing: "请选择完整的开启日期和时间",
   openMin: "开启时间至少要在 1 分钟之后",
   openMax: "开启时间不能超过 10 年",
 };

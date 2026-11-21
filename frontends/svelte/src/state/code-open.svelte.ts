@@ -14,6 +14,10 @@ import { sleep } from "@/lib/fmt";
 
 export type CodeState = "" | "checking" | "ok" | "error";
 
+// 既保留中间空格位，又让琥珀的原生输入框可以定位到这一格。
+export const EMPTY_CODE_CELL = "\u00a0";
+export const isCompleteCode = (value: string) => /^[A-Z0-9]{8}$/.test(value);
+
 export const MSG_FORMAT = "胶囊码是 8 位大写字母与数字";
 export const MSG_NOT_FOUND = "没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1";
 
@@ -39,8 +43,8 @@ export class CodeOpen {
 
   go = async (code: string) => {
     if (this.#pending === code) return;
+    if (!isCompleteCode(code)) return this.#fail(MSG_FORMAT);
     const request = ++this.#generation;
-    if (code.length !== 8) return this.#fail(MSG_FORMAT);
     this.#pending = code;
     this.error = "";
     this.state = "checking";
@@ -60,6 +64,7 @@ export class CodeOpen {
 
   /** 输码框里的字变了：作废进行中的查询，收起提示 */
   input = (v: string) => {
+    if (v === this.value) return;
     this.#generation++;
     this.#pending = null;
     this.value = v;

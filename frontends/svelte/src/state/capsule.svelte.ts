@@ -24,6 +24,20 @@ export class CapsuleState {
   #gen = 0;
   /** 取数序列号：只认最后一次 */
   #loadSeq = 0;
+  #favoriteRevision = 0;
+
+  setFavorite = (favoritedByMe: boolean, favoriteCount: number) => {
+    if (!this.capsule) return;
+    this.#favoriteRevision++;
+    this.capsule = { ...this.capsule, favoritedByMe, favoriteCount };
+  };
+
+  #updateCapsule(data: CapsuleDetail, revision: number) {
+    const current = this.capsule;
+    this.capsule = current && revision !== this.#favoriteRevision
+      ? { ...data, favoritedByMe: current.favoritedByMe, favoriteCount: current.favoriteCount }
+      : data;
+  }
 
   constructor(readonly code: string) {
     // 登录态变了，favoritedByMe 也会变：重新取一次
@@ -40,11 +54,12 @@ export class CapsuleState {
   load = async () => {
     const my = ++this.#loadSeq;
     const g = this.#gen;
+    const favoriteRevision = this.#favoriteRevision;
     const stale = () => my !== this.#loadSeq || g !== this.#gen;
     try {
       const d = await api.capsuleByCode(this.code);
       if (stale()) return null;
-      this.capsule = d;
+      this.#updateCapsule(d, favoriteRevision);
       this.status = "ok";
       return d;
     } catch (e) {
@@ -61,11 +76,12 @@ export class CapsuleState {
   awaitOpened = async (signal: AbortSignal): Promise<CapsuleDetail | null> => {
     const my = this.#gen;
     for (let i = 0; my === this.#gen && !signal.aborted; i++) {
+      const favoriteRevision = this.#favoriteRevision;
       try {
         const d = await api.capsuleByCode(this.code);
         if (my !== this.#gen || signal.aborted) return null;
         if (d.isOpened) {
-          this.capsule = d;
+          this.#updateCapsule(d, favoriteRevision);
           return d;
         }
       } catch (e) {

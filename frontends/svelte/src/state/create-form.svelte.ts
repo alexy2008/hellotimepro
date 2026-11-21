@@ -12,7 +12,7 @@ import { createContext } from "svelte";
 import { api } from "@/api/client";
 import { ApiError, type CapsuleDetail, type CapsuleRecommendation } from "@/types";
 import { fmt, reducedMotion, sleep } from "@/lib/fmt";
-import { LIMITS, MSG, PRESET_AT } from "@/lib/schedule";
+import { CONTENT_MAX, LIMITS, MSG, PRESET_AT, TITLE_MAX } from "@/lib/schedule";
 import { toast } from "@/stores/feedback.svelte.ts";
 import { authStore } from "@/stores/auth.svelte.ts";
 import { draft } from "@/stores/draft.svelte.ts";
@@ -39,7 +39,7 @@ export class CreateForm {
 
   constructor() {
     // 开启时间：草稿里的时刻可能已经过期（离开太久），进来时顺延到合法范围
-    if (draft.openAt < LIMITS.minOpen()) draft.patch({ openAt: PRESET_AT["1y"](), preset: "1y" });
+    if (!draft.openAtMissing && draft.openAt < LIMITS.minOpen()) draft.patch({ openAt: PRESET_AT["1y"](), preset: "1y" });
     void this.refreshRecos();
     // 离开创建路由时停止打字、作废推荐请求
     $effect(() => () => {
@@ -89,7 +89,7 @@ export class CreateForm {
   setOpenAt = (t: number, preset: string | null = null) => {
     if (this.aiBusy) this.stopTyping();
     this.#clearErr("openAt");
-    draft.patch({ openAt: t, preset });
+    draft.patch(Number.isFinite(t) ? { openAt: t, openAtMissing: false, preset } : { openAtMissing: true, preset: null });
   };
   pickPreset = (key: string) => this.setOpenAt(PRESET_AT[key](), key);
 
@@ -156,6 +156,7 @@ export class CreateForm {
       draft.patch({
         content: "",
         openAt: Math.min(Math.max(new Date(s.openAt).getTime(), LIMITS.minOpen() + 30_000), LIMITS.maxOpen()),
+        openAtMissing: false,
         preset: null,
       });
       if (!(await this.#typeInto("content", s.content, token))) return;
@@ -179,6 +180,9 @@ export class CreateForm {
     if (this.aiBusy) this.stopTyping();
     if (!draft.title.trim()) return this.#fail("title", MSG.title), false;
     if (!draft.content.trim()) return this.#fail("content", MSG.content), false;
+    if (Array.from(draft.title.trim()).length > TITLE_MAX) return this.#fail("title", "标题不能超过 60 个字符"), false;
+    if (Array.from(draft.content).length > CONTENT_MAX) return this.#fail("content", "内容不能超过 5000 个字符"), false;
+    if (draft.openAtMissing) return this.#fail("openAt", MSG.openMissing), false;
     if (draft.openAt < LIMITS.minOpen()) return this.#fail("openAt", MSG.openMin), false;
     if (draft.openAt > LIMITS.maxOpen()) return this.#fail("openAt", MSG.openMax), false;
     return true;

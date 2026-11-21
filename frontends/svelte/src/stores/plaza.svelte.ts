@@ -36,18 +36,26 @@ class PlazaStore {
   #countSeq = 0;
   #debounce = 0;
 
-  async fetchList() {
+  async fetchList(resetResults = false) {
     const my = ++this.#listSeq;
+    const query = { sort: this.sort, filter: this.filter, q: this.q.trim() || undefined, page: this.page, pageSize: PAGE_SIZE };
     this.loading = true;
     this.error = null;
+    if (resetResults) {
+      this.items = [];
+      this.pagination = null;
+    }
     try {
-      const data = await api.plaza({ sort: this.sort, filter: this.filter, q: this.q.trim() || undefined, page: this.page, pageSize: PAGE_SIZE });
+      const data = await api.plaza(query);
       if (my !== this.#listSeq) return;
       this.items = data.items;
       this.pagination = data.pagination;
     } catch (e) {
       // 新查询失败：报本次的错（视图据此显示错误与重试，不再把旧查询的卡片当成这次的结果）
-      if (my === this.#listSeq) this.error = e instanceof Error ? e.message : "加载失败";
+      if (my !== this.#listSeq) return;
+      this.items = [];
+      this.pagination = null;
+      this.error = e instanceof Error ? e.message || "加载失败" : "加载失败";
     } finally {
       if (my === this.#listSeq) this.loading = false;
     }
@@ -59,31 +67,32 @@ class PlazaStore {
       const s = await api.plazaStats(this.q.trim() || undefined);
       if (my === this.#countSeq) this.counts = s.counts;
     } catch {
-      /* 数量拿不到时筛选标签上不显示数字 */
+      if (my === this.#countSeq) this.counts = null;
     }
   }
 
   setSort(v: PlazaSort) {
     this.sort = v;
     this.page = 1;
-    void this.fetchList();
+    void this.fetchList(true);
   }
   setFilter(v: PlazaFilter) {
     this.filter = v;
     this.page = 1;
-    void this.fetchList();
+    void this.fetchList(true);
   }
   setPage(n: number) {
     this.page = n;
-    void this.fetchList();
+    void this.fetchList(true);
   }
   /** 立即生效（清空按钮）：顺手取消还在等的防抖 */
   setQ(v: string) {
     clearTimeout(this.#debounce);
     this.qInput = v;
+    if (v.trim() !== this.q.trim()) this.counts = null;
     this.q = v;
     this.page = 1;
-    void this.fetchList();
+    void this.fetchList(true);
     void this.#fetchCounts();
   }
   /** 搜索框输入：先显示，防抖后再查 */

@@ -49,6 +49,14 @@ class AuthStore {
   refreshToken = $state<string | null>(null);
   hydrated = $state(false);
 
+  #session = 0;
+  #me: Promise<void> | null = null;
+
+  #invalidateProfileRequest() {
+    this.#session++;
+    this.#me = null;
+  }
+
   hydrate() {
     const persisted = load();
     if (persisted) {
@@ -59,6 +67,7 @@ class AuthStore {
   }
 
   setTokens(t: AuthTokens) {
+    this.#invalidateProfileRequest();
     this.user = t.user;
     this.accessToken = t.accessToken;
     this.refreshToken = t.refreshToken;
@@ -73,10 +82,7 @@ class AuthStore {
 
   async logout(callServer = true) {
     const rt = this.refreshToken;
-    this.user = null;
-    this.accessToken = null;
-    this.refreshToken = null;
-    clearPersist();
+    this.dropFromAuthLost();
 
     if (callServer && rt) {
       try {
@@ -87,24 +93,28 @@ class AuthStore {
     }
   }
 
-  #me: Promise<void> | null = null;
-
-  /** 拉一次 /me 刷新资料；同一时刻只发一个请求（启动校验与路由守卫可能同时要） */
+  /** 同一会话内复用进行中的 /me；换账号或退出后，旧请求失效。 */
   refreshMe(): Promise<void> {
-    this.#me ??= api
+    if (this.#me) return this.#me;
+    const session = this.#session;
+    this.#me = api
       .me()
       .then((me) => {
+        if (session !== this.#session) return;
         this.user = me;
         persist({ user: me, refreshToken: this.refreshToken });
       })
       .catch(() => {
         // me 拿不到通常是 token 已失效；保持现状由 401 路径接管
       })
-      .finally(() => (this.#me = null));
+      .finally(() => {
+        if (session === this.#session) this.#me = null;
+      });
     return this.#me;
   }
 
   dropFromAuthLost() {
+    this.#invalidateProfileRequest();
     this.user = null;
     this.accessToken = null;
     this.refreshToken = null;

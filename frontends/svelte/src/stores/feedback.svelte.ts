@@ -91,12 +91,18 @@ export async function copyText(text: string, okMsg?: string) {
     ta.style.cssText = "position:fixed;opacity:0;left:-99px";
     document.body.appendChild(ta);
     ta.select();
+    let copied = false;
     try {
-      document.execCommand("copy");
+      copied = document.execCommand("copy");
     } catch {
-      /* 两种方式都失败时只能放弃 */
+      /* 浏览器可能禁用兼容复制。 */
+    } finally {
+      ta.remove();
     }
-    ta.remove();
+    if (!copied) {
+      toast("复制失败，请手动复制", { tone: "error" });
+      return;
+    }
   }
   if (okMsg) toast(okMsg);
 }

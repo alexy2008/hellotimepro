@@ -4,7 +4,7 @@
   import { fmt, ms } from "@/lib/fmt";
   import { paletteOf } from "@/lib/palette";
   import { share } from "@/stores/feedback.svelte.ts";
-  import { MyList } from "@/state/account.svelte.ts";
+  import type { MyList } from "@/state/account.svelte.ts";
   import AppIcon from "@/components/AppIcon.svelte";
   import CreateLink from "@/components/CreateLink.svelte";
   import ListMore from "@/components/ListMore.svelte";
@@ -15,8 +15,7 @@
   import AmberVisBadge from "./AmberVisBadge.svelte";
   import { cdShort } from "./art";
 
-  let { now, onchange }: { now: number; onchange: () => void } = $props();
-  const list = new MyList("created", () => onchange());
+  let { now, list }: { now: number; list: MyList } = $props();
 
   const row = (c: CapsuleListItem) => {
     const openAt = ms(c.openAt);
@@ -25,7 +24,12 @@
   };
 </script>
 
-{#if list.items}
+{#if list.error}
+  <div class="notice card" role="alert">
+    <p>暂时无法加载我创建的胶囊。</p>
+    <button class="btn btn--ghost" type="button" onclick={list.reload}>重试</button>
+  </div>
+{:else if list.items}
   {#if !list.items.length}
     <AmberEmpty title="还没有写下任何胶囊" text="第一枚，写给一年后的自己怎么样？">
       <CreateLink class="btn btn--primary"><AppIcon name="pen" />写一枚胶囊</CreateLink>

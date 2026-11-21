@@ -43,6 +43,7 @@
     if (busy) return;
     busy = true;
     const id = capsule.id;
+    const owner = authStore.user.id;
     const next = !on;
     const prev = { on, count };
     const guess = Math.max(0, count + (next ? 1 : -1));
@@ -58,12 +59,14 @@
       if (next) final = (await api.favorite(id)).favoriteCount;
       else {
         await api.unfavorite(id);
-        toast("已取消收藏");
       }
+      if (authStore.user?.id !== owner) return;
+      if (!next) toast("已取消收藏");
       count = final;
       plaza.patchFavorited(id, next, final);
       onchange?.(next, final);
     } catch {
+      if (authStore.user?.id !== owner) return;
       on = prev.on;
       count = prev.count;
       toast("收藏没有成功，请稍后再试", { tone: "error" });
