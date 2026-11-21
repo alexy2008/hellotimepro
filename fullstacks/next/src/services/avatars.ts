@@ -18,14 +18,15 @@ let cached: Avatar[] | null = null;
 
 function loadCatalog(): Avatar[] {
   if (cached) return cached;
-  const path = join(process.cwd(), "..", "..", "spec", "avatars", "catalog.json");
+  // 2.0 单线徽记：spec/avatars/v2（id 与 1.x 相同）
+  const path = join(process.cwd(), "..", "..", "spec", "avatars", "v2", "catalog.json");
   const raw = readFileSync(path, "utf8");
   const json = JSON.parse(raw) as CatalogJson;
   cached = json.avatars.map((a) => ({
     id: a.id,
     name: a.name,
     primaryColor: a.primaryColor,
-    svgUrl: a.svgUrl,
+    svgUrl: `/static/avatars/${a.id}.svg`,
   }));
   return cached;
 }

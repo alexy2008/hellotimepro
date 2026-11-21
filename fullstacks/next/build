@@ -10,6 +10,6 @@ if [[ ! -d node_modules ]]; then npm install --silent; fi
 SPEC_DIR="$REPO_ROOT/spec"
 mkdir -p public/static/icons public/static/avatars
 cp -R "$SPEC_DIR/icons/." public/static/icons/
-cp -R "$SPEC_DIR/avatars/." public/static/avatars/
+cp -R "$SPEC_DIR/avatars/v2/." public/static/avatars/
 
 exec npm run build

@@ -3,6 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { getCtx } from "@/db";
 import { ERR } from "@/lib/server/errors";
+import { dashed, iso } from "@/lib/server/ids";
 import { allowedAvatarIds } from "./avatars";
 import type { UserOut, UpdateProfileRequest } from "@/types";
 
@@ -16,11 +17,11 @@ interface UserRow {
 
 function userToDto(u: UserRow): UserOut {
   return {
-    id: u.id,
+    id: dashed(u.id),
     email: u.email,
     nickname: u.nickname,
     avatarId: u.avatarId,
-    createdAt: u.createdAt,
+    createdAt: iso(u.createdAt),
   };
 }
 

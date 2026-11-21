@@ -1,83 +1,82 @@
 {
-  "$schema": "./catalog.schema.json",
   "meta": {
     "name": "HelloTime Pro Built-in Avatars",
-    "version": "0.1.0",
-    "updated": "2026-04-20",
-    "viewBox": "0 0 128 128",
-    "style": "cyber · 深色径向底 + 几何发光主图",
-    "note": "所有 SVG 尺寸 128×128；主色用于 UI 选择态边框 / 昵称色点"
+    "version": "2.0.0",
+    "updated": "2026-11-17",
+    "viewBox": "0 0 24 24",
+    "style": "单线徽记 · 只用 currentColor，不含底色；文件里的描边 1.6 只是默认值，皮肤样式会覆盖",
+    "note": "id 与 1.x 相同，数据库与接口不变。上色由皮肤决定：时笺是主色淡底 + 主色线（描边 1.6），琥珀是主色渐变底 + 浅色线（描边 1.8）。直接用 <img> 引用时线条会是黑色，应内联 SVG 或用 CSS mask 着色。"
   },
   "avatars": [
     {
       "id": "neo",
       "name": "新生",
-      "primaryColor": "#8467ff",
+      "primaryColor": "#4a7c59",
       "svgUrl": "/static/avatars/neo.svg",
-      "tagline": "三角矩阵 · 赛博紫"
+      "tagline": "破土的芽"
     },
     {
       "id": "specter",
       "name": "幽影",
-      "primaryColor": "#c8b8ff",
+      "primaryColor": "#7a6a9c",
       "svgUrl": "/static/avatars/specter.svg",
-      "tagline": "飘渺幽灵 · 淡紫"
+      "tagline": "夜里的访客"
     },
     {
       "id": "glyph",
       "name": "符文",
-      "primaryColor": "#40e4ff",
+      "primaryColor": "#2f607f",
       "svgUrl": "/static/avatars/glyph.svg",
-      "tagline": "同心符咒 · 霓虹青"
+      "tagline": "未解的记号"
     },
     {
       "id": "pulse",
       "name": "心跳",
-      "primaryColor": "#ff4fa0",
+      "primaryColor": "#b24a5c",
       "svgUrl": "/static/avatars/pulse.svg",
-      "tagline": "脉冲波形 · 品红"
+      "tagline": "此刻的证据"
     },
     {
       "id": "circuit",
       "name": "电路",
-      "primaryColor": "#5ed49a",
+      "primaryColor": "#3b7c76",
       "svgUrl": "/static/avatars/circuit.svg",
-      "tagline": "芯片走线 · 荧绿"
+      "tagline": "有序的远方"
     },
     {
       "id": "nova",
       "name": "新星",
-      "primaryColor": "#ffc14a",
+      "primaryColor": "#b07f24",
       "svgUrl": "/static/avatars/nova.svg",
-      "tagline": "星爆核心 · 琥珀"
+      "tagline": "迟到的光"
     },
     {
       "id": "oracle",
       "name": "神谕",
-      "primaryColor": "#6b46ff",
+      "primaryColor": "#444f92",
       "svgUrl": "/static/avatars/oracle.svg",
-      "tagline": "洞察之眼 · 深紫"
+      "tagline": "看向以后"
     },
     {
       "id": "drift",
       "name": "漂流",
-      "primaryColor": "#b0b0c0",
+      "primaryColor": "#66757f",
       "svgUrl": "/static/avatars/drift.svg",
-      "tagline": "三重波纹 · 冷灰"
+      "tagline": "随水而去"
     },
     {
       "id": "echo",
       "name": "回声",
-      "primaryColor": "#ffc14a",
+      "primaryColor": "#a3613a",
       "svgUrl": "/static/avatars/echo.svg",
-      "tagline": "同心信号 · 金琥珀"
+      "tagline": "山谷的答复"
     },
     {
       "id": "void",
       "name": "深渊",
-      "primaryColor": "#341a8f",
+      "primaryColor": "#3a3944",
       "svgUrl": "/static/avatars/void.svg",
-      "tagline": "黑洞奇点 · 深紫黑"
+      "tagline": "安静的中心"
     }
   ]
 }

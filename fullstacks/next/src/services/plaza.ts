@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, asc, desc, eq, gt, inArray, lte, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import { getCtx } from "@/db";
 import { ERR } from "@/lib/server/errors";
-import type { CapsuleListItem, PaginatedCapsules } from "@/types";
+import { dashed, iso } from "@/lib/server/ids";
+import type { CapsuleListItem, MyStats, PaginatedCapsules, PlazaStats } from "@/types";
 
 interface CapsuleRow {
   id: string;
@@ -38,17 +39,17 @@ function toItem(
 ): CapsuleListItem {
   const opened = new Date(c.openAt) <= new Date();
   return {
-    id: c.id,
+    id: dashed(c.id),
     code: c.code,
     title: c.title,
     creator: { nickname: owner.nickname, avatarId: owner.avatarId },
-    openAt: c.openAt,
-    createdAt: c.createdAt,
+    openAt: iso(c.openAt),
+    createdAt: iso(c.createdAt),
     inPlaza: !!c.inPlaza,
-    favoriteCount: c.favoriteCount,
+    favoriteCount: Number(c.favoriteCount),
     isOpened: opened,
     favoritedByMe,
-    favoritedAt,
+    favoritedAt: favoritedAt ? iso(favoritedAt) : null,
     contentPreview: contentPreview(c.content, opened),
   };
 }
@@ -72,6 +73,29 @@ async function favoritedSet(viewerId: string | null, capsuleIds: string[]): Prom
   return new Set(rows.map((r) => r.capsuleId));
 }
 
+/** 校验并 trim `q`；超过 50 字符 → 422。列表与统计共用同一口径。 */
+function normalizeQ(q: string | null | undefined): string {
+  const trimmed = (q ?? "").trim();
+  if (trimmed.length > 50) throw ERR.validation("q 长度不得超过 50", "q");
+  return trimmed;
+}
+
+/**
+ * 标题或作者昵称的字面子串匹配（大小写不敏感）。
+ * LIKE 的通配符先转义（\ → \\、% → \%、_ → \_），再加 ESCAPE '\'——PostgreSQL 与 SQLite 都要，
+ * 否则搜 "_" 会匹配所有标题。
+ */
+async function queryCond(q: string): Promise<SQL | undefined> {
+  if (!q) return undefined;
+  const { t } = await getCtx();
+  const literal = q.toLowerCase().replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+  const pattern = `%${literal}%`;
+  return or(
+    sql`lower(${t.capsules.title}) like ${pattern} escape '\\'`,
+    sql`lower(${t.users.nickname}) like ${pattern} escape '\\'`,
+  );
+}
+
 export async function plazaList(opts: {
   sort: "hot" | "new";
   filter: "all" | "opened" | "unopened";
@@ -85,25 +109,17 @@ export async function plazaList(opts: {
     throw ERR.validation("filter 仅支持 all/opened/unopened", "filter");
   if (opts.page < 1) throw ERR.validation("page 必须 >= 1", "page");
   if (opts.pageSize < 1 || opts.pageSize > 50) throw ERR.validation("pageSize 范围 1-50", "pageSize");
-  const q = (opts.q ?? "").trim();
-  if (q.length > 50) throw ERR.validation("q 长度不得超过 50", "q");
+  const q = normalizeQ(opts.q);
 
   const { db, t } = await getCtx();
   const nowIso = new Date().toISOString();
 
-  const conds = [eq(t.capsules.inPlaza, true)];
+  const conds: SQL[] = [eq(t.capsules.inPlaza, true)];
   if (opts.filter === "opened") conds.push(lte(t.capsules.openAt, nowIso));
   else if (opts.filter === "unopened") conds.push(gt(t.capsules.openAt, nowIso));
-  if (q) {
-    const pattern = `%${q.toLowerCase()}%`;
-    conds.push(
-      or(
-        sql`lower(${t.capsules.title}) like ${pattern}`,
-        sql`lower(${t.users.nickname}) like ${pattern}`,
-      )!,
-    );
-  }
-  const where = conds.length === 1 ? conds[0] : and(...conds)!;
+  const qc = await queryCond(q);
+  if (qc) conds.push(qc);
+  const where = and(...conds)!;
 
   const orderBy =
     opts.sort === "hot"
@@ -164,7 +180,14 @@ export async function myCapsules(opts: {
     .orderBy(desc(t.capsules.createdAt))
     .limit(opts.pageSize)
     .offset((opts.page - 1) * opts.pageSize);
-  const items = rows.map((r) => toItem(r.capsule as CapsuleRow, r.owner as UserRow, false));
+  // 2.0 起可以收藏自己的胶囊，favoritedByMe 照常计算
+  const faved = await favoritedSet(
+    opts.userId,
+    rows.map((r) => (r.capsule as CapsuleRow).id),
+  );
+  const items = rows.map((r) =>
+    toItem(r.capsule as CapsuleRow, r.owner as UserRow, faved.has((r.capsule as CapsuleRow).id)),
+  );
   return { items, pagination: paginate(total, opts.page, opts.pageSize) };
 }
 
@@ -201,4 +224,86 @@ export async function myFavorites(opts: {
     toItem(r.capsule as CapsuleRow, r.owner as UserRow, true, r.favoritedAt as string),
   );
   return { items, pagination: paginate(total, opts.page, opts.pageSize) };
+}
+
+// ---------------------------------------------------------------- 统计（2.0）
+
+/** 条件计数：coalesce(sum(CASE WHEN cond THEN 1 ELSE 0 END), 0)，两种方言写法一致。 */
+function countIf(cond: SQL) {
+  return sql<number>`coalesce(sum(case when ${cond} then 1 else 0 end), 0)`;
+}
+
+/**
+ * counts 与列表共用同一套 where（inPlaza + q），保证与三种 filter 下的 total 一致；
+ * 两个时刻不受 q 影响。「现在」只取一次，避免边界上 opened + unopened != all。
+ * 时刻用 ORDER BY … LIMIT 1 取列（SQLite 下 MAX/MIN 聚合会丢掉列类型）。
+ */
+export async function plazaStats(rawQ: string | null): Promise<PlazaStats> {
+  const q = normalizeQ(rawQ);
+  const { db, t } = await getCtx();
+  const nowIso = new Date().toISOString();
+
+  const conds: SQL[] = [eq(t.capsules.inPlaza, true)];
+  const qc = await queryCond(q);
+  if (qc) conds.push(qc);
+  const [row] = await db
+    .select({
+      all: sql<number>`count(*)`,
+      opened: countIf(lte(t.capsules.openAt, nowIso)!),
+      unopened: countIf(gt(t.capsules.openAt, nowIso)!),
+    })
+    .from(t.capsules)
+    .innerJoin(t.users, eq(t.capsules.ownerId, t.users.id))
+    .where(and(...conds));
+
+  const farthest = await db
+    .select({ openAt: t.capsules.openAt })
+    .from(t.capsules)
+    .where(eq(t.capsules.inPlaza, true))
+    .orderBy(desc(t.capsules.openAt))
+    .limit(1);
+  const next = await db
+    .select({ openAt: t.capsules.openAt })
+    .from(t.capsules)
+    .where(and(eq(t.capsules.inPlaza, true), gt(t.capsules.openAt, nowIso)))
+    .orderBy(t.capsules.openAt)
+    .limit(1);
+
+  return {
+    counts: {
+      all: Number(row?.all ?? 0),
+      opened: Number(row?.opened ?? 0),
+      unopened: Number(row?.unopened ?? 0),
+    },
+    farthestOpenAt: farthest[0] ? iso(farthest[0].openAt) : null,
+    nextOpenAt: next[0] ? iso(next[0].openAt) : null,
+  };
+}
+
+/** 当前用户统计：含未公开胶囊；favoritesReceived = 我的胶囊 favoriteCount 之和。 */
+export async function myStats(userId: string): Promise<MyStats> {
+  const { db, t } = await getCtx();
+  const nowIso = new Date().toISOString();
+  const [row] = await db
+    .select({
+      created: sql<number>`count(*)`,
+      opened: countIf(lte(t.capsules.openAt, nowIso)!),
+      unopened: countIf(gt(t.capsules.openAt, nowIso)!),
+      inPlaza: countIf(eq(t.capsules.inPlaza, true)),
+      received: sql<number>`coalesce(sum(${t.capsules.favoriteCount}), 0)`,
+    })
+    .from(t.capsules)
+    .where(eq(t.capsules.ownerId, userId));
+  const [given] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(t.favorites)
+    .where(eq(t.favorites.userId, userId));
+  return {
+    created: Number(row?.created ?? 0),
+    opened: Number(row?.opened ?? 0),
+    unopened: Number(row?.unopened ?? 0),
+    inPlaza: Number(row?.inPlaza ?? 0),
+    favoritesReceived: Number(row?.received ?? 0),
+    favoritesGiven: Number(given?.n ?? 0),
+  };
 }

@@ -6,7 +6,7 @@
 #
 # 启动前自动：
 #   1) npm install（首次）
-#   2) 同步 spec/avatars 与 spec/icons 到 public/static
+#   2) 同步 spec/avatars/v2 与 spec/icons 到 public/static
 #   3) 生产构建后再启动（预编译全部路由，避免 dev 懒编译撞穿 Playwright 超时）
 # 注意：schema 生命周期由仓库级 scripts/db init / reset 管理，run 不执行迁移。
 # 需要热重载开发时改用 `npm run dev`。
@@ -30,7 +30,7 @@ fi
 SPEC_DIR="$REPO_ROOT/spec"
 mkdir -p public/static/icons public/static/avatars
 rsync -a --delete "$SPEC_DIR/icons/" public/static/icons/  2>/dev/null || cp -R "$SPEC_DIR/icons/." public/static/icons/
-rsync -a --delete "$SPEC_DIR/avatars/" public/static/avatars/ 2>/dev/null || cp -R "$SPEC_DIR/avatars/." public/static/avatars/
+rsync -a --delete "$SPEC_DIR/avatars/v2/" public/static/avatars/ 2>/dev/null || cp -R "$SPEC_DIR/avatars/v2/." public/static/avatars/
 
 # 数据库配置（schema 生命周期由仓库级 ./scripts/db init/reset 管理，run 不做迁移）
 DRIVER="${DB_DRIVER:-postgres}"

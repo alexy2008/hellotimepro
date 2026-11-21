@@ -19,7 +19,8 @@ const llmSessionId = () => {
 export const env = {
   port: num(process.env.PORT, 7177),
   serviceName: process.env.SERVICE_NAME ?? "hellotime-pro",
-  serviceVersion: process.env.SERVICE_VERSION ?? "0.1.0",
+  // 2.0 起 health.version 固定为 "2.0.0"（openapi 2.0.0），不再读环境变量
+  serviceVersion: "2.0.0",
   dbDriver: (process.env.DB_DRIVER ?? "postgres").toLowerCase() as "postgres" | "sqlite",
   jwtSecret: process.env.JWT_SECRET ?? "dev-secret-change-me",
   accessTokenTtlSeconds: num(process.env.ACCESS_TOKEN_TTL_SECONDS, 3600),

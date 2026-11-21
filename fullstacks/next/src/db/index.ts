@@ -105,3 +105,40 @@ export async function getCtx() {
     kind: h.kind,
   };
 }
+
+/** SQLite 写事务串行锁：better-sqlite3 是单连接，异步事务之间必须排队。 */
+let sqliteTxTail: Promise<void> = Promise.resolve();
+
+type TxCtx = Awaited<ReturnType<typeof getCtx>>;
+
+/**
+ * 在一个事务里执行先读后写的操作（收藏、取消收藏、删除胶囊）。
+ *
+ * - PostgreSQL：drizzle 的 `db.transaction`，事务内用 `SELECT … FOR UPDATE` 锁胶囊行
+ * - SQLite：drizzle 的 better-sqlite3 事务只接受同步回调，这里改用进程内队列 +
+ *   `BEGIN IMMEDIATE`（一开始就拿写锁，避免读锁升级为写锁时 SQLITE_BUSY）
+ */
+export async function withTx<T>(fn: (ctx: TxCtx) => Promise<T>): Promise<T> {
+  const h = await getHandle();
+  if (h.kind === "postgres") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return h.drizzle.transaction(async (tx: any) => fn({ db: tx, t: h.tables as typeof pgSchema, kind: h.kind }));
+  }
+  const prev = sqliteTxTail;
+  let release!: () => void;
+  sqliteTxTail = new Promise<void>((r) => (release = r));
+  await prev;
+  try {
+    h.raw.exec("BEGIN IMMEDIATE");
+    try {
+      const out = await fn({ db: h.drizzle, t: h.tables as unknown as typeof pgSchema, kind: h.kind });
+      h.raw.exec("COMMIT");
+      return out;
+    } catch (e) {
+      if (h.raw.inTransaction) h.raw.exec("ROLLBACK");
+      throw e;
+    }
+  } finally {
+    release();
+  }
+}

@@ -1,0 +1,32 @@
+/* ============================================================
+ * Next.js 全栈 · 样式入口（2.0）
+ *
+ * 样式全部来自 spec/styles（规范即唯一事实源），顺序固定：
+ *   base → 时笺三件 → 琥珀三件 → shell
+ * 两套皮肤的选择器都按 :root[data-skin] 限定，可以同时加载。
+ * 「时笺」的网络字体用 @fontsource 自托管，不依赖外网 CDN。
+ * 本实现自己的样式只有 app.css 里的少量胶水，只能用语义令牌。
+ * ============================================================ */
+
+@import "@fontsource/noto-serif-sc/400.css";
+@import "@fontsource/noto-serif-sc/500.css";
+@import "@fontsource/noto-serif-sc/700.css";
+@import "@fontsource/noto-serif-sc/900.css";
+@import "@fontsource/cormorant-garamond/400.css";
+@import "@fontsource/cormorant-garamond/500.css";
+@import "@fontsource/cormorant-garamond/600.css";
+@import "@fontsource/cormorant-garamond/400-italic.css";
+@import "@fontsource/cormorant-garamond/500-italic.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+@import "../../../../spec/styles/base.css";
+@import "../../../../spec/styles/paper/tokens.css";
+@import "../../../../spec/styles/paper/components.css";
+@import "../../../../spec/styles/paper/pages.css";
+@import "../../../../spec/styles/amber/tokens.css";
+@import "../../../../spec/styles/amber/components.css";
+@import "../../../../spec/styles/amber/pages.css";
+@import "../../../../spec/styles/shell.css";
+
+@import "./app.css";

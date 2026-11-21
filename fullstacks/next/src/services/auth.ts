@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { getCtx } from "@/db";
 import { ERR } from "@/lib/server/errors";
+import { dashed, iso } from "@/lib/server/ids";
 import { env } from "@/lib/env";
 import {
   createAccessToken,
@@ -50,11 +51,11 @@ interface UserRow {
 
 function userToDto(u: UserRow): UserOut {
   return {
-    id: u.id,
+    id: dashed(u.id),
     email: u.email,
     nickname: u.nickname,
     avatarId: u.avatarId,
-    createdAt: u.createdAt,
+    createdAt: iso(u.createdAt),
   };
 }
 

@@ -62,8 +62,11 @@ export const createCapsuleSchema = z.object({
   inPlaza: z.boolean().optional(),
 });
 
+// 胶囊 id：标准 UUID（也接受无连字符的 32 位十六进制，与 fastapi 的 uuid.UUID 一致）
+const uuidRegex = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+
 export const favoriteSchema = z.object({
-  capsuleId: z.string().min(1),
+  capsuleId: z.string().regex(uuidRegex, "capsuleId 不是合法的 UUID"),
 });
 
 export const capsuleSuggestionSchema = z.object({

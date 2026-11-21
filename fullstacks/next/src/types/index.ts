@@ -1,6 +1,7 @@
-/**
- * 与 spec/api/openapi.yaml 对齐的 TS 类型。前后端共用。
- */
+// ============================================================
+// 类型定义：与 spec/api/openapi.yaml 对齐。
+// 全栈里前后端共用这一份：Route Handler / services 与客户端页面都从 @/types 引入。
+// ============================================================
 
 export type ErrorCode =
   | "VALIDATION_ERROR"
@@ -34,7 +35,7 @@ export interface Avatar {
   svgUrl?: string;
 }
 
-export interface UserOut {
+export interface User {
   id: string;
   email: string;
   nickname: string;
@@ -45,14 +46,6 @@ export interface UserOut {
 export interface UserBrief {
   nickname: string;
   avatarId: string;
-}
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  accessTokenExpiresIn: number;
-  refreshTokenExpiresIn: number;
-  user: UserOut;
 }
 
 export interface CapsuleBase {
@@ -67,16 +60,36 @@ export interface CapsuleBase {
   isOpened: boolean;
 }
 
-export interface CapsuleDetail extends CapsuleBase {
-  content: string | null;
-  favoritedByMe: boolean;
-}
-
 export interface CapsuleListItem extends CapsuleBase {
   favoritedByMe: boolean;
   favoritedAt?: string | null;
   contentPreview?: string | null;
 }
+
+export interface CapsuleDetail extends CapsuleBase {
+  content: string | null;
+  favoritedByMe: boolean;
+}
+
+/** 2.0：GET /plaza/stats。counts 与列表同口径（受 q 影响），两个时刻不受 q 影响 */
+export interface PlazaStats {
+  counts: { all: number; opened: number; unopened: number };
+  farthestOpenAt: string | null;
+  nextOpenAt: string | null;
+}
+
+/** 2.0：GET /me/stats */
+export interface MyStats {
+  created: number;
+  opened: number;
+  unopened: number;
+  inPlaza: number;
+  favoritesReceived: number;
+  favoritesGiven: number;
+}
+
+/** 服务端 DTO 命名（services/* 使用），与 User 同形 */
+export type UserOut = User;
 
 export interface FavoriteResult {
   capsuleId: string;
@@ -84,9 +97,56 @@ export interface FavoriteResult {
   favoritedAt: string;
 }
 
-export interface PaginatedCapsules {
-  items: CapsuleListItem[];
-  pagination: Pagination;
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresIn: number;
+  refreshTokenExpiresIn?: number;
+  user: User;
+}
+
+export interface StackItem {
+  role: string;
+  name: string;
+  version: string;
+  iconUrl?: string | null;
+}
+
+export interface HealthData {
+  status: "ok";
+  service: string;
+  version: string;
+  uptimeSeconds: number;
+  stack: { kind: "backend" | "fullstack"; summary: string; items: StackItem[] };
+}
+
+
+export interface CapsuleSuggestionRequest {
+  // 留空（或不传）时由 AI 同时生成标题
+  title?: string;
+  locale?: string;
+}
+
+export interface CapsuleSuggestion {
+  // 仅当请求未传 title 时返回
+  title?: string;
+  content: string;
+  openInDays: number;
+  openAt: string;
+  generatedBy: string;
+  cached: boolean;
+}
+
+export interface CapsuleRecommendation {
+  title: string;
+  hint: string;
+  openInDays: number;
+}
+
+export interface CapsuleRecommendationList {
+  items: CapsuleRecommendation[];
+  generatedBy: string;
+  cached: boolean;
 }
 
 export type PlazaSort = "hot" | "new";
@@ -98,6 +158,11 @@ export interface PlazaQuery {
   q?: string;
   page?: number;
   pageSize?: number;
+}
+
+export interface PaginatedCapsules {
+  items: CapsuleListItem[];
+  pagination: Pagination;
 }
 
 export interface CreateCapsuleRequest {
@@ -129,47 +194,7 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
-export interface CapsuleSuggestionRequest {
-  title?: string;
-  locale?: string;
-}
-
-export interface CapsuleSuggestion {
-  title?: string;
-  content: string;
-  openInDays: number;
-  openAt: string;
-  generatedBy: string;
-  cached: boolean;
-}
-
-export interface CapsuleRecommendation {
-  title: string;
-  hint: string;
-  openInDays: number;
-}
-
-export interface CapsuleRecommendationList {
-  items: CapsuleRecommendation[];
-  generatedBy: string;
-  cached: boolean;
-}
-
-export interface StackItem {
-  role: string;
-  name: string;
-  version: string;
-  iconUrl?: string | null;
-}
-
-export interface HealthData {
-  status: "ok";
-  service: string;
-  version: string;
-  uptimeSeconds: number;
-  stack: { kind: "fullstack"; summary: string; items: StackItem[] };
-}
-
+// 把响应包装失败的情况映射成异常，便于上层 try/catch
 export class ApiError extends Error {
   status: number;
   errorCode: ErrorCode | null;
