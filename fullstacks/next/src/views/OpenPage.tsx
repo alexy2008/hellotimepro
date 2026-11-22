@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { CodeOpenContext, useRouteCodeOpen } from "@/hooks/useCodeOpen";
 import { useUi } from "@/stores/ui";
 import { PaperOpenPage } from "@/skins/paper/CapsulePages";
@@ -10,8 +9,5 @@ import { AmberOpenPage } from "@/skins/amber/CapsulePages";
 export function OpenPage() {
   const opener = useRouteCodeOpen();
   const skin = useUi((s) => s.skin);
-  useEffect(() => {
-    document.title = "开启胶囊 · HelloTime Pro";
-  }, []);
   return <CodeOpenContext.Provider value={opener}>{skin === "paper" ? <PaperOpenPage /> : <AmberOpenPage />}</CodeOpenContext.Provider>;
 }

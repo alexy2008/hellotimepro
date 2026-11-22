@@ -212,3 +212,26 @@ export class ApiError extends Error {
     this.details = details;
   }
 }
+
+// ---------------------------------------------------------------- 服务端渲染的首屏数据
+// 公开页的 page.tsx（Server Component）直接调 services 取数，以匿名身份生成，
+// 作为 props 交给客户端视图；favoritedByMe 等个人投影由客户端水合后补齐。
+
+/** 广场首页的第一屏：默认查询（最新 · 全部 · 无搜索 · 第 1 页）下的列表、数量、年鉴与精选 */
+export interface PlazaSeed {
+  sort: PlazaSort;
+  filter: PlazaFilter;
+  q: string;
+  page: number;
+  pageSize: number;
+  items: CapsuleListItem[];
+  pagination: Pagination;
+  counts: PlazaStats["counts"];
+  overview: PlazaStats;
+  featured: CapsuleListItem | null;
+}
+
+/** 胶囊详情的第一屏：查到了给胶囊，查无此码给 missing（其他失败不给，客户端自己再取） */
+export type CapsuleSeed =
+  | { code: string; status: "ok"; capsule: CapsuleDetail }
+  | { code: string; status: "missing" };

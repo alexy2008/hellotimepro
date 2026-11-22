@@ -19,6 +19,12 @@ import { AvatarStamp, Postmark, Scale, Seal } from "./parts";
 import { PaperCard } from "./Card";
 import { CreateLink } from "@/components/LoginPrompt";
 
+/** 「此刻」邮戳：日期取共享节拍（服务端渲染与水合用同一时刻，见 hooks/useNow） */
+function TodayPostmark() {
+  const now = useNow();
+  return <Postmark line1={fmt.date(now)} line2="此 刻" className="pm--auth" />;
+}
+
 /* ---------------- 登录 / 注册 共用的左侧题字 ---------------- */
 function ArtPanel({ poem, src, seal }: { poem: string[]; src: string; seal: string }) {
   return (
@@ -37,7 +43,7 @@ function ArtPanel({ poem, src, seal }: { poem: string[]; src: string; seal: stri
         <Seal ch={seal} className="auth__seal" />
       </div>
       <div className="auth__pm">
-        <Postmark line1={fmt.date(Date.now())} line2="此 刻" className="pm--auth" />
+        <TodayPostmark />
       </div>
     </aside>
   );

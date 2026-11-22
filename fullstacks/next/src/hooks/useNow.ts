@@ -1,9 +1,13 @@
 // ============================================================
 // 每秒一跳的全局节拍：所有倒计时共用一个定时器，对齐到整秒，
 // 这样同一页上的十几个倒计时会在同一刻一起跳，不会参差。
+//
+// 服务端渲染与水合：两边的 Date.now() 不同，直接用会让倒计时文字水合不匹配。
+// 根布局把「服务端渲染那一刻」经 NowSeedContext 传下来，作为 getServerSnapshot——
+// 服务端与水合用同一个时刻渲染，水合完成后 React 再改读本机时钟。
 // ============================================================
 
-import { useSyncExternalStore } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 
 const subs = new Set<() => void>();
 let now = Date.now();
@@ -29,7 +33,11 @@ function subscribe(fn: () => void) {
   };
 }
 
+/** 服务端渲染时刻（毫秒）；没有提供时退回模块里的时钟 */
+export const NowSeedContext = createContext<number | null>(null);
+
 /** 当前时间（毫秒），每整秒更新一次 */
 export function useNow(): number {
-  return useSyncExternalStore(subscribe, () => now);
+  const seed = useContext(NowSeedContext);
+  return useSyncExternalStore(subscribe, () => now, () => seed ?? now);
 }

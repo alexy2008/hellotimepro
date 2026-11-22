@@ -1,28 +1,38 @@
 // ============================================================
 // 界面状态：皮肤（时笺 / 琥珀）× 明暗。两个维度互相独立，
-// 都写在 <html data-skin data-theme> 上，并持久化到 localStorage。
-// 首帧之前的那一次由根布局（app/layout.tsx）<head> 里的内联脚本完成，这里只负责之后的切换。
+// 都写在 <html data-skin data-theme> 上，持久化到 localStorage，并同步一份到 Cookie
+// （服务端据此选皮肤渲染，约定见 lib/preferences.ts）。
+//
+// 服务端渲染与水合：store 是模块级单例，服务端不能按请求改它。
+// 所以 useUi 在「服务端渲染」和「客户端水合」这两次渲染里读的是根布局按 Cookie 传下来的
+// UiSeedContext（useSyncExternalStore 的 getServerSnapshot），两边一致、不会水合不匹配；
+// 水合完成后 React 再改读 store 的真实值（首帧脚本已按 localStorage 写好的 <html>），
+// 不一致就重渲一次——这一刻的内容由 data-skin-pending 藏着，见 components/AppLayout。
 // ============================================================
 
-import { create } from "zustand";
+import { createContext, useContext, useSyncExternalStore } from "react";
+import { createStore } from "zustand/vanilla";
 import { reducedMotion } from "@/lib/fmt";
+import {
+  DEFAULT_PREFS,
+  SKIN_COOKIE,
+  SKIN_KEY,
+  THEME_COLOR,
+  THEME_COOKIE,
+  THEME_KEY,
+  writePrefCookie,
+  type Skin,
+  type Theme,
+  type UiPrefs,
+} from "@/lib/preferences";
 
-export type Skin = "paper" | "amber";
-export type Theme = "light" | "dark";
+export type { Skin, Theme } from "@/lib/preferences";
 
 export const SKIN_LABEL: Record<Skin, string> = { paper: "时笺", amber: "琥珀" };
 export const THEME_LABEL: Record<Skin, Record<Theme, string>> = {
   paper: { light: "昼", dark: "夜" },
   amber: { light: "晨曦", dark: "星夜" },
 };
-/** 浏览器地址栏颜色，跟着皮肤与明暗走 */
-const THEME_COLOR: Record<Skin, Record<Theme, string>> = {
-  paper: { light: "#F3EFE5", dark: "#131210" },
-  amber: { light: "#faf5ea", dark: "#080b1a" },
-};
-
-const SKIN_KEY = "hellotime.skin";
-const THEME_KEY = "hellotime.theme";
 
 const root = () => document.documentElement;
 
@@ -63,21 +73,23 @@ function transition(apply: () => void, cls: string, after?: (vt: ViewTransition)
     .finally(() => root().classList.remove(cls));
 }
 
-interface UiState {
+export interface UiState {
   skin: Skin;
   theme: Theme;
   setSkin: (s: Skin) => Promise<void>;
   /** origin：点击位置，明暗切换从这里圆形晕开 */
   toggleTheme: (origin?: { x: number; y: number }) => void;
+  /** 水合后调用一次：把 Cookie 校正成当前（localStorage 为准的）偏好，下次服务端就能直接渲染对 */
+  syncCookies: () => void;
 }
 
-// 服务端求值本模块时没有 document（页面组件的模块图在 SSR 里也会被加载），
-// 初值只在浏览器里从 <html> 上读；整棵应用树只在客户端渲染（components/ClientRoot）。
+// 浏览器里初值取自 <html>：首帧脚本已经按 localStorage（没有则 Cookie / 系统偏好）写好。
+// 服务端求值本模块时没有 document，用默认值占位——服务端渲染不读它，读的是 UiSeedContext。
 const hasDom = typeof document !== "undefined";
 
-export const useUi = create<UiState>()((set, get) => ({
-  skin: hasDom && root().dataset.skin === "paper" ? "paper" : "amber",
-  theme: hasDom && root().dataset.theme === "light" ? "light" : "dark",
+const store = createStore<UiState>()((set, get) => ({
+  skin: hasDom ? (root().dataset.skin === "paper" ? "paper" : "amber") : DEFAULT_PREFS.skin,
+  theme: hasDom ? (root().dataset.theme === "light" ? "light" : "dark") : DEFAULT_PREFS.theme,
 
   setSkin: (skin) => {
     if (skin === get().skin) return Promise.resolve();
@@ -87,6 +99,7 @@ export const useUi = create<UiState>()((set, get) => ({
     return transition(() => {
       root().dataset.skin = skin;
       save(SKIN_KEY, skin);
+      writePrefCookie(SKIN_COOKIE, skin);
       syncMeta(skin, get().theme);
       set({ skin });
     }, "is-skinning").finally(() => {
@@ -104,6 +117,7 @@ export const useUi = create<UiState>()((set, get) => ({
       () => {
         root().dataset.theme = next;
         save(THEME_KEY, next);
+        writePrefCookie(THEME_COOKIE, next);
         syncMeta(get().skin, next);
         set({ theme: next });
       },
@@ -121,4 +135,28 @@ export const useUi = create<UiState>()((set, get) => ({
       },
     );
   },
+
+  syncCookies: () => {
+    const { skin, theme } = get();
+    writePrefCookie(SKIN_COOKIE, skin);
+    writePrefCookie(THEME_COOKIE, theme);
+  },
 }));
+
+/** 根布局按 Cookie 算出的偏好：服务端渲染与水合那一次渲染用它 */
+export const UiSeedContext = createContext<UiPrefs>(DEFAULT_PREFS);
+
+/**
+ * 读界面状态：用法与 zustand 的 `useStore(selector)` 相同。
+ * 服务端渲染与水合时用 UiSeedContext 覆盖 skin / theme，其余时候读 store。
+ */
+function useUiHook<T>(selector: (s: UiState) => T): T {
+  const seed = useContext(UiSeedContext);
+  return useSyncExternalStore(
+    store.subscribe,
+    () => selector(store.getState()),
+    () => selector({ ...store.getState(), ...seed }),
+  );
+}
+
+export const useUi = Object.assign(useUiHook, { getState: store.getState, subscribe: store.subscribe });

@@ -3,7 +3,7 @@
 // 长相差异全在 spec/styles 里，这里只出标记。
 // ============================================================
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { createContext, useContext, useEffect, useState, type CSSProperties } from "react";
 import { avatarOf } from "@/lib/avatars";
 import { SKIN_LABEL, useUi, type Skin } from "@/stores/ui";
 import { toast } from "@/stores/feedback";
@@ -42,8 +42,7 @@ export function TechIcon({ item, className }: { item: Pick<StackItem, "name" | "
   );
 }
 
-/** 本前端自己的技术栈（页脚与关于页用）；被 Electron 内嵌时追加桌面壳 */
-/** 全栈的页面层：App Router 文件系统路由 + 客户端渲染的 React 页面 */
+/** 全栈的页面层：App Router 文件系统路由 + Server Components 服务端渲染 + 客户端水合的 React 页面 */
 export const FRONTEND_STACK: StackItem[] = [
   { role: "framework", name: "Next.js", version: "15", iconUrl: "/static/icons/nextjs.svg" },
   { role: "ui", name: "React", version: "19", iconUrl: "/static/icons/react.svg" },
@@ -51,12 +50,19 @@ export const FRONTEND_STACK: StackItem[] = [
   { role: "state", name: "Zustand", version: "5", iconUrl: null },
 ];
 
-/** 当前后端的 /health：页脚与关于页共用，只请求一次 */
+/**
+ * 当前后端的 /health：页脚与关于页共用。
+ * 服务端渲染时由根布局经 HealthContext 直接给出（同进程调 services，不发请求）；
+ * 没有提供时才在浏览器里请求一次。
+ */
+export const HealthContext = createContext<HealthData | null>(null);
 let healthPromise: Promise<HealthData> | null = null;
 export function useHealth() {
-  const [health, setHealth] = useState<HealthData | null>(null);
-  const [online, setOnline] = useState<boolean | null>(null);
+  const seed = useContext(HealthContext);
+  const [health, setHealth] = useState<HealthData | null>(seed);
+  const [online, setOnline] = useState<boolean | null>(seed ? true : null);
   useEffect(() => {
+    if (seed) return;
     let alive = true;
     healthPromise ??= api.health();
     healthPromise
@@ -68,7 +74,7 @@ export function useHealth() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [seed]);
   return { health, online };
 }
 

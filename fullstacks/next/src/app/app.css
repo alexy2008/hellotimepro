@@ -8,3 +8,8 @@
   justify-content: center;
   margin-top: var(--space-8);
 }
+
+/* 服务端按 Cookie 渲染的皮肤与本地偏好不一致：客户端换好皮肤前先藏起来（lib/preferences.ts） */
+:root[data-skin-pending] body {
+  visibility: hidden;
+}

@@ -58,8 +58,9 @@ export function useParams<T extends Record<string, string | undefined>>(): T {
 }
 
 /**
- * 渲染即跳转（守卫用）。整棵应用只在客户端挂载，挂载时 App Router 已经接管 history，
- * 在 effect 里 replace 能真正切换页面，不会出现「只改了地址栏」的情况。
+ * 渲染即跳转（守卫用）。服务端渲染时什么也不输出；跳转放在 effect 里，
+ * 只会在水合完成之后执行——这时 App Router 已经接管 history，
+ * replace 能真正切换页面，不会出现「只改了地址栏」的情况（docs/05 第 2 节第 7 条）。
  */
 export function Navigate({ to, replace }: { to: string; replace?: boolean }) {
   const router = useRouter();

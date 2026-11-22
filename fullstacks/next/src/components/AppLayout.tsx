@@ -1,5 +1,6 @@
 // ============================================================
 // 总布局：按当前皮肤挑外壳，中间是路由页面（App Router 传进来的 children）。
+// 服务端按 Cookie 里的皮肤渲染同一套外壳（见 stores/ui 的 UiSeedContext）。
 // 外壳的 DOM 约定照 2.0 原型：header.hdr / main#view / footer.ftr / nav.tabbar，
 // 皮肤样式里有 #view、body[data-route] 等选择器依赖这些约定。
 // ============================================================
@@ -54,6 +55,13 @@ export function Layout({ children }: { children: ReactNode }) {
     document.body.dataset.route = routeName(pathname);
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  // 服务端按 Cookie 渲染的皮肤与本地偏好不同：首帧脚本打了 data-skin-pending 把内容藏起来，
+  // 等这里真正按 <html data-skin>（localStorage 为准）渲染出那一套之后再摘掉
+  useEffect(() => {
+    const root = document.documentElement;
+    if (root.hasAttribute("data-skin-pending") && root.dataset.skin === skin) root.removeAttribute("data-skin-pending");
+  }, [skin]);
 
   return (
     <>

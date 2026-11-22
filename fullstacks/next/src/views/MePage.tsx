@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { Navigate, useParams } from "@/lib/router";
 import { useUi } from "@/stores/ui";
 import { useAuth } from "@/stores/auth";
@@ -15,9 +14,6 @@ export function MePage() {
   const skin = useUi((s) => s.skin);
   const user = useAuth((s) => s.user);
   const { tab } = useParams();
-  useEffect(() => {
-    document.title = "我的 · HelloTime Pro";
-  }, []);
   if (!TABS.includes(tab as Tab)) return <Navigate to="/me/created" replace />;
   // 只有 refresh token、user 还在路上（刷新页）时先等一下
   if (!user) return null;

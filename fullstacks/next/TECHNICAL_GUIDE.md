@@ -6,7 +6,7 @@
 - Next.js、App Router、Drizzle ORM、jose、Zustand 分别在做什么。
 - 想新增一个页面或接口时，应该改哪些文件。
 
-> 阅读建议：第 1～3 节建立整体地图；第 4～5 节讲 App Router 的核心约定，以及本实现为什么让页面树只在客户端渲染；第 6～8 节按一次请求的生命周期讲接口层；第 9～10 节讲页面层与样式；第 11 节对比「全栈」与「SPA + 独立后端」；第 12 节是常见改动清单。
+> 阅读建议：第 1～3 节建立整体地图；第 4～5 节讲 App Router 的核心约定，以及 Server Component 与 Client Component 怎么分工、两套皮肤和登录态怎么与服务端渲染相处；第 6～8 节按一次请求的生命周期讲接口层；第 9～10 节讲页面层与样式；第 11 节对比「全栈」与「SPA + 独立后端」；第 12 节是常见改动清单。
 >
 > 页面层的 hooks、stores、两套皮肤视图与 `frontends/react-ts` 逐文件对应，组件级的细节（Zustand store 的写法、请求序列号、受控表单、测试钩子）请直接读 [React 前端技术手册](../../frontends/react-ts/TECHNICAL_GUIDE.md)。本文只讲 Next 全栈**不一样**的部分。
 
@@ -15,7 +15,7 @@
 | 角色 | 选型 | 说明 |
 |---|---|---|
 | 框架 | Next.js 15（App Router） | 文件系统路由；页面与接口同一个进程，没有 CORS |
-| UI | React 19 | 页面在客户端渲染（原因见第 5 节）；根布局与 `/me` 跳转是 Server Component |
+| UI | React 19 | 页面服务端渲染：`layout.tsx` / `page.tsx` 是 Server Component（读 Cookie、调 services 取数），皮肤视图是参与 SSR 的 Client Component（第 5 节） |
 | 客户端状态 | Zustand 5 | 与 React 参考前端同一套 store |
 | 数据访问 | Drizzle ORM | 双 schema（PG / SQLite），类型安全查询 |
 | 鉴权 | jose（HS256 JWT）+ bcryptjs | access 存内存，refresh 存 localStorage；refresh token 轮换 + 家族追踪 |
@@ -43,10 +43,12 @@ fullstacks/next/
 ├── public/static/            # run 从 spec/avatars/v2、spec/icons 同步过来，按 /static/* 暴露
 └── src/
     ├── app/                  # ★ App Router：文件夹结构 = URL 结构
-    │   ├── layout.tsx        # 根布局（Server Component）
+    │   ├── layout.tsx        # 根布局（Server Component）：读偏好 Cookie，渲染 <html data-skin data-theme> 与应用外壳
     │   ├── styles.css        # spec/styles 入口；app.css 是本实现唯一的样式胶水
-    │   ├── page.tsx · open/ · about/ · login/ · register/ · create/
-    │   ├── capsules/[code]/page.tsx   # [code] 是动态段
+    │   ├── page.tsx          # /：async Server Component，服务端取广场第一屏
+    │   ├── about/            # /about：服务端取 /health 技术栈
+    │   ├── open/ · login/ · register/ · create/
+    │   ├── capsules/[code]/page.tsx   # [code] 是动态段；服务端取胶囊 + generateMetadata
     │   ├── me/page.tsx       # /me → /me/created（服务端 redirect）
     │   ├── me/[tab]/page.tsx # /me/created | favorites | profile
     │   ├── not-found.tsx
@@ -54,11 +56,12 @@ fullstacks/next/
     ├── services/             # 业务层（server-only）
     ├── db/                   # Drizzle：index.ts（选驱动 + withTx）、schema-pg.ts、schema-sqlite.ts
     ├── lib/
-    │   ├── server/           # ★ 仅服务端：envelope · errors · current-user · security · ids · avatar-catalog · parse-body
+    │   ├── server/           # ★ 仅服务端：page-data（页面取数）· envelope · errors · current-user · security · ids · avatar-catalog · parse-body
+    │   ├── preferences.ts    # 皮肤 / 明暗的 localStorage + Cookie 约定与首帧脚本
     │   ├── validation/       # Zod 请求体校验
     │   ├── router.tsx        # 导航适配层（第 9.2 节）
     │   └── avatars.ts · fmt.ts · icons.tsx · palette.ts · about.ts · redirect.ts
-    ├── components/           # ClientRoot · App · AppLayout + 与 react-ts 相同的共享部件
+    ├── components/           # App（客户端应用根）· AppLayout + 与 react-ts 相同的共享部件
     ├── views/                # 路由入口组件（按皮肤挑视图）
     ├── hooks/ · stores/ · skins/{paper,amber}/ · api/client.ts   # 与 react-ts 相同
     └── types/index.ts        # 前后端共用的 openapi 2.0.0 类型
@@ -68,21 +71,26 @@ fullstacks/next/
 
 ```text
 浏览器                                         Next.js 进程（:7177）
-  │ GET /                                         ┃
+  │ GET /   Cookie: ht-skin=paper; ht-theme=light ┃
   ├──────────────────────────────────────────────►┃ app/layout.tsx（Server Component）
-  │                                               ┃   读 spec/avatars/v2 → 头像表
-  │ ◄── HTML 骨架：<head> 首帧脚本 + 样式 ───────  ┃   页面本体不在服务端渲染
-  │ 首帧脚本从 localStorage 写好 data-skin/theme   ┃
-  │ JS 加载 → ClientRoot 挂载 App → 按皮肤渲染首页 ┃
-  │                                               ┃
-  │ GET /api/v1/plaza/capsules?…、/plaza/stats    ┃
-  ├──────────────────────────────────────────────►┃ Route Handler → services/plaza.ts → Drizzle → DB
-  │ ◄── { success, data, … } ─────────────────────┃
+  │                                               ┃   读 Cookie → <html data-skin="paper" data-theme="light">
+  │                                               ┃   读 spec/avatars/v2、/health 技术栈
+  │                                               ┃ app/page.tsx（async Server Component）
+  │                                               ┃   直接调 services/plaza.ts（匿名）→ Drizzle → DB
+  │                                               ┃   把第一屏作为 props 交给 views/PlazaPage
+  │ ◄── 完整 HTML：时笺皮肤的首页，卡片、统计都在 ─ ┃   Client Component 也在服务端渲染成 HTML
+  │ 首帧脚本核对 localStorage（一致 → 什么都不改）  ┃
+  │ JS 加载 → React 水合（复用服务端 DOM）          ┃
+  │ 水合后从 localStorage 恢复登录态                ┃
+  │ 已登录：GET /api/v1/plaza/capsules（带令牌）    ┃
+  ├──────────────────────────────────────────────►┃ Route Handler → services/plaza.ts → 补上 favoritedByMe
   │                                               ┃
   │ 点收藏 → POST /api/v1/me/favorites            ┃
   ├──────────────────────────────────────────────►┃ requireClaims → services/favorites.ts（withTx）
   │ ◄── { capsuleId, favoriteCount, favoritedAt } ┃
 ```
+
+页面取数与接口复用同一层 `services/*`：Server Component 调它是同进程函数调用（不绕 HTTP），Route Handler 调它再包一层响应信封。
 
 ## 3. 如何运行和验证
 
@@ -125,13 +133,33 @@ App Router 的核心约定是**文件夹即路由**，用特殊文件名表达�
 
 **没有路由配置文件**：React 版的 `router.tsx` 在这里变成了 `src/app/` 下的目录结构。
 
-### 4.1 `page.tsx`：每条路由一个很薄的入口
+### 4.1 `page.tsx`：Server Component 入口
+
+公开页的 `page.tsx` 是 async Server Component：在服务端直接调 services 取数，把结果作为 props 交给客户端视图。
+
+```tsx
+// src/app/capsules/[code]/page.tsx（节选）
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { code } = await params;
+  const seed = await loadCapsuleSeed(code);       // React cache()：与下面的页面共用一次查询
+  if (seed?.status === "ok") return { title: `${seed.capsule.title} · HelloTime Pro`, … };
+  …
+}
+
+export default async function Page({ params }: Props) {
+  const { code } = await params;
+  return <CapsuleByCodePage initial={await loadCapsuleSeed(code)} />;
+}
+```
+
+- `lib/server/page-data.ts`（`server-only`）集中放页面取数：`loadPlazaSeed()`（广场默认查询的列表、数量、年鉴、精选）、`loadCapsuleSeed(code)`（查到 / 查无此码 / 其他失败交给客户端重取）、`loadHealth()`。
+- `generateMetadata` 给胶囊详情生成标题与描述：已开启用正文摘要，未开启只写「谁封存、哪天开启」，不泄露正文；查无此码也有标题。
+- 静态标题用 `export const metadata`，客户端内导航时 Next 会自动换 `document.title`，视图里不再手写。
+- 需要登录的路由外面包 `AuthGate`，对应 React 版路由表里的 `gated(...)`：
 
 ```tsx
 // src/app/me/[tab]/page.tsx
-import { AuthGate } from "@/components/AuthGate";
-import { MePage } from "@/views/MePage";
-
+export const metadata: Metadata = { title: "我的 · HelloTime Pro" };
 export default function Page() {
   return (
     <AuthGate>
@@ -141,17 +169,7 @@ export default function Page() {
 }
 ```
 
-`page.tsx` 本身是 Server Component（没有 `"use client"`），只负责把对应的视图组件放进来；需要登录的路由外面包 `AuthGate`，对应 React 版路由表里的 `gated(...)`。`views/*` 和 `AuthGate` 顶部有 `"use client"`，它们和它们引入的一切都属于客户端。
-
-`/me` 不需要客户端参与，直接用服务端重定向：
-
-```tsx
-// src/app/me/page.tsx
-import { redirect } from "next/navigation";
-export default function Page() {
-  redirect("/me/created");
-}
-```
+`views/*` 和 `AuthGate` 顶部有 `"use client"`：它们和它们引入的一切是 Client Component——**仍然在服务端渲染成 HTML**，只是到了浏览器还要水合、能用 state 和 effect。`/me` 不需要客户端参与，直接用服务端 `redirect("/me/created")`。
 
 ### 4.2 `route.ts`：导出 HTTP 方法名就是注册处理器
 
@@ -173,37 +191,69 @@ export const dynamic = "force-dynamic";
 - 动态段从第二个参数取，Next 15 起 `params` 是 Promise：`const { id } = await ctx.params`。
 - `dynamic = "force-dynamic"` 关掉 GET 路由的静态缓存；`runtime = "nodejs"` 保证能用 `fs`、`pg`、`better-sqlite3`。
 
-## 5. 为什么页面树只在客户端渲染
+## 5. 服务端渲染：Server / Client 组件分工
 
-App Router 默认希望页面在服务端渲染（Server Component 直接查数据库、首屏带数据）。1.x 的广场和详情就是这么做的，靠登录时额外写一枚 httpOnly cookie 让服务端认出用户。2.0 放弃了这条路，原因在皮肤：
-
-- 皮肤与明暗存在浏览器的 `localStorage`（`hellotime.skin` / `hellotime.theme`），服务端读不到；UI 冒烟也只通过 `localStorage` 预置皮肤。
-- 两套皮肤不只是换颜色：首页、卡片、详情、创建、账号页的 DOM 结构都不同（`skins/paper` 与 `skins/amber` 各一份）。
-- 服务端如果按默认皮肤渲染，浏览器里用的却是另一套，React 水合时会发现 DOM 对不上，用户还会先看到另一套皮肤闪一下。
-
-所以本实现的分工是：
+Next 官方推荐的模型是「Server Component 取数 + 叶子上的 Client Component 负责交互」。本实现照此组织；难点在于有三样东西只存在浏览器里——皮肤与明暗（localStorage）、登录态（localStorage 里的 refresh token）、此刻（两边的 `Date.now()` 不同）。下面逐个说明它们怎么和 SSR 相处。
 
 ```text
-app/layout.tsx（Server Component，服务端执行）
-  ├── <head>：viewport、theme-color、首帧内联脚本（从 localStorage 写好 data-skin / data-theme）
+app/layout.tsx（Server Component）
+  ├── await cookies() → prefs = { skin, theme }（ht-skin / ht-theme，缺省琥珀 · 星夜）
+  ├── <html data-skin data-theme>、theme-color、首帧内联脚本（lib/preferences.ts）
   ├── import "./styles.css"（两套皮肤的样式都加载，靠 :root[data-skin] 区分）
-  └── <ClientRoot avatars={avatarCatalog()}>{children}</ClientRoot>
-        │  next/dynamic(() => import("@/components/App"), { ssr: false })
-        ▼
-      components/App.tsx（只在浏览器执行）
-        ├── 模块顶层：useAuth.getState().hydrate()   ← 登录态在首次渲染前恢复
-        ├── registerAvatars(avatars)                  ← 服务端读好的头像表
-        └── <Layout>{children}</Layout>               ← 按皮肤挑页头 / 页脚 / 底栏
+  └── <App avatars prefs health serverNow>          ← components/App.tsx，"use client"，参与 SSR
+        ├── UiSeedContext = prefs                    ← 服务端渲染与水合时 useUi 读它
+        ├── NowSeedContext = serverNow               ← 服务端渲染与水合时 useNow 读它
+        ├── HealthContext = health                   ← 页脚、关于页的技术栈
+        ├── useLayoutEffect：useAuth.hydrate()       ← 水合后恢复登录态
+        └── <Layout>{children}</Layout>              ← 按皮肤挑页头 / 页脚 / 底栏
+              └── app/*/page.tsx（Server Component）→ views/*（Client Component）→ skins/*
 ```
 
-服务端仍然做它擅长、又不依赖皮肤的事：
+| 文件 | 类型 | 服务端做什么 |
+|---|---|---|
+| `app/layout.tsx` | Server | 读 Cookie 定皮肤与明暗；读头像表与 `/health`；记下渲染时刻 |
+| `app/page.tsx` | Server（async） | `loadPlazaSeed()`：广场第一屏（匿名） |
+| `app/capsules/[code]/page.tsx` | Server（async） | `loadCapsuleSeed()` + `generateMetadata` |
+| `app/about/page.tsx` | Server（async） | `loadHealth()` |
+| `app/me/page.tsx` | Server | `redirect("/me/created")` |
+| `app/{open,login,register,create,me/[tab]}/page.tsx` | Server | 只给 `metadata`，内容交给客户端视图 |
+| `components/App.tsx`、`AppLayout.tsx`、`views/*`、`skins/*` | Client | 照常在服务端渲染成 HTML，浏览器里水合 |
 
-- **读仓库文件**：`lib/server/avatar-catalog.ts` 在服务端读 `spec/avatars/v2/catalog.json` 和每个 SVG 的内层路径，作为 props 交给客户端。头像必须内联进 DOM 才能被皮肤样式上色（`<img>` 里的 `currentColor` 只会是黑色）。React 版用 Vite 的 `import.meta.glob(…, { query: "?raw" })` 在构建期内联，这里换成「Server Component 读文件 → props 下发」。
-- **重定向**：`/me` → `/me/created`。
-- **404**：未匹配路由由 `not-found.tsx` 兜底，响应码是真正的 404。
-- **整个 `/api/v1`**。
+### 5.1 皮肤与明暗：Cookie 给服务端，localStorage 仍是首帧权威
 
-> 一个容易踩的坑：页面组件虽然只在浏览器里渲染，`next build` 预渲染时仍会**加载**它们的模块图。所以客户端模块的顶层代码不能直接碰 `document` / `window`。`stores/ui.ts` 在 zustand 初始化时读 `<html>` 的属性，这里加了 `typeof document !== "undefined"` 判断。
+约定在 `lib/preferences.ts`：
+
+- **localStorage**（`hellotime.skin` / `hellotime.theme`）与 React 参考前端同名，是首帧权威——冒烟也只通过它预置皮肤。
+- **Cookie**（`ht-skin` / `ht-theme`）是给服务端看的副本：`setSkin` / `toggleTheme` 每次切换都同步写；水合后 `syncCookies()` 再按当前值校正一次。**明暗也写 Cookie**，否则亮色用户每次都会拿到暗色的 `data-theme`，水合时再翻回来。
+- **首帧脚本**（`<head>` 内联，早于正文解析）：皮肤 = localStorage → 服务端写好的 `data-skin`；明暗 = localStorage → 系统偏好（没选过就跟随系统，与 React 版一致）。**只在值确实不同时才改 `<html>`**——Cookie 与本地一致时不产生任何属性变更。
+- **不一致时**（旧标签页、清过 Cookie、只预设了 localStorage）：脚本改写 `data-skin` 并打上 `data-skin-pending`，`app.css` 让 `:root[data-skin-pending] body` 暂时 `visibility: hidden`，藏住服务端按 Cookie 渲染的那一套 DOM；`AppLayout` 在真正按 `<html data-skin>` 渲染出那一套后摘掉。只有明暗不同时不隐藏（DOM 结构相同，颜色由属性决定，只是明暗开关的文字晚一拍）。
+
+`stores/ui.ts` 怎么做到「服务端渲染、水合用 Cookie 值，之后用真实值」：store 是模块级单例，服务端不能按请求去改它。`useUi(selector)` 内部是 `useSyncExternalStore`，第三个参数 `getServerSnapshot` 返回 `{ ...store, ...UiSeedContext }`。React 在服务端渲染和**水合**时调用 `getServerSnapshot`，两边都是 Cookie 值，输出一致；水合完成后改读 `getSnapshot`（首帧脚本已按 localStorage 写好的 `<html>`），不一致就重渲一次。
+
+> zustand 自带的 `useStore` 的 `getServerSnapshot` 返回 `getInitialState()`——创建 store 时的初值。这正好让 auth、plaza 这些 store 在水合时都是空初值，与服务端一致；但皮肤需要按请求变化的值，所以 `useUi` 自己包了一层。
+
+### 5.2 登录态：匿名 SSR + 客户端补个人投影
+
+令牌在 localStorage，服务端看不到，所以**公开页的 HTML 一律以匿名身份生成**（与 nuxt 相同的取舍）：
+
+- `components/App` 在 `useLayoutEffect` 里 `useAuth.getState().hydrate()`：layout effect 早于所有 passive effect，页面里的取数、守卫第一次运行时就能拿到登录态。
+- 广场：`views/PlazaPage` 拿到服务端第一屏，广场 store 还没有自己的数据、查询条件也是默认值时直接用它（服务端渲染、水合、客户端第一次进首页），不发请求；**登录用户**在登录态恢复后静默重取列表与精选（`refreshViewer()`，不闪「加载中」），补上 `favoritedByMe`。之前加载过（筛选、搜索、翻页都在 store 里）就照旧整页刷新。
+- 详情：`useCapsuleByCode(code, initial)` 在路由层（`views/CapsuleByCodePage`）调用一次，两套皮肤共用同一份数据；有 `initial` 就不请求，登录用户静默重取一次补收藏状态。查无此码由服务端直接渲染「找不到这枚胶囊」。
+- 水合时 zustand 读的是空初值、服务端又不能改 store，所以首屏数据要「铺」在 store 上：广场经 `PlazaSeedContext` 给 `usePlazaHome` 叠加（`overlaySeed`），水合后的 layout effect 写进 store 并清掉，换成读 store 时内容不变。
+- 需要登录的页面（`/create`、`/me/*`）：`AuthGate` 在登录态恢复前什么也不输出，服务端 HTML 里这块是空的；恢复后放行或 `<Navigate>` 去登录页。已登录访问 `/login`、`/register`：服务端按未登录渲染表单，登录态恢复后的第一次渲染判断一次再跳走（`useGuestRedirect`）。
+
+### 5.3 此刻：倒计时用同一时刻水合
+
+倒计时、进度条、「此刻」邮戳都依赖当前时间，服务端与浏览器的 `Date.now()` 不同，直接渲染会让文字水合不匹配。`hooks/useNow` 的 `getServerSnapshot` 返回根布局传下来的 `serverNow`：服务端渲染与水合用同一时刻，水合完成后再改读本机时钟、每秒一跳。
+
+日期格式化用运行环境的本地时区（与 React 版一致）。本项目服务端与浏览器在同一台机器上；部署到不同时区时，卡片上的日期需要统一时区才能避免水合不匹配。
+
+### 5.4 服务端渲染的取舍
+
+- 读了 Cookie，所有页面都是按请求动态渲染（`ƒ`），不做静态预渲染。
+- 两套皮肤切换只在客户端：用同一份数据重渲，不请求服务端（广场、详情的数据都在路由层或 store 里，换肤不重取）。
+- 服务端渲染期间不能碰 `window` / `document` / `localStorage`：这些访问都在 effect 或事件处理里；模块顶层要碰时先判断（`stores/ui.ts` 的 `hasDom`）。
+- 路由名 `body[data-route]` 仍在 effect 里写（根布局拿不到当前路径），只影响时笺登录 / 注册页页脚的一处间距。
 
 ## 6. 数据层：Drizzle ORM + 双数据库
 
@@ -333,11 +383,11 @@ import "server-only";   // 客户端模块 import 这个文件，next build 直�
 
 ### 9.1 哪些文件与 react-ts 相同
 
-`hooks/`、`stores/`、`skins/paper|amber/`、`components/`（除 `ClientRoot`、`App`、`AppLayout`）、`api/client.ts` 与 `frontends/react-ts/src` 下的同名文件逐文件对应，差别只有：
+`hooks/`、`stores/`、`skins/paper|amber/`、`components/`（除 `App`、`AppLayout`）、`api/client.ts` 与 `frontends/react-ts/src` 下的同名文件逐文件对应，差别只有：
 
 - 导入路径：`react-router-dom` → `@/lib/router`；
 - 关于页「前端」卡片：展示 Next.js / React / TypeScript / Zustand，源码路径写 `fullstacks/next`；
-- `stores/ui.ts` 加了 SSR 判断（第 5 节）；`lib/avatars.ts` 改为运行时登记（第 5 节）。
+- 服务端渲染带来的改动（第 5 节）：`stores/ui.ts`（Cookie 同步、`UiSeedContext`）、`hooks/useNow.ts`（`NowSeedContext`）、`components/shared.tsx` 的 `useHealth`（`HealthContext`）、`stores/plaza.ts` 与 `hooks/usePlazaHome.ts`（首屏 seed、`refreshViewer`、进首页的取数移到 `views/PlazaPage`）、`hooks/useCapsule.ts`（`initial`、在路由层调用）、两套皮肤的 `CapsulePage` 改为接收 props、`views/LoginPage` 的 `useGuestRedirect`；`lib/avatars.ts` 改为运行时登记。
 
 业务逻辑全在 hooks 与 stores 里：草稿按账号保存、创建路由持有提交锁与回执、AI 代笔可被手动编辑打断、表单值和广场搜索跨皮肤保留、「我的」列表按实际条数续页、详情到点后以服务端 `isOpened` 为准退避重试、8 格输码按路由保存……这些都是升级指南第 2 节的清单，原样继承。逐条讲解见 React 手册第 10、11 节。
 
@@ -356,11 +406,11 @@ import "server-only";   // 客户端模块 import 这个文件，next build 直�
 两个细节：
 
 - `next/link` 和 react-router 一样，`onClick` 里调用 `preventDefault()` 后就不会跳转。所以 `CreateLink` 的「匿名点创建先弹确认框，确认后再去登录页」不用改。
-- **首帧守卫**：升级指南提到，路由器还没开始监听 history 时调用 `navigate()`，只会改地址栏、页面不切。这里整棵树在 App Router 水合之后才挂载，`AuthGate` / 登录页的 `<Navigate>` 在 effect 里执行时路由器已经就绪。已在浏览器核实：匿名直接打开 `/create` 会真正渲染登录页。
+- **首帧守卫**：升级指南提到，路由器还没开始监听 history 时调用 `navigate()`，只会改地址栏、页面不切。`<Navigate>` 在服务端什么也不输出，跳转放在 effect 里，只会在水合完成之后执行，那时 App Router 已经接管 history。已在浏览器核实：匿名直接打开 `/create`、`/me/favorites` 会真正渲染登录页，已登录打开 `/login?redirect=…` 会真正切到目标页。
 
 ### 9.3 总布局与外壳
 
-`components/AppLayout.tsx` 与 React 版 `app/Layout.tsx` 相同：按皮肤挑页头 / 页脚 / 底栏，`main#view` 放页面（这里是 App Router 传进来的 `children`），路由名写到 `body[data-route]`。根布局与 `ClientRoot` 在路由切换时不会重新挂载，所以外壳、Toast、确认框和所有 store 状态都保持不变。
+`components/AppLayout.tsx` 与 React 版 `app/Layout.tsx` 相同：按皮肤挑页头 / 页脚 / 底栏，`main#view` 放页面（这里是 App Router 传进来的 `children`），路由名写到 `body[data-route]`；另外负责在皮肤换好后摘掉 `data-skin-pending`（第 5.1 节）。根布局与 `App` 在路由切换时不会重新挂载，所以外壳、Toast、确认框和所有 store 状态都保持不变。
 
 ## 10. 样式：`spec/styles` 原样引入
 
@@ -381,8 +431,8 @@ import "server-only";   // 客户端模块 import 这个文件，next build 直�
 
 - 两套皮肤的规则都限定在 `:root[data-skin=…]` 下，可以同时加载；换皮肤、换明暗只改 `<html>` 上的两个属性（View Transition 过渡，减少动效时直接切）。
 - Next 的 CSS 管线能解析仓库外的相对路径和 `@fontsource` 裸包名，不需要把 `spec/styles` 复制进来。
-- 自己的样式只有 `app/app.css` 里的「加载更多」一条，只用 `base.css` 刻度；`verify-design-tokens.sh next` 检查不写色值、不引用非公开令牌。
-- 根布局给 `<html>` 加了 `suppressHydrationWarning`：首帧脚本会在水合前改写 `data-skin` / `data-theme`，这是预期的不一致。
+- 自己的样式只有 `app/app.css` 里的「加载更多」和 `data-skin-pending` 隐藏两条，只用 `base.css` 刻度；`verify-design-tokens.sh next` 检查不写色值、不引用非公开令牌。
+- 根布局给 `<html>` 与 `theme-color` 加了 `suppressHydrationWarning`：Cookie 与 localStorage 不一致时首帧脚本会在水合前改写它们，这是预期的不一致。
 
 ## 11. 「全栈」相对于「SPA + 独立后端」
 
@@ -391,7 +441,9 @@ import "server-only";   // 客户端模块 import 这个文件，next build 直�
 | 进程 | 两个：FastAPI :29010 + Vite :7174（经 :9080 反代） | 一个：Next :7177 |
 | 跨域 | Vite proxy / 反代 | 同源 |
 | 路由表 | `router.tsx` | `src/app/` 目录结构 |
-| 首帧脚本 | `index.html` 内联 `<script>` | `app/layout.tsx` 的 `<head>` 内联 `<script>` |
+| 首屏 HTML | 空的 `#root`，JS 加载后渲染、再请求数据 | 服务端按 Cookie 里的皮肤渲染，广场 / 详情 / 关于带着数据 |
+| 首帧脚本 | `index.html` 内联 `<script>`，从 localStorage 写属性 | `app/layout.tsx` 的 `<head>` 内联 `<script>`，只在 localStorage 与 Cookie 不一致时改属性 |
+| 页面标题 | 视图里写 `document.title` | `metadata` / `generateMetadata`（胶囊标题在服务端生成） |
 | 头像 SVG 内联 | Vite `import.meta.glob` 构建期内联 | Server Component 读文件 → props 下发 |
 | 类型 | 前端手写 TS 类型对应 Python schema | `types/index.ts` 前后端共用一份 |
 | 数据库连接 | 后端持有 | `server-only` 防火墙保证不进浏览器 |
@@ -401,12 +453,13 @@ import "server-only";   // 客户端模块 import 这个文件，next build 直�
 
 | 想做什么 | 改哪里 |
 |---|---|
-| 加一个页面 | `src/views/XxxPage.tsx`（`"use client"`，按皮肤挑视图）+ `src/app/<路径>/page.tsx` 引入它 |
+| 加一个页面 | `src/views/XxxPage.tsx`（`"use client"`，按皮肤挑视图）+ `src/app/<路径>/page.tsx` 引入它并导出 `metadata` |
+| 页面首屏要带数据 | `page.tsx` 改成 async，在 `lib/server/page-data.ts` 加取数函数（匿名、调 services），作为 props 传给视图；视图在水合后按需补个人投影 |
 | 加一个需要登录的页面 | 同上，`page.tsx` 里外面包 `<AuthGate>` |
 | 加一个接口 | `src/app/api/v1/<路径>/route.ts` 导出 `GET / POST / …`，业务写进 `src/services/*.ts`（首行 `import "server-only"`） |
 | 加请求体校验 | `src/lib/validation/schemas.ts` 加 Zod schema，route 里 `parseJson(req, schema)` |
 | 先读后写的业务 | 包进 `withTx`，按外部 id 查找用 `idCandidates`，输出用 `dashed` / `iso` |
-| 加一个客户端状态 | `src/stores/` 用 `create(...)`；顶层别直接碰 `document` / `window` |
+| 加一个客户端状态 | `src/stores/` 用 `create(...)`；顶层别直接碰 `document` / `window`；渲染里别用 `Date.now()`（用 `useNow`） |
 | 改皮肤视图 | `src/skins/paper|amber/`，与 `frontends/react-ts` 同步修改 |
 | 换数据库 | `DB_DRIVER=sqlite ./run` |
 | 改颜色 / 间距 | 改 `spec/styles`（所有实现同步生效），实现里不写色值 |

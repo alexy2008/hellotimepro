@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { Link, useParams } from "@/lib/router";
+import { Link } from "@/lib/router";
 import { fmt, ms, reducedMotion, sleep } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { paletteOf } from "@/lib/palette";
@@ -13,7 +13,7 @@ import { toast } from "@/stores/feedback";
 import { useAuth } from "@/stores/auth";
 import { Avatar } from "@/components/shared";
 import { FavButton } from "@/components/FavButton";
-import { paragraphs, useCapsuleByCode, useMySealed, useShare } from "@/hooks/useCapsule";
+import { paragraphs, useMySealed, useShare, type CapsuleView } from "@/hooks/useCapsule";
 import { useCodeOpen } from "@/hooks/useCodeOpen";
 import type { CapsuleDetail } from "@/types";
 import { Badge, CapsuleArt, Countdown, Stamp, cdShort } from "./parts";
@@ -193,9 +193,9 @@ function Letter({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
   );
 }
 
-export function AmberCapsulePage() {
-  const { code = "" } = useParams();
-  const { c, status, now, expired, reload, awaitOpened } = useCapsuleByCode(code);
+/** 胶囊详情：数据由路由层的 useCapsuleByCode 给（两套皮肤共用一份，换肤不重取） */
+export function AmberCapsulePage({ code, cap }: { code: string; cap: CapsuleView }) {
+  const { c, status, now, expired, reload, awaitOpened } = cap;
   const [phase, setPhase] = useState<"" | "shaking" | "open">("");
   const [reveal, setReveal] = useState(false);
   const openingTask = useRef<AbortController | null>(null);
