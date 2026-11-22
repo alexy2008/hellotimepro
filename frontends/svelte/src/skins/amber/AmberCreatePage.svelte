@@ -9,8 +9,8 @@
   import { tick, untrack } from "svelte";
   import { authStore } from "@/stores/auth.svelte.ts";
   import { clock } from "@/stores/clock.svelte.ts";
-  import { fmt, pad2, reducedMotion } from "@/lib/fmt";
-  import { DAY, LIMITS } from "@/lib/schedule";
+  import { fmt, reducedMotion } from "@/lib/fmt";
+  import { DAY } from "@/lib/schedule";
   import { autofocus } from "@/lib/attach";
   import { useShake } from "@/lib/motion.svelte.ts";
   import { useCreateForm } from "@/state/create-form.svelte.ts";
@@ -18,6 +18,7 @@
   import AppAvatar from "@/components/AppAvatar.svelte";
   import AmberBadge from "./AmberBadge.svelte";
   import AmberCapsuleArt from "./AmberCapsuleArt.svelte";
+  import AmberDateTimePicker from "./AmberDateTimePicker.svelte";
   import AmberSealed from "./AmberSealed.svelte";
   import AmberVisBadge from "./AmberVisBadge.svelte";
   import { dash } from "./art";
@@ -31,12 +32,6 @@
     { key: "5y", label: "五年后" },
     { key: "10y", label: "十年后" },
   ];
-
-  /** datetime-local 输入框要的本地时间写法 */
-  const toLocal = (t: number) => {
-    const d = new Date(t);
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  };
 
   const f = useCreateForm();
   const me = $derived(authStore.user!);
@@ -69,16 +64,8 @@
       else if (f.errors.content) contentEl?.focus({ preventScroll: true });
     });
   });
-
-  function onOpenAt(e: Event) {
-    const t = new Date((e.target as HTMLInputElement).value).getTime();
-    f.setOpenAt(t);
-  }
   function onsubmit(e: SubmitEvent) {
     e.preventDefault();
-    // 浏览器可能只改了日期控件中的一段，提交前也核对实际值。
-    const input = (e.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>("#openAt");
-    if (input && !input.value && !f.draft.openAtMissing) f.setOpenAt(NaN);
     void f.submit();
   }
 </script>
@@ -175,26 +162,14 @@
               <label class="field__label" for="openAt">开启时间 <em>*</em></label>
               <span class="field__count">最早 1 分钟后 · 最晚 10 年内</span>
             </div>
-            <div class="input-wrap input-wrap--icon">
-              <AppIcon name="calendar" class="input-wrap__icon" />
-              <input
-                id="openAt"
-                class="input mono"
-                type="datetime-local"
-                min={toLocal(LIMITS.minOpen())}
-                max={toLocal(LIMITS.maxOpen())}
-                value={f.draft.openAtMissing ? "" : toLocal(f.draft.openAt)}
-                data-testid="create-openat"
-                data-value={f.draft.openAtMissing ? undefined : new Date(f.draft.openAt).toISOString()}
-                oninput={onOpenAt}
-              />
-            </div>
+            <AmberDateTimePicker value={f.draft.openAt} onchange={(t) => f.setOpenAt(t)} />
             <div class="chips">
               {#each PRESETS as p (p.key)}
                 <button
                   class={["chip", f.draft.preset === p.key && "is-active"]}
                   type="button"
                   data-testid="openat-preset"
+                  data-preset={p.key}
                   data-value={p.key}
                   data-selected={f.draft.preset === p.key}
                   onclick={() => f.pickPreset(p.key)}
