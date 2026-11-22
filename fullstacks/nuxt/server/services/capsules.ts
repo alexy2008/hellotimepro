@@ -1,13 +1,16 @@
-import { randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
-import { getCtx } from "~/server/db";
+import { randomInt, randomUUID } from "node:crypto";
+import { and, eq, inArray, type SQL } from "drizzle-orm";
+import { getCtx, withCapsuleTransaction } from "~/server/db";
 import { ERR } from "~/server/lib/errors";
+import { capsuleIds, dashed, iso } from "~/server/lib/records";
+import { addCalendarYears } from "~/lib/fmt";
+import { lockCapsule } from "./capsule-lock";
 import type { CapsuleDetail, CreateCapsuleRequest } from "~/types";
 
 const CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 function generateCode(): string {
   let s = "";
-  for (let i = 0; i < 8; i++) s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  for (let i = 0; i < 8; i++) s += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   return s;
 }
 
@@ -33,17 +36,16 @@ interface UserRow {
 function toDetail(
   c: CapsuleRow,
   owner: UserRow,
-  viewerId: string | null,
   favoritedByMe: boolean,
 ): CapsuleDetail {
   const opened = new Date(c.openAt) <= new Date();
   return {
-    id: c.id,
+    id: dashed(c.id),
     code: c.code,
     title: c.title,
     creator: { nickname: owner.nickname, avatarId: owner.avatarId },
-    openAt: c.openAt,
-    createdAt: c.createdAt,
+    openAt: iso(c.openAt),
+    createdAt: iso(c.createdAt),
     inPlaza: !!c.inPlaza,
     favoriteCount: c.favoriteCount,
     isOpened: opened,
@@ -56,59 +58,36 @@ export async function createCapsule(
   ownerId: string,
   req: CreateCapsuleRequest,
 ): Promise<CapsuleDetail> {
-  const { db, t } = await getCtx();
-  // 校验 openAt > now + 60s 且 < now + 10 年
+  const nowMs = Date.now();
   const openAt = new Date(req.openAt);
   if (Number.isNaN(openAt.getTime())) throw ERR.validation("openAt 不是合法时间", "openAt");
-  if (openAt.getTime() <= Date.now() + 60_000) {
-    throw ERR.validation("开启时间至少需 60 秒后", "openAt");
-  }
-  const tenYearsMs = 10 * 365 * 24 * 3600 * 1000;
-  if (openAt.getTime() > Date.now() + tenYearsMs) {
+  if (openAt.getTime() <= nowMs + 60_000) throw ERR.validation("开启时间至少需 60 秒后", "openAt");
+  if (openAt.getTime() > addCalendarYears(nowMs, 10)) {
     throw ERR.validation("开启时间不能超过 10 年", "openAt");
   }
 
+  const { db, t } = await getCtx();
   const ownerRows = await db.select().from(t.users).where(eq(t.users.id, ownerId)).limit(1);
   const owner = ownerRows[0] as UserRow | undefined;
   if (!owner) throw ERR.unauthorized();
 
-  let lastErr: Error | null = null;
+  const now = new Date(nowMs).toISOString();
   for (let attempt = 0; attempt < 5; attempt++) {
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    const code = generateCode();
-    try {
-      await db.insert(t.capsules).values({
-        id,
-        ownerId,
-        code,
-        title: req.title,
-        content: req.content,
-        openAt: openAt.toISOString(),
-        inPlaza: req.inPlaza ?? true,
-        favoriteCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      });
-      const row: CapsuleRow = {
-        id,
-        ownerId,
-        code,
-        title: req.title,
-        content: req.content,
-        openAt: openAt.toISOString(),
-        inPlaza: req.inPlaza ?? true,
-        favoriteCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      };
-      return toDetail(row, owner, ownerId, false);
-    } catch (e) {
-      lastErr = e as Error;
-      // code 唯一约束冲突 → 重试
-    }
+    const [capsule] = await db.insert(t.capsules).values({
+      id: randomUUID(),
+      ownerId,
+      code: generateCode(),
+      title: req.title,
+      content: req.content,
+      openAt: openAt.toISOString(),
+      inPlaza: req.inPlaza ?? true,
+      favoriteCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    }).onConflictDoNothing({ target: t.capsules.code }).returning();
+    if (capsule) return toDetail(capsule, owner, false);
   }
-  throw ERR.internal("生成唯一码失败：" + (lastErr?.message ?? ""));
+  throw ERR.internal("生成唯一码失败");
 }
 
 export async function getCapsuleByCode(
@@ -118,8 +97,21 @@ export async function getCapsuleByCode(
   if (!/^[A-Za-z0-9]{8}$/.test(code)) {
     throw ERR.validation("胶囊码格式错误（须 8 位字母或数字）", "code");
   }
-  const { db, t } = await getCtx();
-  const codeNorm = code.toUpperCase();
+  return getDetail((t) => eq(t.capsules.code, code.toUpperCase()), viewerId);
+}
+
+export function getPlazaDetail(id: string, viewerId: string | null) {
+  return getDetail((t, kind) => and(
+    inArray(t.capsules.id, capsuleIds(id, kind, "id")),
+    eq(t.capsules.inPlaza, true),
+  )!, viewerId);
+}
+
+async function getDetail(
+  where: (t: Awaited<ReturnType<typeof getCtx>>["t"], kind: "postgres" | "sqlite") => SQL,
+  viewerId: string | null,
+) {
+  const { db, t, kind } = await getCtx();
   const rows = await db
     .select({
       capsule: t.capsules,
@@ -127,7 +119,7 @@ export async function getCapsuleByCode(
     })
     .from(t.capsules)
     .innerJoin(t.users, eq(t.capsules.ownerId, t.users.id))
-    .where(eq(t.capsules.code, codeNorm))
+    .where(where(t, kind))
     .limit(1);
   const row = rows[0];
   if (!row) throw ERR.notFound("胶囊不存在");
@@ -140,14 +132,16 @@ export async function getCapsuleByCode(
       .limit(1);
     favoritedByMe = !!fav[0];
   }
-  return toDetail(row.capsule as CapsuleRow, row.owner as UserRow, viewerId, favoritedByMe);
+  return toDetail(row.capsule, row.owner, favoritedByMe);
 }
 
-export async function deleteOwnCapsule(userId: string, capsuleId: string): Promise<void> {
-  const { db, t } = await getCtx();
-  const rows = await db.select().from(t.capsules).where(eq(t.capsules.id, capsuleId)).limit(1);
-  const c = rows[0];
-  if (!c) throw ERR.notFound("胶囊不存在");
-  if (c.ownerId !== userId) throw ERR.forbidden("无权删除他人胶囊");
-  await db.delete(t.capsules).where(eq(t.capsules.id, capsuleId));
+export function deleteOwnCapsule(userId: string, id: string): Promise<void> {
+  return withCapsuleTransaction(async (ctx) => {
+    const { db, t } = ctx;
+    const capsule = await lockCapsule(ctx, id, "id");
+    if (!capsule) throw ERR.notFound("胶囊不存在");
+    if (capsule.ownerId !== userId) throw ERR.forbidden("无权删除他人胶囊");
+    await db.delete(t.favorites).where(eq(t.favorites.capsuleId, capsule.id));
+    await db.delete(t.capsules).where(eq(t.capsules.id, capsule.id));
+  });
 }

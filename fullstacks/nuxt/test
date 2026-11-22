@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 仅做类型检查；契约层走 verification/scripts/verify-contract.sh。
+# Nuxt 类型检查和 SQLite 服务回归；HTTP 契约层走仓库验证脚本。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,4 +9,5 @@ if [[ ! -d node_modules ]]; then
   npm install --silent
 fi
 
-exec npm run typecheck
+npm run typecheck
+exec ./node_modules/.bin/tsx --tsconfig .nuxt/tsconfig.json --test tests/*.test.ts

@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { getCtx } from "~/server/db";
 import { ERR } from "~/server/lib/errors";
 import { allowedAvatarIds } from "./avatars";
-import type { UserOut, UpdateProfileRequest } from "~/types";
+import { dashed, iso } from "~/server/lib/records";
+import type { User, UpdateProfileRequest } from "~/types";
 
 interface UserRow {
   id: string;
@@ -12,17 +13,17 @@ interface UserRow {
   createdAt: string;
 }
 
-function userToDto(u: UserRow): UserOut {
+export function userToDto(u: UserRow): User {
   return {
-    id: u.id,
+    id: dashed(u.id),
     email: u.email,
     nickname: u.nickname,
     avatarId: u.avatarId,
-    createdAt: u.createdAt,
+    createdAt: iso(u.createdAt),
   };
 }
 
-export async function getMe(userId: string): Promise<UserOut> {
+export async function getMe(userId: string): Promise<User> {
   const { db, t } = await getCtx();
   const rows = await db.select().from(t.users).where(eq(t.users.id, userId)).limit(1);
   const user = rows[0] as UserRow | undefined;
@@ -33,7 +34,7 @@ export async function getMe(userId: string): Promise<UserOut> {
 export async function updateProfile(
   userId: string,
   patch: UpdateProfileRequest,
-): Promise<UserOut> {
+): Promise<User> {
   const { db, t } = await getCtx();
   const rows = await db.select().from(t.users).where(eq(t.users.id, userId)).limit(1);
   const user = rows[0] as UserRow | undefined;

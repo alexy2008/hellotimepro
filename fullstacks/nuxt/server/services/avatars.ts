@@ -1,37 +1,12 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import catalog from "@spec/avatars/v2/catalog.json";
 
-export interface Avatar {
-  id: string;
-  name: string;
-  primaryColor: string;
-  svgUrl: string;
+const avatars = catalog.avatars.map(({ id, name, primaryColor, svgUrl }) => ({ id, name, primaryColor, svgUrl }));
+const allowed = new Set(avatars.map(({ id }) => id));
+
+export function listAvatars() {
+  return avatars;
 }
 
-interface CatalogJson {
-  avatars: Array<{ id: string; name: string; primaryColor: string; svgUrl: string }>;
-}
-
-let cached: Avatar[] | null = null;
-
-function loadCatalog(): Avatar[] {
-  if (cached) return cached;
-  const path = join(process.cwd(), "..", "..", "spec", "avatars", "catalog.json");
-  const raw = readFileSync(path, "utf8");
-  const json = JSON.parse(raw) as CatalogJson;
-  cached = json.avatars.map((a) => ({
-    id: a.id,
-    name: a.name,
-    primaryColor: a.primaryColor,
-    svgUrl: a.svgUrl,
-  }));
-  return cached;
-}
-
-export function listAvatars(): Avatar[] {
-  return loadCatalog();
-}
-
-export function allowedAvatarIds(): Set<string> {
-  return new Set(loadCatalog().map((a) => a.id));
+export function allowedAvatarIds() {
+  return allowed;
 }

@@ -31,8 +31,7 @@ function clampDays(raw: unknown): number {
 }
 
 function truncateContent(text: string): string {
-  const t = text.trim();
-  return t.length > 5000 ? t.slice(0, 5000) : t;
+  return Array.from(text.trim()).slice(0, 5000).join("");
 }
 
 function truncateTitle(text: string): string {

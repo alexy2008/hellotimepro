@@ -9,8 +9,6 @@ const bool = (v: string | undefined) => v === "1" || v === "true";
 
 export const env = {
   port: num(process.env.PORT, 7178),
-  serviceName: process.env.SERVICE_NAME ?? "hellotime-pro",
-  serviceVersion: process.env.SERVICE_VERSION ?? "0.1.0",
   dbDriver: (process.env.DB_DRIVER ?? "postgres").toLowerCase() as "postgres" | "sqlite",
   jwtSecret: process.env.JWT_SECRET ?? "dev-secret-change-me",
   accessTokenTtlSeconds: num(process.env.ACCESS_TOKEN_TTL_SECONDS, 3600),

@@ -11,7 +11,8 @@ import {
   verifyPassword,
 } from "~/server/lib/security";
 import { allowedAvatarIds } from "./avatars";
-import type { UserOut, AuthTokens } from "~/types";
+import { userToDto } from "./me";
+import type { AuthTokens } from "~/types";
 
 // 简单内存限流：邮箱 → 最近失败时间戳数组
 // 挂到 globalThis 上，避免 Nuxt/Nitro 开发热更新重新加载模块时重置状态
@@ -44,16 +45,6 @@ interface UserRow {
   avatarId: string;
   createdAt: string;
   updatedAt: string;
-}
-
-function userToDto(u: UserRow): UserOut {
-  return {
-    id: u.id,
-    email: u.email,
-    nickname: u.nickname,
-    avatarId: u.avatarId,
-    createdAt: u.createdAt,
-  };
 }
 
 async function issueTokenPair(user: UserRow, familyId?: string): Promise<AuthTokens> {

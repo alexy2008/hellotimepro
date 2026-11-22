@@ -46,8 +46,15 @@ export const useAuthStore = defineStore("auth", () => {
   const accessToken = ref<string | null>(null);
   const refreshToken = ref<string | null>(null);
   const hydrated = ref(false);
+  let session = 0;
+  let pending: { session: number; request: Promise<void> } | undefined;
+
+  function getSessionVersion() {
+    return session;
+  }
 
   function hydrate() {
+    if (hydrated.value) return;
     const persisted = load();
     if (persisted) {
       user.value = persisted.user;
@@ -57,6 +64,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   function setTokens(t: AuthTokens) {
+    session++;
     user.value = t.user;
     accessToken.value = t.accessToken;
     refreshToken.value = t.refreshToken;
@@ -71,10 +79,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function logout(callServer = true) {
     const rt = refreshToken.value;
-    user.value = null;
-    accessToken.value = null;
-    refreshToken.value = null;
-    clearPersist();
+    dropFromAuthLost();
 
     if (callServer && rt) {
       try {
@@ -85,17 +90,24 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  async function refreshMe() {
-    try {
-      const me = await api.me();
+  function refreshMe() {
+    if (pending?.session === session) return pending.request;
+    const version = session;
+    const request = api.me().then((me) => {
+      if (version !== session) return;
       user.value = me;
       persist({ user: me, refreshToken: refreshToken.value });
-    } catch {
-      // me 拿不到通常是 token 已失效；保持现状由 401 路径接管
-    }
+    }).catch(() => {
+      // 客户端处理失效的令牌。
+    }).finally(() => {
+      if (pending?.request === request) pending = undefined;
+    });
+    pending = { session: version, request };
+    return request;
   }
 
   function dropFromAuthLost() {
+    session++;
     user.value = null;
     accessToken.value = null;
     refreshToken.value = null;
@@ -107,6 +119,7 @@ export const useAuthStore = defineStore("auth", () => {
     accessToken,
     refreshToken,
     hydrated,
+    getSessionVersion,
     hydrate,
     setTokens,
     patchTokens,
@@ -117,10 +130,10 @@ export const useAuthStore = defineStore("auth", () => {
 });
 
 // 把 store 注入到 api client（一次性配置）。Pinia store 必须在创建 app 之后才能调用，
-// 这一步在 main.ts 用 wireAuthApi() 显式触发，避免模块加载顺序问题。
-export function wireAuthApi() {
-  const store = useAuthStore();
+// 只在浏览器的 Nuxt 启动插件调用，服务端请求之间不共享登录态。
+export function wireAuthApi(store: ReturnType<typeof useAuthStore>) {
   configureApi({
+    getSessionVersion: store.getSessionVersion,
     getAccessToken: () => store.accessToken,
     getRefreshToken: () => store.refreshToken,
     onTokensRefreshed: (a, r) => store.patchTokens(a, r),

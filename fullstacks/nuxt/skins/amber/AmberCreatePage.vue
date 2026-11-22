@@ -1,0 +1,265 @@
+<!-- ============================================================
+     「琥珀」创建页（/create）
+     左：表单卡（标题 · AI 代笔 · 灵感 · 正文 · 开启时间 · 发布到广场）
+     右：实时预览 + 须知
+     封存后：胶囊合拢，8 位码牌逐个翻出
+     结构与类名照 2.0 原型 amber/view-create.js
+     ============================================================ -->
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, useTemplateRef, watch } from "vue";
+import { useAuthStore } from "@/stores/auth";
+import { fmt, focusIfIdle, reducedMotion } from "@/lib/fmt";
+import { DAY } from "@/lib/schedule";
+import { useNow } from "@/composables/useNow";
+import { useShake } from "@/composables/useMotion";
+import { useCreateForm } from "@/composables/useCreateCapsule";
+import AppIcon from "@/components/AppIcon.vue";
+import AppAvatar from "@/components/AppAvatar.vue";
+import AmberBadge from "./AmberBadge.vue";
+import AmberCapsuleArt from "./AmberCapsuleArt.vue";
+import AmberDateTimePicker from "./AmberDateTimePicker.vue";
+import AmberSealed from "./AmberSealed.vue";
+import AmberVisBadge from "./AmberVisBadge.vue";
+import { dash } from "./art";
+
+const PRESETS = [
+  { key: "1m", label: "1 分钟后" },
+  { key: "tm", label: "明早 9 点" },
+  { key: "1w", label: "一周后" },
+  { key: "1mo", label: "一个月后" },
+  { key: "1y", label: "一年后" },
+  { key: "5y", label: "五年后" },
+  { key: "10y", label: "十年后" },
+];
+
+const auth = useAuthStore();
+const me = computed(() => auth.user!);
+const f = useCreateForm();
+const now = useNow();
+const titleEl = useTemplateRef<HTMLInputElement>("titleEl");
+const contentEl = useTemplateRef<HTMLTextAreaElement>("contentEl");
+const titleShake = useShake(() => f.shake.title);
+const contentShake = useShake(() => f.shake.content);
+const openShake = useShake(() => f.shake.openAt);
+const span = computed(() => f.draft.openAt - now.value);
+
+let focusTimer = 0;
+onMounted(() => {
+  focusTimer = window.setTimeout(() => focusIfIdle(titleEl.value), 380);
+});
+onBeforeUnmount(() => clearTimeout(focusTimer));
+
+const grow = () => {
+  const el = contentEl.value;
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = Math.max(el.scrollHeight, 36 * 8) + "px";
+};
+onMounted(grow);
+watch(() => f.content, grow, { flush: "post" });
+
+// 校验失败：把出错的字段滚到眼前
+watch(
+  [() => f.shake.title, () => f.shake.content, () => f.shake.openAt],
+  () => {
+    document.querySelector(".field.is-shake")?.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "center" });
+    if (f.errors.title) titleEl.value?.focus({ preventScroll: true });
+    else if (f.errors.content) contentEl.value?.focus({ preventScroll: true });
+  },
+  { flush: "post" },
+);
+</script>
+
+<template>
+  <div class="page page--create">
+    <div class="container">
+      <AmberSealed v-if="f.created" :c="f.created" @again="f.again" />
+      <template v-else>
+        <header class="page-head">
+          <div class="eyebrow">Seal a capsule</div>
+          <h1 class="page-title">写一枚胶囊</h1>
+          <p class="page-lead">写给未来的自己，或者某个还没出现的人。合上之后，在开启时间到来之前，没有任何人能读到它。</p>
+        </header>
+
+        <div class="create">
+          <form class="create__form card" novalidate @submit.prevent="f.submit()">
+            <div :class="['field', { 'is-shake': titleShake }]" data-field="title">
+              <div class="field__head">
+                <label class="field__label" for="title">标题 <em>*</em></label>
+                <span class="field__count mono"><b>{{ Array.from(f.title).length }}</b>/60</span>
+              </div>
+              <div class="input-wrap input-wrap--action">
+                <input
+                  id="title"
+                  ref="titleEl"
+                  v-model="f.title"
+                  class="input"
+                  maxlength="60"
+                  autocomplete="off"
+                  placeholder="给这枚胶囊起个名字"
+                  data-testid="create-title"
+                />
+                <button
+                  :class="['ai-btn', { 'is-busy': f.aiBusy }]"
+                  type="button"
+                  data-testid="ai-generate"
+                  title="让 AI 代写正文并建议开启时间；标题留空时会顺便起个标题"
+                  @click="f.aiWrite()"
+                >
+                  <AppIcon name="sparkle" />
+                  <span>{{ f.aiBusy ? "代笔中…" : f.aiDone ? "重新代笔" : "AI 代笔" }}</span>
+                </button>
+              </div>
+              <div class="field__error" role="alert" :data-testid="f.errors.title ? 'field-error' : undefined" data-field="title">{{ f.errors.title }}</div>
+            </div>
+
+            <div :class="['recos', { 'is-hidden': !f.showRecos }]" :data-testid="f.showRecos ? 'ai-reco' : undefined">
+              <div class="recos__in">
+                <div class="recos__head">
+                  <span><AppIcon name="sparkle" />没有头绪？从一个灵感开始</span>
+                  <button class="link-btn" type="button" data-testid="reco-refresh" :disabled="f.recoBusy || f.aiBusy" @click="f.refreshRecos()">
+                    <AppIcon name="refresh" />
+                    {{ f.recoBusy ? "换一批中…" : "换一批" }}
+                  </button>
+                </div>
+                <div class="recos__list">
+                  <button
+                    v-for="(r, i) in f.recos"
+                    :key="r.title"
+                    class="reco"
+                    type="button"
+                    :style="{ '--i': i }"
+                    data-testid="reco-chip"
+                    :disabled="f.aiBusy"
+                    @click="f.aiWrite(r.title)"
+                  >
+                    <b>{{ r.title }}</b>
+                    <span>{{ r.hint }}</span>
+                    <em><AppIcon name="clock" />{{ fmt.span(r.openInDays * DAY) }}后</em>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div :class="['field', { 'is-shake': contentShake }]" data-field="content">
+              <div class="field__head">
+                <label class="field__label" for="content">内容 <em>*</em></label>
+                <span class="field__count mono"><b>{{ fmt.num(f.content.length) }}</b>/5000</span>
+              </div>
+              <div :class="['paper', { 'is-ai': f.aiBusy, 'is-thinking': f.aiThinking }]">
+                <textarea
+                  id="content"
+                  ref="contentEl"
+                  v-model="f.content"
+                  class="paper__text"
+                  maxlength="5000"
+                  rows="9"
+                  :placeholder="'在这里写下想交给未来的话。\n可以是此刻的天气、正在读的书、一个小小的约定，\n或者只是一句：嘿，你还好吗？'"
+                  data-testid="create-content"
+                />
+                <div class="paper__think" aria-hidden="true"><i /><i /><i /></div>
+              </div>
+              <div class="field__hint">
+                <span v-if="f.aiNote" class="ai-note"><AppIcon name="sparkle" />{{ f.aiNote }}</span>
+              </div>
+              <div class="field__error" role="alert" :data-testid="f.errors.content ? 'field-error' : undefined" data-field="content">{{ f.errors.content }}</div>
+            </div>
+
+            <div :class="['field', { 'is-shake': openShake }]" data-field="openAt">
+              <div class="field__head">
+                <label class="field__label" for="openAt">开启时间 <em>*</em></label>
+                <span class="field__count">最早 1 分钟后 · 最晚 10 年内</span>
+              </div>
+              <AmberDateTimePicker :value="f.draft.openAt" @change="(t: number) => f.setOpenAt(t)" />
+              <div class="chips">
+                <button
+                  v-for="p in PRESETS"
+                  :key="p.key"
+                  :class="['chip', { 'is-active': f.draft.preset === p.key }]"
+                  type="button"
+                  data-testid="openat-preset"
+                  :data-preset="p.key"
+                  :data-value="p.key"
+                  :data-selected="f.draft.preset === p.key"
+                  @click="f.pickPreset(p.key)"
+                >
+                  {{ p.label }}
+                </button>
+              </div>
+              <div class="field__error" role="alert" :data-testid="f.errors.openAt ? 'field-error' : undefined" data-field="openAt">{{ f.errors.openAt }}</div>
+            </div>
+
+            <label :class="['toggle-card', { 'is-on': f.inPlaza }]">
+              <span class="toggle-card__ic"><AppIcon name="globe" /></span>
+              <span class="toggle-card__txt">
+                <b>发布到胶囊广场</b>
+                <small>{{ f.inPlaza ? "标题与昵称公开展示，内容到时间才可见" : "不出现在广场；把胶囊码交给谁，谁才能找到它" }}</small>
+              </span>
+              <input v-model="f.inPlaza" type="checkbox" class="sr-only" data-testid="create-in-plaza" />
+              <span class="switch" aria-hidden="true" />
+            </label>
+
+            <div class="create__foot">
+              <div class="create__sum">
+                <AppIcon name="hourglass" />
+                <span v-if="span > 0">将沉睡 <b>{{ fmt.span(span) }}</b>，于 {{ fmt.full(f.draft.openAt) }} 开启</span>
+                <span v-else>选一个开启的时刻</span>
+              </div>
+              <button :class="['btn', 'btn--primary', 'btn--lg', { 'is-busy': f.submitting }]" type="submit" :disabled="f.submitting" data-testid="create-submit">
+                <AppIcon name="lock" />
+                <span>{{ f.submitting ? "正在封存…" : "封存胶囊" }}</span>
+              </button>
+            </div>
+          </form>
+
+          <aside class="create__side">
+            <div class="preview card">
+              <div class="preview__head">
+                <span class="eyebrow">实时预览</span>
+                <span class="badge badge--amber">尚未封存</span>
+              </div>
+              <div class="preview__art"><AmberCapsuleArt :code="null" state="opened" :width="220" /></div>
+              <h3 class="preview__title">{{ f.title.trim() || "未命名的胶囊" }}</h3>
+              <div class="preview__by">
+                <AppAvatar :id="me.avatarId" />
+                {{ me.nickname }}
+              </div>
+              <dl class="preview__table">
+                <div>
+                  <dt>开启时间</dt>
+                  <dd class="mono">{{ dash(f.draft.openAt) }}</dd>
+                </div>
+                <div>
+                  <dt>沉睡时长</dt>
+                  <dd>{{ span > 0 ? fmt.span(span) : "—" }}</dd>
+                </div>
+                <div>
+                  <dt>正文</dt>
+                  <dd>{{ fmt.num(f.content.length) }} 字</dd>
+                </div>
+              </dl>
+              <div class="badges">
+                <AmberVisBadge :in-plaza="f.inPlaza" />
+                <AmberBadge kind="amber" icon="clock">{{ fmt.span(Math.max(span, 0)) }}后</AmberBadge>
+              </div>
+            </div>
+            <ul class="notes">
+              <li>
+                <AppIcon name="key" />
+                <span>封存后会得到一串 8 位胶囊码，它是开启胶囊的凭证，也能分享给别人。</span>
+              </li>
+              <li>
+                <AppIcon name="lock" />
+                <span>到开启时间之前，内容对所有人不可见——包括写下它的你。</span>
+              </li>
+              <li>
+                <AppIcon name="trash" />
+                <span>封存后，内容和开启时间都不能再修改；可以在「我创建的」里删除。</span>
+              </li>
+            </ul>
+          </aside>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>
