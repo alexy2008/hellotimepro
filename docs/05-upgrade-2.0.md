@@ -148,7 +148,8 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
 | 前端 | vue3-ts · angular | 升级时 README 记录 88/88 双库 + 令牌（2026-11-21）；同日复核修复后通过模板与类型检查，仅做静态验证 |
 | 前端 | svelte | 升级时 README 记录 88/88 双库 + 令牌（2026-11-21）；同日复核修复后通过模板与类型检查，仅做静态验证（新增的会话竞态单测尚未运行） |
 | 前端 | solid | 升级时 README 记录 88/88 双库 + 令牌（2026-11-21）；同日复核修复后通过类型检查，仅做静态验证 |
-| 全栈 | next · nuxt · spring-mvc · rails · laravel | ⬜ |
+| 全栈 | next | 已升级并修复静态复核发现的问题。升级时 PostgreSQL / SQLite 各通过契约 117/117、UI 88/88；本轮仅静态检查。 |
+| 全栈 | nuxt · spring-mvc · rails · laravel | ⬜ |
 
 ## 6. 任务提示词模板
 

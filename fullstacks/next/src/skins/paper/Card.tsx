@@ -36,7 +36,8 @@ const ENV_OPENED = (
 
 export const preview = (text: string | null | undefined, n = 78) => {
   const t = String(text ?? "").replace(/\s+/g, " ").trim();
-  return t.length > n ? t.slice(0, n) + "……" : t;
+  const chars = Array.from(t);
+  return chars.length > n ? chars.slice(0, n).join("") + "……" : t;
 };
 
 export function PaperCard({ c, i = 0, rank = 0, mine = false, now, testId = "capsule-card", openTestId = "card-open", onFavChange }: {

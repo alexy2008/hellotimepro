@@ -20,6 +20,10 @@ interface AuthState {
   refreshMe: () => Promise<void>;
 }
 
+let sessionVersion = 0;
+export const getSessionVersion = () => sessionVersion;
+let meRequest: { version: number; promise: Promise<void> } | undefined;
+
 const STORAGE_KEY = "hellotime.auth";
 
 interface PersistShape {
@@ -55,7 +59,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
     const persisted = load();
     if (persisted) {
       set({
-        user: persisted.user,
+        user: persisted.refreshToken ? persisted.user : null,
         refreshToken: persisted.refreshToken,
         hydrated: true,
       });
@@ -65,6 +69,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   },
 
   setTokens: (t) => {
+    sessionVersion++;
     set({
       user: t.user,
       accessToken: t.accessToken,
@@ -80,6 +85,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   },
 
   logout: async (callServer = true) => {
+    sessionVersion++;
     const rt = get().refreshToken;
     set({ user: null, accessToken: null, refreshToken: null });
     try {
@@ -97,23 +103,30 @@ export const useAuth = create<AuthState>()((set, get) => ({
     }
   },
 
-  refreshMe: async () => {
-    try {
-      const me = await api.me();
+  refreshMe: () => {
+    const version = sessionVersion;
+    if (!get().refreshToken) return Promise.resolve();
+    if (meRequest?.version === version) return meRequest.promise;
+    const promise = api.me().then((me) => {
+      if (version !== sessionVersion) return;
       set({ user: me });
       persist({ user: me, refreshToken: get().refreshToken });
-    } catch {
-      // me 拿不到通常是 token 已失效；保持现状由 401 路径接管
-    }
+    }).catch(() => undefined).finally(() => {
+      if (meRequest?.version === version) meRequest = undefined;
+    });
+    meRequest = { version, promise };
+    return promise;
   },
 }));
 
 // 把 store 注入到 api client（一次性配置）
 configureApi({
+  getSessionVersion,
   getAccessToken: () => useAuth.getState().accessToken,
   getRefreshToken: () => useAuth.getState().refreshToken,
   onTokensRefreshed: (a, r) => useAuth.getState().patchTokens(a, r),
   onAuthLost: () => {
+    sessionVersion++;
     useAuth.setState({
       user: null,
       accessToken: null,

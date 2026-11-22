@@ -10,7 +10,7 @@ import { fmt, ms, reducedMotion } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { Seg } from "@/components/Seg";
 import { pageNumbers, useCountUp, usePlazaHome } from "@/hooks/usePlazaHome";
-import { useCodeOpen } from "@/hooks/useCodeOpen";
+import { completeCode, useCodeOpen } from "@/hooks/useCodeOpen";
 import type { PlazaFilter, PlazaSort } from "@/types";
 import { CdShort, Envelope, Postmark, Seal } from "./parts";
 import { PaperCard, PaperCardSkeleton } from "./Card";
@@ -35,7 +35,7 @@ function QuickOpen() {
   const { state, error, shake, go, value, input: changeCode } = useCodeOpen();
   return (
     <form
-      className={`hquick${value.length === 8 ? " is-full" : ""}`}
+      className={`hquick${completeCode(value) ? " is-full" : ""}`}
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -266,12 +266,12 @@ export function PaperHomePage() {
               ref={h.searchRef}
               type="search"
               placeholder="搜索标题或昵称"
-              maxLength={50}
+
               autoComplete="off"
               aria-label="搜索胶囊"
               data-testid="plaza-search"
               value={h.qInput}
-              onChange={(e) => h.setQInput(e.target.value)}
+              onChange={(e) => h.setQInput(Array.from(e.target.value).slice(0, 50).join(""))}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   h.setQInput("");

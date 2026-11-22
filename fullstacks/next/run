@@ -38,7 +38,8 @@ if [[ "$DRIVER" == "sqlite" ]]; then
   mkdir -p "$REPO_ROOT/data/sqlite"
   : "${DB_URL:=file:$REPO_ROOT/data/sqlite/hellotime-next.db}"
 fi
-export DB_DRIVER="$DRIVER" DB_URL="${DB_URL:-}"
+export DB_DRIVER="$DRIVER"
+if [[ -n "${DB_URL:-}" ]]; then export DB_URL; else unset DB_URL; fi
 
 # 生产构建后启动（预编译全部路由，避免 dev 懒编译在测试中超时）
 npm run build

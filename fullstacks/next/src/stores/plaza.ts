@@ -16,6 +16,8 @@ interface PlazaState {
   sort: PlazaSort;
   filter: PlazaFilter;
   q: string;
+  qInput: string;
+  setQInput: (value: string) => void;
   page: number;
   pageSize: number;
 
@@ -39,6 +41,7 @@ interface PlazaState {
 }
 
 // 请求序列号：只有「最新发起」的请求才回写结果，避免乱序覆盖
+let debounce: ReturnType<typeof setTimeout> | undefined;
 let listSeq = 0;
 let countSeq = 0;
 
@@ -46,6 +49,7 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
   sort: "new",
   filter: "all",
   q: "",
+  qInput: "",
   page: 1,
   pageSize: 9,
 
@@ -58,20 +62,26 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
   featured: null,
 
   setSort: (sort) => {
-    set({ sort, page: 1 });
+    set({ sort, page: 1, items: [], pagination: null });
     void get().fetch();
   },
   setFilter: (filter) => {
-    set({ filter, page: 1 });
+    set({ filter, page: 1, items: [], pagination: null });
     void get().fetch();
   },
+  setQInput: (qInput) => {
+    clearTimeout(debounce);
+    set({ qInput });
+    if (qInput !== get().q) debounce = setTimeout(() => get().setQ(qInput), 300);
+  },
   setQ: (q) => {
-    set({ q, page: 1 });
+    clearTimeout(debounce);
+    set({ q, qInput: q, page: 1, items: [], pagination: null, counts: null });
     void get().fetch();
     void fetchCounts();
   },
   setPage: (page) => {
-    set({ page });
+    set({ page, items: [], pagination: null });
     void get().fetch();
   },
 
@@ -85,7 +95,7 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
       set({ items: data.items, pagination: data.pagination, loading: false });
     } catch (e) {
       if (my !== listSeq) return;
-      set({ loading: false, error: e instanceof Error ? e.message : "加载失败" });
+      set({ items: [], pagination: null, loading: false, error: e instanceof Error ? e.message : "加载失败" });
     }
   },
 
@@ -117,6 +127,6 @@ async function fetchCounts() {
     const s = await api.plazaStats(usePlaza.getState().q.trim() || undefined);
     if (my === countSeq) usePlaza.setState({ counts: s.counts });
   } catch {
-    /* 数量拿不到时筛选标签上不显示数字 */
+    if (my === countSeq) usePlaza.setState({ counts: null });
   }
 }

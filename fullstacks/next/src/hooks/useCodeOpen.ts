@@ -11,6 +11,10 @@ import { sleep } from "@/lib/fmt";
 
 export type CodeState = "" | "checking" | "ok" | "error";
 
+// 仅作编辑态的空位占位符，查询时必须是完整的八位码。
+export const EMPTY_CELL = "\u00a0";
+export const completeCode = (v: string) => /^[A-Z0-9]{8}$/.test(v);
+
 export const MSG_FORMAT = "胶囊码是 8 位大写字母与数字";
 export const MSG_NOT_FOUND = "没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1";
 
@@ -34,7 +38,7 @@ export function useRouteCodeOpen() {
   async function go(code: string) {
     if (pending.current === code) return;
     const request = ++generation.current;
-    if (code.length !== 8) return fail(MSG_FORMAT);
+    if (!completeCode(code)) return fail(MSG_FORMAT);
     pending.current = code;
     setError("");
     setState("checking");
@@ -53,6 +57,7 @@ export function useRouteCodeOpen() {
   }
 
   function input(v: string) {
+    if (v === value) return;
     generation.current++;
     pending.current = null;
     setValue(v);

@@ -11,6 +11,7 @@ import { paletteOf } from "@/lib/palette";
 import { useAuth } from "@/stores/auth";
 import { copyText, toast } from "@/stores/feedback";
 import { useNow } from "@/hooks/useNow";
+import { ListStatus } from "@/components/shared";
 import { nickState, useAvatarIds, useLogin, useMyList, useMyStats, useProfile, useRegister } from "@/hooks/useAccount";
 import { AvatarPicker, Field, NickState, PasswordField, PwdRules } from "@/components/forms";
 import { Avatar, ListMore } from "@/components/shared";
@@ -180,8 +181,8 @@ const Empty = ({ state, title, text, action }: { state: "locked" | "opened"; tit
 );
 
 function Created({ now, onChange }: { now: number; onChange: () => void }) {
-  const { items, total, hasMore, moreBusy, loadMore, remove } = useMyList("created", onChange);
-  if (!items) return null;
+  const { items, error, reload, total, hasMore, moreBusy, loadMore, remove } = useMyList("created", onChange);
+  if (!items) return <ListStatus error={error} retry={reload} />;
   if (!items.length) {
     return (
       <Empty
@@ -294,9 +295,9 @@ function Created({ now, onChange }: { now: number; onChange: () => void }) {
 }
 
 function Favorites({ now, onChange }: { now: number; onChange: () => void }) {
-  const { items, total, hasMore, moreBusy, loadMore, onFavChange } = useMyList("favorites", onChange);
+  const { items, error, reload, total, hasMore, moreBusy, loadMore, onFavChange } = useMyList("favorites", onChange);
   const me = useAuth((s) => s.user);
-  if (!items) return null;
+  if (!items) return <ListStatus error={error} retry={reload} />;
   if (!items.length) {
     return (
       <Empty

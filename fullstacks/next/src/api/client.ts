@@ -8,7 +8,7 @@
 
 import { ApiError, type Envelope } from "@/types";
 
-const BASE = ""; // 走 vite 代理；生产同源
+const BASE = ""; // 页面与 Route Handler 同源
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -18,6 +18,7 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 }
 
 // 这两个回调由 auth store 注册，避免循环依赖
+let getSessionVersion: () => number = () => 0;
 let getAccessToken: () => string | null = () => null;
 let getRefreshToken: () => string | null = () => null;
 let onTokensRefreshed: (accessToken: string, refreshToken: string) => void =
@@ -25,25 +26,27 @@ let onTokensRefreshed: (accessToken: string, refreshToken: string) => void =
 let onAuthLost: () => void = () => {};
 
 export function configureApi(opts: {
+  getSessionVersion: () => number;
   getAccessToken: () => string | null;
   getRefreshToken: () => string | null;
   onTokensRefreshed: (a: string, r: string) => void;
   onAuthLost: () => void;
 }) {
+  getSessionVersion = opts.getSessionVersion;
   getAccessToken = opts.getAccessToken;
   getRefreshToken = opts.getRefreshToken;
   onTokensRefreshed = opts.onTokensRefreshed;
   onAuthLost = opts.onAuthLost;
 }
 
-let refreshing: Promise<string | null> | null = null;
+let refreshing: { token: string; request: Promise<string | null> } | null = null;
 
 async function tryRefresh(): Promise<string | null> {
-  if (refreshing) return refreshing;
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
+  if (refreshing?.token === refreshToken) return refreshing.request;
 
-  refreshing = (async () => {
+  const request = (async () => {
     try {
       const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
         method: "POST",
@@ -54,6 +57,8 @@ async function tryRefresh(): Promise<string | null> {
         accessToken: string;
         refreshToken: string;
       }>;
+      // 登出或换账号时，旧令牌的刷新响应不能改写当前登录态。
+      if (getRefreshToken() !== refreshToken) return null;
       if (!res.ok || !env.success || !env.data) {
         onAuthLost();
         return null;
@@ -61,14 +66,17 @@ async function tryRefresh(): Promise<string | null> {
       onTokensRefreshed(env.data.accessToken, env.data.refreshToken);
       return env.data.accessToken;
     } catch {
-      onAuthLost();
+      if (getRefreshToken() === refreshToken) onAuthLost();
       return null;
-    } finally {
-      refreshing = null;
     }
   })();
 
-  return refreshing;
+  refreshing = { token: refreshToken, request };
+  try {
+    return await request;
+  } finally {
+    if (refreshing?.request === request) refreshing = null;
+  }
 }
 
 async function accessTokenForRequest(useAuth: boolean): Promise<string | null> {
@@ -100,6 +108,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 
+  const session = getSessionVersion();
   const useAuth = opts.auth ?? true;
   const accessToken = await accessTokenForRequest(useAuth);
   if (accessToken) {
@@ -125,9 +134,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   if (!res.ok || !env.success) {
     // 401 → 自动 refresh + 重放。覆盖 access token 过期、缺失、无效等恢复场景。
-    if (shouldTryRefresh(res, env, useAuth, opts._retry)) {
+    if (session === getSessionVersion() && shouldTryRefresh(res, env, useAuth, opts._retry)) {
       const newAt = await tryRefresh();
-      if (newAt) {
+      if (newAt && session === getSessionVersion()) {
         return request<T>(path, { ...opts, _retry: true });
       }
     }

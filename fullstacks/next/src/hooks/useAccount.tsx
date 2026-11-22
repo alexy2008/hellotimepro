@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "@/lib/router";
 import { create } from "zustand";
 import { api } from "@/api/client";
-import { useAuth } from "@/stores/auth";
+import { getSessionVersion, useAuth } from "@/stores/auth";
 import { confirmDialog, toast } from "@/stores/feedback";
 import { safeRedirect } from "@/lib/redirect";
 import { AVATARS } from "@/lib/avatars";
@@ -242,6 +242,7 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
 
   const load = useCallback(async () => {
     const my = ++seq.current;
+    setError(false);
     try {
       const r = await fetchPage(1);
       if (my !== seq.current) return;
@@ -398,13 +399,17 @@ export function useProfile() {
     else if (pwd.next !== pwd.confirm) errs.confirm = "两次输入的新密码不一致";
     setErrors(errs);
     if (Object.keys(errs).length) return;
+    const session = getSessionVersion();
     setPwdBusy(true);
     try {
       await api.changePassword({ currentPassword: pwd.current, newPassword: pwd.next });
+      if (session !== getSessionVersion()) return;
       clearForm("pwd");
       setPwdMsg({ type: "ok", text: "密码已更新。3 秒后将自动登出，请用新密码重新登录。" });
       setTimeout(() => {
-        void logout(false).then(() => navigate("/login"));
+        if (session !== getSessionVersion()) return;
+        void logout(false);
+        navigate("/login");
       }, 3000);
     } catch (e) {
       setPwdBusy(false);

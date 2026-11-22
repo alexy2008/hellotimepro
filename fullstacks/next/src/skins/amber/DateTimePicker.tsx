@@ -397,7 +397,7 @@ export function DateTimePicker({ value, onChange }: Props) {
         <span className="dtp__rel">{rel(value)}</span>
         <Icon name="chev-down" className="ic--chev" />
       </button>
-      <div className="dtp__panel" id="dtpPanel" role="dialog" aria-label="选择开启时间">
+      <div className="dtp__panel" inert={!open} id="dtpPanel" role="dialog" aria-label="选择开启时间">
         <div className="dtp__clip">
           <div className="dtp__in">
             <div className="orbit">

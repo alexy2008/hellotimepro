@@ -15,7 +15,8 @@ import { Badge, CapsuleArt, cdShort } from "./parts";
 
 const preview = (text: string | null | undefined, n = 80) => {
   const t = String(text ?? "").replace(/\s+/g, " ").trim();
-  return t.length > n ? t.slice(0, n) + "……" : t;
+  const chars = Array.from(t);
+  return chars.length > n ? chars.slice(0, n).join("") + "……" : t;
 };
 
 export function AmberCard({ c, i = 0, rank = 0, mine = false, now, testId = "capsule-card", openTestId = "card-open", onFavChange }: {

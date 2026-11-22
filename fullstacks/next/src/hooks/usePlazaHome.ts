@@ -1,7 +1,7 @@
 // ============================================================
 // 首页（广场）的共享逻辑，两套皮肤的首页都用它：
 // - 进入时把列表、筛选数量、年鉴、精选一起拉一遍
-// - 搜索框本地受控，300ms 防抖后写进广场 store
+// - 搜索草稿和 300ms 防抖由广场 store 管理，换肤时继续生效
 // - 按「/」聚焦搜索框，Esc 清空
 // - 页面上任何一枚胶囊到点开启时，整页数据刷新一次（卡片当场「启封」）
 // ============================================================
@@ -16,20 +16,13 @@ export function usePlazaHome() {
   const plaza = usePlaza();
   const user = useAuth((s) => s.user);
   const now = useNow();
-  const [qInput, setQInput] = useState(plaza.q);
+  const { qInput, setQInput } = plaza;
   const searchRef = useRef<HTMLInputElement>(null);
 
   // 进入首页、登录态变化（favoritedByMe 会变）时刷新
   useEffect(() => {
     void usePlaza.getState().refreshAll();
   }, [user?.id]);
-
-  // 300ms 防抖
-  useEffect(() => {
-    if (qInput === usePlaza.getState().q) return;
-    const t = setTimeout(() => usePlaza.getState().setQ(qInput), 300);
-    return () => clearTimeout(t);
-  }, [qInput]);
 
   // 「/」聚焦搜索
   useEffect(() => {
@@ -53,7 +46,6 @@ export function usePlazaHome() {
   }, [due]);
 
   const clearSearch = () => {
-    setQInput("");
     usePlaza.getState().setQ("");
     searchRef.current?.focus();
   };

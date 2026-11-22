@@ -60,6 +60,7 @@ export function useCapsuleByCode(code: string) {
       } catch (e) {
         if (signal.aborted) return null;
         if (e instanceof ApiError && e.status === 404) {
+          setC(null);
           setStatus("missing");
           return null;
         }

@@ -295,12 +295,12 @@ export function AmberHomePage() {
               className="input"
               type="search"
               placeholder="搜索标题或昵称…"
-              maxLength={50}
+
               autoComplete="off"
               aria-label="搜索胶囊"
               data-testid="plaza-search"
               value={h.qInput}
-              onChange={(e) => h.setQInput(e.target.value)}
+              onChange={(e) => h.setQInput(Array.from(e.target.value).slice(0, 50).join(""))}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   h.setQInput("");

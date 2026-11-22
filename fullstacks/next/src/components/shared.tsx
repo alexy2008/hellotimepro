@@ -125,3 +125,13 @@ export function ListMore({ show, busy, left, onMore }: { show: boolean; busy: bo
     </div>
   );
 }
+
+export function ListStatus({ error, retry }: { error: boolean; retry: () => void }) {
+  if (!error) return <p role="status">正在加载胶囊…</p>;
+  return (
+    <div role="alert" data-testid="list-error">
+      <p>胶囊列表暂时无法加载。</p>
+      <button type="button" className="btn btn--ghost" data-testid="list-retry" onClick={retry}>重试</button>
+    </div>
+  );
+}

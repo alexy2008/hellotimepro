@@ -463,13 +463,13 @@ export function PaperCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
               <input
                 ref={titleEl}
                 type="text"
-                maxLength={60}
+
                 autoComplete="off"
                 placeholder="给这封信起个标题"
                 aria-label="标题，最多 60 字"
                 data-testid="create-title"
                 value={f.title}
-                onChange={(e) => f.setTitle(e.target.value)}
+                onChange={(e) => f.setTitle(Array.from(e.target.value).slice(0, 60).join(""))}
               />
               <span className="sheet__n mono">
                 <b>{titleN}</b>/60
@@ -514,13 +514,13 @@ export function PaperCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
             <div className={`sheet__body${contentShake}`}>
               <textarea
                 ref={contentEl}
-                maxLength={5000}
+
                 rows={9}
                 aria-label="正文，最多 5000 字"
                 placeholder={"在这里写下想传到未来的话。\n可以是此刻的天气、正在读的书、一个小小的许诺，\n或者只是一句：嘿，你还好吗？"}
                 data-testid="create-content"
                 value={f.content}
-                onChange={(e) => f.setContent(e.target.value)}
+                onChange={(e) => f.setContent(Array.from(e.target.value).slice(0, 5000).join(""))}
               />
               <div className="sheet__think" aria-hidden="true">
                 <i />
@@ -542,7 +542,7 @@ export function PaperCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
                 ) : null}
               </span>
               <span className="sheet__n mono">
-                <b>{fmt.num(f.content.length)}</b> / 5000
+                <b>{fmt.num(Array.from(f.content).length)}</b> / 5000
               </span>
             </div>
 

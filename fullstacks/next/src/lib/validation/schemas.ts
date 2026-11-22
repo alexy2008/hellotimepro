@@ -16,8 +16,6 @@ export const registerSchema = z.object({
     .regex(passwordRegex, "密码须含字母与数字"),
   nickname: z
     .string()
-    .min(2, "昵称至少 2 字")
-    .max(20, "昵称最多 20 字")
     .regex(nicknameRegex, "昵称只能含字母/数字/下划线/连字符"),
   avatarId: z.string().min(2).max(20).regex(avatarIdRegex, "avatarId 只能含小写字母/数字/连字符"),
 });
@@ -37,7 +35,7 @@ export const logoutSchema = z.object({
 
 export const updateProfileSchema = z
   .object({
-    nickname: z.string().min(2).max(20).regex(nicknameRegex).optional(),
+    nickname: z.string().regex(nicknameRegex).optional(),
     avatarId: z.string().min(2).max(20).regex(avatarIdRegex).optional(),
   })
   .strict()
@@ -56,8 +54,8 @@ export const changePasswordSchema = z.object({
 });
 
 export const createCapsuleSchema = z.object({
-  title: z.string().min(1).max(60),
-  content: z.string().min(1).max(5000),
+  title: z.string().min(1).refine((s) => Array.from(s).length <= 60, "最多 60 字"),
+  content: z.string().min(1).refine((s) => Array.from(s).length <= 5000, "最多 5000 字"),
   openAt: z.string().datetime({ offset: true }).or(z.string().datetime()),
   inPlaza: z.boolean().optional(),
 });
@@ -71,7 +69,7 @@ export const favoriteSchema = z.object({
 
 export const capsuleSuggestionSchema = z.object({
   // 留空表示由 AI 同时生成标题（空标题模式）
-  title: z.string().max(60).optional(),
+  title: z.string().refine((s) => Array.from(s).length <= 60, "最多 60 字").optional(),
   locale: z.string().optional(),
 });
 

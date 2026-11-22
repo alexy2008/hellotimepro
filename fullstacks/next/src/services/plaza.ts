@@ -27,8 +27,8 @@ interface UserRow {
 
 function contentPreview(content: string, opened: boolean): string | null {
   if (!opened || !content) return null;
-  const trimmed = content.trim();
-  return trimmed.length > 80 ? trimmed.slice(0, 80) + "…" : trimmed;
+  const chars = Array.from(content.trim());
+  return chars.length > 80 ? chars.slice(0, 80).join("") + "…" : chars.join("");
 }
 
 function toItem(
@@ -76,7 +76,7 @@ async function favoritedSet(viewerId: string | null, capsuleIds: string[]): Prom
 /** 校验并 trim `q`；超过 50 字符 → 422。列表与统计共用同一口径。 */
 function normalizeQ(q: string | null | undefined): string {
   const trimmed = (q ?? "").trim();
-  if (trimmed.length > 50) throw ERR.validation("q 长度不得超过 50", "q");
+  if (Array.from(trimmed).length > 50) throw ERR.validation("q 长度不得超过 50", "q");
   return trimmed;
 }
 

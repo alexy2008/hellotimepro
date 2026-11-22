@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { parsePagination } from "@/lib/server/pagination";
 import { withApi } from "@/lib/server/envelope";
 import { parseJson } from "@/lib/server/parse-body";
 import { requireClaims } from "@/lib/server/current-user";
@@ -10,8 +11,7 @@ export async function GET(req: NextRequest) {
   return withApi(async () => {
     const claims = await requireClaims(req);
     const u = new URL(req.url);
-    const page = Number(u.searchParams.get("page") ?? "1") || 1;
-    const pageSize = Number(u.searchParams.get("pageSize") ?? "20") || 20;
+    const { page, pageSize } = parsePagination(u.searchParams);
     return myFavorites({ userId: claims.id, page, pageSize });
   });
 }

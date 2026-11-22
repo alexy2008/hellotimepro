@@ -193,12 +193,12 @@ export function AmberCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
                   ref={titleEl}
                   className="input"
                   id="title"
-                  maxLength={60}
+
                   autoComplete="off"
                   placeholder="给这枚胶囊起个名字"
                   data-testid="create-title"
                   value={f.title}
-                  onChange={(e) => f.setTitle(e.target.value)}
+                  onChange={(e) => f.setTitle(Array.from(e.target.value).slice(0, 60).join(""))}
                 />
                 <button
                   className={`ai-btn${f.aiBusy ? " is-busy" : ""}`}
@@ -257,7 +257,7 @@ export function AmberCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
                   内容 <em>*</em>
                 </label>
                 <span className="field__count mono">
-                  <b>{fmt.num(f.content.length)}</b>/5000
+                  <b>{fmt.num(Array.from(f.content).length)}</b>/5000
                 </span>
               </div>
               <div className={`paper${f.aiBusy ? " is-ai" : ""}${f.aiThinking ? " is-thinking" : ""}`}>
@@ -265,12 +265,12 @@ export function AmberCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
                   ref={contentEl}
                   className="paper__text"
                   id="content"
-                  maxLength={5000}
+
                   rows={9}
                   placeholder={"在这里写下想交给未来的话。\n可以是此刻的天气、正在读的书、一个小小的约定，\n或者只是一句：嘿，你还好吗？"}
                   data-testid="create-content"
                   value={f.content}
-                  onChange={(e) => f.setContent(e.target.value)}
+                  onChange={(e) => f.setContent(Array.from(e.target.value).slice(0, 5000).join(""))}
                 />
                 <div className="paper__think" aria-hidden="true">
                   <i />
@@ -375,7 +375,7 @@ export function AmberCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
                 </div>
                 <div>
                   <dt>正文</dt>
-                  <dd>{fmt.num(f.content.length)} 字</dd>
+                  <dd>{fmt.num(Array.from(f.content).length)} 字</dd>
                 </div>
               </dl>
               <div className="badges">

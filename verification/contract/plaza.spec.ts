@@ -7,13 +7,20 @@ import { api, createCapsule, register, rand } from "./_helpers.ts";
 
 test("GET /api/v1/plaza/capsules 默认 sort=new 按 createdAt DESC", async () => {
   const u = await register();
-  const c1 = await createCapsule(u.accessToken, { title: "first" });
+  const keyword = `DefaultSort${rand(6)}`;
+  const c1 = await createCapsule(u.accessToken, { title: `${keyword} first` });
   await new Promise((r) => setTimeout(r, 20));
-  const c2 = await createCapsule(u.accessToken, { title: "second" });
+  const c2 = await createCapsule(u.accessToken, { title: `${keyword} second` });
+  // 让热度顺序与创建顺序相反，以便识别错误的默认排序。
+  const fan = await register();
+  const fav = await api("POST", "/api/v1/me/favorites", {
+    token: fan.accessToken, json: { capsuleId: c1.id },
+  });
+  assert.equal(fav.status, 200);
   const r = await api<{
     items: Array<{ id: string }>;
     pagination: { page: number; pageSize: number; total: number; totalPages: number };
-  }>("GET", "/api/v1/plaza/capsules?sort=new&pageSize=50");
+  }>("GET", `/api/v1/plaza/capsules?q=${keyword}`);
   assert.equal(r.status, 200);
   const idx1 = r.body.data!.items.findIndex((i) => i.id === c1.id);
   const idx2 = r.body.data!.items.findIndex((i) => i.id === c2.id);

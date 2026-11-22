@@ -96,9 +96,17 @@ src/
 - **`server-only` 编译期防火墙**：`services/*`、`db/*`、`lib/server/*` 顶部 `import "server-only"`，误被客户端组件引入会在 `next build` 时报错。
 - **跨库归一**：对外的 UUID 一律带连字符、时间一律 `toISOString()`；SQLite 下按 id 查找同时匹配种子的 32 位十六进制写法（`lib/server/ids.ts`）。
 
+## 2.0 复核修复（2026-11-22）
+
+广场 API 缺省按最新排序，三个列表接口共用分页参数校验。标题、正文、昵称和搜索词按 Unicode 码点计数。直接运行 PostgreSQL 模式时，空的 `DB_URL` 会回退到驱动默认连接。
+
+客户端将当前用户请求和改密后的延迟登出绑定到登录会话。两套皮肤共享搜索防抖与输码空位，查询条件变化时清理旧列表，个人列表首次加载失败可重试。时笺处理开启途中胶囊被删除的状态，琥珀关闭时间面板后移出焦点顺序。复制结果按剪贴板写入是否成功提示。
+
+本轮仅做静态检查，未重跑契约、UI 冒烟或构建。
+
 ## 2.0 验证
 
-2026-11-22 实测（契约用独立库：PostgreSQL `hellotime_contract_next`、SQLite `/tmp/hellotime-contract-next.db`；UI 冒烟用同一组库）：
+以下是 2026-11-22 升级时、复核修复前的实测记录（契约用独立库：PostgreSQL `hellotime_contract_next`、SQLite `/tmp/hellotime-contract-next.db`；UI 冒烟用同一组库）：
 
 | 项目 | PostgreSQL | SQLite |
 |---|---|---|
@@ -106,7 +114,7 @@ src/
 | UI 冒烟 `verify-ui-smoke.sh next`（44 条 × 时笺 / 琥珀） | ✅ 88/88 | ✅ 88/88 |
 | 设计令牌 `verify-design-tokens.sh next` | ✅ 通过 | — |
 
-另外手动核对了契约没覆盖的几项：
+升级时另外手动核对了契约没覆盖的几项：
 
 - 路径里的非法 UUID：`GET /plaza/capsules/not-a-uuid`、`DELETE /me/capsules/1-1-1-1-1`、`DELETE /me/favorites/xyz` → 422；格式合法但不存在 → 404（取消收藏仍 204）。
 - 内置浏览器：匿名直接打开 `/create` 会真正切到登录页（不只是地址栏变了）；已登录打开 `/login?redirect=/about` 会切到关于页；控制台无报错、无水合警告。

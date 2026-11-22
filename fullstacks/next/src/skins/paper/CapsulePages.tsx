@@ -13,7 +13,7 @@ import { useAuth } from "@/stores/auth";
 import { Avatar } from "@/components/shared";
 import { FavButton } from "@/components/FavButton";
 import { paragraphs, useCapsuleByCode, useMySealed, useShare } from "@/hooks/useCapsule";
-import { useCodeOpen } from "@/hooks/useCodeOpen";
+import { completeCode, useCodeOpen } from "@/hooks/useCodeOpen";
 import type { CapsuleDetail } from "@/types";
 import { Envelope, FlipDigits, Postmark, Scale, Seal } from "./parts";
 import { PaperCodeInput, type CodeInputHandle } from "./CodeInput";
@@ -259,9 +259,11 @@ export function PaperCapsulePage() {
         if (signal.aborted) return;
       }
       // 以服务端确认开启为准：没确认前停在动画末帧，不提前报「已开启」
-      if (!(await awaitOpened(signal)) || signal.aborted) return; // 离开了页面，或胶囊已被删除
+      const result = await awaitOpened(signal);
+      if (signal.aborted) return;
       setHost("");
       setOpening(null);
+      if (!result) return;
       setReveal(true);
       window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
       toast("胶囊已启封");
@@ -365,7 +367,7 @@ export function PaperOpenPage() {
             <button
               className={`btn btn--primary btn--lg${state === "checking" ? " is-busy" : ""}`}
               type="button"
-              disabled={value.length !== 8 || state === "checking"}
+              disabled={!completeCode(value) || state === "checking"}
               onClick={() => void go(value)}
             >
               <Icon name="key" />

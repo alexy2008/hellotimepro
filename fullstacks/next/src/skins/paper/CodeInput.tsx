@@ -4,6 +4,7 @@
 // size：'' 为开启页的大号，'sm' 为首页的小号。
 // ============================================================
 
+import { EMPTY_CELL, completeCode } from "@/hooks/useCodeOpen";
 import { focusIfIdle } from "@/lib/fmt";
 import { useEffect, useImperativeHandle, useRef, useState, type CSSProperties } from "react";
 import type { CodeState } from "@/hooks/useCodeOpen";
@@ -28,7 +29,7 @@ interface Props {
 }
 
 export function PaperCodeInput({ size = "", value, state, shake, onChange, onComplete, autoFocus, id, handle }: Props) {
-  const [cells, setCells] = useState<string[]>(() => Array.from({ length: 8 }, (_, i) => value[i] ?? ""));
+  const [cells, setCells] = useState<string[]>(() => Array.from({ length: 8 }, (_, i) => value[i] === EMPTY_CELL ? "" : value[i] ?? ""));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const [shaking, setShaking] = useState(false);
 
@@ -49,10 +50,10 @@ export function PaperCodeInput({ size = "", value, state, shake, onChange, onCom
 
   const commit = (next: string[], focusAt: number, completeNow: boolean) => {
     setCells(next);
-    const v = next.join("");
+    const v = next.map((ch) => ch || EMPTY_CELL).join("").trimEnd();
     onChange?.(v);
     refs.current[Math.min(7, focusAt)]?.focus();
-    if (completeNow && v.length === 8) onComplete(v);
+    if (completeNow && completeCode(v)) onComplete(v);
   };
 
   useImperativeHandle(handle, () => ({
@@ -127,7 +128,7 @@ export function PaperCodeInput({ size = "", value, state, shake, onChange, onCom
                 refs.current[i + 1]?.focus();
               } else if (e.key === "Enter") {
                 e.preventDefault();
-                onComplete(cells.join(""));
+                onComplete(value);
               }
             }}
             onPaste={(e) => {
