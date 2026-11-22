@@ -8,16 +8,17 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { fmt, pad2, reducedMotion, focusIfIdle } from "@/lib/fmt";
+import { fmt, reducedMotion, focusIfIdle } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { paletteOf } from "@/lib/palette";
 import { useAuth } from "@/stores/auth";
 import { Avatar } from "@/components/shared";
 import { useShare } from "@/hooks/useCapsule";
-import { DAY, LIMITS, type useCreateCapsule } from "@/hooks/useCreateCapsule";
+import { DAY, type useCreateCapsule } from "@/hooks/useCreateCapsule";
 import { useNow } from "@/hooks/useNow";
 import type { CapsuleDetail } from "@/types";
 import { Badge, CapsuleArt } from "./parts";
+import { DateTimePicker } from "./DateTimePicker";
 
 const PRESETS = [
   { key: "1m", label: "1 分钟后" },
@@ -29,10 +30,6 @@ const PRESETS = [
   { key: "10y", label: "十年后" },
 ];
 
-const toLocal = (t: number) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-};
 const dash = (t: number) => fmt.dateTime(t).replace(/\./g, "-");
 
 function useShake(key: number) {
@@ -301,23 +298,7 @@ export function AmberCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
                 </label>
                 <span className="field__count">最早 1 分钟后 · 最晚 10 年内</span>
               </div>
-              <div className="input-wrap input-wrap--icon">
-                <Icon name="calendar" className="input-wrap__icon" />
-                <input
-                  className="input mono"
-                  id="openAt"
-                  type="datetime-local"
-                  min={toLocal(LIMITS.minOpen())}
-                  max={toLocal(LIMITS.maxOpen())}
-                  value={toLocal(f.openAt)}
-                  data-testid="create-openat"
-                  data-value={new Date(f.openAt).toISOString()}
-                  onChange={(e) => {
-                    const t = new Date(e.target.value).getTime();
-                    if (!Number.isNaN(t)) f.setOpenAt(t);
-                  }}
-                />
-              </div>
+              <DateTimePicker value={f.openAt} onChange={(t) => f.setOpenAt(t)} />
               <div className="chips">
                 {PRESETS.map((p) => (
                   <button
@@ -325,6 +306,7 @@ export function AmberCreatePage({ f }: { f: ReturnType<typeof useCreateCapsule> 
                     className={`chip${f.preset === p.key ? " is-active" : ""}`}
                     type="button"
                     data-testid="openat-preset"
+                    data-preset={p.key}
                     data-value={p.key}
                     data-selected={f.preset === p.key}
                     onClick={() => f.pickPreset(p.key)}

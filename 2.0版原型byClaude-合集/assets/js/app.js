@@ -66,12 +66,13 @@
     };
     if (!document.startViewTransition || HT.reduced()) { apply(); HT.toast(`已切换到「${HT.SKIN_LABEL[name]}」`); return; }
     root.classList.add('is-skinning');
+    root.dataset.skinDir = name === 'paper' ? 'prev' : 'next'; // 开关上时笺在左、琥珀在右
     /* 兜底：页面在后台时渲染被节流，转场回调可能迟迟不执行——400ms 内没跑就直接切 */
     let done = false;
     const run = () => { if (done) return; done = true; apply(); };
     const vt = document.startViewTransition(run);
     setTimeout(run, 400);
-    vt.finished.finally(() => { root.classList.remove('is-skinning'); HT.toast(`已切换到「${HT.SKIN_LABEL[name]}」`); });
+    vt.finished.finally(() => { root.classList.remove('is-skinning'); delete root.dataset.skinDir; HT.toast(`已切换到「${HT.SKIN_LABEL[name]}」`); });
   }
   HT.setSkin = setSkin;
 

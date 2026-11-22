@@ -145,6 +145,21 @@
     </div>`;
   }
 
+  /* 展开时把整块面板滚进视口：和展开动画同时进行；
+     向上滚的距离以「触发条不被顶部导航挡住」为限，底部避开手机底栏 */
+  function reveal(root) {
+    const trig = root.querySelector('.dtp__trigger'), inner = root.querySelector('.dtp__in');
+    if (!trig || !inner) return;
+    const top = trig.getBoundingClientRect().top;
+    const need = top + trig.offsetHeight + inner.offsetHeight;
+    const bar = document.querySelector('.tabbar');
+    const barH = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
+    const headH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 0;
+    const over = need - (window.innerHeight - barH - 16);
+    const dy = Math.min(over, top - headH - 16);
+    if (dy > 0) window.scrollBy({ top: dy, behavior: HT.reduced && HT.reduced() ? 'auto' : 'smooth' });
+  }
+
   /* ---------------- 行为 ---------------- */
   function mount(root, opts) {
     const { minOpen, maxOpen } = HT.LIMITS;
@@ -328,6 +343,7 @@
       root.classList.toggle('is-open', o);
       trigger.setAttribute('aria-expanded', String(o));
       if (!o) setMode('h');
+      else requestAnimationFrame(() => reveal(root));
     }
     trigger.addEventListener('click', () => open(!isOpen()));
     q('[data-done]').addEventListener('click', () => { open(false); trigger.focus({ preventScroll: true }); });

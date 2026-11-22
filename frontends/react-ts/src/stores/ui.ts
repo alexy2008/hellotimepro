@@ -77,12 +77,16 @@ export const useUi = create<UiState>()((set, get) => ({
 
   setSkin: (skin) => {
     if (skin === get().skin) return Promise.resolve();
+    // 开关上时笺在左、琥珀在右：转场方向跟着走（见 spec/styles/shell.css）
+    root().dataset.skinDir = skin === "paper" ? "prev" : "next";
     return transition(() => {
       root().dataset.skin = skin;
       save(SKIN_KEY, skin);
       syncMeta(skin, get().theme);
       set({ skin });
-    }, "is-skinning");
+    }, "is-skinning").finally(() => {
+      delete root().dataset.skinDir;
+    });
   },
 
   toggleTheme: (origin) => {

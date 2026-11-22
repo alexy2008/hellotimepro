@@ -27,11 +27,23 @@ html[data-skin="amber"] .skinsw button { border-radius: var(--r-pill); font-size
 html[data-skin="amber"] .skinsw button:hover { color: var(--text); }
 html[data-skin="amber"] .skinsw button.is-active { background: var(--grad-amber); color: var(--ink-on-amber); box-shadow: 0 4px 12px -4px rgba(255, 140, 50, .7); }
 
-/* ---------------- 皮肤转场：旧皮肤失焦淡出，新皮肤从微缩中清晰起来 ---------------- */
-html.is-skinning::view-transition-old(root) { animation: skin-out .45s cubic-bezier(.65, 0, .35, 1) both; }
-html.is-skinning::view-transition-new(root) { animation: skin-in .7s cubic-bezier(.16, 1, .3, 1) both; }
-@keyframes skin-out { to { opacity: 0; filter: blur(8px); transform: scale(1.015); } }
-@keyframes skin-in { from { opacity: 0; filter: blur(10px); transform: scale(.985); } }
+/* ---------------- 皮肤转场：柔光拂过 ----------------
+   新皮肤被一道宽宽的柔边（约 30% 屏宽的渐隐）从开关那一侧扫过整页，旧皮肤原地不动，被它盖住。
+   方向跟开关位置走：切到右边的「琥珀」时从右往左扫（默认）；切回「时笺」时实现在 <html> 上写 data-skin-dir="prev"，从左往右扫。
+   选择器带上 [data-skin] 与 .is-skinning，特异性高于各皮肤里给明暗晕开写的 animation: none */
+@property --skin-p { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+:root.is-skinning[data-skin]::view-transition-old(root) { z-index: 1; animation: none; mix-blend-mode: normal; }
+:root.is-skinning[data-skin]::view-transition-new(root) {
+  z-index: 2; mix-blend-mode: normal;
+  -webkit-mask-image: linear-gradient(255deg, #000 calc(var(--skin-p) - 30%), transparent var(--skin-p));
+          mask-image: linear-gradient(255deg, #000 calc(var(--skin-p) - 30%), transparent var(--skin-p));
+  animation: skin-sweep 1.9s cubic-bezier(.45, 0, .25, 1) both;
+}
+:root.is-skinning[data-skin][data-skin-dir="prev"]::view-transition-new(root) {
+  -webkit-mask-image: linear-gradient(105deg, #000 calc(var(--skin-p) - 30%), transparent var(--skin-p));
+          mask-image: linear-gradient(105deg, #000 calc(var(--skin-p) - 30%), transparent var(--skin-p));
+}
+@keyframes skin-sweep { from { --skin-p: 0%; } to { --skin-p: 130%; } }
 html.is-skinning *, html.is-skinning *::before, html.is-skinning *::after { transition: none !important; }
 
 /* ---------------- 窄屏：顶栏放不下时，品牌只留标志 ---------------- */
@@ -41,5 +53,5 @@ html.is-skinning *, html.is-skinning *::before, html.is-skinning *::after { tran
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.is-skinning::view-transition-old(root), html.is-skinning::view-transition-new(root) { animation: none; }
+  :root.is-skinning[data-skin]::view-transition-old(root), :root.is-skinning[data-skin]::view-transition-new(root) { animation: none; }
 }

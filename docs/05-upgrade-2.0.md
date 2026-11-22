@@ -96,6 +96,8 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
    - 面板里的每次改动都夹在开启时间上下限之内，贴到边界时底栏提示。预设、AI 代笔、草稿恢复从外部改时间时只刷新显示，不触发回调。
    - 表盘指针的角度要累加，不能每次取模，否则从 59 分到 0 分时指针会倒转一整圈。表盘 SVG 的配色全部走 spec 里的类名（`clock__g-*`、`orbit__cap-*` 等），实现代码不写色值。
    - 「就这一刻」、Esc、点到组件和预设之外都收起面板；收起时清理 document 上的监听。
+   - 展开时把整块面板滚进视口（原型 `reveal()`）：和展开动画同时平滑滚动，向上滚的距离以触发条不被顶部导航挡住为限，底部避开手机底栏。触发条在屏幕下方时，面板不能落到屏幕外。
+   - **皮肤转场改为「柔光拂过」**（`spec/styles/shell.css`，1.9s），样式自动生效。各实现只需在切换皮肤前给 `<html>` 写 `data-skin-dir`：切到时笺写 `prev`，切到琥珀写 `next`；转场结束后删掉。参考 React `stores/ui.ts` 的 `setSkin`。
 9. 文档：重写 `README.md` 与 `TECHNICAL_GUIDE.md`（参考 React 的两份）。
 
 验证（**两套皮肤 × PostgreSQL / SQLite 都要 88/88**；后端用 fastapi）：
