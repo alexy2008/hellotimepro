@@ -7,17 +7,18 @@
 // ============================================================
 
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
-import { fmt, focusIfIdle, pad2, readLimitedInput, reducedMotion } from "@/lib/fmt";
+import { fmt, focusIfIdle, readLimitedInput, reducedMotion } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { paletteOf } from "@/lib/palette";
 import { auth } from "@/stores/auth";
 import { Avatar } from "@/components/shared";
 import { createShake } from "@/components/forms";
 import { shareOf } from "@/primitives/capsule";
-import { DAY, LIMITS, type CapsuleForm } from "@/primitives/capsuleForm";
+import { DAY, type CapsuleForm } from "@/primitives/capsuleForm";
 import { useNow } from "@/primitives/now";
 import type { CapsuleDetail } from "@/types";
 import { Badge, CapsuleArt, Tiles, VisBadge } from "./parts";
+import { DateTimePicker } from "./DateTimePicker";
 
 const PRESETS = [
   { key: "1m", label: "1 分钟后" },
@@ -29,10 +30,6 @@ const PRESETS = [
   { key: "10y", label: "十年后" },
 ];
 
-const toLocal = (t: number) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-};
 const dash = (t: number) => fmt.dateTime(t).replace(/\./g, "-");
 
 /* ---------- 封存完成：胶囊合拢，码牌逐个翻出 ---------- */
@@ -111,7 +108,6 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
   const me = () => auth.user!;
   const now = useNow();
   let titleEl: HTMLInputElement | undefined;
-  let openAtEl: HTMLInputElement | undefined;
   let contentEl: HTMLTextAreaElement | undefined;
   const titleShake = createShake(() => f.shake.title);
   const contentShake = createShake(() => f.shake.content);
@@ -173,7 +169,6 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
               novalidate
               onSubmit={(e) => {
                 e.preventDefault();
-                if (openAtEl && !openAtEl.value && !d.openAtMissing) f.setOpenAt(NaN);
                 void f.submit();
               }}
             >
@@ -288,21 +283,7 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
                   </label>
                   <span class="field__count">最早 1 分钟后 · 最晚 10 年内</span>
                 </div>
-                <div class="input-wrap input-wrap--icon">
-                  <Icon name="calendar" class="input-wrap__icon" />
-                  <input
-                    class="input mono"
-                    ref={openAtEl}
-                    id="openAt"
-                    type="datetime-local"
-                    min={toLocal(LIMITS.minOpen())}
-                    max={toLocal(LIMITS.maxOpen())}
-                    value={d.openAtMissing ? "" : toLocal(d.openAt)}
-                    data-testid="create-openat"
-                    data-value={d.openAtMissing ? undefined : new Date(d.openAt).toISOString()}
-                    onInput={(e) => f.setOpenAt(new Date(e.currentTarget.value).getTime())}
-                  />
-                </div>
+                <DateTimePicker value={d.openAt} onChange={(t) => f.setOpenAt(t)} />
                 <div class="chips">
                   <For each={PRESETS}>
                     {(p) => (
@@ -310,6 +291,7 @@ export function AmberCreatePage(props: { f: CapsuleForm }) {
                         class={`chip${d.preset === p.key ? " is-active" : ""}`}
                         type="button"
                         data-testid="openat-preset"
+                        data-preset={p.key}
                         data-value={p.key}
                         data-selected={String(d.preset === p.key)}
                         onClick={() => f.pickPreset(p.key)}
