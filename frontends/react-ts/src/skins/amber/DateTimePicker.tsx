@@ -197,6 +197,28 @@ export function DateTimePicker({ value, onChange }: Props) {
     const dy = Math.min(over, top - headH - 16);
     if (dy > 0) window.scrollBy({ top: dy, behavior: reducedMotion() ? "auto" : "smooth" });
   }
+  // 展开动画一开始文档还没变长，上面那次滚动会被当时的最大滚动距离截断：
+  // 动画结束（transitionend，约 500ms 定时兜底）后再补一次，只补剩下的距离。收起或卸载时清掉
+  useEffect(() => {
+    if (!open) return;
+    const panel = root.current?.querySelector<HTMLElement>(".dtp__panel");
+    if (!panel) return;
+    let timer = 0;
+    const stop = () => {
+      window.clearTimeout(timer);
+      panel.removeEventListener("transitionend", onEnd);
+    };
+    const settle = () => {
+      stop();
+      reveal();
+    };
+    const onEnd = (e: TransitionEvent) => {
+      if (e.target === panel && e.propertyName === "grid-template-rows") settle();
+    };
+    panel.addEventListener("transitionend", onEnd);
+    timer = window.setTimeout(settle, 500);
+    return stop;
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const outside = (e: globalThis.PointerEvent) => {

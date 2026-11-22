@@ -535,6 +535,28 @@ export class AmberDateTimePickerComponent implements OnInit {
       document.addEventListener('pointerdown', outside);
       onCleanup(() => document.removeEventListener('pointerdown', outside));
     });
+    // 展开动画一开始文档还没变长，reveal() 的滚动会被当时的最大滚动距离截断：
+    // 动画结束（transitionend，约 500ms 定时兜底）后再补一次，只补剩下的距离。收起或销毁时清掉
+    effect((onCleanup) => {
+      if (!this.open()) return;
+      const panel = this.root().nativeElement.querySelector<HTMLElement>('.dtp__panel');
+      if (!panel) return;
+      let timer = 0;
+      const stop = () => {
+        window.clearTimeout(timer);
+        panel.removeEventListener('transitionend', onEnd);
+      };
+      const settle = () => {
+        stop();
+        this.reveal();
+      };
+      const onEnd = (e: TransitionEvent) => {
+        if (e.target === panel && e.propertyName === 'grid-template-rows') settle();
+      };
+      panel.addEventListener('transitionend', onEnd);
+      timer = window.setTimeout(settle, 500);
+      onCleanup(stop);
+    });
   }
 
   ngOnInit() {

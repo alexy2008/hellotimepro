@@ -339,11 +339,27 @@
 
     /* 开合：点触发条切换；「就这一刻」、Esc、点到组件与预设之外都收起 */
     const isOpen = () => root.classList.contains('is-open');
+    /* 展开动画一开始文档还没变长，reveal 的滚动会被当时的最大滚动距离截断：
+       动画结束（transitionend，约 500ms 定时兜底）后再补一次，只补剩下的距离；收起或销毁时清掉 */
+    let stopSettle = null;
+    function cancelSettle() { if (stopSettle) stopSettle(); }
+    function settleReveal() {
+      cancelSettle();
+      const panel = q('.dtp__panel');
+      let timer = 0;
+      const stop = () => { clearTimeout(timer); panel.removeEventListener('transitionend', onEnd); if (stopSettle === stop) stopSettle = null; };
+      const fire = () => { stop(); if (isOpen()) reveal(root); };
+      const onEnd = (e) => { if (e.target === panel && e.propertyName === 'grid-template-rows') fire(); };
+      panel.addEventListener('transitionend', onEnd);
+      timer = setTimeout(fire, 500);
+      stopSettle = stop;
+    }
     function open(o) {
       root.classList.toggle('is-open', o);
       trigger.setAttribute('aria-expanded', String(o));
+      cancelSettle();
       if (!o) setMode('h');
-      else requestAnimationFrame(() => reveal(root));
+      else { requestAnimationFrame(() => reveal(root)); settleReveal(); }
     }
     trigger.addEventListener('click', () => open(!isOpen()));
     q('[data-done]').addEventListener('click', () => { open(false); trigger.focus({ preventScroll: true }); });
@@ -359,7 +375,7 @@
       set(t) { S.t = t; S.clamped = false; follow(); render(); },
       refresh() { render(); },
       open,
-      destroy() { document.removeEventListener('pointerdown', outside); },
+      destroy() { cancelSettle(); document.removeEventListener('pointerdown', outside); },
     };
   }
 

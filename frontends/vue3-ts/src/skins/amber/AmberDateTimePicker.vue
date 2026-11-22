@@ -209,6 +209,37 @@ function outside(e: PointerEvent) {
 watch(open, (o) => (o ? document.addEventListener("pointerdown", outside) : document.removeEventListener("pointerdown", outside)));
 onBeforeUnmount(() => document.removeEventListener("pointerdown", outside));
 
+// 展开动画一开始文档还没变长，reveal() 的滚动会被当时的最大滚动距离截断：
+// 动画结束（transitionend，约 500ms 定时兜底）后再补一次，只补剩下的距离。收起或卸载时清掉
+let stopSettle: (() => void) | null = null;
+function cancelSettle() {
+  stopSettle?.();
+  stopSettle = null;
+}
+watch(open, (o) => {
+  cancelSettle();
+  if (!o) return;
+  const panel = rootEl.value?.querySelector<HTMLElement>(".dtp__panel");
+  if (!panel) return;
+  let timer = 0;
+  const stop = () => {
+    window.clearTimeout(timer);
+    panel.removeEventListener("transitionend", onEnd);
+    if (stopSettle === stop) stopSettle = null;
+  };
+  const settle = () => {
+    stop();
+    reveal();
+  };
+  const onEnd = (e: TransitionEvent) => {
+    if (e.target === panel && e.propertyName === "grid-template-rows") settle();
+  };
+  panel.addEventListener("transitionend", onEnd);
+  timer = window.setTimeout(settle, 500);
+  stopSettle = stop;
+});
+onBeforeUnmount(cancelSettle);
+
 function closeAndFocus() {
   setOpen(false);
   triggerEl.value?.focus({ preventScroll: true });
