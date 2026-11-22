@@ -10,8 +10,8 @@ import { afterNextRender, ChangeDetectionStrategy, Component, computed, effect, 
 import { AuthStore } from '@/stores/auth.store';
 import { CreateFacade } from '@/pages/create/create.facade';
 import { injectNow } from '@/core/clock';
-import { pad2, reducedMotion } from '@/lib/fmt';
-import { DAY, LIMITS } from '@/lib/schedule';
+import { reducedMotion } from '@/lib/fmt';
+import { DAY } from '@/lib/schedule';
 import { IconDirective } from '@/shared/icon.directive';
 import { AvatarComponent } from '@/shared/avatar.component';
 import { AutofocusDirective } from '@/shared/autofocus.directive';
@@ -21,6 +21,7 @@ import { CONTENTS } from '@/shared/host';
 import { AmberBadgeComponent, AmberVisBadgeComponent } from '../parts/badge.component';
 import { AmberCapsuleArtComponent } from '../parts/capsule-art.component';
 import { AmberSealedComponent } from './sealed.component';
+import { AmberDateTimePickerComponent } from './datetime-picker.component';
 
 const PRESETS = [
   { key: '1m', label: '1 分钟后' },
@@ -32,15 +33,9 @@ const PRESETS = [
   { key: '10y', label: '十年后' },
 ];
 
-/** datetime-local 输入框要的本地时间写法 */
-const toLocal = (t: number) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-};
-
 @Component({
   selector: 'app-amber-create',
-  imports: [IconDirective, AvatarComponent, AutofocusDirective, ShakeDirective, FmtPipe, AmberBadgeComponent, AmberVisBadgeComponent, AmberCapsuleArtComponent, AmberSealedComponent],
+  imports: [IconDirective, AvatarComponent, AutofocusDirective, ShakeDirective, FmtPipe, AmberBadgeComponent, AmberVisBadgeComponent, AmberCapsuleArtComponent, AmberSealedComponent, AmberDateTimePickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: CONTENTS,
   template: `
@@ -139,21 +134,7 @@ const toLocal = (t: number) => {
                   <label class="field__label" for="openAt">开启时间 <em>*</em></label>
                   <span class="field__count">最早 1 分钟后 · 最晚 10 年内</span>
                 </div>
-                <div class="input-wrap input-wrap--icon">
-                  <svg appIcon="calendar" class="input-wrap__icon"></svg>
-                  <input
-                    #openEl
-                    id="openAt"
-                    class="input mono"
-                    type="datetime-local"
-                    [min]="minLocal"
-                    [max]="maxLocal"
-                    [value]="local()"
-                    data-testid="create-openat"
-                    [attr.data-value]="iso()"
-                    (input)="onOpenAt(openEl.value)"
-                  />
-                </div>
+                <app-amber-datetime-picker [value]="d.openAt()" (valueChange)="f.setOpenAt($event)" />
                 <div class="chips">
                   @for (p of presets; track p.key) {
                     <button
@@ -161,6 +142,7 @@ const toLocal = (t: number) => {
                       [class.is-active]="d.preset() === p.key"
                       type="button"
                       data-testid="openat-preset"
+                      [attr.data-preset]="p.key"
                       [attr.data-value]="p.key"
                       [attr.data-selected]="d.preset() === p.key"
                       (click)="f.pickPreset(p.key)"
@@ -229,13 +211,9 @@ export class AmberCreateComponent {
   protected readonly now = injectNow();
   protected readonly presets = PRESETS;
   protected readonly day = DAY;
-  protected readonly minLocal = toLocal(LIMITS.minOpen());
-  protected readonly maxLocal = toLocal(LIMITS.maxOpen());
   protected readonly contentPlaceholder = '在这里写下想交给未来的话。\n可以是此刻的天气、正在读的书、一个小小的约定，\n或者只是一句：嘿，你还好吗？';
   protected readonly span = computed(() => this.f.draft.openAt() - this.now());
   protected readonly spanOrZero = computed(() => Math.max(this.span(), 0));
-  protected readonly local = computed(() => toLocal(this.f.draft.openAt()));
-  protected readonly iso = computed(() => new Date(this.f.draft.openAt()).toISOString());
   protected readonly titleN = computed(() => Array.from(this.f.draft.title()).length);
 
   private readonly titleEl = viewChild<ElementRef<HTMLInputElement>>('titleEl');
@@ -272,10 +250,5 @@ export class AmberCreateComponent {
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = Math.max(el.scrollHeight, 36 * 8) + 'px';
-  }
-
-  protected onOpenAt(v: string) {
-    const t = new Date(v).getTime();
-    if (!Number.isNaN(t)) this.f.setOpenAt(t);
   }
 }

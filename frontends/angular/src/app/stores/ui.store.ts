@@ -69,12 +69,18 @@ export const UiStore = signalStore(
     return {
       setSkin(next: Skin): Promise<void> {
         if (next === store.skin()) return Promise.resolve();
+        // 开关上时笺在左、琥珀在右：转场方向跟着走（见 spec/styles/shell.css）
+        const dir = next === 'paper' ? 'prev' : 'next';
+        root().dataset['skinDir'] = dir;
         return transition(() => {
           root().dataset['skin'] = next;
           save('hellotime.skin', next);
           syncMeta(next, store.theme());
           patchState(store, { skin: next });
-        }, 'is-skinning');
+        }, 'is-skinning').finally(() => {
+          // 转场中途又切了一次：方向已经是新的，别删
+          if (root().dataset['skinDir'] === dir) delete root().dataset['skinDir'];
+        });
       },
 
       /** origin：点击位置，明暗切换从这里圆形晕开 */
