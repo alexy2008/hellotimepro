@@ -8,8 +8,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, useTemplateRef, watch } from "vue";
 import { useAuthStore } from "@/stores/auth";
-import { fmt, focusIfIdle, pad2, reducedMotion } from "@/lib/fmt";
-import { DAY, LIMITS } from "@/lib/schedule";
+import { fmt, focusIfIdle, reducedMotion } from "@/lib/fmt";
+import { DAY } from "@/lib/schedule";
 import { useNow } from "@/composables/useNow";
 import { useShake } from "@/composables/useMotion";
 import { useCreateForm } from "@/composables/useCreateCapsule";
@@ -17,6 +17,7 @@ import AppIcon from "@/components/AppIcon.vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AmberBadge from "./AmberBadge.vue";
 import AmberCapsuleArt from "./AmberCapsuleArt.vue";
+import AmberDateTimePicker from "./AmberDateTimePicker.vue";
 import AmberSealed from "./AmberSealed.vue";
 import AmberVisBadge from "./AmberVisBadge.vue";
 import { dash } from "./art";
@@ -30,12 +31,6 @@ const PRESETS = [
   { key: "5y", label: "五年后" },
   { key: "10y", label: "十年后" },
 ];
-
-/** datetime-local 输入框要的本地时间写法 */
-const toLocal = (t: number) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-};
 
 const auth = useAuthStore();
 const me = computed(() => auth.user!);
@@ -73,11 +68,6 @@ watch(
   },
   { flush: "post" },
 );
-
-function onOpenAt(e: Event) {
-  const t = new Date((e.target as HTMLInputElement).value).getTime();
-  if (!Number.isNaN(t)) f.setOpenAt(t);
-}
 </script>
 
 <template>
@@ -180,20 +170,7 @@ function onOpenAt(e: Event) {
                 <label class="field__label" for="openAt">开启时间 <em>*</em></label>
                 <span class="field__count">最早 1 分钟后 · 最晚 10 年内</span>
               </div>
-              <div class="input-wrap input-wrap--icon">
-                <AppIcon name="calendar" class="input-wrap__icon" />
-                <input
-                  id="openAt"
-                  class="input mono"
-                  type="datetime-local"
-                  :min="toLocal(LIMITS.minOpen())"
-                  :max="toLocal(LIMITS.maxOpen())"
-                  :value="toLocal(f.draft.openAt)"
-                  data-testid="create-openat"
-                  :data-value="new Date(f.draft.openAt).toISOString()"
-                  @input="onOpenAt"
-                />
-              </div>
+              <AmberDateTimePicker :value="f.draft.openAt" @change="(t: number) => f.setOpenAt(t)" />
               <div class="chips">
                 <button
                   v-for="p in PRESETS"
@@ -201,6 +178,7 @@ function onOpenAt(e: Event) {
                   :class="['chip', { 'is-active': f.draft.preset === p.key }]"
                   type="button"
                   data-testid="openat-preset"
+                  :data-preset="p.key"
                   :data-value="p.key"
                   :data-selected="f.draft.preset === p.key"
                   @click="f.pickPreset(p.key)"

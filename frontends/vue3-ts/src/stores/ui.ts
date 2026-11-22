@@ -68,12 +68,16 @@ export const useUiStore = defineStore("ui", () => {
 
   function setSkin(next: Skin): Promise<void> {
     if (next === skin.value) return Promise.resolve();
+    // 开关上时笺在左、琥珀在右：转场方向跟着走（见 spec/styles/shell.css）
+    root().dataset.skinDir = next === "paper" ? "prev" : "next";
     return transition(() => {
       root().dataset.skin = next;
       save(SKIN_KEY, next);
       syncMeta(next, theme.value);
       skin.value = next;
-    }, "is-skinning");
+    }, "is-skinning").finally(() => {
+      delete root().dataset.skinDir;
+    });
   }
 
   /** origin：点击位置，明暗切换从这里圆形晕开 */
