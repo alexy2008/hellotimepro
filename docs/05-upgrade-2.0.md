@@ -90,7 +90,13 @@ DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh <backend>
    - **广场搜索的输入值和防抖计时器放在共享 store**，输入后 300ms 内切皮肤也不丢字（vue、solid）。
    - **挂载时会先执行一次的副作用要跳过初值**：Svelte 的 `$effect`、Solid 的 `createEffect` 都是这样。「出错次数加一就抖动」「校验失败就滚到出错字段」如果不跳过初值，换皮肤后新视图一挂载就会抖动、滚动。
    - 标题、正文、广场搜索都按 Unicode 码点计数和限长（React 用 `Array.from(s).length`），与昵称校验同一口径。
-8. 文档：重写 `README.md` 与 `TECHNICAL_GUIDE.md`（参考 React 的两份）。
+8. **琥珀开启时间改用「星轨时钟」（2026-11-22 定稿，各实现待跟进）**：琥珀创建页不再用原生 `datetime-local`（它的弹出面板由浏览器绘制，皮肤令牌管不到）。结构、类名与交互以原型 `2.0版原型byClaude-合集/assets/js/amber/datetime.js` 为准，样式在 `spec/styles/amber/components.css`「开启时间选择器」一节。时笺的标尺 + 日历不变，预设按钮也不变。
+   - 触发条是一个 `<button>`，和输入框等宽，显示日期、星期、时刻和相对时间。`data-testid="create-openat"` 与 `data-value`（ISO）挂在它上面。点开后面板在下方展开，不是浮层，所以不会被卡片裁掉。
+   - 面板从上到下：十年星轨（点年份跳到那一年，拖动胶囊只换日子、保留时刻）、日历（方向键逐日或逐周，今天到选中日之间画旅程线）加机械表式昼夜表盘（先拖时针，松手后切到分针；分针越过 12 点自动进退一小时；3 点位是日历窗）、精确倒计时。
+   - 面板里的每次改动都夹在开启时间上下限之内，贴到边界时底栏提示。预设、AI 代笔、草稿恢复从外部改时间时只刷新显示，不触发回调。
+   - 表盘指针的角度要累加，不能每次取模，否则从 59 分到 0 分时指针会倒转一整圈。表盘 SVG 的配色全部走 spec 里的类名（`clock__g-*`、`orbit__cap-*` 等），实现代码不写色值。
+   - 「就这一刻」、Esc、点到组件和预设之外都收起面板；收起时清理 document 上的监听。
+9. 文档：重写 `README.md` 与 `TECHNICAL_GUIDE.md`（参考 React 的两份）。
 
 验证（**两套皮肤 × PostgreSQL / SQLite 都要 88/88**；后端用 fastapi）：
 

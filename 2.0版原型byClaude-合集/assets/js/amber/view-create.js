@@ -22,7 +22,8 @@
   /* 上下限与另一套皮肤共用 */
   const minOpen = HT.LIMITS.minOpen;
   const maxOpen = HT.LIMITS.maxOpen;
-  const toLocal = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  /* 开启时间用琥珀自己的「星轨时钟」，见 amber/datetime.js */
+  const DTP = HT.skin('amber').ui.dateTimePicker;
 
   const V = HT.skin('amber').views;
   V.create = {
@@ -66,7 +67,7 @@
 
             <div class="field" data-field="openAt">
               <div class="field__head"><label class="field__label" for="openAt">开启时间 <em>*</em></label><span class="field__count">最早 1 分钟后 · 最晚 10 年内</span></div>
-              <div class="input-wrap input-wrap--icon">${icon('calendar', 'input-wrap__icon')}<input class="input mono" id="openAt" type="datetime-local"></div>
+              ${DTP.html()}
               <div class="chips" id="presets">${PRESETS.map((p) => `<button class="chip" type="button" data-preset="${p.key}">${p.label}</button>`).join('')}</div>
               <div class="field__error" id="openErr" role="alert"></div>
             </div>
@@ -111,8 +112,9 @@
       const me = HT.state.user;
       const S = { batch: 0, aiBusy: false, aiDone: false, preset: '1y', openAt: 0, inPlaza: true };
       let typeToken = 0;
-      const titleEl = $('#title', page), contentEl = $('#content', page), openEl = $('#openAt', page);
+      const titleEl = $('#title', page), contentEl = $('#content', page);
       const form = $('#form', page);
+      const picker = DTP.mount($('.dtp', page), { onChange: (t) => setOpen(t, null, true) });
 
       /* ---------- 同步：计数、预览、摘要 ---------- */
       function grow() { contentEl.style.height = 'auto'; contentEl.style.height = Math.max(contentEl.scrollHeight, 36 * 8) + 'px'; }
@@ -141,9 +143,10 @@
         $('#pvBadges', page).innerHTML = (S.inPlaza ? HT.badge('plaza', 'globe', '广场公开') : HT.badge('private', 'lock', '仅凭码可见')) + HT.badge('amber', 'clock', fmt.span(Math.max(span, 0)) + '后');
         saveDraft();
       }
-      function setOpen(t, preset) {
+      /* fromPicker：选择器自己改的，不用再回写给它 */
+      function setOpen(t, preset, fromPicker) {
         S.openAt = t; S.preset = preset || null;
-        openEl.value = toLocal(t);
+        if (!fromPicker) picker.set(t);
         $('#openErr', page).textContent = '';
         syncTime();
       }
@@ -155,7 +158,6 @@
 
       titleEl.addEventListener('input', () => { $('#titleErr', page).textContent = ''; sync(); });
       contentEl.addEventListener('input', () => { if (S.aiBusy) stopTyping(); $('#contentErr', page).textContent = ''; sync(); });
-      openEl.addEventListener('change', () => { const t = new Date(openEl.value).getTime(); if (!isNaN(t)) setOpen(t); });
       $('#presets', page).addEventListener('click', (e) => {
         const b = e.target.closest('[data-preset]');
         if (!b) return;
@@ -282,8 +284,6 @@
       }
 
       /* ---------- 初始化 ---------- */
-      openEl.min = toLocal(minOpen());
-      openEl.max = toLocal(maxOpen());
       const draft = HT.state.draft;
       if (draft && (draft.title || draft.content)) {
         titleEl.value = draft.title; contentEl.value = draft.content;
@@ -292,9 +292,9 @@
       } else setOpen(PRESETS[4].at(), '1y');
       sync();
       loadRecos();
-      const offTick = HT.tick.on(() => { if (new Date().getSeconds() % 15 === 0 && $('#sum', page)) syncTime(); });
+      const offTick = HT.tick.on(() => { if (new Date().getSeconds() % 15 === 0 && $('#sum', page)) { syncTime(); picker.refresh(); } });
       setTimeout(() => { if (page.isConnected) titleEl.focus({ preventScroll: true }); }, 380);
-      return () => { typeToken++; offTick(); };
+      return () => { typeToken++; offTick(); picker.destroy(); };
     },
   };
 })(window.HT);
