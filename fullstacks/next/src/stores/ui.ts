@@ -81,12 +81,18 @@ export const useUi = create<UiState>()((set, get) => ({
 
   setSkin: (skin) => {
     if (skin === get().skin) return Promise.resolve();
+    // 开关上时笺在左、琥珀在右：转场方向跟着走（见 spec/styles/shell.css）
+    const dir = skin === "paper" ? "prev" : "next";
+    root().dataset.skinDir = dir;
     return transition(() => {
       root().dataset.skin = skin;
       save(SKIN_KEY, skin);
       syncMeta(skin, get().theme);
       set({ skin });
-    }, "is-skinning");
+    }, "is-skinning").finally(() => {
+      // 转场中途又切了一次：方向已经是新的，别删
+      if (root().dataset.skinDir === dir) delete root().dataset.skinDir;
+    });
   },
 
   toggleTheme: (origin) => {
