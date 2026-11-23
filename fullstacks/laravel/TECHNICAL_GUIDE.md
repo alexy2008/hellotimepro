@@ -1,113 +1,99 @@
-# HelloTime Pro Laravel 全栈技术手册与代码导读
+# HelloTime Pro Laravel 全栈技术手册与代码导读（2.0）
 
-本文说明 HelloTime Pro 的 Laravel 全栈实现如何在保持统一 API 契约的前提下，用 Laravel 的本地习惯完成服务端渲染应用。与 Next/Nuxt 手册相比，本手册补齐整体地图、运行验证、入口文件、框架思想、数据层、服务端架构、客户端交互、样式和常见改动路径。
+本文说明 HelloTime Pro 2.0 的 Laravel 全栈实现如何在完全对齐 `spec/`（OpenAPI 2.0.0、双库 schema、双皮肤设计令牌与测试钩子）的前提下，保持 **Laravel 13 + Eloquent ORM + Blade SSR + Alpine.js 3** 的地道 PHP 全栈写法。
 
-## 1. 技术选型与设计特色
+## 1. 技术选型与 2.0 架构特色
 
-Laravel 版运行在 **7182** 端口，是 PHP 现代全栈代表：
+Laravel 版运行在 **7182** 端口，是「服务端框架 + 轻量渐进增强」的代表：
 
-- `routes/web.php` 定义服务端渲染页面和表单提交。
-- `routes/api.php` 定义 `/api/v1/*` JSON REST 契约。
-- Controller 只处理 HTTP 边界。
-- 业务规则拆在 `app/Services/*`。
-- 数据访问用 **Eloquent ORM**（`app/Models/*` 模型 + 关系 + Cast），展示 Laravel 的招牌特性。
-- 跨库存储格式差异（id/时间戳/布尔）集中在 `app/Support/CrossDb.php` 与自定义 Cast。
-- Blade 模板负责 SSR。
-- Alpine.js + 少量原生 JS 负责浏览器状态和 fetch。
-- API 与页面共享同一套 Service，避免 JSON 行为和页面行为分叉。
+- **显式集中的路由边界**：`routes/api.php` 定义 `/api/v1/*` JSON 契约，`routes/web.php` 定义 SSR 页面路由。
+- **薄控制器 + 共享服务层**：`HelloTimeApiController` 与 `Web\{Page,Auth}Controller` 只做 HTTP 边界，所有业务规则集中在 `app/Services/*`，确保 JSON 接口与页面首屏数据完全同源、行为一致。
+- **Eloquent ORM + 跨库封装**：数据层全部走 `app/Models/*` 模型、关系与自定义 `CrossDbBoolean` Cast，PostgreSQL 与 SQLite 的格式差异集中收敛在 `app/Support/CrossDb.php`。
+- **Blade 双皮肤 SSR + Alpine.js 3 状态隔离**：
+  - 每个页面模板（`resources/views/pages/*.blade.php`）在最外层声明共享的 Alpine `x-data`，再通过 `<template x-if="$store.ui.skin === 'paper|amber'">` 按当前皮肤只挂载一套 DOM。
+  - 「时笺」与「琥珀」各自保留完整的原生视觉与交互体验（时笺的时间标尺 + 日历 + 长按火漆 + 折纸信封启封；琥珀的星空粒子 + 十年星轨机械时钟 + 环形进度舱），切换皮肤时状态、草稿、搜索与输码全部无损延续。
+- **零 Tailwind、零前端构建链**：样式原样同步 `spec/styles` 2.0（`base.css` → `paper/*` → `amber/*` → `shell.css`），`@fontsource` 字体与 `alpine.min.js` 通过 `scripts-sync-assets.sh` 同步到 `public/`，无需 Vite 或 Webpack。
 
-同一个进程提供两套接口：
+同一个进程同时服务两类请求：
 
-| 入口 | 消费者 | 鉴权 | 输出 |
+| 入口 | 消费者 | 鉴权方式 | 输出 |
 |---|---|---|---|
-| `/api/v1/*` | 契约测试、浏览器 fetch | Bearer 或同源 cookie | JSON envelope |
-| Web 页面 | 浏览器导航、表单提交 | httpOnly cookie | Blade HTML |
+| `/api/v1/*` | 黑盒契约测试、浏览器 `fetch` | `Authorization: Bearer` 或同源 `ht_access` cookie | 标准 JSON Envelope（204 无 body） |
+| Web 页面路由 | 浏览器导航 | `ht_access` httpOnly cookie（未登录 302 跳转登录） | Blade HTML + `window.__HT_INIT__` 首屏数据 |
 
-## 2. 先建立整体地图
+## 2. 整体目录地图
 
 ```text
 fullstacks/laravel/
-  README.md
-  TECHNICAL_GUIDE.md
-  run / build / test
-  composer.json / package.json
-  routes/
-    api.php
-    web.php
-  app/
-    Http/Controllers/
-      Api/V1/HelloTimeApiController.php
-      Web/
-        PageController.php
-        AuthController.php
-        CapsuleController.php
-    Models/
-      User.php
-      Capsule.php
-      Favorite.php
-      RefreshToken.php
-      Concerns/HasCrossDbKey.php   # 字符串主键 + 跨库 id 生成 trait
-    Casts/
-      CrossDbBoolean.php           # 跨库布尔自定义 Cast
-    Services/
-      AuthService.php
-      CapsuleService.php
-      PlazaService.php
-      FavoriteService.php
-      ProfileService.php
-      SuggestionService.php
-      HealthService.php
-      AvatarCatalog.php
-      LlmClient.php
-    Support/
-      CrossDb.php                  # 存储格式 ↔ 契约 换算（id/时间戳/布尔）
-      JwtCodec.php
-      Mapper.php                   # Eloquent 模型 -> DTO
-      Validation.php
-      Formatter.php
-    Exceptions/
-      ApiError.php
-      LlmException.php
-  resources/
-    views/
-      layouts/app.blade.php
-      public/{home,open,about}.blade.php
-      auth/{login,register}.blade.php
-      capsules/{create,detail}.blade.php
-      me/{created,favorites,profile}.blade.php
-      components/*.blade.php
-    css/app.css
-  public/
-    css/app.css
-    js/app.js
-    js/alpine.min.js
-    static/{avatars,icons}/
-  database/
-    migrations/0001_01_01_000000_create_hellotime_schema.php
+├── README.md / TECHNICAL_GUIDE.md
+├── run / build / test / scripts-sync-assets.sh
+├── composer.json / package.json
+├── bootstrap/app.php                                # 注册 routes、CORS 与 cookie 加密白名单
+├── config/database.php                              # PostgreSQL 与 SQLite（busy_timeout + IMMEDIATE）
+├── routes/
+│   ├── api.php                                      # /api/v1/*（含 2.0 的 plaza/stats、me/stats）
+│   └── web.php                                      # /, /open, /capsules/{code}, /create, /login, /register, /me/*, /about, fallback 404
+├── app/
+│   ├── Http/Controllers/
+│   │   ├── Api/V1/HelloTimeApiController.php        # 统一 api() 包装 + httpOnly auth cookie 同步
+│   │   └── Web/
+│   │       ├── PageController.php                   # 公开页/受保护页首屏取数 + 服务端 302 守卫
+│   │       └── AuthController.php                   # /login, /register（已登录 302 离开）, POST /logout
+│   ├── Models/
+│   │   ├── User.php / Capsule.php / Favorite.php / RefreshToken.php
+│   │   └── Concerns/HasCrossDbKey.php               # 非自增字符串主键 + 跨库 UUID 生成
+│   ├── Casts/CrossDbBoolean.php                     # 屏蔽 PostgreSQL 't'/'f' 与 SQLite 0/1 差异
+│   ├── Providers/AppServiceProvider.php             # SQLite Unicode LOWER() + 全局 View::composer
+│   ├── Services/
+│   │   ├── AuthService.php                          # 注册/登录/refresh 轮换与家族吊销/登出/改密/限流
+│   │   ├── CapsuleService.php                       # 创建（10日历年上限）/按码查询/我的胶囊/我的统计/删胶囊连带删收藏
+│   │   ├── PlazaService.php                         # 公开列表/详情/统计（字面 LIKE 转义、空集归零）
+│   │   ├── FavoriteService.php                      # 2.0 无限制收藏、幂等取消、并发锁顺序
+│   │   ├── ProfileService.php                       # 资料更新（409 附 field details）
+│   │   ├── SuggestionService.php / LlmClient.php    # AI 推荐与代笔 + 本地模板兜底 + 结构化日志
+│   │   ├── HealthService.php                        # version=2.0.0 + 技术栈元数据
+│   │   └── AvatarCatalog.php                        # 读取 spec/avatars/v2/catalog.json 与内联 SVG glyph
+│   ├── Support/
+│   │   ├── CrossDb.php                              # UUID/时间戳/布尔换算、addCalendarYears()、SQLite 双格式匹配
+│   │   ├── Mapper.php                               # Eloquent 模型 → 2.0 DTO（显式输出 null、批量防 N+1）
+│   │   ├── Validation.php                           # Unicode 码点校验与字段边界规则
+│   │   ├── JwtCodec.php / Formatter.php / UiHelper.php
+│   └── Exceptions/{ApiError,LlmException}.php
+├── resources/views/
+│   ├── layouts/app.blade.php                        # 首帧防闪脚本 + 字体/样式 + #f-rough/#f-ink SVG 滤镜 + 双皮肤外壳
+│   ├── components/                                  # skin-switch, user-menu, feedback, fav-button
+│   ├── pages/                                       # home, open, detail, create, login, register, me, about, not-found
+│   └── skins/
+│       ├── paper/                                   # _header, _footer, _tabbar, _card, _code-input, _home, _open, _detail, _create, _login, _register, _me, _about, _not-found
+│       └── amber/                                   # 同上 + _datetime_picker（十年星轨时钟）
+├── public/
+│   ├── css/laravel.css                              # 仅 [x-cloak] 与 .list-more（使用 var(--space-8)）
+│   ├── js/
+│   │   ├── alpine.min.js                            # 同步自 node_modules/alpinejs
+│   │   ├── ht-core.js                               # 格式化、专属色、SVG/头像生成、API 客户端（401单飞刷新）、Alpine Stores、星空画布
+│   │   ├── ht-plaza.js                              # 8 格输码、分段滑块、乐观收藏按钮、首页广场、开启页
+│   │   ├── ht-create.js                             # 创建页草稿/AI/校验/提交锁、时笺标尺与日历、长按火漆、折纸仪式、琥珀星轨时钟
+│   │   └── ht-capsule-account.js                    # 详情页倒计时自动开启与退避轮询、登录/注册、我的（分页重读去重/资料/改密）
+│   └── static/{avatars,icons}/
+└── tests/
+    ├── Unit/{CrossDbTest,JwtCodecTest}.php
+    └── Feature/ApiV2RegressionTest.php
 ```
 
-读代码时按这两条线走：
+数据流清晰地分成两条主线，底层共享同一套 Service 与 Eloquent 模型：
 
 ```text
-JSON 契约
-  -> routes/api.php
-  -> HelloTimeApiController
-  -> app/Services/*
-  -> app/Models/*（Eloquent）-> 数据库
-  -> app/Support/Mapper.php（模型 -> DTO）
-  -> JSON envelope
+JSON API：
+  routes/api.php → HelloTimeApiController → app/Services/* → Eloquent Models → Mapper → JSON Envelope
 
-SSR 页面
-  -> routes/web.php
-  -> Web/*Controller
-  -> app/Services/* -> app/Models/*（Eloquent）
-  -> resources/views/*.blade.php
-  -> public/js/app.js 渐进增强
+SSR 页面：
+  routes/web.php → Web\{Page,Auth}Controller → app/Services/* → Blade View（直出 window.__HT_INIT__）
+                 → Alpine.js 接管皮肤切换、本地草稿、星轨时钟/标尺、异步刷新（fetch /api/v1/*）
 ```
 
-## 3. 如何运行和验证
+## 3. 如何运行与验证
 
-数据库 schema/data 生命周期由仓库级脚本维护，Laravel `run` 只启动服务，不迁移、不 seed。
+数据库表结构与演示数据由仓库级 `./scripts/db` 管理：
 
 ```bash
 # PostgreSQL（默认）
@@ -119,310 +105,116 @@ DB_DRIVER=sqlite ./scripts/db reset --seed
 DB_DRIVER=sqlite ./scripts/hello start laravel
 ```
 
-直接在实现目录运行：
+目录内常用脚本：
 
 ```bash
 cd fullstacks/laravel
-./build   # composer install + npm install + Alpine 静态文件准备
-./run     # 启动 7182
-./test    # Laravel/PHPUnit 入口
+./build   # 安装 Composer/npm 依赖，运行 scripts-sync-assets.sh 同步字体、样式、头像与 Alpine
+./test    # 运行 19 个 PHPUnit 用例（含跨库回归与关闭 SQLite 外键删收藏验证）
+./run     # 同步静态资源后监听 127.0.0.1:7182
 ```
 
-验收命令：
+黑盒验收（2.0 目标：双库契约 **117/117**、双库 UI 冒烟 **88/88**、设计令牌通过）：
 
 ```bash
-./verification/scripts/verify-contract.sh laravel
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh laravel
+# 建议使用独立库避免重置默认库
+DB_URL=postgresql+psycopg://<user>:<pwd>@127.0.0.1:5432/hellotime_contract_laravel ./verification/scripts/verify-contract.sh laravel
+DB_DRIVER=sqlite DB_URL=sqlite:////tmp/hellotime-contract-laravel.db ./verification/scripts/verify-contract.sh laravel
 ./verification/scripts/verify-ui-smoke.sh laravel
 DB_DRIVER=sqlite ./verification/scripts/verify-ui-smoke.sh laravel
+./verification/scripts/verify-design-tokens.sh laravel
 ```
 
-目标覆盖与 Next/Nuxt 一致：契约 104 例、UI 冒烟 25 例。
-
-## 4. 入口文件导读
-
-### 4.1 `routes/api.php`
-
-`routes/api.php` 把 `/api/v1/*` 全部挂到 `HelloTimeApiController`：
-
-- `GET /api/v1/health`
-- `GET /api/v1/avatars`
-- `POST /api/v1/auth/register|login|refresh|logout`
-- `GET/PATCH /api/v1/me`
-- `POST /api/v1/me/password`
-- `GET/DELETE /api/v1/me/capsules`
-- `GET/POST/DELETE /api/v1/me/favorites`
-- `POST /api/v1/capsules`
-- `GET /api/v1/capsules/{code}`
-- `GET /api/v1/plaza/capsules`
-- `GET /api/v1/plaza/capsules/{id}`
-- `POST /api/v1/capsule-suggestion`
-- `GET /api/v1/capsule-recommendations`
-
-控制器里每个方法都调用 `api(fn () => ...)`，统一成功 envelope、业务错误和 500 兜底。
-
-### 4.2 `routes/web.php`
-
-`routes/web.php` 是 SSR 页面入口：
-
-- `/`：广场。
-- `/open`：开启页。
-- `/about`：关于页。
-- `/login` / `/register` / `/logout`：登录注册登出。
-- `/create`：创建页和表单提交。
-- `/c/{code}`、`/capsules/{code}`、`/plaza/{id}`：胶囊详情。
-- `/me/created`、`/me/favorites`、`/me/profile`：个人中心。
-
-### 4.3 `HelloTimeApiController.php`
-
-这是 JSON 契约边界。它的职责很窄：
-
-- 从 `Request` 读取 query、path、body。
-- 调用 `AuthService`、`CapsuleService`、`PlazaService` 等服务。
-- 把 `ApiError` 映射成 `{ success:false, data:null, message, errorCode }`。
-- 把未知异常报告后映射成 `INTERNAL_ERROR`。
-
-业务规则不要写进这里。
-
-### 4.4 `Web/*Controller.php`
-
-Web 控制器返回 Blade 或 Redirect：
-
-- `PageController`：公开页和个人中心页面的数据准备。
-- `AuthController`：表单登录/注册，写入 httpOnly cookie。
-- `CapsuleController`：创建胶囊、删除自己的胶囊。
-
-页面与 API 共用服务。例如创建胶囊：
-
-```text
-POST /api/v1/capsules
-  -> HelloTimeApiController::createCapsule()
-  -> CapsuleService::createCapsule()
-
-POST /create
-  -> Web\CapsuleController::store()
-  -> CapsuleService::createCapsule()
-```
-
-## 5. Laravel 的核心思想
-
-### 5.1 路由表显式集中
-
-Next/Nuxt 用文件路径代表路由，Laravel 把路由集中在 `routes/*.php`。查入口时先看 route，再跳 Controller。
-
-这对全栈实现有一个好处：JSON API 和 Web 页面可以在同一个地方看清边界，不会混在组件树里。
-
-### 5.2 Blade 是服务端模板，不是客户端组件
-
-Blade 模板在服务端拿到数组数据后直接输出 HTML。比如广场页由 `PageController::home()` 调 `PlazaService::plazaList()`，然后渲染 `resources/views/public/home.blade.php`。
-
-模板职责是结构和展示；校验、权限、收藏计数、分页查询都在服务层。
-
-### 5.3 Alpine.js 做轻量浏览器状态
-
-Laravel 版没有引入 Vue/React，也没有把页面变成 SPA。`public/js/app.js` 注册 Alpine data/store：
-
-- `theme`：主题状态。
-- `countdown`：倒计时。
-- `favButton`：收藏按钮。
-- `codeInput`：8 位胶囊码。
-- `createCapsule`：创建页快速预设、AI 推荐和生成。
-- `shareActions`：复制和分享。
-- `profileEditor`：资料保存和改密。
-- `avatarPicker`：头像选择。
-
-适合服务端渲染的内容留在 Blade；适合浏览器即时状态的交互交给 Alpine。
-
-## 6. 数据层：Eloquent ORM + CrossDb
-
-### 6.1 用 Eloquent 承载数据访问
-
-数据访问全部走 **Eloquent ORM**——这是 Laravel 最具代表性的特性，本实现刻意用它来体现框架价值：
-
-- **模型**：`app/Models/{User,Capsule,Favorite,RefreshToken}.php`。
-- **关系**：`Capsule belongsTo owner(User)`、`hasMany favorites`；`User hasMany capsules/favorites/refreshTokens`。列表查询用 `with('owner')` 预加载避免 N+1。
-- **查询构建器**：`Capsule::query()->where(...)->orderByDesc(...)->forPage(...)->get()`；搜索用 `whereHas('owner')`；收藏计数用 `increment/decrement`；并发用 `lockForUpdate()` + `DB::transaction()`。
-
-**跨库的两个关键取舍**（spec/db schema 下 SQLite 存 32-hex + ISO TEXT、Postgres 存原生 uuid + timestamptz）：
-
-1. **id 与时间戳不做 Eloquent Cast**，在模型里保持存储格式。因为关系 join 和 `where` 用的是原始存储值——若把 id Cast 成带横线 UUID，SQLite（存 32-hex）的关系关联会失配。转换只在**输出边界**（`Mapper`）做：id → 标准 UUID、时间戳 → `...Z`；客户端传入的 id 在**查询边界**用 `CrossDb::canonicalUuid/idToDb` 归一。
-2. **布尔用自定义 Cast** `App\Casts\CrossDbBoolean`。不能用 Eloquent 原生 `boolean` Cast——PDO pgsql 把 boolean 读回成 `'t'/'f'` 字符串，而原生 Cast 等价 `(bool)'f'` 竟为 `true`，会把「未公开」误判成「公开」。自定义 Cast 读时显式归一、写时按驱动产出 `0/1` 或 `'true'/'false'`。
-
-> ⚠️ 还有一处与裸 SQL INNER JOIN 等价的语义需保留：列表/详情查询都加了 `has('owner')`，把 owner 已被级联删除的「孤儿胶囊」排除在外（否则 `with('owner')` 会带 null owner 进 `Mapper` 触发 NPE）。
-
-### 6.2 `CrossDb.php` 与字符串主键
-
-数据访问交给 Eloquent 后，`app/Support/CrossDb.php` 收敛为纯粹的**存储格式 ↔ 对外契约换算器**，供模型 Cast、服务层（查询绑定/写入）与 `Mapper`（输出）复用，屏蔽三类跨库差异：
-
-- id：SQLite 32 位无横线 hex，PostgreSQL 标准 UUID；对外统一带横线 UUID。
-- 时间戳：SQLite ISO-8601 TEXT，PostgreSQL timestamptz；对外统一 `...Z`。
-- 布尔：SQLite `0/1`，PostgreSQL `'true'/'false'`。
-
-主键不是自增整数：模型用 `App\Models\Concerns\HasCrossDbKey` trait 设 `$incrementing=false`、字符串主键、关闭 Eloquent 自带时间戳，并在 `creating` 钩子按驱动生成存储格式 id（与演示数据 seed 对齐）。
-
-### 6.3 Service 分层
-
-主要服务：
-
-- `AuthService`：注册、登录、refresh token rotate、登出、当前用户解析、改密。
-- `CapsuleService`：创建、按码查询、我的胶囊、删除自己的胶囊。
-- `PlazaService`：公开列表、详情、搜索、排序、过滤。
-- `FavoriteService`：收藏、取消收藏、我的收藏、计数维护。
-- `ProfileService`：昵称和头像更新。
-- `SuggestionService`：AI 推荐和生成，失败时走本地模板兜底。
-- `HealthService`：`/api/v1/health` 的 stack metadata。
-- `LlmClient`：外部 LLM HTTP 调用及结构化日志。
-
-### 6.4 migration 文件的定位
-
-`database/migrations/0001_..._hellotime_schema.php` 是 Laravel 写法参考。项目验证和本地数据生命周期仍以 `spec/db` + `scripts/db` 为准；`run` 不执行 `php artisan migrate`。
-
-## 7. 服务端架构：Route -> Controller -> Service -> Support
-
-### 7.1 JSON envelope
-
-`HelloTimeApiController::api()` 统一输出：
-
-```json
-{
-  "success": true,
-  "data": {},
-  "message": null,
-  "errorCode": null
-}
-```
-
-`ApiError` 携带 HTTP status、`errorCode`、message 和可选 details。输入 JSON 非法时返回 400；字段校验不合法时返回 422。
-
-### 7.2 鉴权与会话
-
-API 契约要求 Bearer token。SSR 页面更适合 httpOnly cookie，所以 Laravel 版采用双入口解析：
-
-- 契约测试带 `Authorization: Bearer <access>`。
-- 浏览器登录/注册后写入 `ht_access` / `ht_refresh` cookie。
-- 浏览器 fetch `/api/v1/me`、`/api/v1/me/favorites` 时没有 Authorization 头，但同源请求自动带 cookie，`AuthService::currentUser()` 会解析 `ht_access`。
-
-access token 是 HS256 JWT，有效期 1 小时。refresh token 是随机不透明字符串，数据库只存 SHA-256 hash、family id、过期时间和撤销时间。refresh 时 rotate；复用已撤销 token 会吊销整个 family。
-
-**为何不用 Laravel auth middleware / FormRequest？**
-
-生产 Laravel 项目通常在路由层加 `->middleware('auth:sanctum')` 或自定义 guard，让鉴权与业务逻辑解耦；FormRequest 则把输入校验提升为独立类。本实现刻意选择在 `HelloTimeApiController` 里手工调 `$this->auth->requireUser($request)` / `$this->auth->currentUser($request)`，原因是：
-
-1. **跨栈同构**：所有五个全栈（next / nuxt / spring-mvc / rails / laravel）的 API 端点都用「在控制器/handler 里显式鉴权」的模式，读者可把五份代码并排，鉴权逻辑在同一个层次出现，不因框架差异而跳层。
-2. **鉴权逻辑可见**：public vs. protected 端点的区别一眼就能从 `requireUser` vs. `currentUser` 看出来，不需要查路由文件的中间件列表。
-3. **教学项目规模**：只有一个 Controller、不到 30 个端点；middleware 带来的复用收益远小于引入的间接层开销。
-
-真实规模的 Laravel 项目建议走 guard + middleware——尤其是端点多、权限复杂的场景。
-
-### 7.3 收藏和 `favorite_count`
-
-`FavoriteService` 在 `DB::transaction()` 里用 Eloquent 维护收藏：
-
-- `addFavorite()`：`Capsule::where(...)->lockForUpdate()->first()` 锁行、检查公开状态和不能收藏自己、`Favorite::create()`、`$cap->increment('favorite_count', 1, ['updated_at' => $now])`。
-- `removeFavorite()`：幂等 `Favorite::where(...)->delete()`，删除成功才 `Capsule::where('favorite_count','>',0)->decrement(...)`（`> 0` 守卫把计数下限钳在 0）。
-- PostgreSQL 走 `lockForUpdate()` 序列化并发；SQLite 依赖单写事务。
-
-前端收藏按钮用 Alpine 异步 fetch 调 `/api/v1/me/favorites` 和 `/api/v1/me/favorites/{id}`，与 Spring/Rails 的同步 `/ui/*` 切换不同。
-
-> 收藏测试「点完收藏立刻 `goto('/me/favorites')`」曾在 PostgreSQL 上偶发 `net::ERR_ABORTED`。根因不在收藏层，而在广场**搜索框**：`@input.debounce.300ms` 触发整页 `form.submit()`，这个迟到的导航与测试随后的 `goto` 相撞。修复是给提交加焦点守卫 `document.activeElement === $el && $el.form.submit()`——只在搜索框仍持有焦点时才提交；用户中途点了卡片/收藏（焦点已离开）就不再触发那次迟到跳转。这既消除竞态，也是更合理的实时搜索 UX。
-
-## 8. 客户端：Blade + Alpine + 原生 fetch
-
-### 8.1 `layouts/app.blade.php`
-
-公共布局包含：
-
-- HTML head、全局 CSS/JS 引入。
-- Header、用户菜单、登录态入口。
-- 主题切换。
-- Footer 和技术栈展示。
-
-页面模板只填自己的主体内容。
-
-### 8.2 Blade components
-
-`resources/views/components/*` 承担复用：
-
-- `capsule-card.blade.php`：广场、我创建的、我收藏的共用卡片。
-- `pagination.blade.php`：分页。
-- `me-nav.blade.php`：个人中心导航。
-
-这对应 Next/Nuxt 的 `components/*`，只是渲染发生在服务端。
-
-### 8.3 `public/js/app.js`
-
-`app.js` 是浏览器增强入口。它不保存 access token，因为 token 在 httpOnly cookie 中；fetch 同源 API 时浏览器自动携带 cookie。
-
-AI 相关交互直接请求：
-
-- `GET /api/v1/capsule-recommendations?count=4`
-- `POST /api/v1/capsule-suggestion`
-
-资料页直接请求：
-
-- `PATCH /api/v1/me`
-- `POST /api/v1/me/password`
-
-这样 UI smoke 可以像 Next/Nuxt 一样 mock `/api/v1/*`。
-
-## 9. 样式：Tailwind v4 + 设计令牌
-
-Laravel 版样式源在 `resources/css/app.css`，构建产物在 `public/css/app.css`。
-
-约束与 Next/Nuxt 相同：
-
-- 使用 `spec/styles` 的 token。
-- 复用 `cy-*` 组件类。
-- 不在 Blade 中硬编码颜色和间距。
-- 修改样式后通过 `./build` 生成最新静态 CSS。
-
-Alpine.js 被复制到 `public/js/alpine.min.js`，避免运行时依赖 CDN。
-
-## 10. 与 Next/Nuxt 的并排对比
-
-| 关注点 | Next/Nuxt | Laravel |
+## 4. 服务端架构与 2.0 契约要点
+
+### 4.1 路由与控制器边界
+
+- **`routes/api.php`**：暴露全部 2.0 端点，相比 1.x 新增 `GET /api/v1/plaza/stats` 与 `GET /api/v1/me/stats`。
+- **`HelloTimeApiController`**：
+  - 所有端点统一经 `api(callable $fn, int $status = 200, bool $empty = false)` 输出标准 envelope 或 204 无响应体。
+  - `register`、`login`、`refresh` 在返回 JSON token 对的同时调用 `attachAuthCookies()` 写入 `ht_access`（60 分钟）与 `ht_refresh`（7 天）httpOnly cookie（`SameSite=Lax`、`path=/`，并在 `bootstrap/app.php` 中加入 `encryptCookies` 白名单以便与 Bearer JWT 共用解析逻辑）。
+  - `logout` 与 `changePassword` 成功返回 204 时同时调用 `forgetAuthCookies()` 过期两枚 cookie。
+- **`PageController` 与 `AuthController`**：
+  - 受保护路由（`/create`、`/me/*`）在服务端第一帧即校验 `$this->auth->currentUser($request)`，未登录直接返回 `302 /login?redirect=...`，不存在“先闪出受保护页再客户端跳转”的问题。
+  - 已登录访问 `/login` 或 `/register` 直接 302 回首页。
+  - `/capsules/{code}` 查无此码时返回 HTTP 404 状态码并渲染带 `status: 'missing'` 的详情模板（呈现 `detail-not-found`），与未知路由的 404（`not-found`）语义分离。
+  - `AppServiceProvider` 通过 `View::composer` 统一向布局注入 `$currentUserDto`、`$health` 与 `$avatarCatalog`。
+
+### 4.2 2.0 业务规则清单落地
+
+1. **`GET /api/v1/plaza/stats?q=`**（`PlazaService::plazaStats`）：
+   - 与 `plazaList()` 复用同一套 `basePlazaQuery()`（`in_plaza = true`、`has('owner')`、转义后的 `LIKE ... ESCAPE '\'` 匹配标题或作者昵称）。
+   - `counts`（`all` / `opened` / `unopened`）在空集合下严格落成 `0`。
+   - `farthestOpenAt` 与 `nextOpenAt` 不受 `q` 影响，且采用 `ORDER BY open_at DESC/ASC LIMIT 1` 取列，避免 SQLite 聚合函数丢失类型或格式。
+2. **`GET /api/v1/me/stats`**（`CapsuleService::myStats`）：统计当前用户的 `created`、`opened`、`unopened`、`inPlaza`、`favoritesReceived`、`favoritesGiven`，涵盖 `inPlaza = false` 的胶囊。
+3. **2.0 收藏口径与并发锁**（`FavoriteService`）：
+   - 不再限制自己、未公开或未开启胶囊；只校验路径/请求体中的 UUID 格式（非法 → 422 `VALIDATION_ERROR`）与胶囊存在性（不存在 → 添加返回 404，取消保持幂等 204）。
+   - PostgreSQL 事务中先单独对 `capsules` 行执行 `lockForUpdate()`（不 join `users`，避免误锁作者行），再写入/删除 `favorites` 并维护 `favorite_count`。
+4. **删除胶囊连带删收藏**（`CapsuleService::deleteCapsule`）：
+   - 在同一事务内先锁胶囊行、显式删除该胶囊的全部 `favorites` 记录，再删除 `capsule`，不依赖数据库外键级联（`ApiV2RegressionTest` 专门在 `PRAGMA foreign_keys = OFF` 下回归验证）。
+5. **开启时间上限 = 10 个日历年**（`CrossDb::addCalendarYears`）：
+   - 按 UTC 年份加 10，若原日期在目标年不存在（例如闰年 2 月 29 日），显式回退到当月最后一天（2 月 28 日），避免 PHP `DateTimeImmutable::modify('+10 years')` 自动进位到 3 月 1 日。
+6. **路径参数 UUID 校验与显式 `null` 输出**：
+   - `GET /plaza/capsules/{id}`、`DELETE /me/capsules/{id}`、`DELETE /me/favorites/{capsuleId}` 与 `POST /me/favorites` 统一先校验标准 UUID 格式，不合法返回 422。
+   - `Mapper` 对 `content`、`contentPreview`、`favoritedAt`、`farthestOpenAt`、`nextOpenAt` 等可空字段始终保留键并输出 `null`，绝不省略。
+7. **头像升级至 v2**：`AvatarCatalog` 读取 `spec/avatars/v2/catalog.json` 并提取内联 SVG `<path>` 供前端双皮肤印章/头像组件复用。
+
+## 5. 数据层：Eloquent ORM + `CrossDb`
+
+由于 `spec/db/schema.sql` 规定 SQLite 存 32 位无横线 hex ID + ISO-8601 TEXT + `0/1` 整数，PostgreSQL 存原生 `uuid` + `timestamptz` + `boolean`，本实现把差异严格隔离在三处：
+
+1. **模型主键与关系保持原始存储格式**（`HasCrossDbKey`）：不在 Eloquent 层把 `id` Cast 成带横线 UUID，确保 SQLite 上 `belongsTo` / `hasMany` 外键连接永远命中。查询入口使用 `CrossDb::idCandidates($uuid)`（SQLite 同时匹配 32-hex 与带横线 UUID，兼容种子数据与应用新建数据），输出出口由 `Mapper` 统一转为标准带横线 UUID。
+2. **自定义布尔 Cast**（`App\Casts\CrossDbBoolean`）：避免 PDO pgsql 返回 `'f'` 被 PHP `(bool) 'f'` 误判为 `true`。
+3. **跨库时间戳与 SQLite 并发配置**：
+   - `CrossDb::dbTimestamp()` 在 SQLite 下统一输出 6 位微秒 ISO UTC（`Y-m-d\TH:i:s.u+00:00`），与种子和新建记录字符串排序完全一致。
+   - `config/database.php` 为 SQLite 开启 `'busy_timeout' => 5000` 和 `'transaction_mode' => 'IMMEDIATE'`，避免并发写入从读锁升级写锁触发 `SQLITE_BUSY`。
+   - `AppServiceProvider` 为 SQLite PDO 注册基于 `mb_strtolower()` 的 Unicode `LOWER` 函数，保证中文及大小写混合搜索一致。
+   - `run` 脚本精确剥离 `sqlite:///` 前缀并将相对路径按仓库根目录解析，避免多去/少去斜杠导致路径错位。
+
+## 6. 客户端架构：Blade SSR + Alpine.js 3 双皮肤
+
+### 6.1 「逻辑一份，视图按皮肤分」的 Blade 实现方式
+
+与 SPA 框架（React / Vue）类似，Laravel 版也严格拆分「共享状态与业务交互」和「按皮肤呈现的视图」：
+
+- **外层页面壳（`resources/views/pages/*.blade.php`）** 挂载一个共享 Alpine 组件（如 `x-data="plazaHome()"`、`x-data="createPage()"`、`x-data="mePage()"`），读取服务端直出的 `window.__HT_INIT__` 作为初始状态。
+- **内层双皮肤视图** 用 `<template x-if="$store.ui.skin === 'paper'">` 和 `<template x-if="$store.ui.skin === 'amber'">` 条件渲染。
+  - **优点 1**：DOM 中永远只存在当前皮肤的一套节点，完全满足 `spec/ui/testids.md §1.4` 对非列表 `data-testid` 唯一性的要求。
+  - **优点 2**：切换皮肤时外层 `x-data` 不销毁，表单输入、搜索防抖计时器、半截胶囊码、创建草稿、封存提交锁与回执全部保留（满足契约 X5）。
+  - **优点 3**：固定数量的 SVG 刻度（星轨时钟表盘 60 刻度 + 60 表圈刻度 + 11 年份节点、首页主视觉 5 颗星芒、收藏 7 颗心形粒子）直接在 Blade 中用 `@for` / `@foreach` 输出，规避浏览器 HTML 解析器在 `<svg>` 内破坏 `<template x-for>` 的问题。
+
+### 6.2 四个 Alpine 脚本模块的职责
+
+| 文件 | 注册内容 | 职责 |
 |---|---|---|
-| 页面路由 | 文件系统路由 | `routes/web.php` |
-| API 路由 | `route.ts` / `server/api/*.ts` | `routes/api.php` |
-| 页面渲染 | React/Vue 组件 | Blade 模板 |
-| 浏览器状态 | Zustand/Pinia + Client Component | Alpine.js data/store |
-| 数据层 | Drizzle | Eloquent ORM + CrossDb |
-| 鉴权 | cookie/server helpers | Bearer 或 httpOnly cookie 双解析 |
-| 样式 | Tailwind v4 + tokens | Tailwind v4 + tokens |
-| schema 生命周期 | `scripts/db` | `scripts/db` |
+| `public/js/ht-core.js` | `HT` 工具集、`$store.ui`、`$store.auth`、`$store.clock`、`$store.feedback`、`amberBackdrop`、`userMenu`、`amberNavInk` | 格式化（按 Unicode 码点计数）、FNV-1a+OKLCH 专属色、同源 `fetch` 与 401 单飞刷新重放、View Transition 换肤（`data-skin-dir` + `is-skinning`）/ 圆形晕开明暗切换（`is-theming`）、星空粒子画布、Toast 与确认框 |
+| `public/js/ht-plaza.js` | `makeCodeOpener`、`paperCodeInput`、`amberCodeInput`、`segControl`、`favBtn`、`plazaHome`、`openPage` | 8 格输码（支持整码粘贴/填充替换不拼接）、分段滑块定位、乐观收藏与失败回滚、广场防抖搜索（按码点截断 50 字）、`/` 快捷键聚焦、到点整页刷新、错误清空旧卡片与重试 |
+| `public/js/ht-create.js` | `createPage`、`shakeOn`、`paperRuler`、`paperHoldSeal`、`paperCeremony`、`amberDateTimePicker`、`amberSealed` | 按账号隔离 `sessionStorage` 草稿、AI 推荐与逐字代笔（手动修改立即中止写入、失败保留原文）、10 日历年边界校验、时笺对数时间标尺 + 日历 + 定时器驱动长按火漆（1150ms，不依赖 rAF）、折纸信封仪式、琥珀「星轨时钟」（十年星轨、旅程线日历、非取模累加角度昼夜表盘、展开滚动与 `transitionend` 二次补滚） |
+| `public/js/ht-capsule-account.js` | `capsuleDetailPage`、`loginPage`、`registerPage`、`mePage`、`meTabsIndicator` | 详情页倒计时归零自动开启 + 退避轮询 `awaitOpened`（1s..5s，`AbortController` 换肤/离页即停）、登录与注册跨皮肤保值、Unicode 码点昵称校验（区分 `invalid` 与 409 `taken`）、「我的」`list-next` 边界页重读与 ID 去重、删除确认、资料无改动提示与改密拦截 |
 
-关键差异：Laravel 的页面是“服务器一次性准备数据并渲染 HTML”，不是客户端 store 驱动的 SPA。交互只在需要即时反馈时进入 Alpine。
+### 6.3 样式系统（零 Tailwind）
 
-## 11. 与 Rails / Spring MVC 的对照
+`layouts/app.blade.php` 按规范严格顺序加载同步到 `public/styles/` 的原样文件：
 
-| 关注点 | Spring MVC | Rails | Laravel |
-|---|---|---|---|
-| 模板 | Thymeleaf | ERB | Blade |
-| 局部刷新 | HTMX | Turbo Frame/Stream | 以整页 SSR + Alpine fetch 为主 |
-| 前端小状态 | 原生 JS | Stimulus | Alpine.js |
-| 鉴权桥 | `CookieTokenFilter` 注入 Bearer | Rack middleware 注入 Bearer | `AuthService` 同时读 Bearer/cookie |
-| 数据跨库 | Hibernate JdbcType | ActiveRecord Type + `CrossDb` | Eloquent 自定义 Cast + `CrossDb` |
+1. 自托管 `@fontsource` 字体（Noto Serif SC、Cormorant Garamond、IBM Plex Mono）；
+2. `base.css` → `paper/{tokens,components,pages}.css` → `amber/{tokens,components,pages}.css` → `shell.css`；
+3. 本实现唯一胶水样式 `public/css/laravel.css`（仅 `[x-cloak] { display: none !important; }` 与 `.list-more { margin-top: var(--space-8); text-align: center; }`，零硬编码色值）。
 
-三者都保持同一原则：一个进程提供 JSON API 和 SSR UI，页面与 API 共用业务服务。
+## 7. 与其他全栈实现的并排对照
 
-## 12. 常见改动指南
+| 关注点 | Next / Nuxt | Spring MVC | Rails | Laravel（本实现） |
+|---|---|---|---|---|
+| 路由定义 | 文件系统路由 | `@Controller` / `@RestController` | `config/routes.rb` | `routes/web.php` + `routes/api.php` |
+| 视图与双皮肤 | React / Vue 双皮肤组件 | Thymeleaf + 客户端交互脚本 | ERB + Stimulus | Blade `<template x-if>` 双皮肤 + Alpine.js 3 |
+| 服务端直出数据 | Server Component / `useAsyncData` | Model 属性 | Instance vars / JSON script | `PageController` → `window.__HT_INIT__` |
+| 数据访问与跨库 | Drizzle ORM | Spring Data JPA / Hibernate | ActiveRecord + `CrossDb` | Eloquent ORM + `CrossDbBoolean` + `CrossDb` |
+| 会话鉴权 | Bearer（localStorage） | CookieTokenFilter 桥接 | Rack middleware 桥接 | `AuthService` 同时解析 Bearer 与 httpOnly cookie |
+| 样式方案 | `spec/styles` 2.0（零 Tailwind） | `spec/styles` 2.0（零 Tailwind） | `spec/styles` 2.0（零 Tailwind） | `spec/styles` 2.0（零 Tailwind） |
 
-- 新增 API：在 `routes/api.php` 加路由，在 `HelloTimeApiController` 加方法，业务放进 `app/Services/*`。
-- 新增页面：在 `routes/web.php` 加路由，在 `Web/*Controller` 准备数据，新建 Blade 模板。
-- 新增浏览器交互：优先用 Alpine data；需要契约行为时 fetch `/api/v1/*`。
-- 修改 schema：先改 `spec/db` 和仓库级 `scripts/db`，再同步 Laravel migration 参考文件、对应 Eloquent 模型（`$fillable`/Cast/关系）与 `CrossDb`。
-- 新增带跨库存储差异的字段：优先写自定义 Cast（参考 `CrossDbBoolean`），而不是在服务层散拼格式。
-- 修改收藏：必须保留 `DB::transaction` 和 `favorite_count` 维护（`increment/decrement`）。
-- 修改鉴权：同时验证 Bearer 契约和 httpOnly cookie 页面会话。
-- 修改样式：优先复用 `cy-*` 类和 `spec/styles` token。
-- 修改 LLM：保持 `LLM request` / `LLM response` / `LLM error` 结构化日志字段。
+## 8. 常见改动指南
 
-## 13. 学到这里之后
-
-Laravel 版的核心价值是展示“PHP 框架本地习惯下的 spec 对齐”：
-
-- 路由集中、Controller 薄、Service 承载业务。
-- Blade 负责内容型页面的 SSR。
-- Alpine 只处理小型浏览器状态。
-- Eloquent ORM（模型/关系/Cast）承载数据访问，自定义 Cast + CrossDb 精确压住双数据库差异。
-- `/api/v1/*` 仍然是黑盒验证的唯一契约来源。
+- **新增 API**：在 `routes/api.php` 注册路由 → 在 `HelloTimeApiController` 添方法 → 业务逻辑写入 `app/Services/*` → 输出结构在 `app/Support/Mapper.php` 统一收敛（可空字段显式返回 `null`）。
+- **新增页面**：在 `routes/web.php` 注册路由 → `PageController` 准备首屏数据并决定是否做服务端登录守卫 → 新建 `pages/<name>.blade.php` 及 `skins/{paper,amber}/_<name>.blade.php`。
+- **新增交互状态**：跨皮肤保留的状态放到页面外层的 Alpine `x-data` 或 `ht-core.js` 的 `Alpine.store`，单皮肤动效放到对应皮肤局部组件的 `x-data`（并在 `destroy()` 中清理定时器与 `document` 事件监听）。
+- **新增跨库字段**：优先通过自定义 Eloquent Cast（参考 `CrossDbBoolean`）与 `CrossDb` 归一，不要把驱动分支散落到控制器或模板里。
+- **修改样式或静态资源**：所有设计令牌与皮肤样式均以仓库根 `spec/styles/` 为准，修改后运行 `./build`（或 `bash ./scripts-sync-assets.sh`）同步，并用 `./verification/scripts/verify-design-tokens.sh laravel` 核验。

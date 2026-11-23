@@ -1,19 +1,14 @@
 {
-    "$schema": "https://www.schemastore.org/package.json",
+    "$schema": "https://getcomposer.org/schema.json",
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "mkdir -p public/js && cp node_modules/alpinejs/dist/cdn.min.js public/js/alpine.min.js",
-        "dev": "vite"
-    },
-    "devDependencies": {
-        "@tailwindcss/vite": "^4.0.0",
-        "concurrently": "^9.0.1",
-        "laravel-vite-plugin": "^3.1",
-        "tailwindcss": "^4.0.0",
-        "vite": "^8.0.0"
+        "build": "bash ./scripts-sync-assets.sh"
     },
     "dependencies": {
+        "@fontsource/cormorant-garamond": "^5.3.0",
+        "@fontsource/ibm-plex-mono": "^5.3.0",
+        "@fontsource/noto-serif-sc": "^5.3.1",
         "alpinejs": "^3.15.12"
     }
 }

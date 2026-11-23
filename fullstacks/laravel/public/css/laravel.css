@@ -1,0 +1,15 @@
+/* ============================================================
+ * HelloTime Pro Laravel 全栈 · 样式胶水（2.0）
+ * 只用 base.css 刻度与语义层令牌，不写色值字面量、不引用皮肤私有令牌。
+ * ============================================================ */
+
+[x-cloak] {
+  display: none !important;
+}
+
+/* 「我的」列表底部的「加载更多」 */
+.list-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-8);
+}

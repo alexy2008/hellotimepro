@@ -26,8 +26,7 @@ class AuthService
     private const ACCESS_TTL = 3600;            // 1 小时
     private const REFRESH_TTL = 7 * 24 * 3600;  // 7 天
     private const LOGIN_MAX_ATTEMPTS = 10;      // 锁定阈值：窗口内连续失败次数
-    private const LOGIN_DECAY = 900;            // 失败计数窗口（秒）。15 分钟而非 60 秒：
-                                                // 既是更合理的暴力破解防护，也让计数不受单请求时延影响而稳定累积。
+    private const LOGIN_DECAY = 900;            // 失败计数窗口（秒）
 
     public function __construct(
         private readonly CrossDb $db,
@@ -46,14 +45,28 @@ class AuthService
         $avatar = (string) ($body['avatarId'] ?? 'neo');
         $details = [];
 
-        if (!$this->validate->email($email)) $details[] = ['field' => 'email', 'message' => '邮箱格式错误'];
-        if (!$this->validate->password($password)) $details[] = ['field' => 'password', 'message' => '密码至少 8 位且包含字母和数字'];
-        if (!$this->validate->nickname($nickname)) $details[] = ['field' => 'nickname', 'message' => '昵称长度需为 2-20，且仅包含中英文、数字、下划线或连字符'];
-        if (!$this->avatars->valid($avatar)) $details[] = ['field' => 'avatarId', 'message' => '头像不存在'];
-        if ($details) throw new ApiError(422, 'VALIDATION_ERROR', '请求参数不合法', $details);
+        if (!$this->validate->email($email)) {
+            $details[] = ['field' => 'email', 'message' => '邮箱格式错误'];
+        }
+        if (!$this->validate->password($password)) {
+            $details[] = ['field' => 'password', 'message' => '密码至少 8 位且包含字母和数字'];
+        }
+        if (!$this->validate->nickname($nickname)) {
+            $details[] = ['field' => 'nickname', 'message' => '昵称长度需为 2-20，且仅包含中英文、数字、下划线或连字符'];
+        }
+        if (!$this->avatars->valid($avatar)) {
+            $details[] = ['field' => 'avatarId', 'message' => '头像不存在'];
+        }
+        if ($details) {
+            throw new ApiError(422, 'VALIDATION_ERROR', '请求参数不合法', $details);
+        }
 
-        if (User::where('email', $email)->exists()) throw new ApiError(409, 'CONFLICT', '邮箱已存在');
-        if (User::where('nickname', $nickname)->exists()) throw new ApiError(409, 'CONFLICT', '昵称已存在');
+        if (User::where('email', $email)->exists()) {
+            throw new ApiError(409, 'CONFLICT', '邮箱已存在', [['field' => 'email', 'message' => '该邮箱已被注册']]);
+        }
+        if (User::where('nickname', $nickname)->exists()) {
+            throw new ApiError(409, 'CONFLICT', '昵称已存在', [['field' => 'nickname', 'message' => '该昵称已被占用']]);
+        }
 
         $now = $this->db->nowDb();
         $user = User::create([
@@ -79,7 +92,7 @@ class AuthService
         $user = User::where('email', $email)->first();
         if (!$user || !Hash::check((string) ($body['password'] ?? ''), $user->password_hash)) {
             RateLimiter::hit($key, self::LOGIN_DECAY);
-            throw new ApiError(401, 'UNAUTHORIZED', '邮箱或密码错误');
+            throw new ApiError(401, 'UNAUTHORIZED', '邮箱或密码不正确');
         }
 
         RateLimiter::clear($key);
@@ -88,16 +101,26 @@ class AuthService
 
     public function refresh(string $refreshToken): array
     {
-        if ($refreshToken === '') throw new ApiError(401, 'UNAUTHORIZED', 'refresh token 无效');
+        if ($refreshToken === '') {
+            throw new ApiError(401, 'UNAUTHORIZED', 'refresh token 无效');
+        }
         $hash = hash('sha256', $refreshToken);
 
         $result = DB::transaction(function () use ($hash) {
-            $rt = RefreshToken::with('user')->where('token_hash', $hash)->lockForUpdate()->first();
-            if (!$rt) return ['error' => [401, 'UNAUTHORIZED', 'refresh token 无效']];
+            $query = RefreshToken::with('user')->where('token_hash', $hash);
+            if (!$this->db->isSqlite()) {
+                $query->lockForUpdate();
+            }
+            $rt = $query->first();
+            if (!$rt || !$rt->user) {
+                return ['error' => [401, 'UNAUTHORIZED', 'refresh token 无效']];
+            }
 
             if (!empty($rt->revoked_at)) {
                 // 复用已吊销的 token：判定为家族泄露，吊销整族（仅未吊销的置时间戳）。
-                RefreshToken::where('family_id', $rt->family_id)->whereNull('revoked_at')->update(['revoked_at' => $this->db->nowDb()]);
+                RefreshToken::where('family_id', $rt->family_id)
+                    ->whereNull('revoked_at')
+                    ->update(['revoked_at' => $this->db->nowDb()]);
                 return ['error' => [401, 'UNAUTHORIZED', 'refresh token 已失效']];
             }
 
@@ -132,16 +155,27 @@ class AuthService
         $auth = $request->header('Authorization', '');
         $token = '';
         if ($auth !== '') {
-            if (!str_starts_with($auth, 'Bearer ')) return null;
+            if (!str_starts_with($auth, 'Bearer ')) {
+                return null;
+            }
             $token = substr($auth, 7);
         } elseif ($request->cookies->has('ht_access')) {
             $token = (string) $request->cookies->get('ht_access');
         }
 
-        if ($token === '') return null;
+        if ($token === '') {
+            return null;
+        }
         $claims = $this->jwt->decode($token);
-        if (!$claims || empty($claims['sub'])) return null;
-        return User::find($claims['sub']);
+        if (!$claims || empty($claims['sub'])) {
+            return null;
+        }
+        $sub = (string) $claims['sub'];
+        $canonical = $this->db->canonicalUuid($sub);
+        if ($canonical !== null) {
+            return User::whereIn('id', $this->db->idCandidates($canonical))->first();
+        }
+        return User::find($sub);
     }
 
     public function requireUser(Request $request): User
@@ -151,7 +185,9 @@ class AuthService
             throw new ApiError(401, 'UNAUTHORIZED', '未认证');
         }
         $user = $this->currentUser($request);
-        if (!$user) throw new ApiError(401, 'UNAUTHORIZED', '未认证');
+        if (!$user) {
+            throw new ApiError(401, 'UNAUTHORIZED', '未认证');
+        }
         return $user;
     }
 
@@ -161,14 +197,18 @@ class AuthService
             throw new ApiError(401, 'UNAUTHORIZED', '当前密码错误');
         }
         $next = (string) ($body['newPassword'] ?? '');
-        if (!$this->validate->password($next)) throw new ApiError(422, 'VALIDATION_ERROR', '新密码不符合要求');
+        if (!$this->validate->password($next)) {
+            throw new ApiError(422, 'VALIDATION_ERROR', '新密码不符合要求', [['field' => 'newPassword', 'message' => '密码至少 8 位且包含字母和数字']]);
+        }
 
         $user->password_hash = Hash::make($next);
         $user->updated_at = $this->db->nowDb();
         $user->save();
 
         // 改密吊销全部未吊销 refresh token，迫使所有会话重新登录。
-        RefreshToken::where('user_id', $user->id)->whereNull('revoked_at')->update(['revoked_at' => $this->db->nowDb()]);
+        RefreshToken::where('user_id', $user->id)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => $this->db->nowDb()]);
     }
 
     /** 签发 access + refresh token 对；familyId 非空表示沿用同一家族（轮转）。 */

@@ -29,15 +29,23 @@ class ProfileService
     public function updateProfile(User $user, array $body): array
     {
         $allowed = array_key_exists('nickname', $body) || array_key_exists('avatarId', $body);
-        if (!$allowed) throw new ApiError(422, 'VALIDATION_ERROR', '至少提供 nickname 或 avatarId');
+        if (!$allowed) {
+            throw new ApiError(422, 'VALIDATION_ERROR', '至少提供 nickname 或 avatarId');
+        }
 
         $nickname = array_key_exists('nickname', $body) ? trim((string) $body['nickname']) : $user->nickname;
         $avatar = array_key_exists('avatarId', $body) ? (string) $body['avatarId'] : $user->avatar_id;
-        if (!$this->validate->nickname($nickname)) throw new ApiError(422, 'VALIDATION_ERROR', '昵称长度需为 2-20');
-        if (!$this->avatars->valid($avatar)) throw new ApiError(422, 'VALIDATION_ERROR', '头像不存在');
+        if (!$this->validate->nickname($nickname)) {
+            throw new ApiError(422, 'VALIDATION_ERROR', '昵称长度需为 2-20', [['field' => 'nickname', 'message' => '昵称需为 2–20 个字符：字母、数字、下划线或连字符']]);
+        }
+        if (!$this->avatars->valid($avatar)) {
+            throw new ApiError(422, 'VALIDATION_ERROR', '头像不存在', [['field' => 'avatarId', 'message' => '头像不存在']]);
+        }
 
         $conflict = User::where('nickname', $nickname)->where('id', '!=', $user->id)->exists();
-        if ($conflict) throw new ApiError(409, 'CONFLICT', '昵称已存在');
+        if ($conflict) {
+            throw new ApiError(409, 'CONFLICT', '昵称已被占用', [['field' => 'nickname', 'message' => '该昵称已被占用']]);
+        }
 
         $user->nickname = $nickname;
         $user->avatar_id = $avatar;

@@ -34,7 +34,12 @@ DB_URL="${DB_URL:-postgresql://hellotime:hellotime@127.0.0.1:55432/hellotime_pro
 if [[ "$DB_DRIVER" == "sqlite" ]]; then
   export DB_CONNECTION=sqlite
   if [[ "$DB_URL" == sqlite:///* ]]; then
-    export DB_DATABASE="${DB_URL#sqlite:///}"
+    RAW_PATH="${DB_URL#sqlite:///}"
+    if [[ "$RAW_PATH" == /* ]]; then
+      export DB_DATABASE="$RAW_PATH"
+    else
+      export DB_DATABASE="$ROOT/$RAW_PATH"
+    fi
   else
     export DB_DATABASE="$ROOT/data/sqlite/hellotime-laravel.db"
   fi
@@ -58,12 +63,10 @@ PYEOF
   )"
 fi
 
-if [[ ! -f public/js/alpine.min.js ]]; then
-  if [[ ! -d node_modules/alpinejs ]]; then
-    npm install --silent
-  fi
-  cp node_modules/alpinejs/dist/cdn.min.js public/js/alpine.min.js
+if [[ ! -d node_modules/alpinejs || ! -d node_modules/@fontsource/noto-serif-sc ]]; then
+  npm install --silent
 fi
+bash ./scripts-sync-assets.sh
 
 php artisan config:clear --quiet >/dev/null 2>&1 || true
 exec php artisan serve --host=0.0.0.0 --port="$PORT"

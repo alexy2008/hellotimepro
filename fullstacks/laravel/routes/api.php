@@ -15,6 +15,7 @@ Route::prefix('v1')->controller(HelloTimeApiController::class)->group(function (
     Route::get('/me', 'me');
     Route::patch('/me', 'updateMe');
     Route::post('/me/password', 'changePassword');
+    Route::get('/me/stats', 'myStats');
     Route::get('/me/capsules', 'myCapsules');
     Route::delete('/me/capsules/{id}', 'deleteCapsule');
     Route::get('/me/favorites', 'myFavorites');
@@ -23,6 +24,7 @@ Route::prefix('v1')->controller(HelloTimeApiController::class)->group(function (
 
     Route::post('/capsules', 'createCapsule');
     Route::get('/capsules/{code}', 'capsuleByCode');
+    Route::get('/plaza/stats', 'plazaStats');
     Route::get('/plaza/capsules', 'plaza');
     Route::get('/plaza/capsules/{id}', 'plazaDetail');
 
