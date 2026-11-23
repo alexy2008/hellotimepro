@@ -88,7 +88,7 @@
         <button class="search__x icon-btn" type="button" aria-label="清空搜索" data-action="plaza-search#clear"><%= icon "x" %></button>
       </label>
     </div>
-    <%= turbo_frame_tag "plaza-grid", data: { plaza_search_target: "panel" }, aria: { live: "polite" } do %>
+    <%= turbo_frame_tag "plaza-grid", target: "_top", data: { plaza_search_target: "panel" }, aria: { live: "polite" } do %>
       <%= render "public/plaza_grid" %>
     <% end %>
     <template data-plaza-search-target="errorTemplate"><%= render "public/plaza_error" %></template>

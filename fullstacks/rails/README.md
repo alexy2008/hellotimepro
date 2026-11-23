@@ -61,6 +61,14 @@ PostgreSQL 并发验证跑了 4 轮。重复收藏只计一次，同时删除与
 ./verification/scripts/verify-design-tokens.sh rails
 ```
 
+### 广场卡片导航回归
+
+启动 Rails 并准备至少一枚公开胶囊后，可使用共享 UI 验证的 Playwright 和 Chromium 运行卡片导航回归。用例覆盖两套皮肤下的首屏和搜索结果，从卡片点击验证顶层地址与详情内容。
+
+```bash
+node --test fullstacks/rails/script/plaza_navigation.cjs
+```
+
 ## 2.0 迁移笔记
 
 - 网页详情统一为 `/capsules/:code`，登录回跳使用 `redirect`。网页保留 HttpOnly Cookie 和 Rails CSRF 校验，JSON 接口继续支持 Bearer JWT。
