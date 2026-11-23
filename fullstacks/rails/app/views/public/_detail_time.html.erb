@@ -1,0 +1,4 @@
+<time class="<%= local_assigns[:css] %>" datetime="<%= value %>" data-controller="local-time"
+      data-local-time-precise-value="<%= local_assigns.fetch(:precise, true) %>">
+  <%= local_assigns.fetch(:precise, true) ? fmt_datetime(value) : fmt_date(value) %>
+</time>

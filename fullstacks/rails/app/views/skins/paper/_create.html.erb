@@ -1,0 +1,77 @@
+<div class="wrap create">
+  <header class="pagehead">
+    <div><div class="overline"><i></i>New capsule</div><h1 class="h1">写给未来的信</h1></div>
+    <p class="lede">这段文字会被封存，直到你设定的时刻，<br>才能被任何人——包括你自己——打开。</p>
+  </header>
+  <div class="create__grid">
+    <section class="sheet" aria-label="信的内容" data-create-target="writing">
+      <div class="sheet__head"><span class="sheet__to">致 未来 ——</span><%= render "create/ai", skin: "paper" %></div>
+      <div class="sheet__title">
+        <%= render "create/field", skin: "paper", field: "title" %>
+        <span class="sheet__n mono"><b data-create-target="titleCount">0</b>/60</span>
+      </div>
+      <%= render "create/error", skin: "paper", field: "title" %>
+      <%= render "create/recommendations", skin: "paper" %>
+      <div class="sheet__body"><%= render "create/field", skin: "paper", field: "content" %></div>
+      <%= render "create/error", skin: "paper", field: "content" %>
+      <div class="sheet__foot">
+        <span class="sheet__ainote" data-create-target="aiNote" role="status"></span>
+        <span class="sheet__n mono"><b data-create-target="contentCount">0</b> / 5000</span>
+      </div>
+      <div class="sheet__sign"><span>——</span><%= avatar current_user.avatar_id %><b><%= current_user.nickname %></b>
+        <span class="sheet__date"><%= Time.current.strftime("%Y 年 %m 月 %d 日") %></span>
+      </div>
+    </section>
+    <aside class="desk" aria-label="封缄设置">
+      <section class="panel">
+        <h2 class="panel__h"><span class="panel__no">壹</span>启封时刻</h2>
+        <%= render "create/presets", skin: "paper" %>
+        <%= render "skins/paper/time_picker" %>
+        <%= render "create/error", skin: "paper", field: "openAt" %>
+      </section>
+      <section class="panel">
+        <h2 class="panel__h"><span class="panel__no">贰</span>寄往广场</h2>
+        <label class="switch">
+          <%= render "create/publication", skin: "paper" %>
+          <span class="switch__track"><i></i></span>
+          <span class="switch__text">
+            <b data-preview="visibility-label">发布到胶囊广场</b>
+            <small data-preview="visibility-copy">所有人能看到标题与倒计时；正文在启封后公开。</small>
+          </span>
+        </label>
+      </section>
+      <section class="panel panel--seal">
+        <h2 class="panel__h"><span class="panel__no">叁</span>封缄</h2>
+        <div class="envf" aria-hidden="true">
+          <div class="envf__stamp"><%= avatar current_user.avatar_id, "av--lg" %></div>
+          <div class="envf__pm"><%= render "skins/paper/postmark", css: "pm--envf", text: fmt_date(initial_time), label: "启 封" %></div>
+          <div class="envf__to"><small>寄往</small><b data-preview="date"><%= fmt_date(initial_time) %></b>
+            <span><span data-preview="duration"></span>后的未来</span></div>
+          <div class="envf__title serif" data-preview="paper-title">《未命名的信》</div>
+          <div class="envf__from mono"><span>自 <%= Time.current.strftime("%Y/%m/%d") %> · <%= current_user.nickname %></span>
+            <span data-preview="visibility">广场公开</span></div>
+        </div>
+        <div class="hold-row">
+          <button class="hold" type="submit" aria-describedby="hold-hint" data-controller="seal-hold"
+                  data-view-testid="create-submit" data-create-target="submit"
+                  data-action="pointerdown->seal-hold#pointerDown pointerup->seal-hold#cancel pointercancel->seal-hold#cancel
+                               lostpointercapture->seal-hold#cancel keydown->seal-hold#keyDown keyup->seal-hold#keyUp
+                               blur->seal-hold#cancel contextmenu->seal-hold#prevent click->seal-hold#prevent
+                               hellotime:skin@document->seal-hold#cancel">
+            <svg class="hold__ring" viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="hold__track" cx="60" cy="60" r="56"/>
+              <circle class="hold__prog" cx="60" cy="60" r="56" pathLength="100"/>
+            </svg>
+            <%= render "skins/paper/wax", css: "hold__wax" %><span class="sr-only">长按封缄</span>
+          </button>
+          <div class="hold-copy">
+            <b id="hold-hint" data-create-target="submitLabel">长按火漆，封缄</b>
+            <p>封存后，内容和开启时间都不能再修改；可以在「我创建的」里删除。</p>
+            <p class="hold-poem serif">复恐匆匆说不尽，行人临发又开封。</p>
+          </div>
+        </div>
+        <% if @error %><p class="sheet__err" role="alert"><%= @error %></p><% end %>
+      </section>
+    </aside>
+  </div>
+</div>

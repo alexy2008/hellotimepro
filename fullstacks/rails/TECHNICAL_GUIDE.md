@@ -8,13 +8,13 @@ Rails 把页面路由与 JSON API 安排在同一个进程中。网页请求由 
 |---|---|
 | `config/routes.rb` | 网页、`/api/v1` 和用于局部更新的 `/ui` 路由 |
 | `app/controllers/concerns/` | 网页 Cookie 登录态、API Bearer 校验 |
-| `app/views/` | 布局、页面及 ERB partial；`skins/` 放两套皮肤的插画和时间控件 |
+| `app/views/` | 布局、页面及 ERB partial；`skins/` 放两套皮肤的创建、详情、回执、卡片、关于页与插画 |
 | `app/javascript/controllers/` | 按组件组织的 Stimulus 控制器 |
 | `app/javascript/lib/` | 请求、反馈、日期与草稿工具 |
 | `app/models/`、`app/lib/cross_db.rb` | Active Record 关联、查询作用域和跨库类型 |
 | `app/services/` | 应用用例、校验、契约序列化和 AI 服务 |
 
-例如直接访问 `/capsules/ABCD1234` 时，`PublicController#capsule` 先从服务读取胶囊，再渲染详情 HTML。若尚未开启，服务输出 `content: nil`，模板只渲染计时器。浏览器倒数归零后，从 Rails 查询详情片段。服务确认已开启时，控制器替换详情区域。初次加载区分查无此码和可重试的故障。
+例如直接访问 `/capsules/ABCD1234` 时，`PublicController#capsule` 先从服务读取胶囊，再渲染详情 HTML。若尚未开启，服务输出 `content: nil`，模板渲染倒计时与封存状态。倒数归零时，Stimulus 播放时笺的拆蜡启封或琥珀的胶囊开启动效，再从 Rails 读取详情片段。服务确认已开启时，控制器替换详情区域。初次加载区分查无此码和可重试的故障。
 
 ## Turbo 与 Stimulus 各负责什么
 
@@ -26,9 +26,9 @@ Rails 把页面路由与 JSON API 安排在同一个进程中。网页请求由 
 
 ## 两套皮肤与时间选择
 
-布局在 CSS 加载前把 `hellotime.skin` 和 `hellotime.theme` 写入 `<html>` 的数据属性。Propshaft 根据样式入口的 `@import` 加载根目录的 `spec/styles`，按 base、时笺、琥珀、shell 的顺序生效。页面模板共用业务字段与可操作节点，用皮肤专属 partial 装配信封、星轨、时钟等不同结构。换肤时更改根属性，原表单节点继续持有值、焦点和进行中的操作。
+布局在 CSS 加载前把 `hellotime.skin` 和 `hellotime.theme` 写入 `<html>` 的数据属性。Propshaft 根据样式入口的 `@import` 加载根目录的 `spec/styles`，按 base、时笺、琥珀、shell 的顺序生效。页面模板共用数据与业务操作，按皮肤使用参考结构与样式类。输码、搜索、账号表单使用同一组输入节点。创建页的两个字段组共用一个 Rails 表单，Stimulus 同步标题、正文、开启时间与发布范围，只有当前皮肤的字段参与提交。
 
-创建页保存一个 UTC ISO 开启时刻。时笺用非线性标尺和月历选择日期及时刻。琥珀在触发条下展开星轨时钟，滑轨换日期时保留本地时刻，表盘用累加角度跨过 12 点，日历和表盘都接受键盘操作。两个时间控件从同一个时刻同步显示，预设或 AI 建议写入后也会同步。时钟展开后会在动画结束时检查可见区域并补滚一次。
+创建页保存一个 UTC ISO 开启时刻。时笺用非线性标尺和月历选择日期及时刻。琥珀在触发条下展开星轨时钟，滑轨换日期时保留本地时刻，表盘用累加角度跨过 12 点，日历和表盘都接受键盘操作。两个时间控件从同一个时刻同步显示，预设或 AI 建议写入后也会同步。时笺通过长按火漆触发提交，琥珀在表单旁更新实时预览，两者收到相同的 Turbo Stream 回执并按当前皮肤演出。时钟展开后会在动画结束时检查可见区域并补滚一次。
 
 ## PostgreSQL 与 SQLite
 

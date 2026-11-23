@@ -1,4 +1,1 @@
-<div class="wrap container route-message" role="alert">
-  <h1 class="h1 page-title">暂时无法查看这枚胶囊</h1>
-  <%= link_to "重试", request.path, class: "btn btn--primary", data: { turbo: false } %>
-</div>
+<%= render "public/notice", kind: :unavailable %>

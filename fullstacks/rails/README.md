@@ -69,9 +69,19 @@ PostgreSQL 并发验证跑了 4 轮。重复收藏只计一次，同时删除与
 node --test fullstacks/rails/script/plaza_navigation.cjs
 ```
 
+### 双皮肤交互回归
+
+2026-11-23 对齐 Rails 页面后，PostgreSQL 与 SQLite 的完整双皮肤 UI 冒烟各通过 88/88。最后补齐时笺标尺后，另复验创建、换肤、个人中心、公开页面与广场导航，并用正常动效跑下面的仪式回归。
+
+这个测试保留正常动效，会创建验证账号和胶囊。将服务连到独立验证库后再执行。用例覆盖桌面换肤与发布状态同步、390px 时笺长按与盖印，以及两套皮肤在真实倒计时归零后的开启过程。
+
+```bash
+FRONTEND_URL=http://127.0.0.1:7181 node --test fullstacks/rails/script/skin_alignment.cjs
+```
+
 ## 2.0 迁移笔记
 
 - 网页详情统一为 `/capsules/:code`，登录回跳使用 `redirect`。网页保留 HttpOnly Cookie 和 Rails CSRF 校验，JSON 接口继续支持 Bearer JWT。
-- 时笺和琥珀共享表单、输码与筛选节点。ERB partial 提供各自的插画与时间控件，首帧由本地偏好决定 CSS 呈现。Stimulus 通过静态 importmap 注册，搜索框、输码框和皮肤控件在事件接好后启用。
+- 时笺和琥珀使用各自的 ERB 页面结构，共用服务端路由与 Stimulus 交互。创建页的表单状态可跨皮肤延续，服务端用 Turbo Stream 返回封存回执。首帧由本地偏好决定皮肤和明暗，Stimulus 控件在事件接好后启用。
 - SQLite 的种子、旧 Rails 行和其他栈写出的行可能使用不同 UUID 表示。Active Record 将 UUID 读成统一格式并保留已有键的原始值，按码查询、收藏关系和删除可处理两种存储格式。
 - SQLite 比较时间时会补齐 ISO 文本的小数秒。这样能正确区分同一秒内的整秒与小数秒。搜索用 SQLite 连接级 Unicode 小写函数和字面转义。

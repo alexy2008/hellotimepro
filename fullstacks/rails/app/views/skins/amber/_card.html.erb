@@ -1,0 +1,33 @@
+<% opened = capsule[:isOpened]
+   opened_at = capsule[:openAt]
+   created_at = capsule[:createdAt] %>
+<%= tag.article class: "pc #{opened ? 'is-opened' : 'is-locked'}",
+                style: "--i: #{index}; --glow: oklch(0.72 0.17 #{capsule_hue(capsule[:code])} / 0.34)",
+                data: capsule_attrs(capsule).merge(skin_only: "amber", view_testid: item_hook, personal_list_row: (item_hook == "fav-item")) do %>
+  <%= link_to "", capsule_path(capsule[:code]), class: "pc__link", aria: { label: capsule[:title] }, data: { view_testid: open_hook } %>
+  <div class="pc__top">
+    <div class="pc__art"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: opened, width: 150 %></div>
+    <div class="pc__badges">
+      <span class="badge badge--<%= opened ? "opened" : "locked" %>"><%= icon(opened ? "mail" : "lock") %> <%= opened ? "已开启" : "封存中" %></span>
+      <% if rank %><span class="badge badge--hot"><%= icon "fire" %> 热度 No.<%= rank %></span><% end %>
+      <% unless capsule[:inPlaza] %><span class="badge badge--private"><%= icon "lock" %> 未公开</span><% end %>
+    </div>
+  </div>
+  <h3 class="pc__title" data-view-testid="card-title"><%= capsule[:title] %></h3>
+  <div class="pc__by"><%= avatar capsule[:creator][:avatarId] %><span class="pc__name"><%= capsule[:creator][:nickname] %></span>
+    <% if current_user&.nickname == capsule[:creator][:nickname] %><em class="me-tag">我</em><% end %>
+    <i></i> 封存于 <%= render "public/detail_time", value: created_at, precise: false %>
+  </div>
+  <div class="pc__body">
+    <% if opened %>
+      <p class="pc__excerpt"><%= capsule[:contentPreview] %></p>
+    <% else %>
+      <div class="pc__cd"><%= icon "hourglass" %><span class="pc__time mono"><%= render "shared/compact_countdown", open_at: opened_at %></span>后开启</div>
+      <div class="pc__progress" title="从封存到开启，时间已经走过的比例"><span style="width: <%= [2, waiting_progress(capsule)].max %>%"></span></div>
+    <% end %>
+  </div>
+  <div class="pc__foot">
+    <span class="pc__when"><%= icon "calendar" %><%= render "public/detail_time", value: opened_at %> <%= opened ? "已开启" : "开启" %></span>
+    <%= render "public/favorite_button", capsule: capsule, scoped: true %>
+  </div>
+<% end %>

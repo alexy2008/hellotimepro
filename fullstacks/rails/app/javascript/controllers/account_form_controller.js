@@ -3,17 +3,30 @@ import { Controller } from "@hotwired/stimulus";
 const VALID_NICKNAME = /^[\p{L}\p{N}_-]{2,20}$/u;
 
 export default class extends Controller {
-  static targets = ["nickname", "state", "password", "confirm", "error"];
+  static targets = ["nickname", "state", "password", "confirm", "error", "rule"];
+
+  passwordRules() {
+    const value = this.passwordTarget.value;
+    const passes = [Array.from(value).length >= 8, /[a-z]/i.test(value), /[0-9]/.test(value)];
+    this.ruleTargets.forEach((rule, index) => rule.classList.toggle("is-ok", passes[index]));
+  }
+
+  resetProfile() {
+    this.nicknameTarget.value = this.element.dataset.initialNickname;
+    this.clearNickname();
+  }
+
+  clearNickname() {
+    this.stateTarget.textContent = "";
+    delete this.stateTarget.dataset.testid;
+    delete this.stateTarget.dataset.state;
+    this.nicknameTarget.removeAttribute("aria-invalid");
+  }
 
   nickname() {
     const value = this.nicknameTarget.value;
     if (value) this.showNickname(VALID_NICKNAME.test(value));
-    else {
-      this.stateTarget.textContent = "";
-      delete this.stateTarget.dataset.testid;
-      delete this.stateTarget.dataset.state;
-      this.nicknameTarget.removeAttribute("aria-invalid");
-    }
+    else this.clearNickname();
   }
 
   validateNickname(event) {

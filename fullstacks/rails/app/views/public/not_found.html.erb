@@ -1,5 +1,1 @@
-<div class="wrap container route-message" data-testid="not-found">
-  <div class="overline eyebrow"><i></i>404</div>
-  <h1 class="h1 page-title">没有找到这一页</h1>
-  <%= link_to "返回广场", root_path, class: "btn btn--primary" %>
-</div>
+<%= render "public/notice", kind: :page, hook: "not-found" %>

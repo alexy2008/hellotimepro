@@ -1,13 +1,14 @@
 <div class="page page--plaza page--home">
-  <section class="hero container">
+  <section class="hero container" data-controller="hero-art" data-action="pointermove->hero-art#move pointerleave->hero-art#leave">
     <div class="wrap hero__in">
       <div class="hero__copy">
         <div class="overline eyebrow"><i></i>HelloTime Pro · 时间胶囊</div>
         <h1 class="hero__title">
           <span class="hero__line"><span class="hero__clip"><span>把此刻，</span></span></span>
-          <span class="hero__line"><span class="hero__clip"><span>寄给<em class="hero__future" data-text="未来">未来</em>。</span></span></span>
+          <span class="hero__line"><span class="hero__clip"><span>寄给<em class="hero__future" data-text="未来">未来</em><span data-skin-only="amber">。</span></span></span><span class="seal seal--solid hero__dot" data-skin-only="paper">封</span></span>
         </h1>
-        <p class="hero__lede">写下一段话，再选一个启封的时刻。<br>在那之前，谁也打不开它——包括你自己。</p>
+        <p class="hero__lede" data-skin-only="paper">写下一段话，再选一个启封的时刻。<br>在那之前，谁也打不开它——包括你自己。</p>
+        <p class="hero__lede" data-skin-only="amber">写下一段话，选定一个未来的时刻，把它封进胶囊。<br>在那之前，谁也读不到——包括你自己。</p>
         <div class="hero__cta">
           <%= create_link "写一枚胶囊", css: "btn btn--primary btn--lg", testid: "home-create" %>
           <a class="btn btn--ghost btn--lg" href="#plaza">逛逛胶囊广场 <%= icon "arrow", "ic--go" %></a>
@@ -17,30 +18,25 @@
           <p class="hquick__k quick__k"><%= icon "key" %> 已有胶囊码？在这里开启</p>
           <div class="hquick__row quick__row">
             <%= render "shared/code_fields", compact: true %>
-            <button class="hquick__go btn btn--soft" type="submit" aria-label="开启"><%= icon "arrow" %><span data-skin-only="amber">开启</span></button>
+            <button class="hquick__go btn btn--soft" type="submit" aria-label="开启"><span data-skin-only="amber">开启</span><%= icon "arrow" %></button>
           </div>
           <div class="hquick__err quick__err" role="alert" data-code-input-target="error"></div>
         </form>
-        <div class="hero__now"><span class="hero__now-k">此刻</span>
-          <time class="mono" data-controller="local-time" data-local-time-live-value="true"><%= Time.current.strftime("%Y/%m/%d %H:%M:%S") %></time>
+        <div class="hero__now" aria-live="off">
+          <span class="hero__live" data-skin-only="amber"></span>
+          <span class="hero__now-k" data-skin-only="paper">此刻</span><span data-skin-only="amber">此刻 ·</span>
+          <span data-skin-only="paper" data-controller="local-time" data-local-time-calendar-value="true"><%= Time.current.strftime("%Y年%m月%d日") %></span>
+          <time class="mono hero__now-t" data-controller="local-time" data-local-time-live-value="true" data-local-time-clock-value="true"><%= Time.current.strftime("%H:%M:%S") %></time>
         </div>
       </div>
-      <div class="hero__art">
+      <div class="hero__art" data-hero-art-target="art">
         <%= render "skins/paper/hero_art" %><%= render "skins/amber/hero_art" %>
         <% if @featured %>
-          <div class="ha ha--slip featured-slip" style="--depth: 1.5">
-            <%= link_to capsule_path(@featured[:code]), class: "slip", style: "--glow: oklch(0.72 0.17 #{capsule_hue(@featured[:code])} / 0.34)", data: { featured_id: @featured[:id] } do %>
-              <div class="slip__k"><span class="pulse-dot slip__dot"></span>广场上最受期待的一枚</div>
-              <div class="slip__t"><%= @featured[:title] %></div>
-              <div class="slip__cd"><%= render "shared/compact_countdown", open_at: @featured[:openAt] %></div>
-              <div class="slip__f mono"><span><%= @featured[:code] %></span>
-                <span class="slip__fav"><%= icon "heart" %><b data-featured-count><%= @featured[:favoriteCount] %></b></span>
-              </div>
-            <% end %>
-          </div>
+          <%= render "public/featured", capsule: @featured %>
         <% end %>
       </div>
     </div>
+    <div class="hero__side" data-skin-only="paper" aria-hidden="true"><span>见字如面</span><i></i><span class="latin">Est. 2026</span></div>
   </section>
   <section class="wrap container almanac stats" aria-label="广场概览" data-testid="plaza-stats">
     <% if @overview %>
@@ -59,15 +55,21 @@
   <section class="wrap container plaza" id="plaza" data-controller="plaza-search"
            data-plaza-search-page-value="<%= @page %>" data-plaza-search-filter-value="<%= @filter %>"
            data-plaza-search-sort-value="<%= @sort %>" data-plaza-search-fragment-value="<%= ui_plaza_grid_path %>">
-    <header class="plaza__head page-head page-head--split">
-      <div><div class="overline eyebrow"><i></i>Capsule Plaza</div><h2 class="h2 page-title">胶囊广场</h2></div>
-      <p class="plaza__sub page-lead">别人写给未来的话。<br>有的已经启封，有的还在路上。</p>
+    <header class="plaza__head" data-skin-only="paper">
+      <div><div class="overline"><i></i>Plaza</div><h2 class="h2">胶囊广场</h2></div>
+      <p class="plaza__sub">别人写给未来的话。<br>有的已经启封，有的还在路上。</p>
     </header>
-    <div class="toolbar card">
-      <div class="seg" role="group" aria-label="排序">
+    <header class="page-head page-head--split" data-skin-only="amber">
+      <div><div class="eyebrow">Capsule Plaza</div><h2 class="page-title">胶囊广场</h2>
+        <p class="page-lead">这里陈列着愿意被看见的胶囊。封存中的只露出标题与倒计时；时间到了，才会交出里面的话。</p>
+      </div>
+      <%= create_link "我也放一枚" %>
+    </header>
+    <div class="toolbar card" data-action="keydown@window->plaza-search#shortcut">
+      <div class="seg" data-skin-only="paper" role="group" aria-label="排序">
         <span class="seg__thumb" aria-hidden="true"></span>
         <% [["new", "clock", "最新"], ["hot", "fire", "最热"]].each do |value, glyph, label| %>
-          <button class="seg__opt <%= "is-active" if value == @sort %>" type="button" disabled data-testid="sort-option" data-value="<%= value %>"
+          <button class="seg__opt <%= "is-active" if value == @sort %>" type="button" disabled data-view-testid="sort-option" data-value="<%= value %>"
                   data-selected="<%= value == @sort %>" aria-pressed="<%= value == @sort %>"
                   data-plaza-search-target="sort" data-action="plaza-search#chooseSort"><%= icon glyph %><%= label %></button>
         <% end %>
@@ -78,19 +80,38 @@
           <% count = @stats&.dig(:counts, value.to_sym) %>
           <button class="seg__opt <%= "is-active" if value == @filter %>" type="button" disabled data-testid="filter-option" data-value="<%= value %>"
                   data-selected="<%= value == @filter %>" aria-pressed="<%= value == @filter %>" <%= "data-count=#{count}" if count %>
-                  data-plaza-search-target="filter" data-action="plaza-search#chooseFilter"><%= label %><sup><%= count %></sup></button>
+                  data-plaza-search-target="filter" data-action="plaza-search#chooseFilter"><% if value == "unopened" %><span data-skin-only="paper"><%= label %></span><span data-skin-only="amber">封存中</span><% else %><%= label %><% end %><sup><%= count %></sup></button>
         <% end %>
       </div>
       <label class="search input-wrap"><%= icon "search", "input-wrap__icon" %>
         <input class="input" type="search" aria-label="搜索胶囊" disabled value="<%= @q %>" placeholder="搜索标题或昵称"
                autocomplete="off" data-testid="plaza-search" data-plaza-search-target="search"
                data-action="input->plaza-search#input compositionend->plaza-search#input keydown.esc->plaza-search#clear">
+        <kbd class="kbd" aria-hidden="true">/</kbd>
         <button class="search__x icon-btn" type="button" aria-label="清空搜索" data-action="plaza-search#clear"><%= icon "x" %></button>
       </label>
+      <div class="select" data-skin-only="amber">
+        <select aria-label="排序" data-view-testid="plaza-sort" disabled data-plaza-search-target="sortSelect" data-action="change->plaza-search#chooseSort">
+          <% [["new", "最新封存"], ["hot", "最多收藏"]].each do |value, label| %>
+            <%= tag.option label, value: value, selected: @sort == value %>
+          <% end %>
+        </select>
+        <%= icon "chev-down", "select__arrow" %>
+      </div>
     </div>
     <%= turbo_frame_tag "plaza-grid", target: "_top", data: { plaza_search_target: "panel" }, aria: { live: "polite" } do %>
       <%= render "public/plaza_grid" %>
     <% end %>
     <template data-plaza-search-target="errorTemplate"><%= render "public/plaza_error" %></template>
+    <template data-plaza-search-target="loadingTemplate">
+      <div class="grid" aria-hidden="true">
+        <% 6.times do |index| %>
+          <div class="cap cap--skel" data-skin-only="paper" style="--i: <%= index %>"><i class="sk sk--a"></i><i class="sk sk--b"></i><i class="sk sk--c"></i><i class="sk sk--c2"></i><i class="sk sk--d"></i></div>
+          <div class="pc pc--skel" data-skin-only="amber" style="--i: <%= index %>">
+            <i class="sk sk--capsule"></i><i class="sk sk--title"></i><i class="sk sk--by"></i><i class="sk sk--line"></i><i class="sk sk--line"></i>
+          </div>
+        <% end %>
+      </div>
+    </template>
   </section>
 </div>

@@ -1,85 +1,14 @@
 <div class="page page--create" data-controller="create" data-create-owner-value="<%= current_user.id %>"
-     data-action="hellotime:skin@document->create#showTimeHook time-picker:picked->create#pickTime">
-  <div class="wrap container create">
-    <div data-create-target="editor">
-      <header class="create__head page-head">
-        <div class="overline eyebrow"><i></i>Seal a capsule</div>
-        <h1 class="h1 page-title">写一枚胶囊</h1>
-        <p class="page-lead">写下现在想说的话，再为它挑一个开启的日子。</p>
-      </header>
-      <div class="create__grid create-layout">
-        <%= form_with url: create_path, html: { class: "sheet create__form card", novalidate: true },
-                      data: { create_target: "form", turbo: false, action: "submit->create#submit input->create#edit compositionend->create#edit" } do %>
-          <% initial_time = params[:openAt].presence || CrossDb.iso_instant(Time.now.utc.advance(years: 1)) %>
-          <%= hidden_field_tag :openAt, initial_time, data: { create_target: "time" } %>
-          <div class="field sheet__field">
-            <div class="field__head"><label class="field__label" for="create-title">标题</label>
-              <span class="field__count mono" data-create-target="titleCount">0 / 60</span>
-            </div>
-            <div class="field__box input-wrap">
-              <input id="create-title" class="field__input input" name="title" value="<%= params[:title] %>" placeholder="先给这枚胶囊起个名字"
-                     data-testid="create-title" data-create-target="title">
-              <span class="field__line"></span>
-            </div>
-            <div class="sheet__err field__error" role="alert" data-field="title" data-create-target="fieldError" hidden></div>
-          </div>
-          <section class="reco inspiration" data-create-target="recommendations" hidden>
-            <div class="reco__head inspiration-head">
-              <span><%= icon "sparkle" %> AI 推荐主题</span>
-              <button class="btn btn--text btn--sm" type="button" data-testid="reco-refresh" data-action="create#loadRecommendations"><%= icon "refresh" %> 换一批</button>
-            </div>
-            <div class="reco__chips inspiration-chips" data-create-target="chips"></div>
-          </section>
-          <div class="field sheet__field">
-            <div class="field__head"><label class="field__label" for="create-content">写给未来</label>
-              <span class="field__count mono" data-create-target="contentCount">0 / 5000</span>
-            </div>
-            <textarea id="create-content" class="field__input input textarea" rows="7" name="content"
-                      placeholder="此刻，你想留下什么？" data-testid="create-content" data-create-target="content"><%= params[:content] %></textarea>
-            <div class="sheet__err field__error" role="alert" data-field="content" data-create-target="fieldError" hidden></div>
-            <div class="create-ai">
-              <button class="btn btn--ghost btn--sm" type="button" data-testid="ai-generate" data-create-target="aiButton"
-                      data-action="create#generate"><%= icon "sparkle" %> AI 代笔</button>
-              <span class="field__hint" data-create-target="aiNote" role="status"></span>
-            </div>
-          </div>
-          <div class="field sheet__field create-time">
-            <div class="field__head"><span class="field__label">开启时间</span>
-              <span class="field__count">最早 1 分钟后 · 最晚 10 年内</span>
-            </div>
-            <div class="presets chips" aria-label="开启时间预设">
-              <% [["1m", "约 2 分钟"], ["tm", "明早 9 点"], ["1w", "一周"], ["1mo", "一月"], ["1y", "一年"], ["5y", "五年"], ["10y", "十年"]].each do |key, label| %>
-                <button class="chip <%= "is-active" if key == "1y" %>" type="button" data-testid="openat-preset"
-                        data-preset data-value="<%= key %>" data-selected="<%= key == "1y" %>" aria-pressed="<%= key == "1y" %>"
-                        data-create-target="preset" data-action="create#choosePreset"><%= label %></button>
-              <% end %>
-            </div>
-            <%= render "skins/paper/time_picker" %><%= render "skins/amber/orbit_picker" %>
-            <div class="sheet__err field__error" role="alert" data-field="openAt" data-create-target="fieldError" hidden></div>
-          </div>
-          <label class="publish-choice">
-            <%= check_box_tag :inPlaza, "true", !params.key?(:title) || params[:inPlaza] == "true",
-                              data: { testid: "create-in-plaza", create_target: "publication" } %>
-            <span><b>发布到胶囊广场</b><small>关闭后，只有知道胶囊码的人才能找到它。</small></span>
-          </label>
-          <p class="tip"><%= icon "lock" %> 封存后，内容和开启时间都不能再修改；可以在「我创建的」里删除。</p>
-          <% if @error %><p class="form__err" role="alert"><%= @error %></p><% end %>
-          <div class="create__foot">
-            <button class="btn btn--primary btn--lg" type="submit" data-testid="create-submit" data-create-target="submit">
-              <%= icon "lock" %> 封存胶囊
-            </button>
-          </div>
-        <% end %>
-        <aside class="create__side">
-          <div class="card card--pad create-note">
-            <div data-skin-only="paper"><%= render "skins/paper/envelope" %></div>
-            <div data-skin-only="amber"><%= render "skins/amber/capsule_art", code: nil, opened: false, width: 200 %></div>
-            <h2 class="h2">见字如面</h2>
-            <p>到了你选的那一刻，持有胶囊码的人才能读到里面的话。</p>
-          </div>
-        </aside>
-      </div>
-    </div>
-    <div id="creation-receipt" data-create-target="receipt" data-action="click->create#receiptAction"></div>
-  </div>
+     data-action="hellotime:skin@document->create#switchSkin time-picker:picked->create#pickTime">
+  <%= form_with url: create_path, html: { novalidate: true },
+                data: { create_target: "form editor", turbo: false, action: "submit->create#submit input->create#edit compositionend->create#edit" } do %>
+    <% initial_time = @initial_time %>
+    <%= hidden_field_tag :openAt, initial_time, data: { create_target: "time" } %>
+    <% %w[paper amber].each do |skin| %>
+      <fieldset class="create-view" data-skin-only="<%= skin %>" data-create-target="view" <%= "disabled" if skin == "amber" %>>
+        <%= render "skins/#{skin}/create", initial_time: initial_time %>
+      </fieldset>
+    <% end %>
+  <% end %>
+  <div id="creation-receipt" data-create-target="receipt" data-action="click->create#receiptAction"></div>
 </div>

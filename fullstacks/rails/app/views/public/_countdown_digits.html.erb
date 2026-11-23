@@ -1,0 +1,14 @@
+<% portions = countdown_parts(capsule[:openAt]).zip(%w[天 时 分 秒]) %>
+<% portions.each_with_index do |(value, label), index| %>
+  <% if index.positive? %><i class="cd__sep" aria-hidden="true">:</i><% end %>
+  <div class="cd__unit <%= "cd__unit--accent" if skin == "amber" && index == 3 %>">
+    <% if skin == "paper" %>
+      <span class="cd__num latin" data-countdown-unit="<%= index %>"><%= format("%02d", value) %></span>
+    <% else %>
+      <div class="cd__digits" data-countdown-unit="<%= index %>">
+        <% format("%02d", value).each_char do |digit| %><span class="cd__digit"><%= digit %></span><% end %>
+      </div>
+    <% end %>
+    <span class="cd__label"><%= label %></span>
+  </div>
+<% end %>

@@ -59,3 +59,22 @@ export function calendarDays(year, month) {
   const lead = (new Date(year, month, 1).getDay() + 6) % 7;
   return Array.from({ length: 42 }, (_, index) => new Date(year, month, 1 - lead + index));
 }
+
+export function span(duration) {
+  const minutes = Math.max(0, Math.round(duration / MINUTE));
+  if (minutes < 1) return "不到 1 分钟";
+  if (minutes < 60) return `${minutes} 分钟`;
+  if (minutes < 1440) {
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder && hours < 6 ? `${hours} 小时 ${remainder} 分` : `${Math.round(minutes / 60)} 小时`;
+  }
+  const days = Math.round(minutes / 1440);
+  if (days < 60) return `${days} 天`;
+  if (days < 360) return `${Math.round(days / 30.44)} 个月`;
+  const years = Math.floor(days / 365.25);
+  const months = Math.round((days - years * 365.25) / 30.44);
+  if (months >= 12) return `${years + 1} 年`;
+  if (!years) return "1 年";
+  return months ? `${years} 年 ${months} 个月` : `${years} 年`;
+}

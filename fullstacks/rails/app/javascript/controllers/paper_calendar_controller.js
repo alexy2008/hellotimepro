@@ -1,21 +1,38 @@
 import { Controller } from "@hotwired/stimulus";
-import { DAY, addDays, calendarDays, clamp, clampOpen, dayStart, localDateTime, maxOpen, minOpen, pad } from "lib/date";
+import { DAY, MINUTE, addDays, calendarDays, clamp, clampOpen, dayStart, localDateTime, maxOpen, minOpen, pad, span } from "lib/date";
 
 const KEY_DAYS = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 7, ArrowUp: -7 };
-const KEY_DISTANCE = { ArrowRight: 10, ArrowUp: 10, ArrowLeft: -10, ArrowDown: -10, PageUp: 100, PageDown: -100 };
-const SCALE_WIDTH = 1760;
-const LABELS = [
-  [0, "现在"], [1, "一天"], [7, "一周"], [30, "一月"], [90, "三月"], [182, "半年"],
-  [365, "一年"], [730, "两年"], [1826, "五年"],
+const HOUR = 60 * MINUTE;
+const ANCHORS = [
+  [2 * MINUTE, "此刻"], [HOUR, "1 小时"], [DAY, "1 天"], [7 * DAY, "1 周"], [30 * DAY, "1 个月"],
+  [182 * DAY, "半年"], [365 * DAY, "1 年"], [1096 * DAY, "3 年"], [1826 * DAY, "5 年"], [3651 * DAY, "10 年"],
 ];
+const SEGMENT = 124;
+const SCALE_WIDTH = (ANCHORS.length - 1) * SEGMENT;
+const DIRECTION = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 };
 
-// 对数标尺在近端分配更多精细刻度，远端仍可直接跳到 10 年。
-const logWindow = (now) => Math.log1p((maxOpen() - now) / DAY);
-const toOffset = (days, now) => SCALE_WIDTH * Math.log1p(Math.max(0, days)) / logWindow(now);
-const toTime = (offset, now) => now + Math.expm1(offset / SCALE_WIDTH * logWindow(now)) * DAY;
+function toOffset(duration) {
+  const time = clamp(duration, ANCHORS[0][0], ANCHORS.at(-1)[0]);
+  const next = ANCHORS.findIndex(([limit], index) => index > 0 && time <= limit);
+  const start = ANCHORS[next - 1][0];
+  return SEGMENT * (next - 1 + Math.log(time / start) / Math.log(ANCHORS[next][0] / start));
+}
+
+function toTime(offset) {
+  const position = clamp(offset, 0, SCALE_WIDTH) / SEGMENT;
+  const index = Math.min(Math.floor(position), ANCHORS.length - 2);
+  const start = ANCHORS[index][0];
+  const duration = start * (ANCHORS[index + 1][0] / start) ** (position - index);
+  const date = new Date(Date.now() + duration);
+  if (duration < HOUR) date.setSeconds(0, 0);
+  else if (duration < DAY) date.setMinutes(Math.round(date.getMinutes() / 5) * 5, 0, 0);
+  else if (duration < 30 * DAY) date.setMinutes(0, 0, 0);
+  else date.setHours(9, 0, 0, 0);
+  return date.getTime();
+}
 
 export default class extends Controller {
-  static targets = ["ruler", "scale", "date", "trigger", "panel", "month", "grid", "clock", "zone", "navigation"];
+  static targets = ["ruler", "scale", "date", "distance", "trigger", "panel", "month", "grid", "clock", "zone", "navigation"];
 
   connect() {
     this.zoneTarget.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -25,7 +42,9 @@ export default class extends Controller {
   }
 
   setTime({ detail }) {
-    if (detail.source !== "paper") this.update(detail.time);
+    if (detail.source === "paper") return;
+    this.rulerTarget.classList.toggle("is-glide", !this.drag);
+    this.update(detail.time);
   }
 
   update(time) {
@@ -35,10 +54,11 @@ export default class extends Controller {
     this.dateTarget.textContent = localDateTime.format(date);
     this.dateTarget.dateTime = date.toISOString();
     const now = Date.now();
-    this.offset = clamp(toOffset((time - now) / DAY, now), 0, SCALE_WIDTH);
-    this.scaleTarget.style.transform = `translateX(${-this.offset}px)`;
+    this.offset = toOffset(time - now);
+    this.position(this.drag?.position ?? this.offset);
+    this.distanceTarget.textContent = `${span(time - now)}后`;
     this.rulerTarget.setAttribute("aria-valuenow", Math.round(this.offset / SCALE_WIDTH * 100));
-    this.rulerTarget.setAttribute("aria-valuetext", this.dateTarget.textContent);
+    this.rulerTarget.setAttribute("aria-valuetext", `${this.distanceTarget.textContent}，${this.dateTarget.textContent}`);
     this.clockTarget.value = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
     if (!this.panelTarget.hidden) this.renderDays();
   }
@@ -49,52 +69,72 @@ export default class extends Controller {
   }
 
   drawScale() {
-    const ticks = Array.from({ length: SCALE_WIDTH / 10 + 1 }, (_, index) => {
-      const tick = document.createElement("i");
-      tick.className = index % 4 ? "rt" : "rt rt--mid";
-      tick.style.left = `${index * 10}px`;
-      return tick;
-    });
-    const now = Date.now();
-    for (const [offset, label] of [...LABELS.map(([days, text]) => [toOffset(days, now), text]), [SCALE_WIDTH, "十年"]]) {
+    const ticks = [];
+    for (const [index, [, label]] of ANCHORS.entries()) {
       const mark = document.createElement("i");
       mark.className = "rt rt--major";
-      mark.style.left = `${offset}px`;
+      mark.style.left = `${index * SEGMENT}px`;
       const caption = document.createElement("b");
       caption.textContent = label;
       mark.append(caption);
       ticks.push(mark);
+      if (index === ANCHORS.length - 1) continue;
+      for (let step = 1; step < 8; step += 1) {
+        const tick = document.createElement("i");
+        tick.className = step === 4 ? "rt rt--mid" : "rt";
+        tick.style.left = `${(index + step / 8) * SEGMENT}px`;
+        ticks.push(tick);
+      }
     }
     this.scaleTarget.replaceChildren(...ticks);
+  }
+
+  position(offset) {
+    this.scaleTarget.style.transform = `translateX(${-offset}px)`;
   }
 
   startSlide(event) {
     if (!event.isPrimary || event.button !== 0) return;
     this.drag = { id: event.pointerId, x: event.clientX, offset: this.offset };
     this.rulerTarget.setPointerCapture(event.pointerId);
+    this.rulerTarget.classList.remove("is-glide");
     this.rulerTarget.classList.add("is-drag");
   }
 
   slide(event) {
     if (event.pointerId !== this.drag?.id) return;
-    this.selectOffset(this.drag.offset + this.drag.x - event.clientX);
+    const delta = this.drag.x - event.clientX;
+    if (this.drag.position === undefined && Math.abs(delta) <= 3) return;
+    this.drag.position = clamp(this.drag.offset + delta, 0, SCALE_WIDTH);
+    this.choose(toTime(this.drag.position));
   }
 
-  endSlide() {
+  endSlide(event) {
+    if (event.pointerId !== this.drag?.id) return;
+    const { position, offset } = this.drag;
     this.drag = null;
     this.rulerTarget.classList.remove("is-drag");
+    this.rulerTarget.classList.add("is-glide");
+    if (position === undefined && event.type === "pointerup") {
+      const box = this.rulerTarget.getBoundingClientRect();
+      this.choose(toTime(offset + event.clientX - box.left - box.width / 2));
+    } else {
+      this.position(this.offset);
+    }
   }
 
   rulerKey(event) {
-    const offset = { Home: 0, End: SCALE_WIDTH }[event.key] ??
-      (KEY_DISTANCE[event.key] && this.offset + KEY_DISTANCE[event.key]);
+    const step = SCALE_WIDTH * (event.shiftKey ? 0.02 : 0.004);
+    const position = this.offset / SEGMENT;
+    const offset = {
+      Home: 0, End: SCALE_WIDTH,
+      PageDown: (Math.ceil(position - 0.001) - 1) * SEGMENT,
+      PageUp: (Math.floor(position + 0.001) + 1) * SEGMENT
+    }[event.key] ?? (DIRECTION[event.key] && this.offset + step * DIRECTION[event.key]);
     if (offset === undefined) return;
     event.preventDefault();
-    this.selectOffset(offset);
-  }
-
-  selectOffset(offset) {
-    this.choose(toTime(clamp(offset, 0, SCALE_WIDTH), Date.now()));
+    this.rulerTarget.classList.remove("is-glide");
+    this.choose(toTime(offset));
   }
 
   toggle() {
@@ -102,6 +142,7 @@ export default class extends Controller {
     this.panelTarget.hidden = false;
     this.panelTarget.classList.add("is-open");
     this.triggerTarget.setAttribute("aria-expanded", "true");
+    this.triggerTarget.classList.add("is-open");
     this.renderDays();
   }
 
@@ -110,6 +151,7 @@ export default class extends Controller {
     this.panelTarget.hidden = true;
     this.panelTarget.classList.remove("is-open");
     this.triggerTarget.setAttribute("aria-expanded", "false");
+    this.triggerTarget.classList.remove("is-open");
     if (event?.type === "keydown") this.triggerTarget.focus();
   }
 

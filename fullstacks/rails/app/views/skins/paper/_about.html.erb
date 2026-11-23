@@ -1,0 +1,48 @@
+<div class="wrap about">
+  <header class="about__hero">
+    <div class="overline"><i></i>About</div>
+    <h1 class="about__title"><span>有些话，</span><span>要<em>等一等</em>再说<i class="about__stop"></i></span></h1>
+    <div class="about__lede">
+      <p>HelloTime Pro 是一款时间胶囊应用：写下一段话，设定未来某一刻才能开启，封存之后不可修改。它有胶囊广场、AI 代笔、收藏与账号。</p>
+      <p>它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套由 Ruby on Rails 实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。</p>
+    </div>
+  </header>
+  <section class="about__sec">
+    <header class="sechead"><span class="sechead__no">壹</span><div><h2 class="h2">此刻运行的技术栈</h2><p>页脚与这里使用同一份健康检查信息。</p></div></header>
+    <div class="about__live"><span class="dot dot--on"></span>服务在线<i></i><span class="mono">GET /api/v1/health</span></div>
+    <div class="about__stack" data-view-testid="about-stack">
+      <% stacks.each do |label, _en, title, path, items, summary| %>
+        <article class="spec">
+          <header class="spec__head"><div><div class="spec__k"><%= label %></div><h3 class="spec__t serif"><%= title %></h3></div><span class="spec__sub mono"><%= path %></span></header>
+          <ul class="spec__list">
+            <% items.each do |item| %>
+              <li class="tech" data-view-testid="stack-item" data-name="<%= item[:name] %>">
+                <%= render "shared/tech_icon", item: item, css: "tech__ic" %>
+                <div class="tech__main"><b><%= item[:name] %><small class="mono"><%= item[:version] %></small></b></div>
+                <em class="tech__role"><%= stack_role(item) %></em>
+              </li>
+            <% end %>
+          </ul>
+          <p class="spec__sum"><%= summary %></p>
+        </article>
+      <% end %>
+    </div>
+  </section>
+  <section class="about__sec">
+    <header class="sechead"><span class="sechead__no">贰</span><div><h2 class="h2">它能做什么</h2><p>一枚胶囊从写下到被读到，会经过的每一步。</p></div></header>
+    <ol class="feats" data-view-testid="about-features">
+      <% features.each_with_index do |(_glyph, title, text), i| %>
+        <li style="--i: <%= i %>" data-view-testid="about-feature"><span class="feats__no latin"><%= format("%02d", i + 1) %></span><b class="serif"><%= title %></b><p><%= text %></p></li>
+      <% end %>
+    </ol>
+  </section>
+  <section class="about__sec">
+    <header class="sechead"><span class="sechead__no">叁</span><div><h2 class="h2">四条原则</h2><p>这个仓库为什么长成现在的样子。</p></div></header>
+    <ol class="tenets" data-view-testid="about-tenets">
+      <% tenets.each do |title, text| %><li data-view-testid="about-tenet"><b class="serif"><%= title %></b><p><%= text %></p></li><% end %>
+    </ol>
+  </section>
+  <section class="about__sec about__sec--end">
+    <div class="credits"><% credits.each do |_glyph, title, text| %><div><h3 class="serif"><%= title %></h3><p><%= text %></p></div><% end %></div>
+  </section>
+</div>

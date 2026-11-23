@@ -1,0 +1,10 @@
+<% paper = skin == "paper"
+   options = paper ? [["1m", "1 分钟后"], ["tm", "明早 9 点"], ["1mo", "1 个月后"], ["1y", "1 年后"], ["5y", "5 年后"], ["10y", "10 年后"]] :
+                     [["1m", "1 分钟后"], ["tm", "明早 9 点"], ["1w", "一周后"], ["1mo", "一个月后"], ["1y", "一年后"], ["5y", "五年后"], ["10y", "十年后"]] %>
+<div class="<%= paper ? "presets" : "chips" %>" aria-label="开启时间预设">
+  <% options.each do |key, label| %>
+    <button class="chip <%= "is-active" if key == "1y" %>" type="button" data-view-testid="openat-preset"
+            data-preset data-value="<%= key %>" data-selected="<%= key == "1y" %>" aria-pressed="<%= key == "1y" %>"
+            data-create-target="preset" data-action="create#choosePreset"><%= label %><% if paper && key == "1m" %><small>体验启封</small><% end %></button>
+  <% end %>
+</div>

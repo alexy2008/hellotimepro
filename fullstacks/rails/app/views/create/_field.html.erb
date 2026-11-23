@@ -1,0 +1,13 @@
+<% label = field == "title" ? "标题" : "正文"
+   data = { create_target: field, view_testid: "create-#{field}" }
+   input_id = "#{skin}-create-#{field}" %>
+<% if field == "title" %>
+  <%= text_field_tag field, params[field], id: input_id, class: ("input" if skin == "amber"),
+                     autocomplete: "off", placeholder: skin == "paper" ? "给这封信起个标题" : "给这枚胶囊起个名字",
+                     aria: { label: label }, data: data %>
+<% else %>
+  <%= text_area_tag field, params[field], id: input_id, class: ("paper__text" if skin == "amber"), rows: 9,
+                    placeholder: "在这里写下想传到未来的话。\n可以是此刻的天气、正在读的书、一个小小的许诺，\n或者只是一句：嘿，你还好吗？",
+                    aria: { label: label }, data: data %>
+  <div class="<%= skin == "paper" ? "sheet__think" : "paper__think" %>" aria-hidden="true"><i></i><i></i><i></i></div>
+<% end %>

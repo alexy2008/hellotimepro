@@ -1,0 +1,5 @@
+<div class="detail__actions" data-controller="clipboard" data-clipboard-code-value="<%= capsule[:code] %>">
+  <%= render "public/favorite_button", capsule: capsule, full: true, scoped: true %>
+  <%= render "public/copy_buttons", scoped: true %>
+  <%= create_link "我也写一枚" if local_assigns[:letter] %>
+</div>

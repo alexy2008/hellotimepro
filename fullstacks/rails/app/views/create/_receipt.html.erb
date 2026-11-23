@@ -1,16 +1,5 @@
-<section class="receipt card card--pad creation-receipt" data-testid="sealed-receipt" data-code="<%= capsule[:code] %>"
-         aria-labelledby="receipt-title">
-  <div class="receipt-art" aria-hidden="true">
-    <div data-skin-only="paper"><%= render "skins/paper/envelope" %></div>
-    <div data-skin-only="amber"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: false, width: 240 %></div>
-  </div>
-  <div class="overline eyebrow"><i></i>Sealed</div>
-  <h2 class="h1 page-title" id="receipt-title" tabindex="-1">封存完成</h2>
-  <p><%= capsule[:title] %> · <time datetime="<%= capsule[:openAt] %>" data-controller="local-time" data-local-time-precise-value="true"><%= fmt_datetime(capsule[:openAt]) %></time> 开启</p>
-  <strong class="mono receipt-code"><%= capsule[:code].scan(/.{4}/).join(" · ") %></strong>
-  <%= render "public/copy_actions", code: capsule[:code] %>
-  <div class="receipt-links">
-    <%= link_to "查看这枚胶囊", capsule_path(capsule[:code]), class: "btn btn--primary", data: { testid: "receipt-view" } %>
-    <%= tag.button "再写一枚", class: "btn btn--ghost", type: "button", data: { testid: "receipt-again", create_again: true } %>
-  </div>
-</section>
+<div class="page page--create" data-controller="seal-receipt" data-action="hellotime:skin@document->seal-receipt#show">
+  <% %w[paper amber].each do |skin| %>
+    <%= render "skins/#{skin}/receipt", capsule: capsule %>
+  <% end %>
+</div>

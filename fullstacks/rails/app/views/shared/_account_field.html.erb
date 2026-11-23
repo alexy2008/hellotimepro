@@ -1,21 +1,28 @@
 <% options = local_assigns
    password = options[:type] == "password"
-   nickname = options[:name] == "nickname" %>
+   nickname = name == "nickname"
+   new_password = %w[password newPassword].include?(name) && options[:autocomplete] == "new-password"
+   account_target = { "nickname" => "nickname", "confirmPassword" => "confirm" }[name]
+   account_target = "password" if new_password
+   glyph = password ? "lock" : (nickname ? "user" : "mail") %>
 <div class="field" data-controller="<%= "password-field" if password %>">
   <div class="field__head"><label class="field__label" for="<%= testid %>"><%= label %></label></div>
-  <div class="field__box input-wrap <%= "input-wrap--action" if password %>">
+  <div class="field__box input-wrap input-wrap--icon <%= "input-wrap--action" if password %>">
+    <span data-skin-only="amber" class="input-wrap__icon"><%= icon glyph %></span>
     <%= tag.input id: testid, name: name, class: "field__input input", type: options.fetch(:type, "text"),
-                  value: options[:value], autocomplete: options[:autocomplete],
+                  value: options[:value], disabled: options[:disabled], autocomplete: options[:autocomplete],
                   placeholder: options[:placeholder], aria: { describedby: ("#{testid}-state" if nickname) },
                   data: { testid: testid, password_field_target: ("input" if password),
-                          account_form_target: ({ "nickname" => "nickname", "newPassword" => "password", "confirmPassword" => "confirm" }[name]), action: ("input->account-form#nickname" if nickname) } %>
+                          account_form_target: account_target,
+                          action: (nickname ? "input->account-form#nickname" : ("input->account-form#passwordRules" if new_password)) } %>
     <% if password %>
-      <button class="iconbtn icon-btn field__eye" type="button" aria-label="显示密码" data-action="password-field#toggle">
+      <button class="iconbtn icon-btn field__eye input-wrap__action" type="button" aria-label="显示密码" data-action="password-field#toggle">
         <%= icon "eye" %>
       </button>
     <% end %>
     <span class="field__line"></span>
   </div>
+  <% if options[:hint] %><span class="field__hint"><%= options[:hint] %></span><% end %>
   <% if nickname %>
     <span id="<%= testid %>-state" class="field__hint nstate"
           data-account-form-target="state" <%= 'data-state=taken data-testid=nickname-state' if options[:taken] %>

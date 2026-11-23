@@ -1,0 +1,14 @@
+<% key = "wax-#{SecureRandom.hex(5)}" %>
+<span class="wax <%= local_assigns[:css] %>" aria-hidden="true">
+  <svg viewBox="0 0 100 100">
+    <defs><radialGradient id="<%= key %>" cx=".35" cy=".28" r=".72">
+      <stop offset="0" stop-color="var(--color-accent-soft)"/><stop offset=".46" stop-color="var(--color-accent)"/>
+      <stop offset="1" stop-color="var(--color-accent-text)"/>
+    </radialGradient></defs>
+    <path d="M48 6C63 3 75 11 85 21S97 46 92 62 82 79 69 88 49 98 35 91 14 81 10 67 3 49 9 33 25 9 48 6Z"
+          fill="url(#<%= key %>)" stroke="var(--color-accent-text)" stroke-width="2"/>
+    <circle cx="50" cy="50" r="32" fill="none" stroke="var(--color-on-accent)" stroke-opacity=".35" stroke-width="2"/>
+    <circle cx="50" cy="50" r="33.5" fill="none" stroke="var(--color-accent-text)" stroke-width="2"/>
+    <text x="50" y="52" text-anchor="middle" dominant-baseline="central" class="wax__ch">封</text>
+  </svg>
+</span>

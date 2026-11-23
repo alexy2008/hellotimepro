@@ -3,14 +3,16 @@
     <%= render "auth_view/art" %>
     <section class="auth__main">
       <div class="auth__card card">
-        <div class="overline eyebrow"><i></i>Welcome back</div>
+        <%= render "auth_view/amber_art", register: false %>
+        <div class="overline" data-skin-only="paper"><i></i>Sign in</div><div class="eyebrow eyebrow--center" data-skin-only="amber">Welcome back</div>
         <h1 class="h1 page-title">欢迎回来</h1>
-        <p class="page-lead">你封存的胶囊，还在等你回来开启。</p>
+        <p class="lede" data-skin-only="paper">你留给未来的信，还在等你开启。</p>
+        <p class="page-lead" data-skin-only="amber">你封存的胶囊，还在等你回来开启。</p>
         <% if @return_path %><p class="tip"><%= icon "info" %> 登录后会带你回到刚才的页面。</p><% end %>
         <%= form_with url: login_path, html: { novalidate: true } do %>
           <%= hidden_field_tag :redirect, @return_path if @return_path %>
           <%= render "shared/account_field", label: "邮箱", name: "email", type: "email", autocomplete: "email", testid: "login-email", value: @email, placeholder: "you@example.com" %>
-          <%= render "shared/account_field", label: "密码", name: "password", type: "password", autocomplete: "current-password", testid: "login-password" %>
+          <%= render "shared/account_field", label: "密码", name: "password", type: "password", autocomplete: "current-password", testid: "login-password", placeholder: "输入密码", hint: "忘记密码？当前版本暂不支持找回。" %>
           <% if @error %><div class="form__err" role="alert" data-testid="login-error"><%= @error %></div><% end %>
           <button class="btn btn--primary btn--lg btn--block" type="submit" data-testid="login-submit">登录 <%= icon "arrow" %></button>
         <% end %>

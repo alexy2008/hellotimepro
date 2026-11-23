@@ -8,11 +8,12 @@
   <div class="grid">
     <% if @items.empty? %>
       <div class="empty" data-testid="list-empty">
+        <%= render "public/empty_art" %>
         <% if @q.present? %>
           <h3 class="empty__title">没有找到「<%= @q %>」</h3><p>换个关键词试试，标题和昵称都可以搜。</p>
           <button class="btn btn--ghost" type="button" data-action="plaza-search#clear">清空搜索</button>
         <% else %>
-          <h3 class="empty__title">广场上还没有胶囊</h3>
+          <h3 class="empty__title">广场上还没有胶囊</h3><p>来当第一个写信给未来的人？</p>
           <%= create_link "写一枚胶囊" %>
         <% end %>
       </div>
@@ -22,12 +23,5 @@
       <% end %>
     <% end %>
   </div>
-  <% if @pagination[:totalPages] > 1 %>
-    <nav class="pager" aria-label="广场分页">
-      <button class="pager__nav pager__btn" type="button" data-action="plaza-search#page" data-page="<%= @page - 1 %>" <%= "disabled" if @page <= 1 %>>‹ 上一页</button>
-      <span class="pager__sum"><%= @page %> / <%= @pagination[:totalPages] %></span>
-      <button class="pager__nav pager__btn" type="button" data-action="plaza-search#page" data-page="<%= @page + 1 %>"
-              <%= @page < @pagination[:totalPages] ? 'data-testid=plaza-next' : 'disabled' %>>下一页 ›</button>
-    </nav>
-  <% end %>
+  <%= render "public/plaza_pager", total: @pagination[:totalPages], page: @page, count: @pagination[:total] %>
 <% end %>

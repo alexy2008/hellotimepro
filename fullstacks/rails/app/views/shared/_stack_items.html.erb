@@ -1,6 +1,11 @@
 <% stack_items.each do |item| %>
-  <li class="ftr__tech" data-testid="stack-item" data-name="<%= item[:name] %>" title="<%= item[:version] %>">
-    <% if item[:iconUrl] %><%= image_tag item[:iconUrl], alt: "", loading: "lazy" %><% else %><%= icon "code" %><% end %>
-    <span><%= item[:name] %></span><small class="mono" data-skin-only="paper"><%= item[:version] %></small>
-  </li>
+  <% if skin == "amber" %>
+    <span class="ftr__tech" data-view-testid="stack-item" data-name="<%= item[:name] %>" title="<%= item[:version] %>">
+      <%= render "shared/tech_icon", item: item, css: "tech-ic" %><%= item[:name] %>
+    </span>
+  <% else %>
+    <li data-view-testid="stack-item" data-name="<%= item[:name] %>" title="<%= item[:version] %>">
+      <%= render "shared/tech_icon", item: item, css: "tech__ic" %><span><%= item[:name] %></span><small class="mono"><%= item[:version] %></small>
+    </li>
+  <% end %>
 <% end %>

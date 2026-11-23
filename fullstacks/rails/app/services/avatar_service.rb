@@ -27,8 +27,14 @@ module AvatarService
         svgUrl: a["svgUrl"],
       }
     end
+    @captions = catalog.fetch("avatars").to_h { |avatar| [avatar["id"], avatar["tagline"]] }
     @ids = avatars.map { |a| a[:id] }.to_set
     @avatars = avatars
+  end
+
+  def caption(id)
+    load!
+    @captions[id]
   end
 
   def directory = File.join(AppConfig.repo_root, "spec", "avatars", "v2")

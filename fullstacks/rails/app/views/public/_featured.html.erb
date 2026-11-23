@@ -1,0 +1,18 @@
+<%= link_to capsule_path(capsule[:code]), class: "ha ha--slip", style: "--depth: 1.5", data: { skin_only: "paper", featured_id: capsule[:id] } do %>
+  <div class="slip">
+    <div class="slip__k"><span class="pulse-dot"></span>广场上最受期待的一枚</div>
+    <div class="slip__t"><%= capsule[:title] %></div>
+    <div class="slip__cd"><%= render "shared/compact_countdown", open_at: capsule[:openAt] %></div>
+    <div class="slip__f mono"><span><%= capsule[:code] %></span>
+      <span class="slip__fav"><%= icon "heart" %><span data-featured-count><%= capsule[:favoriteCount] %></span></span>
+    </div>
+  </div>
+<% end %>
+<%= link_to capsule_path(capsule[:code]), class: "slip", style: "--glow: oklch(0.72 0.17 #{capsule_hue(capsule[:code])} / 0.34)",
+            data: { skin_only: "amber", featured_id: capsule[:id] } do %>
+  <div class="slip__k"><span class="slip__dot"></span>广场上最受期待的一枚</div>
+  <div class="slip__row"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: false, width: 64 %>
+    <div><b class="slip__t"><%= capsule[:title] %></b><span class="slip__cd mono"><%= render "shared/compact_countdown", open_at: capsule[:openAt] %></span></div>
+  </div>
+  <div class="slip__f"><%= icon "heart" %><span><span data-featured-count><%= capsule[:favoriteCount] %></span> 人在等它</span></div>
+<% end %>

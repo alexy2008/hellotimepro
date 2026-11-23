@@ -1,21 +1,25 @@
-<footer class="ftr">
+<footer class="ftr" data-skin-only="paper">
   <div class="wrap ftr__in">
     <div class="ftr__brand">
       <%= render "shared/brand" %>
       <p class="ftr__motto serif">把此刻，寄给未来。</p>
+      <p class="ftr__fine">一个多技术栈对比学习项目 · 不面向生产</p>
     </div>
     <div class="ftr__colo">
-      <div class="ftr__k" data-skin-only="paper"><span>本页由以下技术栈排印</span></div>
-      <ul class="stack ftr__stack" data-testid="footer-stack">
-        <%= render "shared/stack_items" %>
-      </ul>
-    </div>
-    <div class="ftr__meta">
-      <%= link_to "关于", about_path %>
-      <span class="mono">v<%= AppConfig.service_version %></span>
+      <div class="ftr__k"><span>本页由以下技术栈排印</span><span class="ftr__live"><span class="dot dot--on"></span>服务在线 · Ruby on Rails</span></div>
+      <ul class="stack" data-view-testid="footer-stack"><%= render "shared/stack_items", skin: "paper" %></ul>
     </div>
   </div>
-  <div class="wrap ftr__base" data-skin-only="paper"><span>© 2026 HelloTime Pro · MIT License</span></div>
+  <div class="wrap ftr__base"><span>© 2026 HelloTime Pro · MIT License</span><%= link_to "关于", about_path %><span class="mono">v<%= AppConfig.service_version %></span></div>
+</footer>
+<footer class="ftr" data-skin-only="amber">
+  <div class="ftr__in">
+    <%= link_to root_path, class: "ftr__brand" do %><%= render "skins/amber/logo", size: 22 %>HelloTime Pro · 时间胶囊<% end %>
+    <div class="ftr__stack" data-view-testid="footer-stack">
+      <span class="ftr__dot" title="服务在线" data-online="true"></span><%= render "shared/stack_items", skin: "amber" %>
+    </div>
+    <div class="ftr__meta"><%= link_to "关于", about_path %><span>把此刻，寄给未来</span><span class="mono">v<%= AppConfig.service_version %></span></div>
+  </div>
 </footer>
 <nav class="tabbar" aria-label="移动导航">
   <% [["plaza", root_path, "grid", "广场"], ["open", open_path, "key", "开启"],

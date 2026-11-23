@@ -1,0 +1,42 @@
+<div class="container about">
+  <header class="about__hero">
+    <div class="about__badge"><span class="about__ring"></span><%= render "skins/amber/logo", size: 112 %></div>
+    <div><div class="eyebrow">About</div><h1 class="about__title">HelloTime Pro <span class="pill mono">v2.0</span></h1>
+      <p class="about__motto">有些话，要等一等再说。</p>
+      <p class="page-lead">一款时间胶囊应用：写下一段话，设定一个未来的时刻，封存之后谁也打不开，直到那一刻到来。你可以把它发布到广场，也可以只把胶囊码交给一个人。</p>
+    </div>
+  </header>
+  <section class="about__sec">
+    <div class="eyebrow">Tech stack</div><h2 class="section-title">此刻运行的技术栈</h2><p class="page-lead">页脚和这里使用同一份健康检查信息。</p>
+    <div class="about__live"><span class="ftr__dot"></span>服务在线 · <span class="mono">GET /api/v1/health</span></div>
+    <div class="about__stacks" data-view-testid="about-stack">
+      <% stacks.each do |label, en, title, path, items, summary| %>
+        <article class="card card--pad stack-card">
+          <div class="eyebrow"><%= en %></div><h2 class="card__title"><%= label %> · <%= title %><small class="mono"><%= path %></small></h2><p class="card__lead"><%= summary %></p>
+          <ul class="stack-list">
+            <% items.each do |item| %>
+              <li data-view-testid="stack-item" data-name="<%= item[:name] %>"><span class="stack-list__ic"><%= render "shared/tech_icon", item: item, css: "tech-ic" %></span>
+                <div><b><%= item[:name] %><small class="mono"><%= item[:version] %></small></b></div><em><%= stack_role(item) %></em>
+              </li>
+            <% end %>
+          </ul>
+        </article>
+      <% end %>
+    </div>
+  </section>
+  <section class="about__sec">
+    <div class="eyebrow">Features</div><h2 class="section-title">它能做什么</h2>
+    <div class="features" data-view-testid="about-features">
+      <% features.each_with_index do |(glyph, title, text), i| %><article class="feature card" style="--i: <%= i %>" data-view-testid="about-feature"><span class="feature__ic"><%= icon glyph %></span><h3><%= title %></h3><p><%= text %></p></article><% end %>
+    </div>
+  </section>
+  <section class="about__sec card card--pad dnotes">
+    <div class="eyebrow">Principles</div><h2 class="section-title">四条原则</h2><p class="card__lead">这个仓库为什么长成现在的样子。</p>
+    <div class="dnotes__grid dnotes__grid--4" data-view-testid="about-tenets">
+      <% tenets.each do |title, text| %><div data-view-testid="about-tenet"><h3><%= title %></h3><p><%= text %></p></div><% end %>
+    </div>
+  </section>
+  <section class="about__sec about__credits">
+    <% credits.each do |glyph, title, text| %><div><h3><%= icon glyph %><%= title %></h3><p><%= text %></p></div><% end %>
+  </section>
+</div>

@@ -1,44 +1,29 @@
 <%= render "me/overview" %>
-<section class="me__body" aria-label="<%= @tab == :created ? "我创建的" : "我收藏的" %>">
+<section class="me__body is-swap" aria-label="<%= @tab == :created ? "我创建的" : "我收藏的" %>" data-tab="<%= @tab %>">
   <% if @items.empty? %>
-    <div class="empty card card--pad" data-testid="list-empty">
+    <div class="empty empty--inline" data-testid="list-empty">
+      <span class="seal seal--line" data-skin-only="paper"><%= @tab == :created ? "写" : "藏" %></span>
+      <div data-skin-only="amber"><%= render "skins/amber/capsule_art", code: nil, opened: false, width: 174 %></div>
       <% if @tab == :created %>
         <h2 class="empty__title">还没有写过胶囊</h2><%= create_link "写第一枚胶囊" %>
       <% else %>
-        <h2 class="empty__title">还没有收藏胶囊</h2><%= link_to "去广场", root_path, class: "btn btn--primary" %>
+        <h2 class="empty__title">还没有收藏</h2><p>去广场看看别人写给未来的话，遇到想等的那一枚，就点亮它的心。</p>
+        <%= link_to "去广场逛逛", root_path, class: "btn btn--primary" %>
       <% end %>
     </div>
+  <% elsif @tab == :created %>
+    <div class="me__sub me__bar"><span>按封存时间倒序 · 共 <%= @total %> 枚</span></div>
+    <ul class="ledger"><%= render partial: "me/ledger_row", collection: @items, as: :capsule %></ul>
   <% else %>
-    <div class="personal-rows">
-      <% @items.each do |capsule| %>
-        <% opened = capsule[:isOpened] %>
-        <%= tag.article class: "row crow card personal-row",
-                        data: capsule_attrs(capsule).merge(testid: @tab == :created ? "my-capsule" : "fav-item", personal_list_row: true) do %>
-          <div class="personal-art" aria-hidden="true">
-            <span data-skin-only="paper" class="seal seal--<%= opened ? "line" : "solid" %>"><%= opened ? "启" : "封" %></span>
-            <span data-skin-only="amber"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: opened, width: 82 %></span>
-          </div>
-          <div class="crow__info">
-            <%= link_to capsule[:title], capsule_path(capsule[:code]), class: "row__t", data: { testid: "row-open" } %>
-            <div class="mono row-code"><%= capsule[:code] %> · <%= capsule[:creator][:nickname] %></div>
-            <time class="mono row-code" datetime="<%= capsule[:openAt] %>" data-controller="local-time"><%= fmt_date(capsule[:openAt]) %></time>
-          </div>
-          <div class="personal-tags">
-            <span class="badge badge--<%= opened ? "opened" : "locked" %>"><%= opened ? "已开启" : "封存中" %></span>
-            <% unless capsule[:inPlaza] %><span class="badge badge--private">未公开</span><% end %>
-          </div>
-          <% if @tab == :created %>
-            <button class="btn btn--ghost btn--sm" type="button" data-testid="delete-capsule" data-action="personal-list#remove"
-                    data-id="<%= capsule[:id] %>" data-code="<%= capsule[:code] %>" data-title="<%= capsule[:title] %>"><%= icon "trash" %> 删除</button>
-          <% else %>
-            <%= render "public/favorite_button", capsule: capsule %>
-          <% end %>
-        <% end %>
+    <div class="me__sub me__bar"><span>按收藏时间倒序 · 共 <%= @total %> 枚</span><%= link_to "去广场逛逛", root_path, class: "btn btn--ghost btn--sm" %></div>
+    <div class="grid grid--me">
+      <% @items.each_with_index do |capsule, index| %>
+        <%= render "public/capsule_card", capsule: capsule, index: index, rank: nil, item_hook: "fav-item" %>
       <% end %>
     </div>
   <% end %>
   <% if @items.length < @total %>
-    <div class="pager"><button class="btn btn--ghost" type="button" data-testid="list-next" data-action="personal-list#more">加载更多</button></div>
+    <div class="pager"><button class="btn btn--ghost" type="button" data-testid="list-next" data-action="personal-list#more">加载更多 <%= icon "chev-down" %></button></div>
   <% end %>
   <% if @tab == :created %>
     <p class="me__fine tip"><%= icon "info" %> 胶囊的内容与开启时间封存后不可修改；你可以随时删除自己写的胶囊，无论它是否已经开启。</p>

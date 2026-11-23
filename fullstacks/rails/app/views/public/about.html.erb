@@ -1,48 +1,29 @@
-<div class="page page--about">
-  <div class="wrap container about">
-    <header class="about__hero">
-      <div class="about__badge" data-skin-only="amber">
-        <span class="about__ring"></span><%= render "skins/amber/capsule_art", code: nil, opened: true, width: 146 %>
-      </div>
-      <div>
-        <div class="overline eyebrow"><i></i>About HelloTime Pro</div>
-        <h1 class="about__title h1 page-title">有些话，<br>要<em>等一等</em>再说。</h1>
-        <p class="about__lede page-lead">HelloTime Pro 是一个时间胶囊应用，也是一个多技术栈对比学习项目。</p>
-      </div>
-    </header>
-    <section class="about__sec">
-      <h2 class="h2 section-title">此刻运行的技术栈</h2>
-      <ul class="stack ftr__stack about__stack" data-testid="about-stack"><%= render "shared/stack_items" %></ul>
-      <p class="page-lead">Rails 用 ERB 渲染页面，Hotwire 驱动局部交互，Active Record 连接当前数据库。</p>
-    </section>
-    <section class="about__sec">
-      <h2 class="h2 section-title">它能做什么</h2>
-      <div class="features about-grid" data-testid="about-features">
-        <% [
+<% features = [
           ["user", "账号与头像", "邮箱注册即登录；十个内置头像，昵称全站唯一。"],
           ["pen", "写一枚胶囊", "标题、正文、开启时间；没有头绪时，AI 给灵感，也能代笔。"],
           ["clock", "倒计时与自动开启", "没到时间只显示倒计时；归零的那一刻，胶囊自己打开。"],
           ["grid", "胶囊广场", "公开的胶囊陈列在这里，可搜索、筛选，按最新或最热排序。"],
           ["heart", "收藏与「我的」", "收藏任何一枚胶囊，等它开启；在「我的」里管理写过的每一枚。"],
           ["palette", "两套皮肤，昼夜两色", "「时笺」与「琥珀」随时切换，各有明暗两套主题，并记住你的选择。"]
-        ].each do |glyph, title, text| %>
-          <article class="feature card card--pad" data-testid="about-feature"><%= icon glyph %><h3><%= title %></h3><p><%= text %></p></article>
-        <% end %>
-      </div>
-    </section>
-    <section class="about__sec card card--pad">
-      <h2 class="h2 section-title">四条原则</h2>
-      <p class="page-lead">这个仓库为什么长成现在的样子。</p>
-      <div class="about-grid" data-testid="about-tenets">
-        <% [
+        ] %>
+<% tenets = [
           ["规范即唯一事实源", "业务契约放在 spec/ 下：OpenAPI、数据库 schema、设计令牌。代码只是规范的投影，有歧义先改规范。"],
           ["栈内地道", "Signals、组合式、Hooks、Runes、Compose……每个实现都用自己技术栈的惯用写法，而不是把同一份代码翻译十遍。"],
           ["外部一致", "无论内部怎么写，对外的路由、JSON 形状、错误码与界面必须一致——肉眼可比，才谈得上对比。"],
           ["黑盒验证", "契约用例与 UI 冒烟都从外部跑，不信任任何实现的自述；每个后端都要在 PostgreSQL 与 SQLite 上各过一遍。"]
-        ].each do |title, text| %>
-          <article class="feature" data-testid="about-tenet"><h3><%= title %></h3><p><%= text %></p></article>
-        <% end %>
-      </div>
-    </section>
-  </div>
+        ] %>
+<% health = HealthMetadata.build
+   ui = interface_stack_items
+   ui_summary = "ERB 负责双皮肤的服务端渲染。Turbo 驱动页面导航与表单回执，Stimulus 管理倒计时、搜索和表单交互。"
+   stacks = [["界面", "Frontend", "Hotwire", "fullstacks/rails", ui, ui_summary],
+             ["服务", "Backend", "Ruby on Rails", health[:stack][:kind], health[:stack][:items], health[:stack][:summary]]]
+   credits = [["code", "源码", "本实现位于仓库的 fullstacks/rails 目录。"],
+              ["heart", "致谢", "技术栈图标来自 Simple Icons 与各项目官方标识；感谢每一个开源框架的作者与维护者。"],
+              ["book", "许可", "MIT License。本项目用于教学、对比与研究，不面向生产环境。"]] %>
+<div class="page page--about">
+  <% %w[paper amber].each do |skin| %>
+    <div data-skin-only="<%= skin %>">
+      <%= render "skins/#{skin}/about", features: features, tenets: tenets, stacks: stacks, credits: credits %>
+    </div>
+  <% end %>
 </div>

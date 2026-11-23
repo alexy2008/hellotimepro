@@ -1,0 +1,31 @@
+<% opened = capsule[:isOpened]
+   progress = waiting_progress(capsule) %>
+<%= tag.li class: "ledger__row", data: capsule_attrs(capsule).merge(testid: "my-capsule", personal_list_row: true) do %>
+  <div class="ledger__seal" data-skin-only="paper"><span class="seal seal--<%= opened ? "line" : "solid" %>"><%= opened ? "启" : "封" %></span></div>
+  <%= link_to capsule_path(capsule[:code]), class: "ledger__art", tabindex: -1, aria: { hidden: true }, data: { skin_only: "amber" } do %>
+    <%= render "skins/amber/capsule_art", code: capsule[:code], opened: opened, width: 90 %>
+  <% end %>
+  <div class="ledger__main">
+    <%= link_to capsule[:title], capsule_path(capsule[:code]), class: "ledger__title serif", data: { testid: "row-open" } %>
+    <div class="ledger__sub" data-controller="clipboard" data-clipboard-code-value="<%= capsule[:code] %>">
+      <button class="ledger__code mono" type="button" title="点击复制胶囊码" data-action="clipboard#copyCode"><%= capsule[:code] %></button>
+      <i></i><span>封存于 <%= render "public/detail_time", value: capsule[:createdAt], precise: false %></span>
+      <% unless capsule[:inPlaza] %><span class="tag badge badge--private"><%= icon "lock" %> 未公开</span><% end %>
+    </div>
+  </div>
+  <div class="ledger__when">
+    <% if opened %>
+      <span class="ledger__k">已开启</span><%= render "public/detail_time", value: capsule[:openAt], precise: false, css: "mono" %>
+    <% else %>
+      <span class="ledger__k">距离开启</span><span class="ledger__cd mono"><%= render "shared/compact_countdown", open_at: capsule[:openAt] %></span>
+      <div class="scale" data-skin-only="paper" style="--p: <%= progress %>%"><div class="scale__fill"></div><i class="scale__mark"></i></div>
+      <div class="pc__progress" data-skin-only="amber"><span style="width: <%= progress %>%"></span></div>
+    <% end %>
+  </div>
+  <div class="ledger__fav" title="被收藏 <%= capsule[:favoriteCount] %> 次"><%= icon "heart" %><span class="mono"><%= capsule[:favoriteCount] %></span></div>
+  <div class="ledger__act">
+    <button class="btn btn--ghost btn--sm" type="button" data-testid="delete-capsule" data-action="personal-list#remove"
+            data-id="<%= capsule[:id] %>" data-code="<%= capsule[:code] %>" data-title="<%= capsule[:title] %>"><%= icon "trash" %> 删除</button>
+    <%= link_to capsule_path(capsule[:code]), class: "btn btn--ghost btn--sm", aria: { label: "查看胶囊" } do %><%= icon "chev-right" %><% end %>
+  </div>
+<% end %>

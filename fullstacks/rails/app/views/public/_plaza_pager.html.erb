@@ -1,0 +1,20 @@
+<% if total > 1 %>
+  <% pages = ([1, total] + ((page - 1)..(page + 1)).to_a).select { |number| number.between?(1, total) }.uniq.sort %>
+  <nav class="pager" aria-label="广场分页">
+    <button class="pager__nav pager__btn" type="button" data-action="plaza-search#page" data-page="<%= page - 1 %>" <%= "disabled" if page <= 1 %>>
+      <%= icon "chev-left" %><span data-skin-only="paper">上一页</span>
+    </button>
+    <div class="pager__nums">
+      <% pages.each_with_index do |number, i| %>
+        <% if i.positive? && number - pages[i - 1] > 1 %><span class="pager__gap">…</span><% end %>
+        <button class="pager__n pager__btn latin <%= "is-active" if number == page %>" type="button" data-action="plaza-search#page"
+                aria-label="第 <%= number %> 页" <%= 'aria-current=page' if page == number %> data-page="<%= number %>"><%= number %></button>
+      <% end %>
+    </div>
+    <button class="pager__nav pager__btn" type="button" data-action="plaza-search#page" data-page="<%= page + 1 %>"
+            <%= page < total ? 'data-testid=plaza-next' : 'disabled' %>><span data-skin-only="paper">下一页</span><%= icon "chev-right" %></button>
+    <span class="pager__sum" data-skin-only="paper"><%= page %> / <%= total %></span>
+  </nav>
+<% elsif count.positive? %>
+  <div class="pager" data-skin-only="paper"><div class="pager__sum">共 <%= count %> 枚</div></div>
+<% end %>

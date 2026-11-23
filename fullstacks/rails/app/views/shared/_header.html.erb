@@ -1,14 +1,19 @@
-<header class="hdr" data-shell-target="header">
+<header class="hdr" data-shell-target="header" data-action="resize@window->shell#placeNavInk">
   <div class="wrap hdr__in hdr__bar">
     <%= render "shared/brand" %>
     <nav class="nav" aria-label="主导航">
-      <% [["plaza", "广场", root_path], ["open", "开启", open_path], ["about", "关于", about_path]].each do |key, label, path| %>
-        <%= link_to label, path, class: ["nav__link", ("is-active" if active_nav(key))],
-                     data: { testid: "nav-#{key}" }, aria: { current: ("page" if active_nav(key)) } %>
+      <span class="nav__ink" data-skin-only="amber" aria-hidden="true"></span>
+      <% [["plaza", "广场", "胶囊广场", root_path], ["create", "写一枚", "写一枚", create_path], ["open", "开启", "开启胶囊", open_path], ["about", "关于", "关于", about_path]].each do |key, paper, amber, path| %>
+        <%= link_to path, class: ["nav__link", ("is-active" if active_nav(key))],
+                    data: { testid: ("nav-#{key}" unless key == "create"), view_testid: ("nav-#{key}" if key == "create"), skin_only: ("amber" if key == "create"), action: ("click->shell#requireLogin" if key == "create") },
+                    aria: { current: ("page" if active_nav(key)) } do %>
+          <% if paper != amber %><span data-skin-only="paper"><%= paper %></span><% end %><span <%= 'data-skin-only=amber' if paper != amber %>><%= amber %></span>
+        <% end %>
       <% end %>
     </nav>
     <div class="hdr__act hdr__tools">
-      <%= create_link "写一枚", css: "btn btn--ghost btn--sm hdr__write", testid: "nav-create", nav: true %>
+      <%= link_to create_path, class: "btn btn--ghost btn--sm hdr__write", data: { view_testid: "nav-create", skin_only: "paper", action: "click->shell#requireLogin" },
+                  aria: { current: ("page" if active_nav("create")) } do %><%= icon "pen" %><span>写一枚</span><% end %>
       <div class="skinsw" role="radiogroup" aria-label="界面皮肤">
         <% [["paper", "时笺"], ["amber", "琥珀"]].each do |skin, label| %>
           <button type="button" role="radio" disabled data-testid="skin-option" data-skin="<%= skin %>" data-value="<%= skin %>"

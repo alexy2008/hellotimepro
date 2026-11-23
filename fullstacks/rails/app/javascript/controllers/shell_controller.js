@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { Turbo } from "@hotwired/turbo-rails";
 import { promptLogin, reducedMotion } from "lib/ui";
 
+import { placeMeTabs, placeSelection, syncSkinHooks } from "lib/skin_view";
 import { syncDraftOwner } from "lib/draft";
 
 const root = document.documentElement;
@@ -17,6 +18,7 @@ export default class extends Controller {
     this.skinOptionTargets.forEach((button) => { button.disabled = false; });
     this.themeButtonTarget.disabled = false;
     this.scroll();
+    document.fonts?.ready.then(() => { if (this.element.isConnected) this.placeNavInk(); });
     this.element.querySelectorAll("#toasts .toast").forEach((item) => setTimeout(() => item.remove(), 3500));
   }
 
@@ -80,6 +82,8 @@ export default class extends Controller {
   }
 
   sync() {
+    syncSkinHooks(this.element);
+    this.placeNavInk();
     this.skinOptionTargets.forEach((button) => {
       const active = button.dataset.value === root.dataset.skin;
       button.dataset.selected = active;
@@ -89,6 +93,12 @@ export default class extends Controller {
     const dark = root.dataset.theme === "dark";
     this.themeButtonTarget.setAttribute("aria-checked", String(dark));
     this.themeButtonTarget.setAttribute("aria-label", dark ? "切换到日间主题" : "切换到夜间主题");
+  }
+
+  placeNavInk() {
+    const ink = this.headerTarget.querySelector(".nav__ink");
+    placeSelection(ink?.parentElement, ink);
+    placeMeTabs(this.element);
   }
 
   scroll() {

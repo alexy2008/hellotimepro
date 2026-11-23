@@ -1,0 +1,24 @@
+<div class="cer is-in is-stamped is-done" data-skin-only="paper" role="dialog" aria-modal="true" aria-label="封存完成"
+     data-view-testid="sealed-receipt" data-code="<%= capsule[:code] %>">
+  <div class="cer__bg"></div>
+  <div class="cer__in">
+    <div class="cer__stage"><%= render "skins/paper/envelope", css: "env--cer", title: capsule[:title] %></div>
+    <div class="rcpt">
+      <div class="rcpt__k"><span>封存完成</span><i></i><span class="latin">Sealed</span></div>
+      <h2 class="rcpt__t serif">《<%= capsule[:title] %>》</h2>
+      <p class="rcpt__w">将于 <b><%= render "public/detail_time", value: capsule[:openAt] %></b> 启封<br>
+        还要等 <%= duration_words(Time.current.iso8601, capsule[:openAt]) %>
+      </p>
+      <div class="rcpt__code mono" aria-label="胶囊码 <%= capsule[:code] %>">
+        <% capsule[:code].each_char.with_index do |character, index| %>
+          <span style="--i: <%= index %>"><%= character %></span><% if index == 3 %><i></i><% end %>
+        <% end %>
+      </div>
+      <p class="rcpt__hint">这 8 位胶囊码是开启它的凭证。<%= capsule[:inPlaza] ? "它也会出现在胶囊广场上。" : "它不会出现在广场，把码交给谁，谁才能找到它。" %></p>
+      <div class="rcpt__act" data-controller="clipboard" data-clipboard-code-value="<%= capsule[:code] %>">
+        <%= render "public/copy_buttons", scoped: true, code_class: "btn--primary" %>
+      </div>
+      <div class="rcpt__more"><%= render "create/receipt_links", capsule: capsule, skin: "paper" %></div>
+    </div>
+  </div>
+</div>

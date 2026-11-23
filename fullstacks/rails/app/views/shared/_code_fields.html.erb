@@ -4,7 +4,8 @@
          data-action="input->code-input#input focus->code-input#focus blur->code-input#focus">
   <div class="code__cells code-display" aria-hidden="true">
     <% 8.times do |index| %>
-      <span class="code__cell mono <%= "has-gap" if index == 4 %>" data-code-cell data-value="" data-code-input-target="cell"></span>
+      <% if index == 4 %><span class="code__dash" data-skin-only="paper"></span><% end %>
+      <span class="code__cell mono <%= "has-gap" if index == 4 %>" style="--k: <%= index %>" data-code-cell data-value="" data-code-input-target="cell"></span>
     <% end %>
   </div>
 </div>

@@ -66,11 +66,17 @@ module ApplicationHelper
     tag.span(AvatarService.svg(id).html_safe, class: ["av", classes], style: "--av: #{color}", "aria-hidden": "true")
   end
 
-  def stack_items
-    HealthMetadata.stack_items(AppConfig.sqlite?) + [
-      { name: "Hotwire", version: "Turbo + Stimulus" },
-      { name: "ERB", version: "Action View" },
+  def stack_items = HealthMetadata.stack_items(AppConfig.sqlite?) + interface_stack_items
+
+  def interface_stack_items
+    [
+      { role: "framework", name: "Hotwire", version: "Turbo + Stimulus" },
+      { role: "template", name: "ERB", version: "Action View" },
     ]
+  end
+
+  def stack_role(item)
+    { "language" => "语言", "framework" => "框架", "orm" => "ORM", "database" => "数据库", "template" => "模板" }.fetch(item[:role], item[:role])
   end
 
   def route_name
@@ -86,9 +92,8 @@ module ApplicationHelper
       (name == "me" && %w[login register].include?(route_name))
   end
 
-  def create_link(text, css: "btn btn--primary", testid: nil, nav: false)
-    link_to(create_path, class: css, data: { testid: testid, action: "click->shell#requireLogin" },
-            aria: { current: nav && active_nav("create") ? "page" : nil }) do
+  def create_link(text, css: "btn btn--primary", testid: nil)
+    link_to(create_path, class: css, data: { testid: testid, action: "click->shell#requireLogin" }) do
       icon("pen") + tag.span(text)
     end
   end
@@ -116,6 +121,16 @@ module ApplicationHelper
   def compact_countdown(iso)
     days, hours, minutes, seconds = countdown_parts(iso)
     [days.positive? ? "#{days} 天" : nil, format("%02d:%02d:%02d", hours, minutes, seconds)].compact.join(" ")
+  end
+
+  def duration_words(start_at, end_at)
+    minutes = ((Time.iso8601(end_at) - Time.iso8601(start_at)) / 60).floor
+    return "不到 1 分钟" if minutes < 1
+
+    [[525960, "年"], [43830, "个月"], [1440, "天"], [60, "小时"], [1, "分钟"]].filter_map do |size, label|
+      value, minutes = minutes.divmod(size)
+      "#{value} #{label}" if value.positive?
+    end.first(2).join(" ")
   end
 
   def capsule_hue(code)

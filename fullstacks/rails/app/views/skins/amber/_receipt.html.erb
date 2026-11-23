@@ -1,0 +1,24 @@
+<div class="container" data-skin-only="amber">
+  <section class="sealed card is-in" data-view-testid="sealed-receipt" data-code="<%= capsule[:code] %>"
+           style="--glow: oklch(0.72 0.17 <%= capsule_hue(capsule[:code]) %> / 0.34)">
+    <div class="sealed__art"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: false, width: 260 %></div>
+    <div class="eyebrow eyebrow--center">Sealed</div>
+    <h1 class="page-title">封存完成</h1>
+    <p class="page-lead">下面这串胶囊码是开启它的钥匙，<%= capsule[:inPlaza] ? "它也会出现在胶囊广场上。" : "它不会出现在广场，把码交给谁，谁才能找到它。" %></p>
+    <div class="tiles mono" aria-label="胶囊码 <%= capsule[:code] %>">
+      <% capsule[:code].each_char.with_index do |character, index| %>
+        <span class="tile <%= "has-gap" if index == 4 %>" style="--i: <%= index %>"><%= character %></span>
+      <% end %>
+    </div>
+    <div class="sealed__act" data-controller="clipboard" data-clipboard-code-value="<%= capsule[:code] %>">
+      <%= render "public/copy_buttons", scoped: true, code_class: "btn--primary" %>
+    </div>
+    <dl class="sealed__meta">
+      <div><dt>标题</dt><dd><%= capsule[:title] %></dd></div>
+      <div><dt>开启时间</dt><dd><%= render "public/detail_time", value: capsule[:openAt], css: "mono" %></dd></div>
+      <div><dt>沉睡时长</dt><dd><%= duration_words(Time.current.iso8601, capsule[:openAt]) %></dd></div>
+      <div><dt>属性</dt><dd><span class="badge <%= capsule[:inPlaza] ? "badge--plaza" : "badge--private" %>"><%= capsule[:inPlaza] ? "广场公开" : "仅凭码可见" %></span></dd></div>
+    </dl>
+    <div class="sealed__links"><%= render "create/receipt_links", capsule: capsule, skin: "amber" %></div>
+  </section>
+</div>

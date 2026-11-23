@@ -1,0 +1,63 @@
+<% code = capsule[:code]
+   opened = capsule[:isOpened]
+   time_created = capsule[:createdAt]
+   time_open = capsule[:openAt]
+   visibility = capsule[:inPlaza] ? "广场公开" : "仅凭码可见" %>
+<%= link_to root_path, class: "back" do %><%= icon "arrow-left" %> 回到广场<% end %>
+<% if opened %>
+  <article class="letter" data-letter>
+    <div class="letter__pm"><%= render "skins/paper/postmark", css: "pm--letter", text: fmt_date(time_open), label: "已 启 封" %></div>
+    <div class="letter__meta"><span class="mono">NO. <%= code %></span><span class="tag"><%= visibility %></span></div>
+    <h1 class="letter__title" data-view-testid="detail-title"><%= capsule[:title] %></h1>
+    <dl class="letter__facts">
+      <div><dt>封存</dt><dd><%= render "public/detail_time", value: time_created, css: "mono" %></dd></div>
+      <div><dt>启封</dt><dd><%= render "public/detail_time", value: time_open, css: "mono" %></dd></div>
+      <div><dt>在途</dt><dd><%= duration_words(time_created, time_open) %></dd></div>
+    </dl>
+    <%= render "public/letter_body", capsule: capsule %>
+    <footer class="letter__sign">
+      <div class="letter__from"><span>——</span><%= avatar capsule[:creator][:avatarId] %><b><%= capsule[:creator][:nickname] %></b></div>
+      <div class="letter__date">写于 <%= render "public/detail_time", value: time_created, precise: false %></div>
+      <span class="seal seal--line letter__seal">启</span>
+    </footer>
+  </article>
+<% else %>
+  <header class="detail__head">
+    <div class="detail__meta"><span class="mono">NO. <%= code %></span><span class="tag"><%= visibility %></span>
+      <span class="tag tag--seal"><span class="seal seal--solid">封</span> 未开启</span>
+    </div>
+    <h1 class="detail__title" data-view-testid="detail-title"><%= capsule[:title] %></h1>
+    <div class="detail__by"><%= avatar capsule[:creator][:avatarId] %><b><%= capsule[:creator][:nickname] %></b>
+      <span>封存于 <%= render "public/detail_time", value: time_created %></span>
+    </div>
+  </header>
+  <section class="stage">
+    <div class="stage__pm"><%= render "skins/paper/postmark", css: "pm--stage", text: fmt_date(time_open), label: "启 封" %></div>
+    <%= render "skins/paper/envelope", css: "env--stage", title: capsule[:title], split_seal: true %>
+    <div class="stage__floor"></div>
+  </section>
+  <section class="cd" aria-live="off" role="timer" data-view-testid="countdown" data-open-at="<%= time_open %>">
+    <div class="cd__label" data-opening-label>距离启封还有</div>
+    <div class="cd__digits"><%= render "public/countdown_digits", capsule: capsule, skin: "paper" %></div>
+    <div class="cd__when">将于 <b><%= render "public/detail_time", value: time_open %></b> 启封</div>
+  </section>
+  <section class="journey">
+    <% progress = waiting_progress(capsule) %>
+    <div class="journey__row"><span><em>封存</em><%= render "public/detail_time", value: time_created, precise: false %></span>
+      <span class="journey__pct" data-journey-percent>已等待 <%= progress %>%</span>
+      <span><em>启封</em><%= render "public/detail_time", value: time_open, precise: false %></span>
+    </div>
+    <div class="scale scale--lg" style="--p: <%= progress %>%" data-journey-scale><div class="scale__fill"></div><i class="scale__mark"></i></div>
+  </section>
+<% end %>
+<%= render "public/detail_actions", capsule: capsule %>
+<p class="note <%= "note--ok" if opened && capsule[:inPlaza] %>">
+  <%= icon(opened ? (capsule[:inPlaza] ? "check" : "lock") : "info") %>
+  <span><%= if !opened
+              "未开启的胶囊只显示标题与倒计时。正文会在启封的那一刻，对所有持码的人同时公开。"
+            elsif capsule[:inPlaza]
+              "这枚胶囊已在广场公开，任何人都可以通过广场或 8 位胶囊码读到它。"
+            else
+              "这枚胶囊没有发布到广场，只有持有胶囊码的人能读到它。"
+            end %></span>
+</p>

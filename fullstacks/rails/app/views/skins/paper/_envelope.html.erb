@@ -1,6 +1,8 @@
 <div class="env <%= local_assigns[:css] %>" aria-hidden="true">
   <div class="env__back"></div>
-  <div class="env__letter"></div>
+  <div class="env__letter">
+    <% if local_assigns[:title] %><b><%= title %></b><i></i><i></i><i></i><i></i><% end %>
+  </div>
   <div class="env__front">
     <svg viewBox="0 0 100 64" preserveAspectRatio="none">
       <path class="env__pocket" d="M0 0 50 36 100 0V64H0Z"/>
@@ -12,5 +14,12 @@
   <div class="env__flap"><i class="env__flap-f">
     <svg viewBox="0 0 100 36" preserveAspectRatio="none"><path d="M0 0 50 36 100 0"/></svg>
   </i><i class="env__flap-b"></i></div>
-  <div class="env__seal"><span class="seal seal--solid">封</span></div>
+  <div class="env__seal">
+    <span data-wax-whole><%= render "skins/paper/wax" %></span>
+    <% if local_assigns[:split_seal] %>
+      <% %w[l r].each do |half| %>
+        <span class="wax-half wax-half--<%= half %>" data-wax-half hidden><%= render "skins/paper/wax" %></span>
+      <% end %>
+    <% end %>
+  </div>
 </div>

@@ -1,0 +1,4 @@
+<% item = AvatarService.list.find { |entry| entry[:id] == id } || AvatarService.list.first %>
+<span class="stamp <%= local_assigns[:css] %>" style="--av: <%= item[:primaryColor] %>" aria-hidden="true">
+  <span class="stamp__in"><%= AvatarService.svg(item[:id]).html_safe %><b><%= item[:name] %></b></span>
+</span>

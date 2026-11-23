@@ -50,7 +50,8 @@ class MeController < ApplicationController
     end
 
     AuthService.change_password(@user, currentPassword: params[:currentPassword], newPassword: params[:newPassword])
-    redirect_to me_profile_path, status: :see_other, flash: { success: "密码已修改" }
+    clear_auth_cookies
+    redirect_to login_path, status: :see_other, flash: { success: "密码已修改，请重新登录" }
   rescue ApiError => e
     @password_error = e.message
     render :profile, status: :unprocessable_entity

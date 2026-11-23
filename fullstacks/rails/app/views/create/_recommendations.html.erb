@@ -1,0 +1,12 @@
+<div class="recos is-hidden" data-create-target="recommendations" hidden>
+  <div class="recos__in">
+    <div class="recos__head">
+      <span><%= icon "sparkle" %> 没有头绪？从一个灵感开始</span>
+      <button class="<%= skin == "paper" ? "linkbtn" : "link-btn" %>" type="button"
+              data-view-testid="reco-refresh" data-action="create#loadRecommendations">
+        <%= icon "refresh" %> 换一批
+      </button>
+    </div>
+    <div class="recos__list" data-create-target="chips"></div>
+  </div>
+</div>

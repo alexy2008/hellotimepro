@@ -1,0 +1,39 @@
+<div class="page">
+  <% %w[paper amber].each do |skin| %>
+    <% paper = skin == "paper" %>
+    <div class="<%= paper ? "wrap wrap--narrow detail" : "container" %>" data-skin-only="<%= skin %>">
+      <section class="<%= paper ? "lost" : "notice card" %>" <%= "data-view-testid=#{hook}" if local_assigns[:hook] %> <%= 'role=alert' if kind == :unavailable %>>
+        <% if kind == :unavailable %>
+          <p>暂时无法加载这枚胶囊，请稍后重试。</p>
+          <%= link_to "重试", request.path, class: "btn btn--ghost", data: { turbo: false } %>
+        <% else %>
+          <% missing_capsule = kind == :capsule %>
+          <% if paper %>
+            <div class="lost__mark"><span class="seal seal--line"><%= missing_capsule ? "无" : "迷" %></span></div>
+            <h1 class="h1"><%= missing_capsule ? "查无此信" : "查无此页" %></h1>
+          <% else %>
+            <div class="notice__float"><%= render "skins/amber/capsule_art", code: missing_capsule ? "LOST0000" : "NOWHERE0", opened: true, width: 220 %></div>
+            <div class="eyebrow eyebrow--center"><%= missing_capsule ? "Not found" : "404" %></div>
+            <h1 class="page-title"><%= missing_capsule ? "找不到这枚胶囊" : "这一页飘走了" %></h1>
+          <% end %>
+          <p class="<%= "page-lead" unless paper %>">
+            <% if missing_capsule %>
+              没有找到胶囊码为 <b class="mono"><%= params[:code].to_s.upcase %></b> 的胶囊。<br>也许是码抄错了一位，也许它已经被作者删除了。
+            <% else %>
+              这个地址没有对应的页面。<% if paper %><br><% end %>也许是链接抄错了一位，也许它从未存在过。
+            <% end %>
+          </p>
+          <div class="<%= paper ? "lost__act" : "notice__act" %>">
+            <% if missing_capsule %>
+              <%= link_to open_path, class: "btn btn--primary" do %><%= icon "key" %> 重新输入胶囊码<% end %>
+              <%= link_to "回到广场", root_path, class: "btn btn--ghost" %>
+            <% else %>
+              <%= link_to "回到广场", root_path, class: "btn btn--primary" %>
+              <%= link_to open_path, class: "btn btn--ghost" do %><%= icon "key" %> 凭码开启<% end %>
+            <% end %>
+          </div>
+        <% end %>
+      </section>
+    </div>
+  <% end %>
+</div>

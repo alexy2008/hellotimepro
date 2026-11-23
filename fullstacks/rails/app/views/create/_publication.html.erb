@@ -1,0 +1,3 @@
+<%= check_box_tag :inPlaza, "true", !params.key?(:title) || params[:inPlaza] == "true",
+                  id: "#{skin}-publication", class: ("sr-only" if skin == "amber"),
+                  data: { view_testid: "create-in-plaza", create_target: "publication" } %>

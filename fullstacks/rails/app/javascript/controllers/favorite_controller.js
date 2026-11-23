@@ -50,7 +50,9 @@ export default class extends Controller {
       const label = button.querySelector('[data-favorite-target="label"]');
       if (label) label.textContent = pressed ? "已收藏" : "收藏";
     }
-    const featured = document.querySelector(`[data-featured-id="${this.idValue}"] [data-featured-count]`);
-    if (featured) featured.textContent = count;
+    const detail = this.element.closest("[data-testid=\"capsule-detail\"]");
+    detail?.querySelectorAll("[data-detail-favorites]").forEach((value) => { value.textContent = count; });
+    document.querySelectorAll(`[data-featured-id="${this.idValue}"] [data-featured-count]`)
+      .forEach((value) => { value.textContent = count; });
   }
 }

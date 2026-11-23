@@ -1,12 +1,14 @@
 import { Controller } from "@hotwired/stimulus";
+import { syncSkinHooks } from "lib/skin_view";
 import { fragment, reducedMotion } from "lib/ui";
 
 export default class extends Controller {
-  static targets = ["search", "filter", "sort", "panel", "errorTemplate"];
+  static targets = ["search", "filter", "sort", "sortSelect", "panel", "errorTemplate", "loadingTemplate"];
   static values = { page: Number, filter: String, sort: String, fragment: String };
 
   connect() {
     this.searchTarget.disabled = false;
+    this.sortSelectTarget.disabled = false;
     this.filterTargets.concat(this.sortTargets).forEach((option) => { option.disabled = false; });
     this.updateInput();
     this.updateOptions();
@@ -26,9 +28,7 @@ export default class extends Controller {
     this.updateInput();
     clearTimeout(this.debounce);
     this.request?.abort();
-    this.panelTarget.replaceChildren();
-    this.panelTarget.setAttribute("aria-busy", "true");
-    this.filterTargets.forEach((button) => this.setCount(button, null));
+    this.showLoading();
     this.debounce = setTimeout(() => this.load(1), 260);
   }
 
@@ -45,13 +45,23 @@ export default class extends Controller {
   }
 
   chooseSort({ currentTarget }) {
-    if (this.sortValue === currentTarget.dataset.value) return;
-    this.sortValue = currentTarget.dataset.value;
+    const value = currentTarget.dataset.value || currentTarget.value;
+    if (this.sortValue === value) return;
+    this.sortValue = value;
     this.load(1);
   }
 
+  shortcut(event) {
+    if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.target.closest("input, textarea, select, [contenteditable]")) return;
+    event.preventDefault();
+    this.searchTarget.focus();
+  }
+
   page({ currentTarget }) {
-    this.load(Number(currentTarget.dataset.page));
+    const page = Number(currentTarget.dataset.page);
+    if (page === this.pageValue) return;
+    this.load(page);
     this.element.scrollIntoView({ behavior: reducedMotion() ? "instant" : "smooth", block: "start" });
   }
 
@@ -73,12 +83,11 @@ export default class extends Controller {
     const query = params.size ? `?${params}` : "";
     // 保留 Turbo 的历史记录键，刷新或登录回跳能重建相同查询。
     history.replaceState(history.state, "", `/${query}`);
-    this.panelTarget.replaceChildren();
-    this.panelTarget.setAttribute("aria-busy", "true");
-    this.filterTargets.forEach((button) => this.setCount(button, null));
+    this.showLoading();
     try {
       const html = await fragment(this.fragmentValue + query, signal);
       this.panelTarget.replaceChildren(html);
+      syncSkinHooks(this.panelTarget);
       const counts = this.panelTarget.querySelector("[data-plaza-counts]");
       this.filterTargets.forEach((button) => this.setCount(button, counts?.dataset[button.dataset.value]));
     } catch {
@@ -86,6 +95,18 @@ export default class extends Controller {
     } finally {
       if (!signal.aborted) this.panelTarget.removeAttribute("aria-busy");
     }
+  }
+
+  showLoading() {
+    this.panelTarget.setAttribute("aria-busy", "true");
+    const cards = this.panelTarget.querySelector(".grid");
+    if (this.panelTarget.querySelector("[data-plaza-counts]") && cards) {
+      cards.classList.add("is-busy");
+      cards.inert = true;
+    } else {
+      this.panelTarget.replaceChildren(this.loadingTemplateTarget.content.cloneNode(true));
+    }
+    this.filterTargets.forEach((button) => this.setCount(button, null));
   }
 
   setCount(button, count) {
@@ -110,6 +131,7 @@ export default class extends Controller {
         button.setAttribute("aria-pressed", active);
       });
     }
+    this.sortSelectTarget.value = this.sortValue;
     this.moveThumbs();
   }
 

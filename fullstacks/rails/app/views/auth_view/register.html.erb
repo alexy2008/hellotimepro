@@ -3,23 +3,26 @@
     <%= render "auth_view/art", register: true %>
     <section class="auth__main">
       <div class="auth__card auth__card--wide card">
-        <div class="overline eyebrow"><i></i>Create account</div>
-        <h1 class="h1 page-title">领一个身份</h1>
-        <p class="page-lead">挑一个头像，然后写下你的第一枚胶囊。</p>
+        <%= render "auth_view/amber_art", register: true %>
+        <div class="overline" data-skin-only="paper"><i></i>Sign up</div><div class="eyebrow eyebrow--center" data-skin-only="amber">Create account</div>
+        <h1 class="h1 page-title"><span data-skin-only="paper">领一个信箱</span><span data-skin-only="amber">领一个身份</span></h1>
+        <p class="lede" data-skin-only="paper">挑一枚邮票当头像，然后写一封最早 1 分钟后才能打开的信。</p>
+        <p class="page-lead" data-skin-only="amber">挑一颗星球当头像，然后写下你的第一枚胶囊。</p>
         <%= form_with url: register_path, html: { novalidate: true },
                       data: { controller: "account-form", action: "submit->account-form#validateNickname" } do %>
           <%= hidden_field_tag :redirect, @return_path if @return_path %>
           <div class="form__row">
-            <%= render "shared/account_field", label: "邮箱", name: "email", type: "email", autocomplete: "email", testid: "register-email", value: @email, placeholder: "you@example.com" %>
-            <%= render "shared/account_field", label: "昵称", name: "nickname", autocomplete: "nickname", testid: "register-nickname", value: @nickname, taken: @nickname_taken, placeholder: "2–20 个字符" %>
+            <%= render "shared/account_field", label: "邮箱", name: "email", type: "email", autocomplete: "email", testid: "register-email", value: @email, placeholder: "you@example.com", hint: "作为登录账号，注册后不可修改。" %>
+            <%= render "shared/account_field", label: "昵称", name: "nickname", autocomplete: "nickname", testid: "register-nickname", value: @nickname, taken: @nickname_taken, placeholder: "2–20 个字符", hint: "全站唯一，注册后可以改。" %>
           </div>
-          <%= render "shared/account_field", label: "密码", name: "password", type: "password", autocomplete: "new-password", testid: "register-password", placeholder: "至少 8 位，包含字母和数字" %>
+          <%= render "shared/account_field", label: "密码", name: "password", type: "password", autocomplete: "new-password", testid: "register-password", placeholder: "设置密码" %>
+          <%= render "shared/password_rules" %>
           <div class="field field--plain">
-            <div class="field__head"><span class="field__label">头像</span></div>
+            <div class="field__head"><span class="field__label"><span data-skin-only="paper">邮票头像 <small>十选一，不支持上传</small></span><span data-skin-only="amber">头像</span></span></div>
             <%= render "shared/avatar_picker", selected: @avatar_id || AvatarService.list.first[:id] %>
           </div>
           <% if @error %><div class="form__err" role="alert"><%= @error %></div><% end %>
-          <button class="btn btn--primary btn--lg btn--block" type="submit" data-testid="register-submit">创建账号，开始写胶囊 <%= icon "arrow" %></button>
+          <button class="btn btn--primary btn--lg btn--block" type="submit" data-testid="register-submit"><span data-skin-only="paper">创建账号，开始写信</span><span data-skin-only="amber">创建账号，开始写胶囊</span><%= icon "arrow", "ic--go" %></button>
         <% end %>
         <p class="auth__alt">已经有账号？ <%= link_to "去登录", login_path(redirect: @return_path), data: { testid: "to-login" } %></p>
       </div>

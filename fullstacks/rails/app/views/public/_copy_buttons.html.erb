@@ -1,0 +1,5 @@
+<% attribute = local_assigns[:scoped] ? "data-view-testid" : "data-testid" %>
+<button class="btn <%= local_assigns.fetch(:code_class, "btn--ghost") %>" type="button" <%= attribute %>="copy-code"
+        data-action="clipboard#copyCode"><%= icon "copy" %> 复制胶囊码</button>
+<button class="btn btn--ghost" type="button" <%= attribute %>="copy-link"
+        data-action="clipboard#copyLink"><%= icon "link" %> 复制链接</button>

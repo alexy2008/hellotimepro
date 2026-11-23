@@ -1,7 +1,1 @@
-<div class="wrap container route-message" data-testid="detail-not-found">
-  <div class="overline eyebrow"><i></i>Capsule not found</div>
-  <h1 class="h1 page-title">查无此胶囊</h1>
-  <p>没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1</p>
-  <p>它也可能已经被作者删除了。</p>
-  <%= link_to "重新输码", open_path, class: "btn btn--primary" %>
-</div>
+<%= render "public/notice", kind: :capsule, hook: "detail-not-found" %>

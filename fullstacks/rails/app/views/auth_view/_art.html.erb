@@ -1,10 +1,12 @@
-<aside class="auth__art" aria-hidden="true">
-  <div data-skin-only="paper">
-    <div class="auth__poem serif">把此刻，<br>寄给未来。</div>
-    <div class="auth__foot"><span class="mono">HELLOTIME PRO</span><span class="seal seal--solid">笺</span></div>
+<% registration = local_assigns[:register] %>
+<aside class="auth__art" data-skin-only="paper" aria-hidden="true">
+  <div class="auth__brand"><%= render "skins/paper/logo" %><span class="latin">HelloTime</span></div>
+  <div class="auth__poem serif">
+    <% if registration %><span>纸短情长</span><span>来日方长</span>
+    <% else %><span>见字如面</span><span>展信安好</span><% end %>
   </div>
-  <div data-skin-only="amber">
-    <span class="auth__orbit"></span><span class="auth__orbit auth__orbit--2"></span>
-    <%= render "skins/amber/capsule_art", code: nil, opened: local_assigns[:register], width: 142 %>
+  <div class="auth__foot"><span><%= registration ? "先留个名字，再慢慢写" : "写信的人，在等回信的你" %></span>
+    <i class="seal seal--solid auth__seal"><%= registration ? "缄" : "信" %></i>
   </div>
+  <div class="auth__pm"><%= render "skins/paper/postmark", css: "pm--auth", text: Time.current.strftime("%Y/%m/%d"), label: "此 刻" %></div>
 </aside>

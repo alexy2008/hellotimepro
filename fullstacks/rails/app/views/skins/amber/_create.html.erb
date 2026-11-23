@@ -1,0 +1,72 @@
+<div class="container">
+  <header class="page-head"><div class="eyebrow">Seal a capsule</div><h1 class="page-title">写一枚胶囊</h1>
+    <p class="page-lead">写给未来的自己，或者某个还没出现的人。合上之后，在开启时间到来之前，没有任何人能读到它。</p>
+  </header>
+  <div class="create">
+    <section class="create__form card">
+      <div class="field">
+        <div class="field__head"><label class="field__label" for="amber-create-title">标题 <em>*</em></label>
+          <span class="field__count mono"><b data-create-target="titleCount">0</b>/60</span>
+        </div>
+        <div class="input-wrap input-wrap--action">
+          <%= render "create/field", skin: "amber", field: "title" %>
+          <%= render "create/ai", skin: "amber" %>
+        </div>
+        <%= render "create/error", skin: "amber", field: "title" %>
+      </div>
+      <%= render "create/recommendations", skin: "amber" %>
+      <div class="field">
+        <div class="field__head"><label class="field__label" for="amber-create-content">内容 <em>*</em></label>
+          <span class="field__count mono"><b data-create-target="contentCount">0</b>/5000</span>
+        </div>
+        <div class="paper" data-create-target="writing"><%= render "create/field", skin: "amber", field: "content" %></div>
+        <div class="field__hint"><span class="ai-note" data-create-target="aiNote" role="status"></span></div>
+        <%= render "create/error", skin: "amber", field: "content" %>
+      </div>
+      <div class="field">
+        <div class="field__head"><label class="field__label" for="orbit-trigger">开启时间 <em>*</em></label>
+          <span class="field__count">最早 1 分钟后 · 最晚 10 年内</span>
+        </div>
+        <%= render "skins/amber/orbit_picker" %>
+        <%= render "create/presets", skin: "amber" %>
+        <%= render "create/error", skin: "amber", field: "openAt" %>
+      </div>
+      <label class="toggle-card is-on">
+        <span class="toggle-card__ic"><%= icon "globe" %></span>
+        <span class="toggle-card__txt"><b>发布到胶囊广场</b><small data-preview="visibility-copy">标题与昵称公开展示，内容到时间才可见</small></span>
+        <%= render "create/publication", skin: "amber" %><span class="switch" aria-hidden="true"></span>
+      </label>
+      <% if @error %><p class="field__error" role="alert"><%= @error %></p><% end %>
+      <div class="create__foot">
+        <div class="create__sum"><%= icon "hourglass" %>
+          <span>将沉睡 <b data-preview="duration"></b>，于 <span data-preview="date-time"><%= fmt_datetime(initial_time) %></span> 开启</span>
+        </div>
+        <button class="btn btn--primary btn--lg" type="submit" data-view-testid="create-submit" data-create-target="submit">
+          <%= icon "lock" %><span data-create-target="submitLabel">封存胶囊</span>
+        </button>
+      </div>
+    </section>
+    <aside class="create__side">
+      <div class="preview card">
+        <div class="preview__head"><span class="eyebrow">实时预览</span><span class="badge badge--amber">尚未封存</span></div>
+        <div class="preview__art"><%= render "skins/amber/capsule_art", code: nil, opened: true, width: 220 %></div>
+        <h3 class="preview__title" data-preview="title">未命名的胶囊</h3>
+        <div class="preview__by"><%= avatar current_user.avatar_id %><%= current_user.nickname %></div>
+        <dl class="preview__table">
+          <div><dt>开启时间</dt><dd class="mono" data-preview="date-time"><%= fmt_datetime(initial_time) %></dd></div>
+          <div><dt>沉睡时长</dt><dd data-preview="duration"></dd></div>
+          <div><dt>正文</dt><dd><span data-preview="length">0</span> 字</dd></div>
+        </dl>
+        <div class="badges">
+          <span class="badge badge--plaza" data-preview="visibility">广场公开</span>
+          <span class="badge badge--amber"><%= icon "clock" %><span data-preview="duration"></span>后</span>
+        </div>
+      </div>
+      <ul class="notes">
+        <li><%= icon "key" %><span>封存后会得到一串 8 位胶囊码，它是开启胶囊的凭证，也能分享给别人。</span></li>
+        <li><%= icon "lock" %><span>到开启时间之前，内容对所有人不可见——包括写下它的你。</span></li>
+        <li><%= icon "trash" %><span>封存后，内容和开启时间都不能再修改；可以在「我创建的」里删除。</span></li>
+      </ul>
+    </aside>
+  </div>
+</div>

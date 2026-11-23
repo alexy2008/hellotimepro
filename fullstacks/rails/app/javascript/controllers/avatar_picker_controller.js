@@ -1,9 +1,16 @@
 import { Controller } from "@hotwired/stimulus";
 
 export default class extends Controller {
-  static targets = ["input", "option"];
+  static targets = ["input", "option", "caption"];
+
+  static values = { initial: String };
 
   choose({ currentTarget }) { this.select(currentTarget); }
+
+  reset() {
+    const initial = this.optionTargets.find((option) => option.dataset.value === this.initialValue);
+    if (initial) this.select(initial);
+  }
 
   move(event) {
     const direction = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
@@ -21,8 +28,9 @@ export default class extends Controller {
       const active = option === button;
       option.dataset.selected = active;
       option.setAttribute("aria-checked", active);
-      option.classList.toggle("is-on", active);
-      option.classList.toggle("is-active", active);
+      option.classList.toggle("is-sel", active);
+      option.tabIndex = active ? 0 : -1;
     });
+    this.captionTargets.forEach((caption) => { caption.hidden = caption.dataset.value !== this.inputTarget.value; });
   }
 }

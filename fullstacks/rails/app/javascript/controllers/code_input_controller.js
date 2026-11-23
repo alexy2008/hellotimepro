@@ -5,11 +5,14 @@ import { api, reducedMotion, sleep, toast } from "lib/ui";
 const MISSING = "没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1";
 
 export default class extends Controller {
-  static targets = ["input", "cell", "cells", "error"];
+  static targets = ["input", "cell", "cells", "error", "submit"];
+
+  static values = { autofocus: Boolean };
 
   connect() {
     this.inputTarget.disabled = false;
     this.display();
+    if (this.autofocusValue && matchMedia("(pointer: fine)").matches) this.inputTarget.focus({ preventScroll: true });
   }
 
   disconnect() { this.lookup?.abort(); }
@@ -68,6 +71,11 @@ export default class extends Controller {
   display(state, message = "") {
     if (!this.hasInputTarget) return;
     const code = this.inputTarget.value;
+    if (this.hasSubmitTarget) {
+      this.submitTarget.disabled = code.length < 8 || state === "checking";
+      this.submitTarget.classList.toggle("is-busy", state === "checking");
+    }
+    this.element.classList.toggle("is-full", code.length === 8);
     this.cellTargets.forEach((cell, index) => {
       const character = code[index] || "";
       cell.dataset.value = character;

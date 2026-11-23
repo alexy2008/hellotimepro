@@ -1,7 +1,7 @@
 <% pressed = capsule[:favoritedByMe]
    full = local_assigns[:full] %>
 <button type="button" class="fav fav--<%= full ? "md" : "sm" %> <%= "is-on" if pressed %>"
-        data-testid="fav-button" data-count="<%= capsule[:favoriteCount] %>" aria-pressed="<%= pressed %>"
+        <%= local_assigns[:scoped] ? "data-view-testid" : "data-testid" %>="fav-button" data-count="<%= capsule[:favoriteCount] %>" aria-pressed="<%= pressed %>"
         aria-label="<%= pressed ? "取消收藏" : "收藏" %>" data-controller="favorite" data-action="favorite#toggle"
         data-favorite-id-value="<%= capsule[:id] %>" data-favorite-signed-in-value="<%= authenticated? %>">
   <%= icon "heart" %><% if full %><span data-favorite-target="label"><%= pressed ? "已收藏" : "收藏" %></span><% end %>

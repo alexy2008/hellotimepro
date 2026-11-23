@@ -1,0 +1,5 @@
+<div class="letter__body readable-content" data-view-testid="detail-content">
+  <% capsule[:content].split(/\r?\n(?:\r?\n)+/).reject(&:empty?).each_with_index do |paragraph, index| %>
+    <%= tag.p paragraph, style: "--i: #{[index, 5].min}" %>
+  <% end %>
+</div>

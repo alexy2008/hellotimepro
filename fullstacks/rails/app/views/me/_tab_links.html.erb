@@ -1,0 +1,10 @@
+<% tabs = [[:created, "我创建的", me_created_path, :created, "feather"],
+           [:favorites, "我收藏的", me_favorites_path, :favoritesGiven, "heart"],
+           [:profile, "账号设置", me_profile_path, nil, "sliders"]] %>
+<% tabs.each do |tab, label, path, count_key, glyph| %>
+  <%= link_to path, class: [css, ("is-active" if tab == @tab)],
+              data: { view_testid: "me-tab-#{tab}", count: (count_key && @stats[count_key]) },
+              aria: { current: ("page" if tab == @tab) } do %>
+    <span data-skin-only="amber"><%= icon glyph %></span><%= label %><% if count_key %><sup><%= @stats[count_key] %></sup><% end %>
+  <% end %>
+<% end %>
