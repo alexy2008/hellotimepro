@@ -1,0 +1,28 @@
+<header class="me__head card">
+  <div class="me__id">
+    <div class="me__orb"><span class="me__ring" data-skin-only="amber"></span><%= avatar current_user.avatar_id, "av--hero" %></div>
+    <div><div class="overline eyebrow"><i></i>My capsules</div>
+      <h1 class="h1 page-title"><%= current_user.nickname %>的胶囊</h1>
+      <div class="me__mail mono"><%= current_user.email %></div>
+    </div>
+  </div>
+  <dl class="me__stats">
+    <% { created: "写过", unopened: "等待开启", favoritesReceived: "被收藏" }.each do |key, label| %>
+      <div data-testid="me-stat" data-key="<%= key %>" data-value="<%= @stats[key] %>">
+        <dd class="latin"><%= @stats[key] %></dd><dt><%= label %></dt>
+      </div>
+    <% end %>
+  </dl>
+</header>
+<nav class="me__bar" aria-label="我的">
+  <div class="seg">
+    <% [[:created, "我创建的", me_created_path, :created], [:favorites, "我收藏的", me_favorites_path, :favoritesGiven],
+        [:profile, "账号设置", me_profile_path, nil]].each do |tab, label, path, count_key| %>
+      <%= link_to path, class: ["seg__opt", ("is-active" if tab == @tab)], data: { testid: "me-tab-#{tab}", count: (count_key && @stats[count_key]) },
+                  aria: { current: ("page" if tab == @tab) } do %>
+        <%= label %><% if count_key %><sup><%= @stats[count_key] %></sup><% end %>
+      <% end %>
+    <% end %>
+  </div>
+  <%= create_link "写一枚胶囊", css: "btn btn--ghost", testid: nil %>
+</nav>

@@ -9,7 +9,7 @@ module AppConfig
   end
 
   def service_name = "hellotime-pro"
-  def service_version = "0.1.0"
+  def service_version = "2.0.0"
 
   def db_driver = env("DB_DRIVER", "postgres")
   def db_url = ENV["DB_URL"]

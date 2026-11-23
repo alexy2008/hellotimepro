@@ -1,0 +1,51 @@
+<header class="hdr" data-shell-target="header">
+  <div class="wrap hdr__in hdr__bar">
+    <%= render "shared/brand" %>
+    <nav class="nav" aria-label="主导航">
+      <% [["plaza", "广场", root_path], ["open", "开启", open_path], ["about", "关于", about_path]].each do |key, label, path| %>
+        <%= link_to label, path, class: ["nav__link", ("is-active" if active_nav(key))],
+                     data: { testid: "nav-#{key}" }, aria: { current: ("page" if active_nav(key)) } %>
+      <% end %>
+    </nav>
+    <div class="hdr__act hdr__tools">
+      <%= create_link "写一枚", css: "btn btn--ghost btn--sm hdr__write", testid: "nav-create", nav: true %>
+      <div class="skinsw" role="radiogroup" aria-label="界面皮肤">
+        <% [["paper", "时笺"], ["amber", "琥珀"]].each do |skin, label| %>
+          <button type="button" role="radio" disabled data-testid="skin-option" data-skin="<%= skin %>" data-value="<%= skin %>"
+                  data-selected="<%= skin == "paper" %>" aria-checked="<%= skin == "paper" %>"
+                  data-shell-target="skinOption" data-action="shell#skin"><%= label %></button>
+        <% end %>
+      </div>
+      <button class="iconbtn theme theme-toggle" type="button" role="switch" disabled aria-label="切换明暗主题" aria-checked="false"
+              data-testid="theme-toggle" data-shell-target="themeButton" data-action="shell#theme">
+        <span data-skin-only="paper"><%= icon "sun", "theme__sun" %><%= icon "moon", "theme__moon" %></span>
+        <span class="theme-toggle__stars" data-skin-only="amber"></span>
+        <span class="theme-toggle__cloud" data-skin-only="amber"></span>
+        <span class="theme-toggle__knob" data-skin-only="amber"></span>
+      </button>
+      <% if current_user %>
+        <div class="umenu" data-shell-target="menu">
+          <button class="uchip" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="<%= current_user.nickname %> 的菜单"
+                  data-testid="user-menu" data-nickname="<%= current_user.nickname %>" data-action="shell#toggleMenu">
+            <%= avatar current_user.avatar_id %><span class="uchip__n"><%= current_user.nickname %></span><%= icon "chev-down", "ic--chev" %>
+          </button>
+          <div class="umenu__pop" role="menu" hidden>
+            <div class="umenu__who"><%= avatar current_user.avatar_id, "av--lg" %>
+              <div><b><%= current_user.nickname %></b><span class="mono"><%= current_user.email %></span></div>
+            </div>
+            <% [["created", me_created_path, "mail", "我创建的"], ["favorites", me_favorites_path, "heart", "我收藏的"], ["profile", me_profile_path, "sliders", "账号设置"]].each do |name, path, glyph, label| %>
+              <%= link_to path, role: "menuitem", data: { testid: "menu-#{name}" } do %><%= icon glyph %><%= label %><% end %>
+            <% end %>
+            <hr>
+            <%= form_with url: logout_path do %>
+              <button role="menuitem" type="submit" data-testid="logout"><%= icon "logout" %>登出</button>
+            <% end %>
+          </div>
+        </div>
+      <% else %>
+        <%= link_to "登录", login_path, class: "btn btn--text btn--sm hdr__login", data: { testid: "nav-login" } %>
+        <%= link_to "注册", register_path, class: "btn btn--primary btn--sm", data: { testid: "nav-register" } %>
+      <% end %>
+    </div>
+  </div>
+</header>

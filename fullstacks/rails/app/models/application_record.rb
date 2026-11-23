@@ -18,4 +18,10 @@ class ApplicationRecord < ActiveRecord::Base
   def self.row_lock(relation)
     AppConfig.sqlite? ? relation : relation.lock
   end
+
+  def self.by_uuid(id)
+    return where(id: id) unless AppConfig.sqlite?
+
+    where(id: [CrossDb::StoredUuid.new(id), CrossDb::StoredUuid.new(CrossDb.uuid_to_hex(id))])
+  end
 end

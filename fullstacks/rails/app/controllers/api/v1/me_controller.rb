@@ -15,6 +15,10 @@ module Api
         render_ok(UserService.update_profile(user, patch))
       end
 
+      def stats
+        render_ok(PlazaService.my_stats(require_user!(auth_header)))
+      end
+
       def change_password
         user = require_user!(auth_header)
         AuthService.change_password(user, currentPassword: params[:currentPassword], newPassword: params[:newPassword])

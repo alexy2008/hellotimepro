@@ -1,106 +1,69 @@
-# HelloTime Pro · Ruby on Rails 全栈
+# HelloTime Pro · Ruby on Rails 全栈（2.0）
 
-Ruby + Ruby on Rails + Hotwire 实现的 HelloTime Pro 全栈，满足 `spec/` 定义的统一 API 契约，
-同一进程同时提供 `/api/v1` JSON 接口与服务端渲染（SSR）UI，支持 PostgreSQL / SQLite 双驱动。
-端口 **7181**（见根 `CLAUDE.md` 端口分配）。
+Ruby 4.0、Rails 8.1 和 Active Record 共同承载 JSON API 与服务端渲染页面。Rails 控制器用 ERB 渲染广场、详情和个人中心，Turbo Drive 处理站内导航，Turbo Stream 回送封存回执，Stimulus 负责输码、倒计时、筛选和时间选择器。两套皮肤都使用 Rails 渲染的表单和仓库统一的设计令牌。
 
-这是全栈实现里的第二个「服务端渲染」代表，与 `fullstacks/spring-mvc`（Thymeleaf + HTMX）对照——
-Rails 这版用 **Hotwire（Turbo + Stimulus）** 承载交互，展示 Rails 8 的招牌前端方案。
+## 运行
 
-完整代码导读见 [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md)。
-
-## 技术栈
-
-| 角色 | 选型 |
-|---|---|
-| 语言 | Ruby 4.x（Homebrew） |
-| 框架 | Ruby on Rails 8 |
-| 交互增强 | Hotwire：Turbo Frame（广场搜索片段）+ Stimulus（AI/收藏/码输入/资料） |
-| 数据访问 | Active Record（自定义 Type 处理跨库格式） |
-| 数据库 | PostgreSQL 16 / SQLite 3 双驱动 |
-| 鉴权 | jwt（HS256）+ bcrypt；SSR 端 httpOnly cookie + cookie→Bearer 桥 |
-| 资产 | importmap-rails（JS）+ Propshaft；Tailwind v4 CLI（构建期 Node）→ `public/css/app.css` |
-
-## 目录结构（分层）
-
-```
-fullstacks/rails/
-  app/
-    controllers/                  ← presentation：api/v1/*（JSON）+ SSR 控制器 + ui（片段/动作）
-    controllers/concerns/         ← AuthResolution（Bearer）/ CookieAuth（cookie 鉴权桥）
-    services/                     ← application/domain：Auth/User/Capsule/Plaza/Favorite/Llm/...
-    models/                       ← Active Record 实体（cross_db_uuid / cross_db_timestamp）
-    lib/cross_db.rb               ← 跨库 UUID/时间戳格式 + 自定义 ActiveRecord::Type
-    lib/api_error.rb              ← 业务异常 → 契约错误外壳
-    javascript/controllers/       ← Stimulus 控制器
-    views/                        ← ERB 模板（layout + public/auth_view/create/me）
-  lib/middleware/cookie_token_bridge.rb  ← /api/v1 缺 Authorization 时用 ht_access cookie 注入 Bearer
-  config/database.yml             ← 按 DB_DRIVER/DB_URL 解析单一外部数据库
-  tailwind/{app.css, layout.css}  ← Tailwind 输入（复用 spec/styles 设计令牌）
-  run / build / test              ← 端口 7181；test 跑跨库格式不变式
-```
-
-## 安装与运行
-
-需要 Homebrew Ruby 4.x（系统 ruby 2.6 太旧；脚本会自动定位 `/opt/homebrew/opt/ruby`）与 `pg`/`bcrypt`/`jwt` gem。
+需要 Ruby 4.0、Bundler、Node.js / npm，以及选择 PostgreSQL 时的本机 PostgreSQL。以下命令在仓库根目录执行。
 
 ```bash
-# 通过仓库级 dev-manager（推荐，会注入 DB/LLM 配置）
-./scripts/db reset --seed
+(cd fullstacks/rails && ./build && ./test)
+./scripts/db init
 ./scripts/hello start rails
-./scripts/hello logs rails
-
-# 或直接在本目录
-./build        # bundle install + Tailwind 构建
-./run          # 启动（默认 postgres；DB_DRIVER=sqlite 切 SQLite）
-./test         # 跨库格式不变式（rails runner，默认 SQLite）
+./scripts/hello stop rails
 ```
 
-## 切换数据库驱动
-
-由环境变量控制，schema/数据生命周期完全在应用之外（`scripts/db`）：
+启动后访问 <http://127.0.0.1:7181>。同源 API 前缀为 `/api/v1`，可用 `/api/v1/health` 查看版本和实际数据库驱动。默认使用 PostgreSQL。要用 SQLite，可指定同一个文件供建表和启动使用。
 
 ```bash
-DB_DRIVER=postgres ./run     # 默认；DB_URL 由 hello 从 data/.hello-state.json 注入
-DB_DRIVER=sqlite   ./run     # DB_URL=sqlite:///<abs path>
+export DB_DRIVER=sqlite
+export DB_URL="sqlite:///${PWD}/data/sqlite/hellotime-rails.db"
+./scripts/db init
+./scripts/hello start rails
 ```
 
-`database.yml` 用 ERB 解析 `DB_URL`（`sqlite:///<abs>` 或 `postgresql[+driver]://user:pass@host:port/db`）。
-应用 **不** 建表、不迁移、不 seed。
+表结构与演示数据由根目录的 `scripts/db` 管理。时笺所用的 @fontsource 字体由 Propshaft 同源提供。首次安装依赖时需要 Bundler 和 npm，浏览器运行时从 Rails 读取页面、样式与脚本。
 
-## 实现特色
+## 页面与接口
 
-- **同进程双接口 + cookie→Bearer 桥**：`/api/v1/*`（Bearer）与 SSR 页面（httpOnly cookie）共存；
-  `lib/middleware/cookie_token_bridge.rb` 对缺 Authorization 头的 `/api/v1` 请求用 `ht_access` cookie
-  注入 `Bearer`，让浏览器 fetch（AI/资料）复用同一套 Bearer 鉴权控制器。契约黑盒发真实 Bearer 时不介入。
-- **跨库存储格式**（`lib/cross_db.rb`）：仅在 SQLite 下用自定义 `ActiveRecord::Type` 把 UUID 存成 32 位无横线
-  hex、时间戳存 ISO-8601 TEXT（`T` 分隔、`+00:00`、零小数不输出，与 seed 一致——支撑字符串比较的
-  `open_at <= now` / `ORDER BY created_at`）；Postgres 走原生 `uuid` / `timestamptz`。裸 SQL 绑定时间戳
-  按方言取 ISO 串/`Time`，避免 AR 默认格式破坏字符串可比性。
-- **Hotwire 分工**：广场搜索用 Turbo Frame（`/ui/plaza/grid` 渲染 `<turbo-frame id="plaza-grid">` 局部替换，
-  `target="_top"` 让卡片链接整页导航）；AI 推荐/生成、8 位码输入、头像选择、用户菜单、资料保存用 Stimulus 控制器。
-- **收藏切换用同步 XHR**（`favorite_controller.js`）：保证「点完立刻导航到 /me/favorites」前收藏已落库提交，
-  消除 PostgreSQL 下 `FOR UPDATE` 行锁较慢导致的竞态（见 docs/dev-notes.md §4）；匿名点击纯客户端 confirm 跳登录。
-- **并发一致性**：Postgres 路径 `Capsule.where(id:).lock`（SELECT ... FOR UPDATE）序列化收藏计数与 refresh token
-  轮转；SQLite 单写事务。refresh 重用检测先提交家族吊销、事务外抛 401。
-- **统一外壳**：API 基类 `rescue_from` 把业务异常转为契约约定的 `{ success, data, message, errorCode }`；
-  坏 JSON body 由容错解析器降级为 `{}` → 字段校验 422。
+| 路径 | 功能 |
+|---|---|
+| `/` | 广场、概览、精选胶囊、就地输码、字面搜索、筛选、排序和分页 |
+| `/open` | 8 格输码与最近封存的胶囊 |
+| `/capsules/:code` | 按码查看胶囊、实时倒计时、到点开启、收藏和分享 |
+| `/create` | 预设、时笺标尺与日历、琥珀星轨时钟、AI 推荐与代笔、封存回执 |
+| `/login`、`/register` | 邮箱登录、注册、头像选择和站内回跳 |
+| `/me/created`、`/me/favorites`、`/me/profile` | 个人统计、胶囊管理、收藏、资料和密码 |
+| `/about` | 项目功能、原则与当前 Rails 技术栈 |
 
-## 验证
+`/api/v1/plaza/stats` 提供广场统计，数量跟随搜索，两个开启时刻覆盖整个广场。`/api/v1/me/stats` 返回当前用户的创建、开启、公开和收藏统计。可以收藏自己创建的、未公开的和未开启的胶囊。未公开胶囊仍可凭码查看。
+
+接口与界面约定见 [OpenAPI](../../spec/api/openapi.yaml)、[界面测试钩子](../../spec/ui/testids.md) 和 [Rails 技术手册](TECHNICAL_GUIDE.md)。
+
+## 2.0 验证
+
+2026-11-23，验证使用独立的 PostgreSQL 库与 SQLite 文件。
+
+| 驱动 | API 契约 | UI 冒烟（时笺 + 琥珀） |
+|---|---:|---:|
+| PostgreSQL | 117/117 | 88/88 |
+| SQLite | 117/117 | 88/88 |
+
+`./build`、Propshaft 资产预编译、设计令牌校验均通过。`./test` 的 6 个用例、34 条断言通过。另用 390px 视口验证标尺拖动、日历键盘操作、星轨表盘和换肤同步，并验证 AI 请求取消、封存提交锁与草稿版本清理。
+
+PostgreSQL 并发验证跑了 4 轮。重复收藏只计一次，同时删除与取消收藏后，详情和统计保持一致。
+
+契约会重置并播种 `DB_URL`，执行下列命令前须指向独立验证库。
 
 ```bash
-./verification/scripts/verify-contract.sh rails                 # PostgreSQL 契约 104/104
-DB_DRIVER=sqlite ./verification/scripts/verify-contract.sh rails # SQLite 契约 104/104
-./verification/scripts/verify-ui-smoke.sh rails                  # PostgreSQL UI 25/25
-DB_DRIVER=sqlite ./verification/scripts/verify-ui-smoke.sh rails # SQLite UI 25/25
+./verification/scripts/verify-contract.sh rails
+./verification/scripts/verify-ui-smoke.sh rails
+./verification/scripts/verify-design-tokens.sh rails
 ```
 
-最新验收：2026-06-06，契约 PostgreSQL & SQLite 各 **104/104**，UI 冒烟 PostgreSQL & SQLite 各 **25/25**。
+## 2.0 迁移笔记
 
-## 注意事项
-
-- 系统 ruby 是 2.6（太旧）；run/build/test 显式把 `/opt/homebrew/opt/ruby/bin` 与 gem 可执行目录加进 PATH。
-- 中间件是普通类，放 `lib/middleware/` 并在 `config/application.rb` 显式 `require`（config 阶段 autoload 未就绪，
-  字符串中间件名 Rails 8 不再 constantize）。
-- `rescue_from` 按「后注册先匹配」：先注册 `StandardError` 兜底、后注册 `ApiError` 优先命中，否则业务 422 会被吞成 500。
-- `public/css/app.css` 是 Tailwind 构建产物，已提交作为无 npm 时的兜底。
+- 网页详情统一为 `/capsules/:code`，登录回跳使用 `redirect`。网页保留 HttpOnly Cookie 和 Rails CSRF 校验，JSON 接口继续支持 Bearer JWT。
+- 时笺和琥珀共享表单、输码与筛选节点。ERB partial 提供各自的插画与时间控件，首帧由本地偏好决定 CSS 呈现。Stimulus 通过静态 importmap 注册，搜索框、输码框和皮肤控件在事件接好后启用。
+- SQLite 的种子、旧 Rails 行和其他栈写出的行可能使用不同 UUID 表示。Active Record 将 UUID 读成统一格式并保留已有键的原始值，按码查询、收藏关系和删除可处理两种存储格式。
+- SQLite 比较时间时会补齐 ISO 文本的小数秒。这样能正确区分同一秒内的整秒与小数秒。搜索用 SQLite 连接级 Unicode 小写函数和字面转义。

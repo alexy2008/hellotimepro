@@ -1,44 +1,48 @@
-<% content_for :title, "关于" %>
-
-<main class="cy-container cy-container--narrow" style="margin-top:var(--space-12);margin-bottom:var(--space-16)">
-  <h1 style="font-family:var(--font-display);font-size:var(--font-size-3xl);margin:0 0 var(--space-4)">关于 HelloTime Pro</h1>
-  <p style="color:var(--color-text-secondary);margin:0 0 var(--space-8)">
-    一款时光胶囊 Web 应用——写下一段话，设定未来某刻才能开启，内容上锁后不可修改。
-    支持胶囊广场浏览、AI 辅助创作、收藏与账户管理。同时也是一个多技术栈对比学习项目，
-    同一份产品需求由多套前后端框架各自实现，共享同一份 API 契约、数据库 schema 与设计 token。
-  </p>
-
-  <div class="cy-card" style="margin-bottom:var(--space-6)">
-    <h2 style="font-size:var(--font-size-xl);margin:0 0 var(--space-4)">前端技术栈</h2>
-    <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-4)">
-      <% @frontend_stack.each do |it| %>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-1)">
-          <% if it[:iconUrl] %>
-            <img src="<%= it[:iconUrl] %>" alt="<%= it[:name] %>" style="width:48px;height:48px">
-          <% else %>
-            <div style="width:48px;height:48px;background:var(--color-surface-2);border-radius:var(--radius-md)"></div>
-          <% end %>
-          <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)"><%= it[:name] %><%= it[:version] ? " #{it[:version]}" : "" %></span>
-        </div>
-      <% end %>
-    </div>
-    <p style="color:var(--color-text-secondary);line-height:var(--line-height-relaxed);margin:0"><%= @frontend_summary %></p>
+<div class="page page--about">
+  <div class="wrap container about">
+    <header class="about__hero">
+      <div class="about__badge" data-skin-only="amber">
+        <span class="about__ring"></span><%= render "skins/amber/capsule_art", code: nil, opened: true, width: 146 %>
+      </div>
+      <div>
+        <div class="overline eyebrow"><i></i>About HelloTime Pro</div>
+        <h1 class="about__title h1 page-title">有些话，<br>要<em>等一等</em>再说。</h1>
+        <p class="about__lede page-lead">HelloTime Pro 是一个时间胶囊应用，也是一个多技术栈对比学习项目。</p>
+      </div>
+    </header>
+    <section class="about__sec">
+      <h2 class="h2 section-title">此刻运行的技术栈</h2>
+      <ul class="stack ftr__stack about__stack" data-testid="about-stack"><%= render "shared/stack_items" %></ul>
+      <p class="page-lead">Rails 用 ERB 渲染页面，Hotwire 驱动局部交互，Active Record 连接当前数据库。</p>
+    </section>
+    <section class="about__sec">
+      <h2 class="h2 section-title">它能做什么</h2>
+      <div class="features about-grid" data-testid="about-features">
+        <% [
+          ["user", "账号与头像", "邮箱注册即登录；十个内置头像，昵称全站唯一。"],
+          ["pen", "写一枚胶囊", "标题、正文、开启时间；没有头绪时，AI 给灵感，也能代笔。"],
+          ["clock", "倒计时与自动开启", "没到时间只显示倒计时；归零的那一刻，胶囊自己打开。"],
+          ["grid", "胶囊广场", "公开的胶囊陈列在这里，可搜索、筛选，按最新或最热排序。"],
+          ["heart", "收藏与「我的」", "收藏任何一枚胶囊，等它开启；在「我的」里管理写过的每一枚。"],
+          ["palette", "两套皮肤，昼夜两色", "「时笺」与「琥珀」随时切换，各有明暗两套主题，并记住你的选择。"]
+        ].each do |glyph, title, text| %>
+          <article class="feature card card--pad" data-testid="about-feature"><%= icon glyph %><h3><%= title %></h3><p><%= text %></p></article>
+        <% end %>
+      </div>
+    </section>
+    <section class="about__sec card card--pad">
+      <h2 class="h2 section-title">四条原则</h2>
+      <p class="page-lead">这个仓库为什么长成现在的样子。</p>
+      <div class="about-grid" data-testid="about-tenets">
+        <% [
+          ["规范即唯一事实源", "业务契约放在 spec/ 下：OpenAPI、数据库 schema、设计令牌。代码只是规范的投影，有歧义先改规范。"],
+          ["栈内地道", "Signals、组合式、Hooks、Runes、Compose……每个实现都用自己技术栈的惯用写法，而不是把同一份代码翻译十遍。"],
+          ["外部一致", "无论内部怎么写，对外的路由、JSON 形状、错误码与界面必须一致——肉眼可比，才谈得上对比。"],
+          ["黑盒验证", "契约用例与 UI 冒烟都从外部跑，不信任任何实现的自述；每个后端都要在 PostgreSQL 与 SQLite 上各过一遍。"]
+        ].each do |title, text| %>
+          <article class="feature" data-testid="about-tenet"><h3><%= title %></h3><p><%= text %></p></article>
+        <% end %>
+      </div>
+    </section>
   </div>
-
-  <div class="cy-card">
-    <h2 style="font-size:var(--font-size-xl);margin:0 0 var(--space-4)">后端技术栈 · <%= @health[:service] %> v<%= @health[:version] %></h2>
-    <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-4)">
-      <% @health[:stack][:items].each do |it| %>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-1)">
-          <% if it[:iconUrl] %>
-            <img src="<%= it[:iconUrl] %>" alt="<%= it[:name] %>" style="width:48px;height:48px">
-          <% else %>
-            <div style="width:48px;height:48px;background:var(--color-surface-2);border-radius:var(--radius-md)"></div>
-          <% end %>
-          <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)"><%= it[:name] %><%= it[:version] ? " #{it[:version]}" : "" %></span>
-        </div>
-      <% end %>
-    </div>
-    <p style="color:var(--color-text-secondary);line-height:var(--line-height-relaxed);margin:0"><%= @health[:stack][:summary] %></p>
-  </div>
-</main>
+</div>

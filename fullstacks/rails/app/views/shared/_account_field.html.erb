@@ -1,0 +1,24 @@
+<% options = local_assigns
+   password = options[:type] == "password"
+   nickname = options[:name] == "nickname" %>
+<div class="field" data-controller="<%= "password-field" if password %>">
+  <div class="field__head"><label class="field__label" for="<%= testid %>"><%= label %></label></div>
+  <div class="field__box input-wrap <%= "input-wrap--action" if password %>">
+    <%= tag.input id: testid, name: name, class: "field__input input", type: options.fetch(:type, "text"),
+                  value: options[:value], autocomplete: options[:autocomplete],
+                  placeholder: options[:placeholder], aria: { describedby: ("#{testid}-state" if nickname) },
+                  data: { testid: testid, password_field_target: ("input" if password),
+                          account_form_target: ({ "nickname" => "nickname", "newPassword" => "password", "confirmPassword" => "confirm" }[name]), action: ("input->account-form#nickname" if nickname) } %>
+    <% if password %>
+      <button class="iconbtn icon-btn field__eye" type="button" aria-label="显示密码" data-action="password-field#toggle">
+        <%= icon "eye" %>
+      </button>
+    <% end %>
+    <span class="field__line"></span>
+  </div>
+  <% if nickname %>
+    <span id="<%= testid %>-state" class="field__hint nstate"
+          data-account-form-target="state" <%= 'data-state=taken data-testid=nickname-state' if options[:taken] %>
+          role="status"><%= "昵称已被使用" if options[:taken] %></span>
+  <% end %>
+</div>

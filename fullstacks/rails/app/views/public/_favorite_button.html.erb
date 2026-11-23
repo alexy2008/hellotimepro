@@ -1,15 +1,9 @@
-<%#
-  收藏按钮。点击由 Stimulus favorite 控制器接管：
-   - 登录态：同步 XHR 调 /ui/capsules/{id}/favorite-toggle，更新按钮。
-   - 匿名（anon=true）：window.confirm 后跳登录。
-%>
-<% fav = capsule[:favoritedByMe] %>
-<button type="button" class="cy-capsule__fav <%= " is-active" if fav %>"
-        data-controller="favorite"
-        data-favorite-id-value="<%= capsule[:id] %>"
-        data-favorite-anon-value="<%= !authenticated %>"
-        data-favorited="<%= fav %>"
-        data-action="click->favorite#toggle">
-  <span class="cy-fav-icon"><%= fav ? "♥" : "♡" %></span>
-  <span class="cy-fav-count"><%= capsule[:favoriteCount] %></span>
+<% pressed = capsule[:favoritedByMe]
+   full = local_assigns[:full] %>
+<button type="button" class="fav fav--<%= full ? "md" : "sm" %> <%= "is-on" if pressed %>"
+        data-testid="fav-button" data-count="<%= capsule[:favoriteCount] %>" aria-pressed="<%= pressed %>"
+        aria-label="<%= pressed ? "取消收藏" : "收藏" %>" data-controller="favorite" data-action="favorite#toggle"
+        data-favorite-id-value="<%= capsule[:id] %>" data-favorite-signed-in-value="<%= authenticated? %>">
+  <%= icon "heart" %><% if full %><span data-favorite-target="label"><%= pressed ? "已收藏" : "收藏" %></span><% end %>
+  <span class="fav__n" data-favorite-target="count"><%= capsule[:favoriteCount] %></span>
 </button>

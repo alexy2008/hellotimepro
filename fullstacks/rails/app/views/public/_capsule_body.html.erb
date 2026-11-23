@@ -1,0 +1,46 @@
+<% opened = capsule[:isOpened] %>
+<%= tag.div class: "page page--detail", data: capsule_attrs(capsule).merge(testid: "capsule-detail") do %>
+  <div class="wrap container detail detail-layout">
+    <%= link_to "‹ 返回广场", root_path, class: "link-btn" %>
+    <header class="detail__head page-head">
+      <div class="overline eyebrow"><i></i><%= opened ? "已开启" : "封存中" %> · <span class="mono"><%= capsule[:code] %></span></div>
+      <h1 class="h1 page-title" data-testid="detail-title"><%= capsule[:title] %></h1>
+      <p class="detail__by page-lead">
+        <%= avatar capsule[:creator][:avatarId] %> <%= capsule[:creator][:nickname] %> · 封存于
+        <time datetime="<%= capsule[:createdAt] %>" data-controller="local-time"><%= fmt_date(capsule[:createdAt]) %></time>
+        <% unless capsule[:inPlaza] %> · 未公开<% end %>
+      </p>
+    </header>
+    <div class="detail-main card card--pad">
+      <% if opened %>
+        <div class="letter letter--opened">
+          <div class="overline eyebrow"><i></i>致打开这枚胶囊的人</div>
+          <div class="letter__text readable-content" data-testid="detail-content"><%= capsule[:content] %></div>
+        </div>
+      <% else %>
+        <div class="stage vault">
+          <div class="detail-envelope" data-skin-only="paper"><%= render "skins/paper/envelope", css: "env--stage" %></div>
+          <div class="vault__art" data-skin-only="amber"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: false, width: 240 %></div>
+          <p class="stage__txt vault__label">还没到开启的时候</p>
+        </div>
+        <div class="cd" data-testid="countdown" role="timer" data-open-at="<%= capsule[:openAt] %>"
+             data-controller="countdown" data-countdown-url-value="<%= capsule_fragment_path(capsule[:code]) %>"
+             data-action="hellotime:skin@document->countdown#restart turbo:before-visit@document->countdown#stop">
+          <% countdown_parts(capsule[:openAt]).zip(%w[天 时 分 秒]).each_with_index do |(value, label), index| %>
+            <% if index.positive? %><span class="cd__sep" aria-hidden="true">:</span><% end %>
+            <div class="cd__unit"><b class="cd__digits latin mono" data-countdown-target="digit"><%= format("%02d", value) %></b>
+              <span class="cd__lbl cd__label"><%= label %></span></div>
+          <% end %>
+          <p class="opening-note" hidden data-countdown-target="opening" role="status">时间到了，胶囊正在开启…</p>
+        </div>
+      <% end %>
+      <p class="detail-when"><%= icon "calendar" %> <%= opened ? "开启于" : "将开启于" %>
+        <time datetime="<%= capsule[:openAt] %>" data-controller="local-time" data-local-time-precise-value="true"><%= fmt_datetime(capsule[:openAt]) %></time>
+      </p>
+    </div>
+    <div class="detail-actions">
+      <%= render "public/copy_actions", code: capsule[:code] %>
+      <%= render "public/favorite_button", capsule: capsule, full: true %>
+    </div>
+  </div>
+<% end %>

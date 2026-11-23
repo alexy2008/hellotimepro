@@ -8,20 +8,12 @@ module CapsuleService
     content = Validation.content(params[:content])
     open_at = Validation.open_at(params[:openAt])
     now = Time.now.utc
-    raise ApiError.validation("openAt 必须晚于当前时间 60 秒以上", "openAt") if open_at < now + 60
-    raise ApiError.validation("openAt 不得超出当前时间 10 年", "openAt") if open_at > now + (10 * 365 * 24 * 3600)
+    validate_open_at!(open_at, now)
 
     in_plaza = params[:inPlaza].nil? ? true : !!params[:inPlaza]
 
-    capsule = Capsule.create!(
-      owner_id: owner.id,
-      code: generate_unique_code,
-      title: title,
-      content: content,
-      open_at: open_at,
-      in_plaza: in_plaza,
-      favorite_count: 0,
-    )
+    capsule = create_with_unique_code(owner: owner, title: title, content: content, open_at: open_at,
+                                      in_plaza: in_plaza, favorite_count: 0, created_at: now, updated_at: now)
     MapperService.detail(capsule, owner, favorited_by_me: false, include_content: true)
   end
 
@@ -36,9 +28,8 @@ module CapsuleService
   end
 
   def get_plaza_detail(id_raw, viewer_id)
-    id = CrossDb.parse_uuid_or_nil(id_raw) or raise ApiError.not_found("胶囊不存在")
-    capsule = Capsule.find_by(id: id)
-    raise ApiError.not_found("胶囊不存在") if capsule.nil? || !capsule.in_plaza
+    id = Validation.uuid(id_raw, "id")
+    capsule = Capsule.by_uuid(id).published.first or raise ApiError.not_found("胶囊不存在")
 
     owner = User.find_by(id: capsule.owner_id) or raise ApiError.not_found("胶囊不存在")
     favorited = !viewer_id.nil? && Favorite.exists?(user_id: viewer_id, capsule_id: capsule.id)
@@ -46,20 +37,29 @@ module CapsuleService
   end
 
   def delete_own(user, id_raw)
-    id = CrossDb.parse_uuid_or_nil(id_raw) or raise ApiError.not_found("胶囊不存在")
-    ActiveRecord::Base.transaction do
-      capsule = Capsule.find_by(id: id) or raise ApiError.not_found("胶囊不存在")
+    id = Validation.uuid(id_raw, "id")
+    Capsule.transaction do
+      capsule = Capsule.row_lock(Capsule.by_uuid(id)).first or raise ApiError.not_found("胶囊不存在")
       raise ApiError.forbidden("无权删除他人胶囊") if capsule.owner_id != user.id
 
-      Favorite.where(capsule_id: id).delete_all
+      Favorite.where(capsule_id: capsule.id).delete_all
       capsule.destroy!
     end
   end
 
-  def generate_unique_code
+  def validate_open_at!(open_at, now)
+    raise ApiError.validation("openAt 必须晚于当前时间 60 秒以上", "openAt") if open_at <= now + 60
+    raise ApiError.validation("openAt 不得超出当前时间 10 年", "openAt") if open_at > now.advance(years: 10)
+  end
+
+  def create_with_unique_code(**attributes)
     5.times do
       candidate = Array.new(8) { CODE_ALPHABET.sample }.join
-      return candidate unless Capsule.exists?(code: candidate)
+      begin
+        return Capsule.transaction(requires_new: true) { Capsule.create!(**attributes, code: candidate) }
+      rescue ActiveRecord::RecordNotUnique
+        raise unless Capsule.exists?(code: candidate)
+      end
     end
     raise "生成唯一码失败"
   end

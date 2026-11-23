@@ -15,7 +15,7 @@
   if is_sqlite
     sqlite_path =
       if raw_url.start_with?("sqlite:///")
-        raw_url.sub("sqlite:///", "/")            # sqlite:////abs → /abs
+        raw_url.delete_prefix("sqlite:///")      # sqlite:////abs → /abs
       else
         File.expand_path("../../../../data/sqlite/hellotime-rails.db", __FILE__)
       end
@@ -26,8 +26,8 @@
     uri = URI.parse(norm)
     pg_host = uri.host || "127.0.0.1"
     pg_port = uri.port || 5432
-    pg_user = uri.user
-    pg_pass = uri.password
+    pg_user = uri.user && URI::DEFAULT_PARSER.unescape(uri.user)
+    pg_pass = uri.password && URI::DEFAULT_PARSER.unescape(uri.password)
     pg_db   = (uri.path || "").sub(%r{\A/}, "")
     pg_db   = "hellotime_pro" if pg_db.empty?
   end
@@ -36,8 +36,8 @@
 <% if is_sqlite %>
 default: &default
   adapter: sqlite3
-  database: <%= sqlite_path %>
-  # 单写连接：避免 "database is locked"（与其它栈 SQLite 策略一致）。
+  database: <%= sqlite_path.inspect %>
+  # Rails 8.1 的 SQLite 事务默认用 BEGIN IMMEDIATE。应用内再共用单连接池。
   pool: 1
   timeout: 5000
 <% else %>
@@ -47,8 +47,8 @@ default: &default
   host: <%= pg_host %>
   port: <%= pg_port %>
   database: <%= pg_db %>
-  <% if pg_user %>username: <%= pg_user %><% end %>
-  <% if pg_pass %>password: <%= pg_pass %><% end %>
+  <% if pg_user %>username: <%= pg_user.inspect %><% end %>
+  <% if pg_pass %>password: <%= pg_pass.inspect %><% end %>
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
 <% end %>
 

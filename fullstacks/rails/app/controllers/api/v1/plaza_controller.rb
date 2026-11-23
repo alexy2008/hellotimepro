@@ -16,6 +16,10 @@ module Api
         viewer = optional_user(auth_header)
         render_ok(CapsuleService.get_plaza_detail(params[:id], viewer&.id))
       end
+
+      def stats
+        render_ok(PlazaService.plaza_stats(q: request.query_parameters["q"]))
+      end
     end
   end
 end

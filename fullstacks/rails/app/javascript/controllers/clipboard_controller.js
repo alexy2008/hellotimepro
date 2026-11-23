@@ -1,41 +1,19 @@
-import { Controller } from "@hotwired/stimulus"
+import { Controller } from "@hotwired/stimulus";
+import { toast } from "lib/ui";
 
 export default class extends Controller {
-  static values = { text: String, doneLabel: String }
+  static values = { code: String };
 
-  connect() {
-    this.label = this.element.textContent
-  }
+  copyCode() { this.write(this.codeValue, "胶囊码"); }
 
-  copy() {
-    const text = this.textValue || window.location.href
-    this.write(text)
-      .then(() => this.showDone())
-      .catch(() => this.showDone())
-  }
+  copyLink() { this.write(new URL(`/capsules/${this.codeValue}`, location.origin).href, "链接"); }
 
-  write(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-      return navigator.clipboard.writeText(text)
+  async write(text, label) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(`已复制${label}`);
+    } catch {
+      toast(`暂时无法复制${label}`, "error");
     }
-
-    const area = document.createElement("textarea")
-    area.value = text
-    area.setAttribute("readonly", "")
-    area.style.position = "fixed"
-    area.style.left = "-9999px"
-    document.body.appendChild(area)
-    area.select()
-    document.execCommand("copy")
-    area.remove()
-    return Promise.resolve()
-  }
-
-  showDone() {
-    this.element.textContent = this.doneLabelValue || "✓ 已复制!"
-    window.clearTimeout(this.resetTimer)
-    this.resetTimer = window.setTimeout(() => {
-      this.element.textContent = this.label
-    }, 2000)
   }
 }

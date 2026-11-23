@@ -24,11 +24,7 @@ done
 _GEM_BIN="$(ls -d /opt/homebrew/lib/ruby/gems/*/bin 2>/dev/null | sort | tail -1 || true)"
 [[ -n "${_GEM_BIN:-}" && -d "$_GEM_BIN" ]] && export PATH="$_GEM_BIN:$PATH"
 
-# 构建 Tailwind 样式（仅构建期 Node；运行期不依赖，已提交 public/css/app.css 兜底）。
-if [[ -f package.json ]] && command -v npm >/dev/null 2>&1; then
-  [[ -d node_modules ]] || { echo "首次运行：npm install（仅 @tailwindcss/cli）"; npm install --silent; }
-  echo "→ 构建 Tailwind 样式 → public/css/app.css"
-  npm run --silent build:css || echo "⚠ Tailwind 构建失败，使用已提交的 app.css"
-fi
+# 字体由 Propshaft 同源提供；已安装时启动不访问 npm。
+[[ -f node_modules/@fontsource/noto-serif-sc/400.css ]] || npm ci --no-audit --no-fund
 
 exec bundle exec rails server -e "$RAILS_ENV" -p "$PORT" -b 0.0.0.0

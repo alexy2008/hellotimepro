@@ -1,45 +1,96 @@
-<% content_for :title, "广场" %>
-
-<section class="cy-hero-block">
-  <div class="cy-container">
-    <h1 class="cy-hero-title">封存此刻 <span class="cy-hero-title__highlight">开启未来</span></h1>
-    <p class="cy-hero-subtitle">
-      写下此刻最真实的想法，设定一个解封时刻——可以是明年生日、十年后的某个清晨，或任何你觉得值得等待的瞬间。时间到了，它才会被打开。
-    </p>
-    <div class="cy-hero-cta">
-      <a class="cy-btn cy-btn--primary cy-btn--hero" href="<%= authenticated? ? "/create" : "/register" %>">创建我的胶囊</a>
-      <a class="cy-btn cy-btn--success cy-btn--hero" href="/open">用胶囊码开启</a>
+<div class="page page--plaza page--home">
+  <section class="hero container">
+    <div class="wrap hero__in">
+      <div class="hero__copy">
+        <div class="overline eyebrow"><i></i>HelloTime Pro · 时间胶囊</div>
+        <h1 class="hero__title">
+          <span class="hero__line"><span class="hero__clip"><span>把此刻，</span></span></span>
+          <span class="hero__line"><span class="hero__clip"><span>寄给<em class="hero__future" data-text="未来">未来</em>。</span></span></span>
+        </h1>
+        <p class="hero__lede">写下一段话，再选一个启封的时刻。<br>在那之前，谁也打不开它——包括你自己。</p>
+        <div class="hero__cta">
+          <%= create_link "写一枚胶囊", css: "btn btn--primary btn--lg", testid: "home-create" %>
+          <a class="btn btn--ghost btn--lg" href="#plaza">逛逛胶囊广场 <%= icon "arrow", "ic--go" %></a>
+        </div>
+        <form class="hquick quick card" action="/open" data-controller="code-input"
+              data-action="submit->code-input#submit hellotime:skin@document->code-input#cancel turbo:before-visit@document->code-input#cancel">
+          <p class="hquick__k quick__k"><%= icon "key" %> 已有胶囊码？在这里开启</p>
+          <div class="hquick__row quick__row">
+            <%= render "shared/code_fields", compact: true %>
+            <button class="hquick__go btn btn--soft" type="submit" aria-label="开启"><%= icon "arrow" %><span data-skin-only="amber">开启</span></button>
+          </div>
+          <div class="hquick__err quick__err" role="alert" data-code-input-target="error"></div>
+        </form>
+        <div class="hero__now"><span class="hero__now-k">此刻</span>
+          <time class="mono" data-controller="local-time" data-local-time-live-value="true"><%= Time.current.strftime("%Y/%m/%d %H:%M:%S") %></time>
+        </div>
+      </div>
+      <div class="hero__art">
+        <%= render "skins/paper/hero_art" %><%= render "skins/amber/hero_art" %>
+        <% if @featured %>
+          <div class="ha ha--slip featured-slip" style="--depth: 1.5">
+            <%= link_to capsule_path(@featured[:code]), class: "slip", style: "--glow: oklch(0.72 0.17 #{capsule_hue(@featured[:code])} / 0.34)", data: { featured_id: @featured[:id] } do %>
+              <div class="slip__k"><span class="pulse-dot slip__dot"></span>广场上最受期待的一枚</div>
+              <div class="slip__t"><%= @featured[:title] %></div>
+              <div class="slip__cd"><%= render "shared/compact_countdown", open_at: @featured[:openAt] %></div>
+              <div class="slip__f mono"><span><%= @featured[:code] %></span>
+                <span class="slip__fav"><%= icon "heart" %><b data-featured-count><%= @featured[:favoriteCount] %></b></span>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
+  <section class="wrap container almanac stats" aria-label="广场概览" data-testid="plaza-stats">
+    <% if @overview %>
+      <% cells = [["all", @overview[:counts][:all], "枚胶囊", "在广场上"],
+                  ["unopened", @overview[:counts][:unopened], "枚正在", "等待启封"],
+                  ["opened", @overview[:counts][:opened], "枚已经", "被人读到"]] %>
+      <% cells << ["farthestYear", Time.iso8601(@overview[:farthestOpenAt]).year, "年，最远的", "一枚才会打开"] if @overview[:farthestOpenAt] %>
+      <% cells.each_with_index do |(key, value, first, second), index| %>
+        <div class="almanac__cell stats__cell" data-testid="stat" data-key="<%= key %>" data-value="<%= value %>" style="--i: <%= index %>">
+          <b class="latin"><%= value %></b><span><%= first %><br><%= second %></span>
+        </div>
+      <% end %>
+    <% end %>
+  </section>
 
-<main class="cy-container">
-  <div class="cy-toolbar">
-    <div class="cy-toolbar__group">
-      <%= form_with url: "/", method: :get, class: "cy-seg", data: { turbo: false } do %>
-        <input type="hidden" name="filter" value="<%= @filter %>">
-        <% if @q.present? %><input type="hidden" name="q" value="<%= @q %>"><% end %>
-        <button type="submit" name="sort" value="hot" class="<%= "cy-seg__active" if @sort == "hot" %>">🔥 热门</button>
-        <button type="submit" name="sort" value="new" class="<%= "cy-seg__active" if @sort == "new" %>">✨ 最新</button>
-      <% end %>
-      <%= form_with url: "/", method: :get, class: "cy-seg", data: { turbo: false } do %>
-        <input type="hidden" name="sort" value="<%= @sort %>">
-        <% if @q.present? %><input type="hidden" name="q" value="<%= @q %>"><% end %>
-        <button type="submit" name="filter" value="all" class="<%= "cy-seg__active" if @filter == "all" %>">全部</button>
-        <button type="submit" name="filter" value="opened" class="<%= "cy-seg__active" if @filter == "opened" %>">已开启</button>
-        <button type="submit" name="filter" value="unopened" class="<%= "cy-seg__active" if @filter == "unopened" %>">未开启</button>
-      <% end %>
+  <section class="wrap container plaza" id="plaza" data-controller="plaza-search"
+           data-plaza-search-page-value="<%= @page %>" data-plaza-search-filter-value="<%= @filter %>"
+           data-plaza-search-sort-value="<%= @sort %>" data-plaza-search-fragment-value="<%= ui_plaza_grid_path %>">
+    <header class="plaza__head page-head page-head--split">
+      <div><div class="overline eyebrow"><i></i>Capsule Plaza</div><h2 class="h2 page-title">胶囊广场</h2></div>
+      <p class="plaza__sub page-lead">别人写给未来的话。<br>有的已经启封，有的还在路上。</p>
+    </header>
+    <div class="toolbar card">
+      <div class="seg" role="group" aria-label="排序">
+        <span class="seg__thumb" aria-hidden="true"></span>
+        <% [["new", "clock", "最新"], ["hot", "fire", "最热"]].each do |value, glyph, label| %>
+          <button class="seg__opt <%= "is-active" if value == @sort %>" type="button" disabled data-testid="sort-option" data-value="<%= value %>"
+                  data-selected="<%= value == @sort %>" aria-pressed="<%= value == @sort %>"
+                  data-plaza-search-target="sort" data-action="plaza-search#chooseSort"><%= icon glyph %><%= label %></button>
+        <% end %>
+      </div>
+      <div class="seg" role="group" aria-label="筛选">
+        <span class="seg__thumb" aria-hidden="true"></span>
+        <% [["all", "全部"], ["unopened", "未开启"], ["opened", "已开启"]].each do |value, label| %>
+          <% count = @stats&.dig(:counts, value.to_sym) %>
+          <button class="seg__opt <%= "is-active" if value == @filter %>" type="button" disabled data-testid="filter-option" data-value="<%= value %>"
+                  data-selected="<%= value == @filter %>" aria-pressed="<%= value == @filter %>" <%= "data-count=#{count}" if count %>
+                  data-plaza-search-target="filter" data-action="plaza-search#chooseFilter"><%= label %><sup><%= count %></sup></button>
+        <% end %>
+      </div>
+      <label class="search input-wrap"><%= icon "search", "input-wrap__icon" %>
+        <input class="input" type="search" aria-label="搜索胶囊" disabled value="<%= @q %>" placeholder="搜索标题或昵称"
+               autocomplete="off" data-testid="plaza-search" data-plaza-search-target="search"
+               data-action="input->plaza-search#input compositionend->plaza-search#input keydown.esc->plaza-search#clear">
+        <button class="search__x icon-btn" type="button" aria-label="清空搜索" data-action="plaza-search#clear"><%= icon "x" %></button>
+      </label>
     </div>
-    <form class="cy-search" role="search" action="/ui/plaza/grid" method="get" accept-charset="UTF-8"
-          data-turbo-frame="plaza-grid" data-controller="plaza-search" data-plaza-search-target="form">
-      <input type="hidden" name="sort" value="<%= @sort %>">
-      <input type="hidden" name="filter" value="<%= @filter %>">
-      <span class="cy-search__icon" aria-hidden="true">🔍</span>
-      <input type="search" class="cy-search__input" name="q" placeholder="搜索标题或昵称…" maxlength="50"
-             value="<%= @q %>" data-action="input->plaza-search#search">
-    </form>
-  </div>
-
-  <%= render "public/plaza_grid", items: @items, pagination: @pagination,
-        authenticated: authenticated?, sort: @sort, filter: @filter, q: @q %>
-</main>
+    <%= turbo_frame_tag "plaza-grid", data: { plaza_search_target: "panel" }, aria: { live: "polite" } do %>
+      <%= render "public/plaza_grid" %>
+    <% end %>
+    <template data-plaza-search-target="errorTemplate"><%= render "public/plaza_error" %></template>
+  </section>
+</div>

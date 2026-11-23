@@ -3,16 +3,16 @@
 class StaticAssetsController < ActionController::Base
   FILENAME = /\A[\w.-]+\.(svg|png)\z/
 
-  def avatar = serve("avatars")
-  def icon = serve("icons")
+  def avatar = serve(AvatarService.directory)
+  def icon = serve(File.join(AppConfig.repo_root, "spec", "icons"))
 
   private
 
-  def serve(kind)
+  def serve(directory)
     name = params[:filename].to_s
     return head(:not_found) unless FILENAME.match?(name)
 
-    path = File.join(AppConfig.repo_root, "spec", kind, name)
+    path = File.join(directory, name)
     return head(:not_found) unless File.file?(path)
 
     type = name.end_with?(".png") ? "image/png" : "image/svg+xml"

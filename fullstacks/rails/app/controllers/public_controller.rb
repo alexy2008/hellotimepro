@@ -1,61 +1,68 @@
-# 公开页面：广场（/）、开启（/open）、关于（/about）、按码查看胶囊（/c/:code）。
 class PublicController < ApplicationController
   def index
-    @sort = params[:sort].presence || "new"
-    @filter = params[:filter].presence || "all"
-    @q = params[:q]
-    @page = [params[:page].to_i, 1].max
     load_plaza
+    @overview = @q.blank? && !@plaza_error ? @stats : PlazaService.plaza_stats(q: nil)
+    @featured = PlazaService.plaza_list(sort: "hot", filter: "unopened", q: nil,
+                                       page: 1, page_size: 1, viewer_id: current_user&.id)[:items].first
+  rescue ActiveRecord::ActiveRecordError => e
+    log_plaza_error(e)
   end
 
-  # 广场网格 Turbo Frame（搜索 / 翻页时局部替换 #plaza-grid）。
   def plaza_grid
-    @sort = params[:sort].presence || "new"
-    @filter = params[:filter].presence || "all"
-    @q = params[:q]
-    @page = [params[:page].to_i, 1].max
     load_plaza
-    render partial: "public/plaza_grid", locals: plaza_locals
+    render partial: "public/plaza_grid", status: @plaza_error ? :service_unavailable : :ok
   end
 
   def open
+    @recent = current_user ? PlazaService.my_capsules(current_user, 1, 3)[:items] : []
   end
 
   def about
-    @frontend_stack = [
-      { role: "enhancement", name: "Hotwire", version: "Turbo + Stimulus", iconUrl: nil },
-      { role: "template", name: "ERB", version: "Rails View", iconUrl: nil },
-      { role: "styling", name: "Tailwind CSS", version: "4", iconUrl: "/static/icons/tailwindcss.svg" },
-    ]
-    @frontend_summary =
-      "基于 Rails ERB 服务端渲染页面，首屏由服务器直出完整 HTML，适合表单、列表与详情页这类内容型交互。" \
-      "Hotwire 中的 Turbo 负责局部导航与 frame 更新，Stimulus 承担倒计时、复制、头像选择、8 位码输入、AI 灵感与表单时间同步等小型浏览器行为，" \
-      "在不引入 SPA 状态层的前提下保留顺滑的局部刷新体验。Tailwind CSS v4 配合项目共享的 Design Tokens 和 cy-* 组件类，" \
-      "让 Rails 全栈页面与其它前端、全栈实现保持同一套视觉语言。"
-    @health = HealthMetadata.build
+  end
+
+  def not_found
+    render status: :not_found
   end
 
   def capsule
-    @capsule = CapsuleService.get_by_code(params[:code], current_user&.id)
-  rescue ApiError
-    render :capsule_missing, status: :not_found
+    load_capsule
+  rescue ApiError => e
+    render :capsule_missing, status: e.status == 422 ? :not_found : e.status
+  rescue ActiveRecord::ActiveRecordError => e
+    Rails.logger.error("胶囊详情读取失败：#{e.class}")
+    render :capsule_error, status: :service_unavailable
+  end
+
+  def capsule_fragment
+    load_capsule
+    render partial: "public/capsule_body", locals: { capsule: @capsule }
+  rescue ApiError => e
+    head e.status
   end
 
   private
 
-  def load_plaza
-    result = PlazaService.plaza_list(
-      sort: @sort, filter: @filter, q: @q, page: @page, page_size: 15, viewer_id: current_user&.id,
-    )
-    @items = result[:items]
-    @pagination = result[:pagination]
-  rescue ApiError
-    @items = []
-    @pagination = { page: 1, pageSize: 15, total: 0, totalPages: 0 }
+  def load_capsule
+    @capsule = CapsuleService.get_by_code(params[:code], current_user&.id)
   end
 
-  def plaza_locals
-    { items: @items, pagination: @pagination, authenticated: authenticated?, sort: @sort, filter: @filter, q: @q }
+  def load_plaza
+    @sort = params[:sort].presence_in(%w[new hot]) || "new"
+    @filter = params[:filter].presence_in(%w[all unopened opened]) || "all"
+    @q = params[:q].to_s.strip
+    @page = [params[:page].to_i, 1].max
+    now = Time.now.utc
+    @stats = PlazaService.plaza_stats(q: @q, now: now)
+    result = PlazaService.plaza_list(sort: @sort, filter: @filter, q: @q, page: @page,
+                                    page_size: 15, viewer_id: current_user&.id, now: now)
+    @items = result[:items]
+    @pagination = result[:pagination]
+  rescue ApiError, ActiveRecord::ActiveRecordError => e
+    log_plaza_error(e)
   end
-  helper_method :plaza_locals
+
+  def log_plaza_error(error)
+    Rails.logger.warn("广场读取失败：#{error.class}")
+    @plaza_error = true
+  end
 end

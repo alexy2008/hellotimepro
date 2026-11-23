@@ -1,0 +1,13 @@
+<div class="bg" aria-hidden="true">
+  <div class="bg__aurora bg__aurora--a"></div>
+  <div class="bg__aurora bg__aurora--b"></div>
+  <div class="bg__aurora bg__aurora--c"></div>
+  <svg class="bg__canvas sky-dots" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <% rng = Random.new(2026) %>
+    <% 98.times do |index| %>
+      <circle cx="<%= rng.rand(1440) %>" cy="<%= rng.rand(900) %>" r="<%= rng.rand(0.45..1.65).round(2) %>"
+              opacity="<%= rng.rand(0.25..0.8).round(2) %>" style="--_delay: <%= -(index % 12) / 2.0 %>s"/>
+    <% end %>
+  </svg>
+  <div class="bg__grain"></div>
+</div>

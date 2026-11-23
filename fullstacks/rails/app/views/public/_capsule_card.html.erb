@@ -1,47 +1,36 @@
-<%#
-  胶囊卡片。show_creator=false（我创建的）显示创建时间；hide_favorite=true 时未开启显示撤回按钮、
-  已开启显示收藏数；否则渲染收藏按钮。
-%>
-<% opened = capsule[:isOpened] %>
-<article id="capsule-<%= capsule[:id] %>"
-         class="cy-capsule <%= opened ? "cy-capsule--opened" : "cy-capsule--sealed" %>"
-         <% unless opened %>data-controller="countdown" data-countdown-open-at-value="<%= capsule[:openAt] %>"<% end %>>
-  <div class="cy-capsule__head">
-    <span class="cy-badge <%= opened ? "cy-badge--opened" : "cy-badge--sealed" %>"><%= opened ? "已开启" : "未开启" %></span>
-    <a href="/c/<%= capsule[:code] %>" class="cy-capsule__code" style="text-decoration:none" data-turbo-frame="_top"><%= capsule[:code] %></a>
+<% opened = capsule[:isOpened]
+   kind = opened ? "opened" : "sealed"
+   progress = waiting_progress(capsule) %>
+<%= tag.article class: "cap cap--#{kind} pc #{opened ? 'is-opened' : 'is-locked'}", style: "--i: #{index}; --glow: oklch(0.72 0.17 #{capsule_hue(capsule[:code])} / 0.34)",
+                data: capsule_attrs(capsule).merge(testid: "capsule-card") do %>
+  <div class="cap__bg" data-skin-only="paper" aria-hidden="true">
+    <%= render "skins/paper/card_art", opened: opened %>
   </div>
-
-  <a href="/c/<%= capsule[:code] %>" style="text-decoration:none;color:inherit" data-turbo-frame="_top">
-    <h3 class="cy-capsule__title"><%= capsule[:title] %></h3>
-  </a>
-
-  <% if !opened %>
-    <p class="cy-capsule__countdown" data-countdown-target="compact"><%= compact_countdown_text(capsule[:openAt]) %></p>
-  <% elsif capsule[:contentPreview] %>
-    <p class="cy-capsule__preview"><%= capsule[:contentPreview] %></p>
-  <% end %>
-
-  <div class="cy-capsule__meta">
-    <% if show_creator %>
-      <span class="cy-capsule__creator">
-        <img src="<%= avatar_url(capsule[:creator][:avatarId]) %>" alt="">
-        <span><%= capsule[:creator][:nickname] %></span>
-      </span>
+  <div class="pc__top cap__top">
+    <div class="pc__art" data-skin-only="amber"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: opened, width: 150 %></div>
+    <span class="seal seal--<%= opened ? "line" : "solid" %>" data-skin-only="paper"><%= opened ? "启" : "封" %></span>
+    <div class="pc__badges">
+      <span class="cap__status badge badge--<%= opened ? "opened" : "locked" %>"><%= opened ? "已开启" : "封存中" %></span>
+      <% if rank %><span class="cap__rank badge badge--hot latin">No.<%= rank %></span><% end %>
+    </div>
+    <span class="cap__code mono" data-skin-only="paper"><%= capsule[:code] %></span>
+  </div>
+  <%= link_to "", capsule_path(capsule[:code]), class: "cap__link pc__link", aria: { label: capsule[:title] }, data: { testid: "card-open" } %>
+  <h3 class="cap__title pc__title" data-testid="card-title"><%= capsule[:title] %></h3>
+  <div class="pc__body">
+    <% if opened %>
+      <p class="cap__preview pc__excerpt"><%= capsule[:contentPreview] %></p>
     <% else %>
-      <span style="color:var(--color-text-muted)">创建于 <%= fmt_date(capsule[:createdAt]) %></span>
-    <% end %>
-
-    <% if hide_favorite %>
-      <% if opened %>
-        <span style="color:var(--color-favorite-active)">♥ <%= capsule[:favoriteCount] %></span>
-      <% else %>
-        <%= button_to "撤回", "/ui/capsules/#{capsule[:id]}", method: :delete,
-              class: "cy-btn cy-btn--ghost cy-btn--sm",
-              style: "min-height:28px;padding:4px 12px;color:var(--color-danger-fg)",
-              form: { data: { turbo_confirm: "确认撤回？此操作不可恢复。" } } %>
-      <% end %>
-    <% else %>
-      <%= render "public/favorite_button", capsule: capsule, authenticated: authenticated %>
+      <div class="cap__veil" data-skin-only="paper" aria-hidden="true"><i></i><i></i></div>
+      <div class="cap__cd pc__cd"><span class="cap__cd-label" data-skin-only="paper">距启封</span>
+        <%= render "shared/compact_countdown", open_at: capsule[:openAt] %><span data-skin-only="amber">后开启</span>
+      </div>
+      <div class="pc__progress waiting-progress" aria-label="时间进度 <%= progress %>%"><span style="width: <%= progress %>%"></span></div>
     <% end %>
   </div>
-</article>
+  <div class="cap__foot pc__foot">
+    <span class="cap__by pc__by"><%= avatar capsule[:creator][:avatarId] %><b class="pc__name"><%= capsule[:creator][:nickname] %></b></span>
+    <time class="pc__when mono" datetime="<%= capsule[:openAt] %>" data-controller="local-time"><%= fmt_date(capsule[:openAt]) %></time>
+    <%= render "public/favorite_button", capsule: capsule %>
+  </div>
+<% end %>

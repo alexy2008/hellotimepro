@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 冒烟测试（默认 SQLite，无需外部 PostgreSQL）：启动 Rails 环境，固定跨库格式不变式。
+# 在独立临时 SQLite 库运行 Rails 2.0 回归。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -7,8 +7,11 @@ REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
 cd "$HERE"
 
 export REPO_ROOT
-export RAILS_ENV="${RAILS_ENV:-development}"
-export DB_DRIVER="${DB_DRIVER:-sqlite}"
+rails_test_dir="$(mktemp -d "${TMPDIR:-/tmp}/hellotime-rails-test.XXXXXX")"
+trap 'rm -rf -- "$rails_test_dir"' EXIT
+export RAILS_ENV=test
+export DB_DRIVER=sqlite
+export DB_URL="sqlite:///${rails_test_dir}/rails.db"
 export SECRET_KEY_BASE="${SECRET_KEY_BASE:-hellotime-rails-dev-secret-key-base-0001}"
 
 for _d in /opt/homebrew/opt/ruby/bin /opt/homebrew/opt/libpq/bin; do

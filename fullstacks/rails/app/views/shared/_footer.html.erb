@@ -1,0 +1,32 @@
+<footer class="ftr">
+  <div class="wrap ftr__in">
+    <div class="ftr__brand">
+      <%= render "shared/brand" %>
+      <p class="ftr__motto serif">把此刻，寄给未来。</p>
+    </div>
+    <div class="ftr__colo">
+      <div class="ftr__k" data-skin-only="paper"><span>本页由以下技术栈排印</span></div>
+      <ul class="stack ftr__stack" data-testid="footer-stack">
+        <%= render "shared/stack_items" %>
+      </ul>
+    </div>
+    <div class="ftr__meta">
+      <%= link_to "关于", about_path %>
+      <span class="mono">v<%= AppConfig.service_version %></span>
+    </div>
+  </div>
+  <div class="wrap ftr__base" data-skin-only="paper"><span>© 2026 HelloTime Pro · MIT License</span></div>
+</footer>
+<nav class="tabbar" aria-label="移动导航">
+  <% [["plaza", root_path, "grid", "广场"], ["open", open_path, "key", "开启"],
+      ["create", create_path, "pen", "写一枚"], ["me", current_user ? me_created_path : login_path, "user", current_user ? "我的" : "登录"]].each do |key, path, glyph, label| %>
+    <%= link_to path, class: [("tabbar__main" if key == "create"), ("is-active" if active_nav(key))],
+                data: { testid: "tab-#{key}", action: ("click->shell#requireLogin" if key == "create") },
+                aria: { current: ("page" if active_nav(key)) } do %>
+      <% if key == "create" %><i><%= icon glyph %></i>
+      <% elsif key == "me" && current_user %><%= avatar current_user.avatar_id %>
+      <% else %><%= icon glyph %><% end %>
+      <span><%= label %></span>
+    <% end %>
+  <% end %>
+</nav>

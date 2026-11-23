@@ -1,6 +1,6 @@
 require "json"
 
-# 从 spec/avatars/catalog.json 加载内置头像目录（首次访问时一次，进程内缓存）。
+# 从 spec/avatars/v2 加载目录与单线徽记，进程内缓存。
 module AvatarService
   module_function
 
@@ -17,9 +17,9 @@ module AvatarService
   def load!
     return if defined?(@avatars) && @avatars
 
-    path = File.join(AppConfig.repo_root, "spec", "avatars", "catalog.json")
+    path = File.join(directory, "catalog.json")
     catalog = JSON.parse(File.read(path))
-    @avatars = catalog.fetch("avatars").map do |a|
+    avatars = catalog.fetch("avatars").map do |a|
       {
         id: a["id"],
         name: a["name"],
@@ -27,6 +27,14 @@ module AvatarService
         svgUrl: a["svgUrl"],
       }
     end
-    @ids = @avatars.map { |a| a[:id] }.to_set
+    @ids = avatars.map { |a| a[:id] }.to_set
+    @avatars = avatars
+  end
+
+  def directory = File.join(AppConfig.repo_root, "spec", "avatars", "v2")
+
+  def svg(id)
+    @svg ||= list.to_h { |avatar| [avatar[:id], File.read(File.join(directory, "#{avatar[:id]}.svg"))] }
+    @svg[id] || @svg.fetch("neo")
   end
 end

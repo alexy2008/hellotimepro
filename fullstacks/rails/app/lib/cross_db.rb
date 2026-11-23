@@ -2,8 +2,7 @@ require "time"
 require "securerandom"
 
 # 跨库存储格式：SQLite 与 PostgreSQL 用不同表示，按方言分流。
-#   - SQLite：id 存 32 位无横线 hex TEXT；时间戳存 ISO-8601 TEXT（UTC、+00:00，零小数不输出，
-#     与 seed_demo 完全一致——靠字符串可比性支撑 open_at <= now / ORDER BY created_at）。
+#   - SQLite：新 id 存无横线 hex，读取兼容带横线的 UUID；时间戳存 ISO-8601 UTC TEXT。
 #   - Postgres：原生 uuid / timestamptz，ActiveRecord 直接处理（uuid 读出为带横线字符串、时间读出为 Time）。
 #
 # 仅在 SQLite 下把下面的自定义 ActiveRecord::Type 挂到列上（见 ApplicationRecord.cross_db_*）。
@@ -25,10 +24,11 @@ module CrossDb
 
   UUID_RE = /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/
 
-  # 宽松解析标准（带横线）UUID：非法格式返回 nil（调用方据此转 404 而非 500）。
   def parse_uuid_or_nil(value)
-    s = value.to_s.strip
-    UUID_RE.match?(s) ? s.downcase : nil
+    return value.downcase if value.is_a?(String) && UUID_RE.match?(value)
+    return hex_to_uuid(value) if value.is_a?(String) && /\A[0-9a-f]{32}\z/i.match?(value)
+
+    nil
   end
 
   # ---- 时间戳 ----
@@ -71,18 +71,46 @@ module CrossDb
     end
   end
 
+  # 种子和 Rails 的 UTC 文本可能有不同的小数位数。比较时补齐小数并去掉时区后缀。
+  def time_column(column)
+    return Arel.sql(column) unless AppConfig.sqlite?
+
+    seconds = "replace(substr(#{column}, 1, 19), ' ', 'T')"
+    fraction = "CASE WHEN substr(#{column}, 20, 1) = '.' " \
+               "THEN replace(replace(substr(#{column}, 21), '+00:00', ''), 'Z', '') ELSE '' END"
+    Arel.sql("#{seconds} || substr((#{fraction}) || '000000000', 1, 9)")
+  end
+
+  def time_bound(value)
+    AppConfig.sqlite? ? to_utc(value).strftime("%Y-%m-%dT%H:%M:%S%9N") : value
+  end
+
   # ---- ActiveRecord 自定义类型（仅 SQLite 挂载） ----
+
+  # Ruby 中始终用带横线的 UUID。使用已有行的主外键时，保留 SQLite 实际的键值。
+  class StoredUuid < String
+    attr_reader :storage
+
+    def initialize(storage)
+      super(CrossDb.hex_to_uuid(storage))
+      @storage = storage
+    end
+  end
 
   class SqliteUuidType < ActiveRecord::Type::Value
     def cast(value)
-      value.nil? ? nil : CrossDb.hex_to_uuid(value)
+      return value if value.nil? || value.is_a?(StoredUuid)
+
+      CrossDb.hex_to_uuid(value)
     end
 
     def deserialize(value)
-      value.nil? ? nil : CrossDb.hex_to_uuid(value)
+      value.nil? ? nil : StoredUuid.new(value)
     end
 
     def serialize(value)
+      return value.storage if value.is_a?(StoredUuid)
+
       value.nil? ? nil : CrossDb.uuid_to_hex(value)
     end
   end

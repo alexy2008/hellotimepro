@@ -1,0 +1,18 @@
+<div class="toasts" id="toasts" role="status" aria-live="polite">
+  <% { success: "ok", error: "err", info: "info" }.each do |tone, kind| %>
+    <% if flash[tone] %><div class="toast toast--<%= kind %> is-in" data-testid="toast" data-tone="<%= tone %>"><span><%= flash[tone] %></span></div><% end %>
+  <% end %>
+</div>
+<template id="confirm-template">
+  <div class="dlg is-in">
+    <div class="dlg__scrim" data-dialog-dismiss></div>
+    <div class="dlg__card" role="dialog" aria-modal="true" aria-labelledby="confirm-title" data-testid="confirm-dialog">
+      <h2 class="dlg__t" id="confirm-title"></h2>
+      <div class="dlg__b"><p></p><strong hidden>此操作不可恢复。</strong></div>
+      <div class="dlg__act">
+        <button class="btn btn--ghost" type="button" data-testid="confirm-cancel"></button>
+        <button class="btn btn--primary" type="button" data-testid="confirm-ok"></button>
+      </div>
+    </div>
+  </div>
+</template>

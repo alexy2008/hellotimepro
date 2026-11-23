@@ -1,40 +1,56 @@
-import { Controller } from "@hotwired/stimulus"
+import { Controller } from "@hotwired/stimulus";
+import { Turbo } from "@hotwired/turbo-rails";
+import { api, promptLogin, toast } from "lib/ui";
 
-// 收藏切换：
-//  - 匿名：纯客户端 confirm 后跳登录（不发请求）。
-//  - 已登录：同步 XHR 切换——保证「点完立刻导航到 /me/favorites」之前收藏已落库提交，
-//    消除异步 XHR 在途被导航中止 / 收藏未提交即被下一页查询读到的竞态（见 docs/dev-notes.md §4）。
 export default class extends Controller {
-  static values = { id: String, anon: Boolean }
+  static values = { id: String, signedIn: Boolean };
+  static targets = ["count", "label"];
+  static pending = new Set();
 
-  toggle(event) {
-    event.preventDefault()
-    if (this.anonValue) {
-      if (window.confirm("登录后才能收藏，前往登录？")) {
-        window.location.assign("/login?from=" + encodeURIComponent(window.location.pathname))
-      }
-      return
+  async toggle() {
+    const id = this.idValue;
+    if (!this.signedInValue) {
+      const next = await promptLogin("收藏", location.pathname + location.search);
+      if (next && this.element.isConnected) Turbo.visit(next);
+      return;
     }
-    if (this.busy) return
-    this.busy = true
+
+    const pending = this.constructor.pending;
+    if (pending.has(id)) return;
+    pending.add(id);
+    const previous = this.element.getAttribute("aria-pressed") === "true";
+    const oldCount = Number(this.element.dataset.count);
+    const count = previous ? Math.max(0, oldCount - 1) : oldCount + 1;
+    this.update(!previous, count);
     try {
-      const xhr = new XMLHttpRequest()
-      xhr.open("POST", "/ui/capsules/" + this.idValue + "/favorite-toggle", false)
-      xhr.setRequestHeader("Accept", "application/json")
-      xhr.send()
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const d = JSON.parse(xhr.responseText)
-        this.element.setAttribute("data-favorited", String(d.favorited))
-        this.element.classList.toggle("is-active", d.favorited)
-        const icon = this.element.querySelector(".cy-fav-icon")
-        if (icon) icon.textContent = d.favorited ? "♥" : "♡"
-        const count = this.element.querySelector(".cy-fav-count")
-        if (count) count.textContent = d.favoriteCount
+      if (previous) {
+        await api(`/me/favorites/${id}`, { method: "DELETE" });
+        if (this.element.isConnected) toast("已取消收藏");
+      } else {
+        const result = await api("/me/favorites", { method: "POST", data: { capsuleId: id } });
+        this.update(true, result.favoriteCount);
       }
-    } catch (err) {
-      /* 静默 */
+      if (this.element.isConnected) this.dispatch("changed", { detail: { removed: previous } });
+    } catch {
+      this.update(previous, oldCount);
+      if (this.element.isConnected) toast("收藏没有成功，请稍后再试", "error");
     } finally {
-      this.busy = false
+      pending.delete(id);
     }
+  }
+
+  update(pressed, count) {
+    if (!this.element.isConnected) return;
+    for (const button of document.querySelectorAll(`[data-favorite-id-value="${this.idValue}"]`)) {
+      button.dataset.count = count;
+      button.setAttribute("aria-pressed", pressed);
+      button.setAttribute("aria-label", pressed ? "取消收藏" : "收藏");
+      button.classList.toggle("is-on", pressed);
+      button.querySelector('[data-favorite-target="count"]').textContent = count;
+      const label = button.querySelector('[data-favorite-target="label"]');
+      if (label) label.textContent = pressed ? "已收藏" : "收藏";
+    }
+    const featured = document.querySelector(`[data-featured-id="${this.idValue}"] [data-featured-count]`);
+    if (featured) featured.textContent = count;
   }
 }

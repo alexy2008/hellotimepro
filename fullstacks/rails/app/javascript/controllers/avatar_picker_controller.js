@@ -1,17 +1,28 @@
-import { Controller } from "@hotwired/stimulus"
+import { Controller } from "@hotwired/stimulus";
 
-// 头像选择器：点选某项 → 高亮 + 写入隐藏字段（注册 / 资料页）。
 export default class extends Controller {
-  static targets = ["input", "item"]
+  static targets = ["input", "option"];
 
-  select(event) {
-    const btn = event.currentTarget
-    this.itemTargets.forEach((b) => {
-      b.classList.remove("is-selected")
-      b.setAttribute("aria-checked", "false")
-    })
-    btn.classList.add("is-selected")
-    btn.setAttribute("aria-checked", "true")
-    if (this.hasInputTarget) this.inputTarget.value = btn.dataset.avatarId
+  choose({ currentTarget }) { this.select(currentTarget); }
+
+  move(event) {
+    const direction = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    const options = this.optionTargets;
+    const button = options[(options.indexOf(event.currentTarget) + direction + options.length) % options.length];
+    this.select(button);
+    button.focus();
+  }
+
+  select(button) {
+    this.inputTarget.value = button.dataset.value;
+    this.optionTargets.forEach((option) => {
+      const active = option === button;
+      option.dataset.selected = active;
+      option.setAttribute("aria-checked", active);
+      option.classList.toggle("is-on", active);
+      option.classList.toggle("is-active", active);
+    });
   }
 }

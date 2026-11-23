@@ -29,7 +29,7 @@ module CookieAuth
   def require_login!
     return if authenticated?
 
-    redirect_to("/login?from=#{CGI.escape(request.fullpath)}")
+    redirect_to(login_path(redirect: request.fullpath))
   end
 
   private
@@ -44,7 +44,7 @@ module CookieAuth
       decoded = SecurityService.decode_access_token(access)
       if decoded.subject
         id = CrossDb.parse_uuid_or_nil(decoded.subject)
-        user = id && User.find_by(id: id)
+        user = id && User.by_uuid(id).first
         return user if user
       elsif decoded.error == "access_token_expired"
         return refresh_session
@@ -59,7 +59,7 @@ module CookieAuth
 
     tokens = AuthService.refresh(refresh)
     set_auth_cookies(tokens)
-    User.find_by(id: tokens[:user][:id])
+    User.by_uuid(tokens[:user][:id]).first
   rescue ApiError
     clear_auth_cookies
     nil

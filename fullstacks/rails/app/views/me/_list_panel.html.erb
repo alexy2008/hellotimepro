@@ -1,0 +1,46 @@
+<%= render "me/overview" %>
+<section class="me__body" aria-label="<%= @tab == :created ? "我创建的" : "我收藏的" %>">
+  <% if @items.empty? %>
+    <div class="empty card card--pad" data-testid="list-empty">
+      <% if @tab == :created %>
+        <h2 class="empty__title">还没有写过胶囊</h2><%= create_link "写第一枚胶囊" %>
+      <% else %>
+        <h2 class="empty__title">还没有收藏胶囊</h2><%= link_to "去广场", root_path, class: "btn btn--primary" %>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="personal-rows">
+      <% @items.each do |capsule| %>
+        <% opened = capsule[:isOpened] %>
+        <%= tag.article class: "row crow card personal-row",
+                        data: capsule_attrs(capsule).merge(testid: @tab == :created ? "my-capsule" : "fav-item", personal_list_row: true) do %>
+          <div class="personal-art" aria-hidden="true">
+            <span data-skin-only="paper" class="seal seal--<%= opened ? "line" : "solid" %>"><%= opened ? "启" : "封" %></span>
+            <span data-skin-only="amber"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: opened, width: 82 %></span>
+          </div>
+          <div class="crow__info">
+            <%= link_to capsule[:title], capsule_path(capsule[:code]), class: "row__t", data: { testid: "row-open" } %>
+            <div class="mono row-code"><%= capsule[:code] %> · <%= capsule[:creator][:nickname] %></div>
+            <time class="mono row-code" datetime="<%= capsule[:openAt] %>" data-controller="local-time"><%= fmt_date(capsule[:openAt]) %></time>
+          </div>
+          <div class="personal-tags">
+            <span class="badge badge--<%= opened ? "opened" : "locked" %>"><%= opened ? "已开启" : "封存中" %></span>
+            <% unless capsule[:inPlaza] %><span class="badge badge--private">未公开</span><% end %>
+          </div>
+          <% if @tab == :created %>
+            <button class="btn btn--ghost btn--sm" type="button" data-testid="delete-capsule" data-action="personal-list#remove"
+                    data-id="<%= capsule[:id] %>" data-code="<%= capsule[:code] %>" data-title="<%= capsule[:title] %>"><%= icon "trash" %> 删除</button>
+          <% else %>
+            <%= render "public/favorite_button", capsule: capsule %>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+  <% if @items.length < @total %>
+    <div class="pager"><button class="btn btn--ghost" type="button" data-testid="list-next" data-action="personal-list#more">加载更多</button></div>
+  <% end %>
+  <% if @tab == :created %>
+    <p class="me__fine tip"><%= icon "info" %> 胶囊的内容与开启时间封存后不可修改；你可以随时删除自己写的胶囊，无论它是否已经开启。</p>
+  <% end %>
+</section>

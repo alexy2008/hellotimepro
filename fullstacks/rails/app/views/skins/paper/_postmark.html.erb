@@ -1,0 +1,9 @@
+<% key = "pm-#{SecureRandom.hex(5)}" %>
+<svg class="pm <%= local_assigns[:css] %>" viewBox="0 0 150 130" aria-hidden="true">
+  <defs><path id="<%= key %>" d="M24 67a43 43 0 1 1 86 0a43 43 0 1 1-86 0"/></defs>
+  <g class="pm__ring"><circle cx="67" cy="67" r="52"/><circle cx="67" cy="67" r="42"/></g>
+  <text class="pm__arc"><textPath href="#<%= key %>" startOffset="50%" text-anchor="middle">HELLOTIME PRO · 第 二 版</textPath></text>
+  <text class="pm__l1" x="67" y="67" text-anchor="middle"><%= text %></text>
+  <text class="pm__l2" x="67" y="83" text-anchor="middle"><%= label %></text>
+  <g class="pm__waves"><path d="M119 53q10-6 20 0t20 0M120 63q10-6 20 0t20 0M119 73q10-6 20 0t20 0"/></g>
+</svg>

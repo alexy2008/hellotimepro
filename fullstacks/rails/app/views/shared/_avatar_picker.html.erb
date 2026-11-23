@@ -1,0 +1,13 @@
+<div data-controller="avatar-picker">
+  <input type="hidden" name="avatarId" value="<%= selected %>" data-avatar-picker-target="input">
+  <div class="avatars avgrid avatar-options" role="radiogroup" aria-label="内置头像">
+    <% AvatarService.list.each do |item| %>
+      <% active = selected == item[:id] %>
+      <button class="avatar-opt avopt <%= "is-on is-active" if active %>" type="button" role="radio" aria-checked="<%= active %>"
+              data-testid="avatar-option" data-value="<%= item[:id] %>" data-selected="<%= active %>"
+              data-avatar-picker-target="option" data-action="avatar-picker#choose keydown->avatar-picker#move">
+        <%= avatar item[:id], "av--lg" %><span><%= item[:name] %></span>
+      </button>
+    <% end %>
+  </div>
+</div>

@@ -1,0 +1,10 @@
+<div class="page page--me">
+  <div class="wrap container me">
+    <%= turbo_frame_tag "my-list", target: "_top", data: { controller: "personal-list",
+          personal_list_url_value: me_fragment_path(@tab),
+          personal_list_page_size_value: MeController::PAGE_SIZE,
+          action: "favorite:changed->personal-list#favoriteChanged" } do %>
+      <%= render "me/list_panel" %>
+    <% end %>
+  </div>
+</div>

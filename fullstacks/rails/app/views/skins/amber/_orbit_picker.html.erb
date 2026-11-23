@@ -1,0 +1,47 @@
+<div class="dtp" data-skin-only="amber" data-controller="orbit-picker"
+     data-action="create:time-changed@window->orbit-picker#setTime hellotime:skin@document->orbit-picker#close">
+      <button class="dtp__trigger" type="button" id="orbit-trigger" data-openat-control="amber" aria-haspopup="dialog" aria-expanded="false" aria-controls="dtpPanel" aria-describedby="dtpVal">
+        <%= icon "calendar", "ic--cal" %>
+        <span class="dtp__val" id="dtpVal"><span class="dtp__date"></span><span class="dtp__wd"></span><span class="dtp__time"></span></span>
+        <span class="dtp__rel"></span>
+        <%= icon "chev-down", "ic--chev" %>
+      </button>
+      <div class="dtp__panel" id="dtpPanel" inert role="dialog" aria-label="选择开启时间">
+        <div class="dtp__clip"><div class="dtp__in">
+          <div class="orbit">
+            <div class="dtp__k">十年星轨<b data-pct></b></div>
+            <div class="orbit__rail" data-rail>
+              <div class="orbit__line"></div>
+              <div class="orbit__trail" data-trail></div>
+              <div data-nodes></div>
+              <div class="orbit__cap" data-cap tabindex="0" role="slider" aria-label="沿十年星轨拖动胶囊（方向键按月，PageUp / PageDown 按年）">
+                <svg viewBox="0 0 32 32" aria-hidden="true"><path class="orbit__cap-top" d="M9 16V11a7 7 0 0 1 14 0v5Z"/><path class="orbit__cap-bot" d="M9 16v5a7 7 0 0 0 14 0v-5Z"/><rect class="orbit__cap-seam" x="8" y="15" width="16" height="2.2" rx="1.1"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="dtp__body">
+            <div class="mcal">
+              <div class="mcal__head">
+                <div class="mcal__title" data-caltitle></div>
+                <button class="mcal__nav" type="button" data-calnav="-1" aria-label="上个月"><%= icon "chev-left" %></button>
+                <button class="mcal__nav" type="button" data-calnav="1" aria-label="下个月"><%= icon "chev-right" %></button>
+              </div>
+              <div class="mcal__dow"><% %w[一 二 三 四 五 六 日].each do |day| %><span><%= day %></span><% end %></div>
+              <div class="mcal__grid" data-grid role="grid" aria-label="日期"></div>
+            </div>
+            <div class="clock is-day" data-clock data-mode="h">
+              <div class="clock__read">
+                <div class="clock__seg"><button type="button" data-seg="h" class="is-on" aria-label="调小时"></button><i>:</i><button type="button" data-seg="m" aria-label="调分钟"></button></div>
+                <div class="ampm"><button type="button" data-ampm="am"><%= icon "sun" %>上午</button><button type="button" data-ampm="pm"><%= icon "moon" %>下午</button></div>
+              </div>
+              <%= render "skins/amber/dial" %>
+              <div class="clock__hint" data-hint></div>
+            </div>
+          </div>
+          <div class="dtp__foot">
+            <div class="dtp__eta" data-eta></div>
+            <button class="btn btn--primary btn--sm" type="button" data-done>就这一刻</button>
+          </div>
+        </div></div>
+      </div>
+    </div>

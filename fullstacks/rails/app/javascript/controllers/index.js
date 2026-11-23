@@ -1,4 +1,33 @@
-// Import and register all your controllers from the importmap via controllers/**/*_controller
-import { application } from "controllers/application"
-import { eagerLoadControllersFrom } from "@hotwired/stimulus-loading"
-eagerLoadControllersFrom("controllers", application)
+import { application } from "controllers/application";
+import AccountForm from "controllers/account_form_controller";
+import AvatarPicker from "controllers/avatar_picker_controller";
+import Clipboard from "controllers/clipboard_controller";
+import Clock from "controllers/clock_controller";
+import CodeInput from "controllers/code_input_controller";
+import Countdown from "controllers/countdown_controller";
+import Create from "controllers/create_controller";
+import Favorite from "controllers/favorite_controller";
+import LocalTime from "controllers/local_time_controller";
+import OrbitPicker from "controllers/orbit_picker_controller";
+import PaperCalendar from "controllers/paper_calendar_controller";
+import PasswordField from "controllers/password_field_controller";
+import PersonalList from "controllers/personal_list_controller";
+import PlazaSearch from "controllers/plaza_search_controller";
+import Shell from "controllers/shell_controller";
+
+// 静态导入让 SSR 控件在页面就绪时已经接好事件。
+application.register("account-form", AccountForm);
+application.register("avatar-picker", AvatarPicker);
+application.register("clipboard", Clipboard);
+application.register("clock", Clock);
+application.register("code-input", CodeInput);
+application.register("countdown", Countdown);
+application.register("create", Create);
+application.register("favorite", Favorite);
+application.register("local-time", LocalTime);
+application.register("orbit-picker", OrbitPicker);
+application.register("paper-calendar", PaperCalendar);
+application.register("password-field", PasswordField);
+application.register("personal-list", PersonalList);
+application.register("plaza-search", PlazaSearch);
+application.register("shell", Shell);

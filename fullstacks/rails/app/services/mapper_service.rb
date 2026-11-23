@@ -33,8 +33,8 @@ module MapperService
     }
   end
 
-  def list_item(capsule, owner, favorited_by_me:, favorited_at: nil)
-    opened = opened?(capsule.open_at)
+  def list_item(capsule, owner, favorited_by_me:, favorited_at: nil, now: Time.now.utc)
+    opened = CrossDb.to_utc(capsule.open_at) <= now
     preview = nil
     if opened
       raw = capsule.content.to_s.strip

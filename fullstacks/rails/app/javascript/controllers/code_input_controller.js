@@ -1,43 +1,85 @@
-import { Controller } from "@hotwired/stimulus"
+import { Controller } from "@hotwired/stimulus";
+import { Turbo } from "@hotwired/turbo-rails";
+import { api, reducedMotion, sleep, toast } from "lib/ui";
 
-// 8 位胶囊码输入：自动跳格 / 退格回退 / 粘贴铺满 / 集齐后跳转 /c/CODE。
+const MISSING = "没有找到这枚胶囊，请核对胶囊码——留意 O 与 0、I 与 1";
+
 export default class extends Controller {
-  static targets = ["box"]
+  static targets = ["input", "cell", "cells", "error"];
 
-  collect() {
-    return this.boxTargets.map((i) => i.value).join("")
+  connect() {
+    this.inputTarget.disabled = false;
+    this.display();
   }
 
-  maybeGo() {
-    const code = this.collect()
-    if (code.length === 8 && /^[A-Z0-9]{8}$/.test(code)) window.location.assign("/c/" + code)
+  disconnect() { this.lookup?.abort(); }
+
+  cancel() {
+    this.lookup?.abort();
+    this.lookup = null;
+    this.display();
   }
 
-  onInput(event) {
-    const inp = event.currentTarget
-    inp.value = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 1)
-    const idx = this.boxTargets.indexOf(inp)
-    if (inp.value && idx < this.boxTargets.length - 1) this.boxTargets[idx + 1].focus()
-    this.maybeGo()
+  input() {
+    this.inputTarget.value = this.inputTarget.value.replace(/[^0-9a-z]/gi, "").toUpperCase().slice(0, 8);
+    this.cancel();
+    if (this.inputTarget.value.length === 8) this.find(this.inputTarget.value);
   }
 
-  onKeydown(event) {
-    const inp = event.currentTarget
-    const idx = this.boxTargets.indexOf(inp)
-    if (event.key === "Backspace" && !inp.value && idx > 0) this.boxTargets[idx - 1].focus()
-    else if (event.key === "ArrowLeft" && idx > 0) this.boxTargets[idx - 1].focus()
-    else if (event.key === "ArrowRight" && idx < this.boxTargets.length - 1) this.boxTargets[idx + 1].focus()
+  submit(event) {
+    event.preventDefault();
+    const code = this.inputTarget.value;
+    if (code.length === 8) {
+      if (!this.lookup) this.find(code);
+    } else {
+      this.display("error", "胶囊码是 8 位大写字母与数字");
+      this.inputTarget.focus();
+    }
   }
 
-  onPaste(event) {
-    event.preventDefault()
-    const t = (event.clipboardData.getData("text") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)
-    this.boxTargets.forEach((b, k) => { b.value = t[k] || "" })
-    this.boxTargets[Math.min(t.length, this.boxTargets.length - 1)].focus()
-    this.maybeGo()
+  async paste() {
+    try {
+      this.inputTarget.value = await navigator.clipboard.readText();
+      this.input();
+    } catch {
+      this.inputTarget.focus();
+      toast("请在输入框中粘贴胶囊码", "info");
+    }
   }
 
-  submit() {
-    this.maybeGo()
+  async find(code) {
+    const lookup = new AbortController();
+    this.lookup = lookup;
+    const { signal } = lookup;
+    this.display("checking");
+    try {
+      const capsule = await api(`/capsules/${code}`, { signal });
+      signal.throwIfAborted();
+      this.display("ok");
+      await sleep(reducedMotion() ? 0 : 220, signal);
+      if (this.element.isConnected) Turbo.visit(`/capsules/${capsule.code}`);
+    } catch (error) {
+      if (!signal.aborted) this.display("error", error.status === 404 ? MISSING : "暂时无法查询，请重试");
+    } finally {
+      if (this.lookup === lookup) this.lookup = null;
+    }
   }
+
+  display(state, message = "") {
+    if (!this.hasInputTarget) return;
+    const code = this.inputTarget.value;
+    this.cellTargets.forEach((cell, index) => {
+      const character = code[index] || "";
+      cell.dataset.value = character;
+      cell.textContent = character;
+      cell.classList.toggle("is-filled", Boolean(character));
+      cell.classList.toggle("is-active", index === code.length);
+    });
+    for (const kind of ["checking", "ok", "error"]) this.cellsTarget.classList.toggle(`is-${kind}`, kind === state);
+    this.errorTarget.textContent = message;
+    if (message) this.errorTarget.dataset.testid = "open-error";
+    else delete this.errorTarget.dataset.testid;
+  }
+
+  focus() { this.cellsTarget.classList.toggle("is-focused", document.activeElement === this.inputTarget); }
 }

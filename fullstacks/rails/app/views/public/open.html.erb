@@ -1,29 +1,36 @@
-<% content_for :title, "开启胶囊" %>
-
-<main class="cy-container">
-  <div class="cy-open-center" data-controller="code-input">
-    <h1>用 8 位密钥开启胶囊</h1>
-    <p>输入朋友分享给你的 8 位大写字母和数字，可直接查看胶囊。</p>
-
-    <div style="margin-bottom:var(--space-8)">
-      <div class="cy-code-input">
-        <% (1..8).each do |i| %>
-          <input type="text" inputmode="text" autocapitalize="characters" maxlength="1"
-                 aria-label="第 <%= i %> 位" data-code-input-target="box"
-                 data-action="input->code-input#onInput keydown->code-input#onKeydown paste->code-input#onPaste">
-        <% end %>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:var(--space-3);justify-content:center;flex-wrap:wrap">
-      <button type="button" class="cy-btn cy-btn--primary cy-btn--lg" data-action="click->code-input#submit">开启 →</button>
-    </div>
-
-    <div style="margin-top:var(--space-10);color:var(--color-text-muted);font-size:var(--font-size-sm)">
-      <div style="display:flex;gap:var(--space-4);justify-content:center;flex-wrap:wrap">
-        <span>💡 可用 <code style="background:var(--color-surface-2);padding:2px 6px;border-radius:var(--radius-sm)">/c/&lt;code&gt;</code> 直链访问</span>
-        <span>🔒 未到开启时间的胶囊也会显示倒计时</span>
-      </div>
-    </div>
+<div class="page page--open">
+  <div class="wrap container open openp">
+    <div class="openp__poem" data-skin-only="paper" aria-hidden="true">见字如面</div>
+    <section class="openp__main">
+      <header class="page-head page-head--center">
+        <div class="overline eyebrow"><i></i>Open a capsule</div>
+        <h1 class="h1 page-title">开启胶囊</h1>
+        <p class="page-lead">输入 8 位胶囊码。到了开启时间，就能读到里面的话；还没到，就陪它一起倒数。</p>
+      </header>
+      <form class="open__form card" action="/open" data-controller="code-input"
+            data-action="submit->code-input#submit hellotime:skin@document->code-input#cancel turbo:before-visit@document->code-input#cancel">
+        <%= render "shared/code_fields", compact: false %>
+        <div class="open__err openp__err" role="alert" data-code-input-target="error"></div>
+        <div class="openp__act">
+          <button class="btn btn--primary btn--lg" type="submit"><%= icon "key" %> 开启胶囊</button>
+          <button class="btn btn--ghost" type="button" data-action="code-input#paste"><%= icon "paste" %> 粘贴胶囊码</button>
+        </div>
+        <p class="open__hint">胶囊码由 8 位大写字母与数字组成。没有发布到广场的胶囊，同样可以凭码开启。</p>
+      </form>
+      <% if @recent.any? %>
+        <section class="mylist open__list" data-testid="my-sealed">
+          <header class="mylist__head"><h2>我封存过的胶囊</h2><%= link_to "全部 →", me_created_path, class: "link-btn" %></header>
+          <ul>
+            <% @recent.each do |capsule| %>
+              <li><%= link_to capsule_path(capsule[:code]), class: "crow mylist__row", data: capsule_attrs(capsule).merge(testid: "my-sealed-item") do %>
+                <span data-skin-only="amber"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: capsule[:isOpened], width: 72 %></span>
+                <span class="crow__info"><b><%= capsule[:title] %></b><span class="mono"><%= capsule[:code] %></span></span>
+                <span class="badge badge--<%= capsule[:isOpened] ? "opened" : "locked" %>"><%= capsule[:isOpened] ? "已开启" : "封存中" %></span>
+              <% end %></li>
+            <% end %>
+          </ul>
+        </section>
+      <% end %>
+    </section>
   </div>
-</main>
+</div>

@@ -1,4 +1,3 @@
-# 创建胶囊页（SSR 表单 + Stimulus 增强：AI 推荐/生成、快速预设、本地时间→ISO）。
 class CreateController < ApplicationController
   before_action :require_login!
 
@@ -6,17 +5,22 @@ class CreateController < ApplicationController
   end
 
   def create
-    detail = CapsuleService.create(current_user, {
+    @capsule = CapsuleService.create(current_user, {
       title: params[:title], content: params[:content],
-      openAt: params[:openAt], inPlaza: params[:inPlaza] != "false",
+      openAt: params[:openAt], inPlaza: params[:inPlaza] == "true",
     })
-    redirect_to("/c/#{detail[:code]}")
+    respond_to do |format|
+      format.html { render :receipt, status: :created }
+      format.turbo_stream do
+        render turbo_stream: turbo_stream.update("creation-receipt", partial: "create/receipt", locals: { capsule: @capsule }),
+               status: :created
+      end
+    end
   rescue ApiError => e
     @error = e.message
-    @title = params[:title]
-    @content = params[:content]
-    @open_at = params[:openAt]
-    @in_plaza = params[:inPlaza] != "false"
-    render :new, status: :unprocessable_entity
+    respond_to do |format|
+      format.turbo_stream { render json: { message: e.message, details: e.details }, status: e.status }
+      format.html { render :new, status: :unprocessable_entity }
+    end
   end
 end

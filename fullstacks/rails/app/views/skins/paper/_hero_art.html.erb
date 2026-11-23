@@ -1,0 +1,11 @@
+<div class="ha ha--letter" style="--depth: .45" data-skin-only="paper" aria-hidden="true">
+  <div class="ha-letter">
+    <div class="ha-letter__to">致 未来 ——</div>
+    <p>见字如面。</p><p>写这封信的时候，窗外正在下雨。我不知道你打开它的那天，会是什么天气。</p>
+    <p>但我想，你一定还记得……</p>
+  </div>
+</div>
+<div class="ha ha--env" style="--depth: .9" data-skin-only="paper"><%= render "skins/paper/envelope", css: "env--hero" %></div>
+<div class="ha ha--pm" style="--depth: 1.2" data-skin-only="paper">
+  <%= render "skins/paper/postmark", css: "pm--hero", text: Time.current.strftime("%Y.%m.%d"), label: "此 刻" %>
+</div>

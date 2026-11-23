@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一致性构建：安装 gem 依赖 + 构建 Tailwind 样式（让随后的 ./run 冷启动更快）。
+# 一致性构建：安装 gem 和字体，检查 Rails 自动加载与模板资产。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,9 +11,7 @@ done
 _GEM_BIN="$(ls -d /opt/homebrew/lib/ruby/gems/*/bin 2>/dev/null | sort | tail -1 || true)"
 [[ -n "${_GEM_BIN:-}" && -d "$_GEM_BIN" ]] && export PATH="$_GEM_BIN:$PATH"
 
-bundle install
-if [[ -f package.json ]] && command -v npm >/dev/null 2>&1; then
-  [[ -d node_modules ]] || npm install --silent
-  npm run --silent build:css
-fi
+BUNDLE_FROZEN=true bundle install
+npm ci --no-audit --no-fund
+SECRET_KEY_BASE_DUMMY=1 bundle exec rails zeitwerk:check
 echo "✓ Rails fullstack built"

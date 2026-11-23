@@ -73,6 +73,10 @@ module Validation
     value
   end
 
+  def uuid(value, field)
+    CrossDb.parse_uuid_or_nil(value) || raise(ApiError.validation("#{field} 必须是合法 UUID", field))
+  end
+
   def page!(page, page_size)
     raise ApiError.validation("page 必须 >= 1", "page") if page < 1
     raise ApiError.validation("pageSize 范围 1-50", "pageSize") if page_size < 1 || page_size > 50
