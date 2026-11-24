@@ -1,14 +1,11 @@
 {
-  "name": "hellotime-pro-spring-mvc",
-  "version": "0.1.0",
+  "name": "hellotime-pro-spring-mvc-assets",
   "private": true,
-  "description": "HelloTime Pro · Spring MVC + Thymeleaf + HTMX 全栈实现的样式构建（仅构建期需要 Node）",
-  "scripts": {
-    "build:css": "tailwindcss -i ./tailwind/app.css -o ./src/main/resources/static/css/app.css --minify",
-    "watch:css": "tailwindcss -i ./tailwind/app.css -o ./src/main/resources/static/css/app.css --watch"
-  },
-  "devDependencies": {
-    "@tailwindcss/cli": "^4.0.0",
-    "tailwindcss": "^4.0.0"
+  "version": "2.0.0",
+  "description": "Self-hosted @fontsource fonts for Spring MVC + Thymeleaf + HTMX fullstack (no runtime Node required)",
+  "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.2.6",
+    "@fontsource/ibm-plex-mono": "^5.2.6",
+    "@fontsource/noto-serif-sc": "^5.2.6"
   }
 }

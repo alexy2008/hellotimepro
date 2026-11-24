@@ -1,14 +1,26 @@
 #!/usr/bin/env bash
-# 一致性构建：先生成 Tailwind 样式，再打包可执行 jar。
+# 一致性构建：准备自托管字体依赖并打包可执行 jar。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
 
-# 前端样式（仅构建期需要 Node）。
-if [[ -f package.json ]] && command -v npm >/dev/null 2>&1; then
-  [[ -d node_modules ]] || npm install --silent
-  npm run --silent build:css
+if ! command -v mvn >/dev/null 2>&1; then
+  for _d in \
+      "$HOME/.vmr/versions/maven_versions"/*/bin \
+      "$HOME/.sdkman/candidates/maven/current/bin" \
+      /opt/homebrew/opt/maven/bin \
+      /usr/local/opt/maven/bin \
+      "$HOME/.m2/wrapper/dists"/*/*/bin; do
+    if [[ -x "$_d/mvn" ]]; then
+      export PATH="$_d:$PATH"
+      break
+    fi
+  done
+fi
+
+if [[ -f package.json && ! -d node_modules/@fontsource ]] && command -v npm >/dev/null 2>&1; then
+  npm install --silent --no-audit --no-fund
 fi
 
 mvn -q -DskipTests package

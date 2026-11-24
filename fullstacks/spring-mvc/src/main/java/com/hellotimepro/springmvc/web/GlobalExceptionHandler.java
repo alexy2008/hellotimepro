@@ -10,9 +10,13 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice
+/**
+ * 仅作用于 {@code @RestController} JSON 接口，避免拦截 SSR 页面控制器的路由未命中（404 页面）。
+ */
+@RestControllerAdvice(annotations = RestController.class)
 public class GlobalExceptionHandler {
   @ExceptionHandler(ApiException.class)
   public ResponseEntity<ErrorEnvelope> api(ApiException ex) {

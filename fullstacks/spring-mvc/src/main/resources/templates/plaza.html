@@ -1,50 +1,410 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
-<head th:replace="~{fragments/layout :: head('广场')}"></head>
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::content})}">
 <body>
-<header th:replace="~{fragments/layout :: header}"></header>
+<th:block th:fragment="content">
 
-<section class="cy-hero-block">
-  <div class="cy-container">
-    <h1 class="cy-hero-title">封存此刻 <span class="cy-hero-title__highlight">开启未来</span></h1>
-    <p class="cy-hero-subtitle">
-      写下此刻最真实的想法，设定一个解封时刻——可以是明年生日、十年后的某个清晨，或任何你觉得值得等待的瞬间。时间到了，它才会被打开。
-    </p>
-    <div class="cy-hero-cta">
-      <a class="cy-btn cy-btn--primary cy-btn--hero" th:href="${authenticated} ? '/create' : '/register'">创建我的胶囊</a>
-      <a class="cy-btn cy-btn--success cy-btn--hero" href="/open">用胶囊码开启</a>
+  <!-- ============ Hero 区（双皮肤） ============ -->
+  <div class="skin-slot" data-skin-view="paper">
+    <div class="page page--plaza">
+      <section class="hero" data-ht-paper-hero>
+        <div class="wrap hero__in">
+          <div class="hero__copy">
+            <div class="overline"><i></i>HelloTime Pro · 时间胶囊</div>
+            <h1 class="hero__title">
+              <span class="hero__line"><span class="hero__clip"><span>把此刻，</span></span></span>
+              <span class="hero__line">
+                <span class="hero__clip"><span>寄给<em class="hero__future" data-text="未来">未来</em></span></span>
+                <th:block th:replace="~{fragments/parts :: seal(ch='封', variant='solid', extraClass='hero__dot')}" />
+              </span>
+            </h1>
+            <p class="hero__lede">写下一段话，再选一个启封的时刻。<br/>在那之前，谁也打不开它——包括你自己。</p>
+            <div class="hero__cta">
+              <a class="btn btn--primary btn--lg" href="/create" data-testid="home-create" data-require-login="create">
+                <th:block th:utext="${@fmt.icon('pen')}" />
+                <span>写一枚胶囊</span>
+                <th:block th:utext="${@fmt.icon('arrow', 'ic--go')}" />
+              </a>
+              <a class="btn btn--ghost btn--lg" href="#plaza" data-ht-scroll-plaza>
+                <span>逛逛胶囊广场</span>
+                <th:block th:utext="${@fmt.icon('arrow', 'ic--go')}" />
+              </a>
+            </div>
+
+            <form class="hquick" novalidate data-ht-code-form>
+              <div class="hquick__k">
+                <th:block th:utext="${@fmt.icon('key')}" />已有胶囊码？在这里开启
+              </div>
+              <div class="hquick__row">
+                <th:block th:replace="~{fragments/parts :: paperCodeInput(compact=true)}" />
+                <button class="hquick__go" type="submit" aria-label="开启">
+                  <th:block th:utext="${@fmt.icon('arrow')}" />
+                </button>
+              </div>
+              <div class="hquick__err" role="alert" data-ht-code-err></div>
+            </form>
+
+            <div class="hero__now" aria-live="off">
+              <span class="hero__now-k">此刻</span>
+              <span data-ht-now-cn th:text="${@fmt.nowCnWeek()}"></span>
+              <span class="mono hero__now-t" data-ht-now-hms th:text="${@fmt.nowHms()}"></span>
+              <span class="hero__lunar" data-ht-now-lunar></span>
+            </div>
+          </div>
+
+          <div class="hero__art" data-ht-paper-hero-art>
+            <div class="ha ha--letter" style="--depth:0.45" aria-hidden="true">
+              <div class="ha-letter">
+                <div class="ha-letter__to">致 未来 ——</div>
+                <p>见字如面。</p>
+                <p>写这封信的时候，窗外正在下雨。我不知道你打开它的那天，会是什么天气。</p>
+                <p>但我想，你一定还记得……</p>
+              </div>
+            </div>
+            <div class="ha ha--env" style="--depth:0.9" aria-hidden="true">
+              <th:block th:replace="~{fragments/parts :: envelope(extraClass='env--hero', letterTitle=null)}" />
+            </div>
+            <div class="ha ha--pm" style="--depth:1.2" aria-hidden="true">
+              <th:block th:replace="~{fragments/parts :: postmark(line1=${@fmt.nowDate()}, line2='此 刻', extraClass='pm--hero')}" />
+            </div>
+            <th:block th:if="${featured != null}" th:with="fcd=${@fmt.cd(featured.openAt())}">
+              <a class="ha ha--slip" style="--depth:1.5" th:href="${'/capsules/' + featured.code()}"
+                 th:attr="aria-label=${'广场上最受期待的胶囊：' + featured.title()}">
+                <div class="slip">
+                  <div class="slip__k"><span class="pulse-dot"></span>广场上最受期待的一枚</div>
+                  <div class="slip__t" th:text="${featured.title()}"></div>
+                  <div class="slip__cd" data-ht-live-cd="paper" th:attr="data-open-at=${@fmt.iso(featured.openAt())}">
+                    <th:block th:if="${fcd.d() > 0}">
+                      <b class="latin" th:text="${@fmt.num(fcd.d())}"></b><small>天</small><span class="mono" th:text="${fcd.h() + ':' + fcd.m() + ':' + fcd.s()}"></span>
+                    </th:block>
+                    <th:block th:if="${fcd.d() <= 0}">
+                      <b class="mono cap__cd-hms" th:text="${fcd.h() + ':' + fcd.m() + ':' + fcd.s()}"></b>
+                    </th:block>
+                  </div>
+                  <div class="slip__f mono">
+                    <span th:text="${featured.code()}"></span>
+                    <span class="slip__fav">
+                      <th:block th:utext="${@fmt.icon('heart')}" /><th:block th:text="${@fmt.num(featured.favoriteCount())}" />
+                    </span>
+                  </div>
+                </div>
+              </a>
+            </th:block>
+          </div>
+        </div>
+        <div class="hero__side" aria-hidden="true"><span>见字如面</span><i></i><span class="latin">Est. 2026</span></div>
+      </section>
     </div>
   </div>
-</section>
 
-<main class="cy-container">
-  <div class="cy-toolbar">
-    <div class="cy-toolbar__group">
-      <div class="cy-seg">
-        <button type="button" th:classappend="${sort == 'hot'} ? ' cy-seg__active' : ''"
-                hx-get="/ui/plaza/grid" hx-target="#plaza-grid"
-                hx-include="[name='q']" name="sort" value="hot"
-                th:attr="hx-vals='{&quot;sort&quot;:&quot;hot&quot;}'">🔥 热门</button>
-        <button type="button" th:classappend="${sort == 'new'} ? ' cy-seg__active' : ''"
-                hx-get="/ui/plaza/grid" hx-target="#plaza-grid"
-                hx-include="[name='q']"
-                th:attr="hx-vals='{&quot;sort&quot;:&quot;new&quot;}'">✨ 最新</button>
+  <div class="skin-slot" data-skin-view="amber">
+    <div class="page page--home">
+      <section class="hero container">
+        <div class="hero__copy">
+          <div class="eyebrow">HelloTime Pro · 时间胶囊</div>
+          <h1 class="hero__title">
+            <span class="hero__line">把此刻，</span>
+            <span class="hero__line">寄给<em class="hero__future">未来</em>。</span>
+          </h1>
+          <p class="hero__lede">写下一段话，选定一个未来的时刻，把它封进胶囊。<br/>在那之前，谁也读不到——包括你自己。</p>
+          <div class="hero__cta">
+            <a class="btn btn--primary btn--lg" href="/create" data-testid="home-create" data-require-login="create">
+              <th:block th:utext="${@fmt.icon('pen')}" />写一枚胶囊
+            </a>
+            <a class="btn btn--ghost btn--lg" href="#plaza" data-ht-scroll-plaza>
+              逛逛胶囊广场<th:block th:utext="${@fmt.icon('arrow', 'ic--go')}" />
+            </a>
+          </div>
+
+          <form class="quick card" novalidate data-ht-code-form>
+            <div class="quick__k">
+              <th:block th:utext="${@fmt.icon('key')}" />已有胶囊码？在这里开启
+            </div>
+            <div class="quick__row">
+              <th:block th:replace="~{fragments/parts :: amberCodeInput(size='md')}" />
+              <button class="btn btn--soft" type="submit">
+                开启<th:block th:utext="${@fmt.icon('arrow')}" />
+              </button>
+            </div>
+            <div class="quick__err" role="alert" data-ht-code-err></div>
+          </form>
+
+          <div class="hero__now">
+            <span class="hero__live"></span>此刻 · <span class="mono" data-ht-now-dash th:text="${@fmt.nowDashDateTime()}"></span>
+          </div>
+        </div>
+
+        <div class="hero__art">
+          <div class="hart" aria-hidden="true" data-ht-amber-hart>
+            <svg class="hart__svg" viewBox="0 0 600 600">
+              <defs>
+                <radialGradient id="hHalo" cx=".5" cy=".5" r=".5">
+                  <stop offset="0" stop-color="#ffb347" stop-opacity=".4" />
+                  <stop offset=".55" stop-color="#8f7dff" stop-opacity=".12" />
+                  <stop offset="1" stop-color="#8f7dff" stop-opacity="0" />
+                </radialGradient>
+                <linearGradient id="hMetal" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#fff2c2" />
+                  <stop offset=".22" stop-color="#ffc65c" />
+                  <stop offset=".6" stop-color="#f6902c" />
+                  <stop offset=".86" stop-color="#d9641a" />
+                  <stop offset="1" stop-color="#ffb45a" />
+                </linearGradient>
+                <linearGradient id="hSeam" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#5a4ec2" />
+                  <stop offset=".3" stop-color="#2c2674" />
+                  <stop offset="1" stop-color="#120f38" />
+                </linearGradient>
+                <radialGradient id="hCore" cx=".5" cy=".5" r=".5">
+                  <stop offset="0" stop-color="#fff3c9" stop-opacity=".95" />
+                  <stop offset=".38" stop-color="#ffb347" stop-opacity=".55" />
+                  <stop offset="1" stop-color="#ff7a45" stop-opacity="0" />
+                </radialGradient>
+                <linearGradient id="hArc" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#ffe08a" />
+                  <stop offset="1" stop-color="#ff7b4a" />
+                </linearGradient>
+                <clipPath id="hGlassClip">
+                  <path d="M238 300V388A62 62 0 0 0 362 388V300Z" />
+                </clipPath>
+                <path id="hYearPath" d="M68 300a232 232 0 1 1 464 0a232 232 0 1 1-464 0" />
+              </defs>
+              <circle class="hart__halo" cx="300" cy="300" r="260" fill="url(#hHalo)" />
+              <g class="hart__ring hart__ring--outer">
+                <circle class="hart__ticks" cx="300" cy="300" r="278" />
+                <circle class="hart__planet hart__planet--amber" cx="300" cy="22" r="5.5" />
+                <circle class="hart__planet hart__planet--cyan" cx="496.6" cy="496.6" r="3.6" />
+              </g>
+              <g class="hart__ring hart__ring--years">
+                <text class="hart__years">
+                  <textPath href="#hYearPath" textLength="1440" lengthAdjust="spacing" th:text="${@fmt.heroYears()}"></textPath>
+                </text>
+              </g>
+              <g class="hart__ring hart__ring--mid">
+                <circle class="hart__line" cx="300" cy="300" r="204" />
+                <circle class="hart__major" cx="300" cy="300" r="204" />
+                <circle class="hart__planet hart__planet--violet" cx="96" cy="300" r="7" />
+              </g>
+              <g class="hart__ring hart__ring--inner">
+                <circle class="hart__dash" cx="300" cy="300" r="162" />
+                <circle class="hart__arc" cx="300" cy="300" r="162" stroke="url(#hArc)" />
+              </g>
+              <ellipse class="hart__shadow" cx="300" cy="492" rx="96" ry="12" />
+              <g class="hart__capsule">
+                <g transform="rotate(26 300 300)">
+                  <path class="hart__glass" d="M238 300V388A62 62 0 0 0 362 388V300Z" />
+                  <g clip-path="url(#hGlassClip)">
+                    <circle class="hart__core" cx="300" cy="372" r="84" fill="url(#hCore)" />
+                    <rect class="hart__scroll" x="270" y="322" width="60" height="94" rx="9" />
+                    <path class="hart__scroll-line" d="M282 342h36M282 354h36M282 366h22" />
+                    <rect class="hart__ribbon" x="270" y="382" width="60" height="11" />
+                    <circle class="hart__wax" cx="300" cy="387.5" r="8.5" />
+                  </g>
+                  <path class="hart__reflection" d="M254 316V386A46 46 0 0 0 268 420" />
+                  <path d="M238 300V212A62 62 0 0 1 362 212V300Z" fill="url(#hMetal)" />
+                  <path class="hart__groove" d="M238 268h124M238 280h124" />
+                  <circle class="hart__emblem" cx="300" cy="216" r="24" />
+                  <path class="hart__hand" d="M300 202v14l9 6" />
+                  <path class="hart__highlight" d="M256 284V214A44 44 0 0 1 280 176" />
+                  <rect x="230" y="291" width="140" height="18" rx="9" fill="url(#hSeam)" />
+                  <path class="hart__seam-light" d="M242 296h116" />
+                </g>
+              </g>
+              <path class="hart__spark" style="animation-delay:0s" d="M72 82Q73.96 94.04 86 96Q73.96 97.96 72 110Q70.04 97.96 58 96Q70.04 94.04 72 82Z" />
+              <path class="hart__spark" style="animation-delay:-0.7s" d="M522 81Q523.26 88.74 531 90Q523.26 91.26 522 99Q520.74 91.26 513 90Q520.74 88.74 522 81Z" />
+              <path class="hart__spark" style="animation-delay:-1.4s" d="M550 440Q551.68 450.32 562 452Q551.68 453.68 550 464Q548.32 453.68 538 452Q548.32 450.32 550 440Z" />
+              <path class="hart__spark" style="animation-delay:-2.1s" d="M60 466Q61.12 472.88 68 474Q61.12 475.12 60 482Q58.88 475.12 52 474Q58.88 472.88 60 466Z" />
+              <path class="hart__spark" style="animation-delay:-2.8s" d="M404 220Q404.84 225.16 410 226Q404.84 226.84 404 232Q403.16 226.84 398 226Q403.16 225.16 404 220Z" />
+            </svg>
+          </div>
+
+          <th:block th:if="${featured != null}" th:with="fp=${@fmt.palette(featured.code())}">
+            <a class="slip" th:href="${'/capsules/' + featured.code()}" th:style="${'--glow:' + fp.glow()}">
+              <div class="slip__k"><span class="slip__dot"></span>广场上最受期待的一枚</div>
+              <div class="slip__row">
+                <th:block th:replace="~{fragments/parts :: capsuleArt(code=${featured.code()}, state='locked', width=64, extraClass='')}" />
+                <div>
+                  <b class="slip__t" th:text="${featured.title()}"></b>
+                  <span class="slip__cd mono" data-ht-live-cd="amber" th:attr="data-open-at=${@fmt.iso(featured.openAt())}"
+                        th:text="${@fmt.cdShortAmber(featured.openAt())}"></span>
+                </div>
+              </div>
+              <div class="slip__f">
+                <th:block th:utext="${@fmt.icon('heart')}" /><th:block th:text="${@fmt.num(featured.favoriteCount()) + ' 人在等它'}" />
+              </div>
+            </a>
+          </th:block>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ 广场概览年鉴 ============ -->
+  <th:block th:replace="~{fragments/plaza-grid :: overview}" />
+
+  <!-- ============ 广场列表与工具条（HTMX 驱动局部替换） ============ -->
+  <div id="plaza" data-ht-plaza-root
+       th:attr="data-init-sort=${sort}, data-init-filter=${filter}, data-init-q=${q}, data-init-page=${pagination.page()}">
+
+    <!-- 时笺工具条 -->
+    <div class="skin-slot" data-skin-view="paper">
+      <div class="page page--plaza">
+        <section class="wrap plaza">
+          <header class="plaza__head">
+            <div>
+              <div class="overline"><i></i>Plaza</div>
+              <h2 class="h2">胶囊广场</h2>
+            </div>
+            <p class="plaza__sub">别人写给未来的话。<br/>有的已经启封，有的还在路上。</p>
+          </header>
+
+          <div class="toolbar">
+            <div class="seg" role="group" aria-label="排序" data-ht-seg>
+              <span class="seg__thumb"></span>
+              <button th:class="${'seg__opt' + (sort == 'new' ? ' is-active' : '')}" type="button"
+                      th:attr="aria-pressed=${sort == 'new'}, data-selected=${sort == 'new'}"
+                      data-testid="sort-option" data-value="new" data-ht-plaza-sort="new">
+                <th:block th:utext="${@fmt.icon('clock')}" />最新
+              </button>
+              <button th:class="${'seg__opt' + (sort == 'hot' ? ' is-active' : '')}" type="button"
+                      th:attr="aria-pressed=${sort == 'hot'}, data-selected=${sort == 'hot'}"
+                      data-testid="sort-option" data-value="hot" data-ht-plaza-sort="hot">
+                <th:block th:utext="${@fmt.icon('fire')}" />最热
+              </button>
+            </div>
+
+            <div class="seg" role="group" aria-label="筛选" data-ht-seg>
+              <span class="seg__thumb"></span>
+              <button th:class="${'seg__opt' + (filter == 'all' ? ' is-active' : '')}" type="button"
+                      th:attr="aria-pressed=${filter == 'all'}, data-selected=${filter == 'all'}, data-count=${stats.counts().all()}"
+                      data-testid="filter-option" data-value="all" data-ht-plaza-filter="all">
+                全部<sup th:text="${stats.counts().all()}"></sup>
+              </button>
+              <button th:class="${'seg__opt' + (filter == 'unopened' ? ' is-active' : '')}" type="button"
+                      th:attr="aria-pressed=${filter == 'unopened'}, data-selected=${filter == 'unopened'}, data-count=${stats.counts().unopened()}"
+                      data-testid="filter-option" data-value="unopened" data-ht-plaza-filter="unopened">
+                未开启<sup th:text="${stats.counts().unopened()}"></sup>
+              </button>
+              <button th:class="${'seg__opt' + (filter == 'opened' ? ' is-active' : '')}" type="button"
+                      th:attr="aria-pressed=${filter == 'opened'}, data-selected=${filter == 'opened'}, data-count=${stats.counts().opened()}"
+                      data-testid="filter-option" data-value="opened" data-ht-plaza-filter="opened">
+                已开启<sup th:text="${stats.counts().opened()}"></sup>
+              </button>
+            </div>
+
+            <label th:class="${'search' + (q != null and !q.isEmpty() ? ' has-value' : '')}" data-ht-search-wrap>
+              <th:block th:utext="${@fmt.icon('search')}" />
+              <input type="search" placeholder="搜索标题或昵称" maxlength="50" autocomplete="off"
+                     aria-label="搜索胶囊" data-testid="plaza-search" data-ht-plaza-search th:value="${q}" />
+              <kbd>/</kbd>
+              <button class="search__x" type="button" aria-label="清空搜索" data-ht-plaza-clear>
+                <th:block th:utext="${@fmt.icon('x')}" />
+              </button>
+            </label>
+          </div>
+        </section>
       </div>
     </div>
-    <label class="cy-search" aria-label="搜索胶囊">
-      <span class="cy-search__icon" aria-hidden="true">🔍</span>
-      <input type="search" class="cy-search__input" name="q" placeholder="搜索标题或昵称…" maxlength="50"
-             th:value="${q}"
-             hx-get="/ui/plaza/grid" hx-trigger="input changed delay:300ms, search"
-             hx-target="#plaza-grid" hx-sync="this:replace">
-    </label>
+
+    <!-- 琥珀工具条 -->
+    <div class="skin-slot" data-skin-view="amber">
+      <div class="page page--home">
+        <section class="container plaza">
+          <header class="page-head page-head--split">
+            <div>
+              <div class="eyebrow">Capsule Plaza</div>
+              <h2 class="page-title">胶囊广场</h2>
+              <p class="page-lead">这里陈列着愿意被看见的胶囊。封存中的只露出标题与倒计时；时间到了，才会交出里面的话。</p>
+            </div>
+            <a class="btn btn--primary" href="/create" data-require-login="create">
+              <th:block th:utext="${@fmt.icon('pen')}" />我也放一枚
+            </a>
+          </header>
+
+          <div class="toolbar card">
+            <label th:class="${'search input-wrap' + (q != null and !q.isEmpty() ? ' has-value' : '')}" data-ht-search-wrap>
+              <th:block th:utext="${@fmt.icon('search', 'input-wrap__icon')}" />
+              <input class="input" type="search" placeholder="搜索标题或昵称…" maxlength="50" autocomplete="off"
+                     aria-label="搜索胶囊" data-testid="plaza-search" data-ht-plaza-search th:value="${q}" />
+              <kbd class="kbd">/</kbd>
+              <button class="search__x icon-btn" type="button" aria-label="清空搜索" data-ht-plaza-clear>
+                <th:block th:utext="${@fmt.icon('x')}" />
+              </button>
+            </label>
+
+            <div class="seg" role="group" aria-label="筛选" data-ht-seg>
+              <span class="seg__thumb"></span>
+              <button th:class="${'seg__opt' + (filter == 'all' ? ' is-active' : '')}" type="button"
+                      th:attr="aria-pressed=${filter == 'all'}, data-selected=${filter == 'all'}, data-count=${stats.counts().all()}"
+                      data-testid="filter-option" data-value="all" data-ht-plaza-filter="all">
+                全部<sup th:text="${stats.counts().all()}"></sup>
+              </button>
+              <button th:class="${'seg__opt' + (filter == 'unopened' ? ' is-active' : '')}" type="button"
+                      th:attr="aria-pressed=${filter == 'unopened'}, data-selected=${filter == 'unopened'}, data-count=${stats.counts().unopened()}"
+                      data-testid="filter-option" data-value="unopened" data-ht-plaza-filter="unopened">
+                封存中<sup th:text="${stats.counts().unopened()}"></sup>
+              </button>
+              <button th:class="${'seg__opt' + (filter == 'opened' ? ' is-active' : '')}" type="button"
+                      th:attr="aria-pressed=${filter == 'opened'}, data-selected=${filter == 'opened'}, data-count=${stats.counts().opened()}"
+                      data-testid="filter-option" data-value="opened" data-ht-plaza-filter="opened">
+                已开启<sup th:text="${stats.counts().opened()}"></sup>
+              </button>
+            </div>
+
+            <div class="select">
+              <select aria-label="排序" data-testid="plaza-sort" data-ht-plaza-select>
+                <option value="new" th:selected="${sort == 'new'}">最新封存</option>
+                <option value="hot" th:selected="${sort == 'hot'}">最多收藏</option>
+              </select>
+              <th:block th:utext="${@fmt.icon('chev-down', 'select__arrow')}" />
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- HTMX 局部替换容器 -->
+    <div id="plaza-results">
+      <th:block th:replace="~{fragments/plaza-grid :: results}" />
+    </div>
+
+    <!-- 查询失败错误模板（双皮肤，确保失败时不残留旧卡片） -->
+    <template id="ht-plaza-error-tpl">
+      <div class="skin-slot" data-skin-view="paper">
+        <div class="wrap plaza">
+          <div class="grid">
+            <div class="empty" data-testid="list-error">
+              <svg class="empty__art" viewBox="0 0 120 84" aria-hidden="true">
+                <path d="M8 30 60 6l52 24v46H8z" /><path d="M8 30l52 30 52-30" />
+                <path d="M34 44V22h52v22" class="empty__art-paper" /><path d="M44 30h32M44 37h20" />
+              </svg>
+              <h3>广场暂时打不开</h3>
+              <p>没能连上后端。请确认服务已启动，或稍后再试。</p>
+              <button class="btn btn--ghost" type="button" data-testid="list-retry" data-ht-plaza-retry>
+                <th:block th:utext="${@fmt.icon('refresh')}" />重试
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="skin-slot" data-skin-view="amber">
+        <div class="container plaza">
+          <div class="grid">
+            <div class="empty" data-testid="list-error">
+              <th:block th:replace="~{fragments/parts :: capsuleArt(code=null, state='opened', width=170, extraClass='empty__art')}" />
+              <h3 class="empty__title">广场暂时打不开</h3>
+              <p>没能连上后端。请确认服务已启动，或稍后再试。</p>
+              <button class="btn btn--ghost" type="button" data-testid="list-retry" data-ht-plaza-retry>
+                <th:block th:utext="${@fmt.icon('refresh')}" />重试
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
   </div>
 
-  <div id="plaza-grid">
-    <th:block th:replace="~{fragments/plaza-grid :: grid}"></th:block>
-  </div>
-</main>
-
-<footer th:replace="~{fragments/layout :: footer}"></footer>
+</th:block>
 </body>
 </html>

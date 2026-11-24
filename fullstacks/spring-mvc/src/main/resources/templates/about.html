@@ -1,54 +1,255 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
-<head th:replace="~{fragments/layout :: head('关于')}"></head>
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::content})}">
 <body>
-<header th:replace="~{fragments/layout :: header}"></header>
+<th:block th:fragment="content">
 
-<main class="cy-container cy-container--narrow" style="margin:var(--space-12) auto var(--space-16)">
-  <h1 style="font-family:var(--font-display);font-size:var(--font-size-5xl);margin:0 0 var(--space-3)">
-    关于 <span style="background:var(--gradient-brand-hero);-webkit-background-clip:text;background-clip:text;color:transparent">HelloTime Pro</span>
-  </h1>
+  <!-- ============ 时笺关于页 ============ -->
+  <div class="skin-slot" data-skin-view="paper">
+    <div class="page page--about">
+      <div class="wrap about">
+        <header class="about__hero">
+          <div class="overline"><i></i>About</div>
+          <h1 class="about__title">
+            <span>有些话，</span>
+            <span>要<em>等一等</em>再说<i class="about__stop"></i></span>
+          </h1>
+          <div class="about__lede">
+            <p>HelloTime Pro 是一款时间胶囊应用：写下一段话，设定未来某一刻才能开启，封存之后不可修改。它有胶囊广场、AI 代笔、收藏与账号。</p>
+            <p>它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的服务端模板与后端技术栈同源实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。</p>
+          </div>
+        </header>
 
-  <p style="color:var(--color-text-secondary);font-size:var(--font-size-lg);line-height:var(--line-height-relaxed);margin:0 0 var(--space-10)">
-    一款时光胶囊 Web 应用——写下一段话，设定未来某刻才能开启，内容上锁后不可修改。
-    支持胶囊广场浏览、AI 辅助创作、收藏与账户管理。同时也是一个多技术栈对比学习项目，
-    同一份产品需求由多套前后端框架各自实现，共享同一份 API 契约、数据库 schema 与设计 token。
-  </p>
+        <section class="about__sec">
+          <header class="sechead">
+            <span class="sechead__no">壹</span>
+            <div>
+              <h2 class="h2">此刻运行的技术栈</h2>
+              <p>页脚与这里展示的内容，均来自本全栈服务的健康检查元数据。</p>
+            </div>
+          </header>
+          <div class="about__live">
+            <span class="dot dot--on"></span>后端在线<i></i><span class="mono">GET /api/v1/health</span>
+          </div>
+          <div class="about__stack" data-testid="about-stack">
+            <article class="spec">
+              <header class="spec__head">
+                <div>
+                  <div class="spec__k">视图层</div>
+                  <h3 class="spec__t serif">Thymeleaf + HTMX</h3>
+                </div>
+                <span class="spec__sub mono">fullstacks/spring-mvc</span>
+              </header>
+              <ul class="spec__list">
+                <th:block th:each="it : ${frontendStack}">
+                  <li class="tech" data-testid="stack-item" th:attr="data-name=${it.name()}">
+                    <th:block th:replace="~{fragments/parts :: techIcon(item=${it}, cls='tech__ic')}" />
+                    <div class="tech__main">
+                      <b><th:block th:text="${it.name()}" /><small class="mono" th:text="${it.version()}"></small></b>
+                      <span th:text="${@fmt.techNote(it.name())}"></span>
+                    </div>
+                    <em class="tech__role" th:text="${@fmt.roleLabel(it.role())}"></em>
+                  </li>
+                </th:block>
+              </ul>
+              <p class="spec__sum" th:text="${frontendSummary}"></p>
+            </article>
 
-  <section style="margin-bottom:var(--space-10)">
-    <h2 style="font-family:var(--font-display);font-size:var(--font-size-2xl);margin:0 0 var(--space-5)">前端技术栈</h2>
-    <div class="cy-card" style="padding:var(--space-6)">
-      <div th:replace="~{about :: iconRow(${frontendStack})}"></div>
-      <p style="margin:0;color:var(--color-text-secondary);line-height:var(--line-height-relaxed)"
-         th:text="${frontendSummary}"></p>
+            <article class="spec">
+              <header class="spec__head">
+                <div>
+                  <div class="spec__k">全栈内核</div>
+                  <h3 class="spec__t serif">Spring MVC</h3>
+                </div>
+                <span class="spec__sub mono" th:text="${stackInfo.kind()}"></span>
+              </header>
+              <ul class="spec__list">
+                <th:block th:each="it : ${stackInfo.items()}">
+                  <li class="tech" data-testid="stack-item" th:attr="data-name=${it.name()}">
+                    <th:block th:replace="~{fragments/parts :: techIcon(item=${it}, cls='tech__ic')}" />
+                    <div class="tech__main">
+                      <b><th:block th:text="${it.name()}" /><small class="mono" th:text="${it.version()}"></small></b>
+                      <span th:text="${@fmt.techNote(it.name())}"></span>
+                    </div>
+                    <em class="tech__role" th:text="${@fmt.roleLabel(it.role())}"></em>
+                  </li>
+                </th:block>
+              </ul>
+              <p class="spec__sum" th:text="${stackInfo.summary()}"></p>
+            </article>
+          </div>
+        </section>
+
+        <section class="about__sec">
+          <header class="sechead">
+            <span class="sechead__no">贰</span>
+            <div>
+              <h2 class="h2">它能做什么</h2>
+              <p>一枚胶囊从写下到被读到，会经过的每一步。</p>
+            </div>
+          </header>
+          <ol class="feats" data-testid="about-features">
+            <th:block th:each="f, st : ${features}">
+              <li th:style="${'--i:' + st.index}" data-testid="about-feature">
+                <span class="feats__no latin" th:text="${f.num()}"></span>
+                <b class="serif" th:text="${f.title()}"></b>
+                <p th:text="${f.desc()}"></p>
+              </li>
+            </th:block>
+          </ol>
+        </section>
+
+        <section class="about__sec">
+          <header class="sechead">
+            <span class="sechead__no">叁</span>
+            <div>
+              <h2 class="h2">四条原则</h2>
+              <p>这个仓库为什么长成现在的样子。</p>
+            </div>
+          </header>
+          <ol class="tenets" data-testid="about-tenets">
+            <th:block th:each="t : ${tenets}">
+              <li data-testid="about-tenet">
+                <b class="serif" th:text="${t.title()}"></b>
+                <p th:utext="${t.htmlDesc()}"></p>
+              </li>
+            </th:block>
+          </ol>
+        </section>
+
+        <section class="about__sec about__sec--end">
+          <div class="credits">
+            <div>
+              <h3 class="serif">源码</h3>
+              <p>全部实现都在同一个仓库里，按 <code class="mono">backends / frontends / fullstacks / desktop / mobile</code> 分目录；这一套在 <code class="mono">fullstacks/spring-mvc</code>。</p>
+            </div>
+            <div>
+              <h3 class="serif">致谢</h3>
+              <p>技术栈图标来自 Simple Icons 与各项目官方标识；字体来自思源宋体、Cormorant Garamond 与 IBM Plex Mono；感谢每一个开源框架的作者与维护者。</p>
+            </div>
+            <div>
+              <h3 class="serif">许可</h3>
+              <p>MIT License。本项目用于教学、对比与研究，不面向生产环境。</p>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
-  </section>
+  </div>
 
-  <section style="margin-bottom:var(--space-10)">
-    <h2 style="font-family:var(--font-display);font-size:var(--font-size-2xl);margin:0 0 var(--space-5)">后端技术栈</h2>
-    <div class="cy-card" style="padding:var(--space-6)">
-      <div th:replace="~{about :: iconRow(${backendStack})}"></div>
-      <p style="margin:0;color:var(--color-text-secondary);line-height:var(--line-height-relaxed)"
-         th:text="${backendSummary}"></p>
+  <!-- ============ 琥珀关于页 ============ -->
+  <div class="skin-slot" data-skin-view="amber">
+    <div class="page page--about">
+      <div class="container about">
+        <header class="about__hero">
+          <div class="about__badge">
+            <span class="about__ring"></span>
+            <th:block th:replace="~{fragments/parts :: amberLogo(size=112, extraClass='')}" />
+          </div>
+          <div>
+            <div class="eyebrow">About</div>
+            <h1 class="about__title">HelloTime Pro <span class="pill mono">v2.0</span></h1>
+            <p class="about__motto">有些话，要等一等再说。</p>
+            <p class="page-lead">一款时间胶囊应用：写下一段话，设定一个未来的时刻，封存之后谁也打不开，直到那一刻到来。你可以把它发布到广场，也可以只把胶囊码交给一个人。</p>
+          </div>
+        </header>
+
+        <section class="about__sec">
+          <div class="eyebrow">Tech stack</div>
+          <h2 class="section-title">此刻运行的技术栈</h2>
+          <p class="page-lead">页脚和这里展示的内容，都来自本全栈服务的健康检查接口。</p>
+          <div class="about__live">
+            <span class="ftr__dot"></span>后端在线 · <span class="mono">GET /api/v1/health</span>
+          </div>
+          <div class="about__stacks" data-testid="about-stack">
+            <article class="card card--pad stack-card">
+              <div class="eyebrow">SSR View</div>
+              <h2 class="card__title">视图层<small class="mono">fullstacks/spring-mvc</small></h2>
+              <p class="card__lead" th:text="${frontendSummary}"></p>
+              <ul class="stack-list">
+                <th:block th:each="it : ${frontendStack}">
+                  <li data-testid="stack-item" th:attr="data-name=${it.name()}">
+                    <span class="stack-list__ic">
+                      <th:block th:replace="~{fragments/parts :: techIcon(item=${it}, cls='tech-ic')}" />
+                    </span>
+                    <div>
+                      <b><th:block th:text="${it.name()}" /><small class="mono" th:text="${it.version()}"></small></b>
+                      <span th:text="${@fmt.techNote(it.name())}"></span>
+                    </div>
+                    <em th:text="${@fmt.roleLabel(it.role())}"></em>
+                  </li>
+                </th:block>
+              </ul>
+            </article>
+
+            <article class="card card--pad stack-card">
+              <div class="eyebrow">Fullstack</div>
+              <h2 class="card__title">后端 · Spring MVC<small class="mono" th:text="${stackInfo.kind()}"></small></h2>
+              <p class="card__lead" th:text="${stackInfo.summary()}"></p>
+              <ul class="stack-list">
+                <th:block th:each="it : ${stackInfo.items()}">
+                  <li data-testid="stack-item" th:attr="data-name=${it.name()}">
+                    <span class="stack-list__ic">
+                      <th:block th:replace="~{fragments/parts :: techIcon(item=${it}, cls='tech-ic')}" />
+                    </span>
+                    <div>
+                      <b><th:block th:text="${it.name()}" /><small class="mono" th:text="${it.version()}"></small></b>
+                      <span th:text="${@fmt.techNote(it.name())}"></span>
+                    </div>
+                    <em th:text="${@fmt.roleLabel(it.role())}"></em>
+                  </li>
+                </th:block>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="about__sec">
+          <div class="eyebrow">Features</div>
+          <h2 class="section-title">它能做什么</h2>
+          <div class="features" data-testid="about-features">
+            <th:block th:each="f, st : ${features}">
+              <article class="feature card" th:style="${'--i:' + st.index}" data-testid="about-feature">
+                <span class="feature__ic"><th:block th:utext="${@fmt.icon(f.icon())}" /></span>
+                <h3 th:text="${f.title()}"></h3>
+                <p th:text="${f.desc()}"></p>
+              </article>
+            </th:block>
+          </div>
+        </section>
+
+        <section class="about__sec card card--pad dnotes">
+          <div class="eyebrow">Principles</div>
+          <h2 class="section-title">四条原则</h2>
+          <p class="card__lead">这个仓库为什么长成现在的样子。</p>
+          <div class="dnotes__grid dnotes__grid--4" data-testid="about-tenets">
+            <th:block th:each="t : ${tenets}">
+              <div data-testid="about-tenet">
+                <h3 th:text="${t.title()}"></h3>
+                <p th:utext="${t.htmlDesc()}"></p>
+              </div>
+            </th:block>
+          </div>
+        </section>
+
+        <section class="about__sec about__credits">
+          <div>
+            <h3><th:block th:utext="${@fmt.icon('code')}" />源码</h3>
+            <p>实现位于仓库的 <code class="mono">fullstacks/spring-mvc</code> 目录。</p>
+          </div>
+          <div>
+            <h3><th:block th:utext="${@fmt.icon('heart')}" />致谢</h3>
+            <p>技术栈图标来自 Simple Icons 与各项目官方标识；感谢每一个开源框架的作者与维护者。</p>
+          </div>
+          <div>
+            <h3><th:block th:utext="${@fmt.icon('book')}" />许可</h3>
+            <p>MIT License。本项目用于教学与研究，不面向生产环境。</p>
+          </div>
+        </section>
+      </div>
     </div>
-  </section>
-
-  <div style="padding:var(--space-4) 0;border-top:1px solid var(--color-border-subtle);color:var(--color-text-muted);font-size:var(--font-size-sm);display:flex;gap:var(--space-6);flex-wrap:wrap">
-    <span>前端：<code>Thymeleaf + HTMX</code></span>
-    <span>后端：<code>Java + Spring Boot</code></span>
-    <span>License: MIT</span>
   </div>
-</main>
 
-<footer th:replace="~{fragments/layout :: footer}"></footer>
-
-<!-- 技术栈图标行（缺图标用占位方块）。 -->
-<div th:fragment="iconRow(items)" style="display:flex;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-4)">
-  <div th:each="it : ${items}" style="display:flex;flex-direction:column;align-items:center;gap:var(--space-1)">
-    <img th:if="${it.iconUrl != null}" th:src="${it.iconUrl}" th:alt="${it.name}" style="width:48px;height:48px">
-    <div th:unless="${it.iconUrl != null}" style="width:48px;height:48px;background:var(--color-surface-2);border-radius:var(--radius-md)"></div>
-    <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);font-family:var(--font-mono)" th:text="${it.name + (it.version != null ? ' ' + it.version : '')}">name</span>
-  </div>
-</div>
+</th:block>
 </body>
 </html>

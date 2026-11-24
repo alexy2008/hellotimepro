@@ -1,17 +1,197 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <body>
-<!-- 广场网格内容（HTMX 局部替换 #plaza-grid 的 innerHTML）。 -->
-<th:block th:fragment="grid">
-  <div th:if="${#lists.isEmpty(capsules)}" class="cy-empty">
-    <div class="cy-empty__emoji">🌌</div>
-    <p>广场暂无胶囊 —— 来当第一个写信给未来的人？</p>
-  </div>
-  <div th:unless="${#lists.isEmpty(capsules)}" class="cy-grid">
-    <th:block th:each="cap : ${capsules}">
-      <th:block th:replace="~{fragments/capsule :: card(capsule=${cap}, showCreator=true, hideFavorite=false)}"></th:block>
-    </th:block>
+
+<!-- 广场概览（首屏与到点局部刷新共用） -->
+<th:block th:fragment="overview">
+  <div id="plaza-overview">
+    <div class="skin-slot" data-skin-view="paper">
+      <section class="wrap almanac" aria-label="广场概览" data-testid="plaza-stats">
+        <th:block th:if="${overview != null}">
+          <div class="almanac__cell" data-testid="stat" data-key="all" th:attr="data-value=${overview.counts().all()}">
+            <b class="latin" th:text="${@fmt.num(overview.counts().all())}"></b>
+            <span>枚胶囊<br/>在广场上</span>
+          </div>
+          <div class="almanac__cell" data-testid="stat" data-key="unopened" th:attr="data-value=${overview.counts().unopened()}">
+            <b class="latin" th:text="${@fmt.num(overview.counts().unopened())}"></b>
+            <span>枚正在<br/>等待启封</span>
+          </div>
+          <div class="almanac__cell" data-testid="stat" data-key="opened" th:attr="data-value=${overview.counts().opened()}">
+            <b class="latin" th:text="${@fmt.num(overview.counts().opened())}"></b>
+            <span>枚已经<br/>被人读到</span>
+          </div>
+          <div th:if="${overview.farthestOpenAt() != null}" class="almanac__cell" data-testid="stat" data-key="farthestYear"
+               th:attr="data-value=${@fmt.year(overview.farthestOpenAt())}">
+            <b class="latin" th:text="${@fmt.year(overview.farthestOpenAt())}"></b>
+            <span>年，最远的<br/>一枚才会打开</span>
+          </div>
+        </th:block>
+      </section>
+    </div>
+
+    <div class="skin-slot" data-skin-view="amber">
+      <section class="container stats" aria-label="广场概览" data-testid="plaza-stats">
+        <th:block th:if="${overview != null}">
+          <div class="stats__cell" style="--i:0" data-testid="stat" data-key="all" th:attr="data-value=${overview.counts().all()}">
+            <b class="mono" th:text="${overview.counts().all()}"></b>
+            <span>枚胶囊<br/>在广场上</span>
+          </div>
+          <div class="stats__cell" style="--i:1" data-testid="stat" data-key="unopened" th:attr="data-value=${overview.counts().unopened()}">
+            <b class="mono" th:text="${overview.counts().unopened()}"></b>
+            <span>枚正在<br/>等待开启</span>
+          </div>
+          <div class="stats__cell" style="--i:2" data-testid="stat" data-key="opened" th:attr="data-value=${overview.counts().opened()}">
+            <b class="mono" th:text="${overview.counts().opened()}"></b>
+            <span>枚已经<br/>被人读到</span>
+          </div>
+          <div th:if="${overview.farthestOpenAt() != null}" class="stats__cell" style="--i:3" data-testid="stat" data-key="farthestYear"
+               th:attr="data-value=${@fmt.year(overview.farthestOpenAt())}">
+            <b class="mono" th:text="${@fmt.year(overview.farthestOpenAt())}"></b>
+            <span>年，最远的<br/>一枚才会打开</span>
+          </div>
+        </th:block>
+      </section>
+    </div>
   </div>
 </th:block>
+
+<!-- 广场网格与分页（首屏与 HTMX /ui/plaza/grid 局部刷新共用） -->
+<th:block th:fragment="results">
+  <div class="plaza-results-meta"
+       th:attr="data-count-all=${stats.counts().all()},
+                data-count-unopened=${stats.counts().unopened()},
+                data-count-opened=${stats.counts().opened()},
+                data-cur-page=${pagination.page()},
+                data-cur-sort=${sort},
+                data-cur-filter=${filter},
+                data-cur-q=${q}">
+
+    <!-- 时笺网格 + 分页 -->
+    <div class="skin-slot" data-skin-view="paper">
+      <div class="page page--plaza" style="padding-top:0">
+        <div class="wrap plaza" style="padding-top:0">
+          <div class="grid" aria-live="polite" data-ht-plaza-grid>
+        <th:block th:if="${capsules.isEmpty()}">
+          <div th:if="${q != null and !q.trim().isEmpty()}" class="empty" data-testid="list-empty">
+            <svg class="empty__art" viewBox="0 0 120 84" aria-hidden="true">
+              <path d="M8 30 60 6l52 24v46H8z" />
+              <path d="M8 30l52 30 52-30" />
+              <path d="M34 44V22h52v22" class="empty__art-paper" />
+              <path d="M44 30h32M44 37h20" />
+            </svg>
+            <h3 th:text="${'没有找到「' + q.trim() + '」'}"></h3>
+            <p>换个关键词试试，标题和昵称都可以搜。</p>
+            <button class="btn btn--ghost" type="button" data-ht-plaza-clear>清空搜索</button>
+          </div>
+          <div th:if="${q == null or q.trim().isEmpty()}" class="empty" data-testid="list-empty">
+            <svg class="empty__art" viewBox="0 0 120 84" aria-hidden="true">
+              <path d="M8 30 60 6l52 24v46H8z" />
+              <path d="M8 30l52 30 52-30" />
+              <path d="M34 44V22h52v22" class="empty__art-paper" />
+              <path d="M44 30h32M44 37h20" />
+            </svg>
+            <h3>广场上还没有胶囊</h3>
+            <p>来当第一个写信给未来的人？</p>
+            <a class="btn btn--primary" href="/create" data-require-login="create">
+              <th:block th:utext="${@fmt.icon('pen')}" />写一枚胶囊
+            </a>
+          </div>
+        </th:block>
+
+        <th:block th:each="c, st : ${capsules}">
+          <th:block th:replace="~{fragments/cards :: paperCard(c=${c}, idx=${st.index}, rank=${@fmt.rankOf(sort, pagination.page(), q, st.index)}, testId='capsule-card', openTestId='card-open')}" />
+        </th:block>
+      </div>
+
+      <nav class="pager" aria-label="分页">
+        <th:block th:if="${!capsules.isEmpty()}">
+          <div th:if="${pagination.totalPages() <= 1}" class="pager__sum" th:text="${'共 ' + @fmt.num(pagination.total()) + ' 枚'}"></div>
+          <th:block th:if="${pagination.totalPages() > 1}">
+            <button class="pager__nav" type="button" th:disabled="${pagination.page() <= 1}"
+                    th:attr="data-ht-plaza-page=${pagination.page() - 1}">
+              <th:block th:utext="${@fmt.icon('chev-left')}" />上一页
+            </button>
+            <div class="pager__nums">
+              <th:block th:each="n : ${@fmt.pageNumbers(pagination.page(), pagination.totalPages())}">
+                <span th:if="${n == '…'}" class="pager__gap">…</span>
+                <button th:if="${n != '…'}"
+                        th:class="${'pager__n latin' + (n == ('' + pagination.page()) ? ' is-active' : '')}"
+                        type="button"
+                        th:attr="aria-current=${n == ('' + pagination.page()) ? 'page' : null}, data-ht-plaza-page=${n}"
+                        th:text="${n}"></button>
+              </th:block>
+            </div>
+            <button class="pager__nav" type="button" th:disabled="${pagination.page() >= pagination.totalPages()}"
+                    th:attr="data-testid=${pagination.page() < pagination.totalPages() ? 'plaza-next' : null},
+                             data-ht-plaza-page=${pagination.page() + 1}">
+              下一页<th:block th:utext="${@fmt.icon('chev-right')}" />
+            </button>
+            <div class="pager__sum" th:text="${'共 ' + @fmt.num(pagination.total()) + ' 枚 · 第 ' + pagination.page() + ' / ' + pagination.totalPages() + ' 页'}"></div>
+          </th:block>
+        </th:block>
+      </nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- 琥珀计数 + 网格 + 分页 -->
+    <div class="skin-slot" data-skin-view="amber">
+      <div class="page page--home" style="padding-top:0">
+        <div class="container plaza" style="padding-top:0">
+          <div class="plaza__count">
+        共 <b th:text="${@fmt.num(pagination.total())}"></b> 枚胶囊<th:block th:if="${q != null and !q.trim().isEmpty()}" th:text="${' · 关键词「' + q.trim() + '」'}" />
+      </div>
+
+      <div class="grid" aria-live="polite" data-ht-plaza-grid>
+        <th:block th:if="${capsules.isEmpty()}">
+          <div th:if="${q != null and !q.trim().isEmpty()}" class="empty" data-testid="list-empty">
+            <th:block th:replace="~{fragments/parts :: capsuleArt(code=null, state='opened', width=170, extraClass='empty__art')}" />
+            <h3 class="empty__title" th:text="${'没有找到「' + q.trim() + '」'}"></h3>
+            <p>换个关键词试试，标题和昵称都可以搜。</p>
+            <button class="btn btn--ghost" type="button" data-ht-plaza-clear>清空搜索</button>
+          </div>
+          <div th:if="${q == null or q.trim().isEmpty()}" class="empty" data-testid="list-empty">
+            <th:block th:replace="~{fragments/parts :: capsuleArt(code=null, state='opened', width=170, extraClass='empty__art')}" />
+            <h3 class="empty__title">广场上还没有胶囊</h3>
+            <p>来当第一个写信给未来的人？</p>
+            <a class="btn btn--primary" href="/create" data-require-login="create">
+              <th:block th:utext="${@fmt.icon('pen')}" />写一枚胶囊
+            </a>
+          </div>
+        </th:block>
+
+        <th:block th:each="c, st : ${capsules}">
+          <th:block th:replace="~{fragments/cards :: amberCard(c=${c}, idx=${st.index}, rank=${@fmt.rankOf(sort, pagination.page(), q, st.index)}, testId='capsule-card', openTestId='card-open')}" />
+        </th:block>
+      </div>
+
+      <nav class="pager" aria-label="分页">
+        <th:block th:if="${!capsules.isEmpty() and pagination.totalPages() > 1}">
+          <button class="pager__btn" type="button" aria-label="上一页" th:disabled="${pagination.page() <= 1}"
+                  th:attr="data-ht-plaza-page=${pagination.page() - 1}">
+            <th:block th:utext="${@fmt.icon('chev-left')}" />
+          </button>
+          <th:block th:each="n : ${@fmt.pageNumbers(pagination.page(), pagination.totalPages())}">
+            <span th:if="${n == '…'}" class="pager__gap">…</span>
+            <button th:if="${n != '…'}"
+                    th:class="${'pager__btn' + (n == ('' + pagination.page()) ? ' is-active' : '')}"
+                    type="button"
+                    th:attr="aria-current=${n == ('' + pagination.page()) ? 'page' : null}, data-ht-plaza-page=${n}"
+                    th:text="${n}"></button>
+          </th:block>
+          <button class="pager__btn" type="button" aria-label="下一页" th:disabled="${pagination.page() >= pagination.totalPages()}"
+                  th:attr="data-testid=${pagination.page() < pagination.totalPages() ? 'plaza-next' : null},
+                           data-ht-plaza-page=${pagination.page() + 1}">
+            <th:block th:utext="${@fmt.icon('chev-right')}" />
+          </button>
+        </th:block>
+      </nav>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</th:block>
+
 </body>
 </html>

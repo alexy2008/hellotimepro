@@ -4,6 +4,7 @@ import com.hellotimepro.springmvc.domain.UserEntity;
 import com.hellotimepro.springmvc.dto.Dtos.CapsuleListItem;
 import com.hellotimepro.springmvc.dto.Dtos.ChangePasswordRequest;
 import com.hellotimepro.springmvc.dto.Dtos.Envelope;
+import com.hellotimepro.springmvc.dto.Dtos.MyStats;
 import com.hellotimepro.springmvc.dto.Dtos.Paginated;
 import com.hellotimepro.springmvc.dto.Dtos.UpdateProfileRequest;
 import com.hellotimepro.springmvc.dto.Dtos.UserOut;
@@ -12,6 +13,8 @@ import com.hellotimepro.springmvc.service.AuthService;
 import com.hellotimepro.springmvc.service.CapsuleService;
 import com.hellotimepro.springmvc.service.PlazaService;
 import com.hellotimepro.springmvc.service.UserService;
+import com.hellotimepro.springmvc.web.view.CookieAuthService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,19 +36,26 @@ public class MeController {
   private final AuthService auth;
   private final PlazaService plaza;
   private final CapsuleService capsules;
+  private final CookieAuthService cookieAuth;
 
   public MeController(AuthContext authContext, UserService users, AuthService auth,
-      PlazaService plaza, CapsuleService capsules) {
+      PlazaService plaza, CapsuleService capsules, CookieAuthService cookieAuth) {
     this.authContext = authContext;
     this.users = users;
     this.auth = auth;
     this.plaza = plaza;
     this.capsules = capsules;
+    this.cookieAuth = cookieAuth;
   }
 
   @GetMapping
   public Envelope<UserOut> me(@RequestHeader(value = "Authorization", required = false) String authorization) {
     return Envelope.ok(users.toOut(authContext.required(authorization)));
+  }
+
+  @GetMapping("/stats")
+  public Envelope<MyStats> stats(@RequestHeader(value = "Authorization", required = false) String authorization) {
+    return Envelope.ok(plaza.myStats(authContext.required(authorization)));
   }
 
   @PatchMapping
@@ -56,8 +66,9 @@ public class MeController {
 
   @PostMapping("/password")
   public ResponseEntity<Void> password(@RequestHeader(value = "Authorization", required = false) String authorization,
-      @Valid @RequestBody ChangePasswordRequest req) {
+      @Valid @RequestBody ChangePasswordRequest req, HttpServletResponse res) {
     auth.changePassword(authContext.required(authorization), req);
+    cookieAuth.clearAuthCookies(res);
     return ResponseEntity.noContent().build();
   }
 

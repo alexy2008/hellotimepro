@@ -28,7 +28,7 @@ public class HealthController {
   @GetMapping("/health")
   public Envelope<HealthData> health() {
     long uptime = ManagementFactory.getRuntimeMXBean().getUptime() / 1000;
-    HealthData data = new HealthData("ok", props.getServiceName(), props.getServiceVersion(),
+    HealthData data = new HealthData("ok", props.getServiceName(), "2.0.0",
         uptime, healthStack.stack());
     return Envelope.ok(data);
   }

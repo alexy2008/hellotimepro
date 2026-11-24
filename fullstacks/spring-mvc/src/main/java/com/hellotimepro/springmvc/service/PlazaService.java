@@ -4,8 +4,11 @@ import com.hellotimepro.springmvc.domain.CapsuleEntity;
 import com.hellotimepro.springmvc.domain.FavoriteEntity;
 import com.hellotimepro.springmvc.domain.UserEntity;
 import com.hellotimepro.springmvc.dto.Dtos.CapsuleListItem;
+import com.hellotimepro.springmvc.dto.Dtos.MyStats;
 import com.hellotimepro.springmvc.dto.Dtos.Paginated;
 import com.hellotimepro.springmvc.dto.Dtos.Pagination;
+import com.hellotimepro.springmvc.dto.Dtos.PlazaCounts;
+import com.hellotimepro.springmvc.dto.Dtos.PlazaStats;
 import com.hellotimepro.springmvc.repository.CapsuleRepository;
 import com.hellotimepro.springmvc.repository.FavoriteRepository;
 import com.hellotimepro.springmvc.repository.UserRepository;
@@ -49,35 +52,44 @@ public class PlazaService {
     if (!filter.equals("all") && !filter.equals("opened") && !filter.equals("unopened")) {
       throw ApiException.validation("filter 仅支持 all/opened/unopened", "filter");
     }
-    String normalizedQuery = q == null ? null : q.trim().toLowerCase(Locale.ROOT);
-    if (normalizedQuery != null && normalizedQuery.isEmpty()) normalizedQuery = null;
-    if (normalizedQuery != null && normalizedQuery.length() > 50) {
-      throw ApiException.validation("q 长度不得超过 50", "q");
-    }
-    String qPattern = normalizedQuery == null ? null : "%" + normalizedQuery + "%";
-
     Pageable pageable = PageRequest.of(page - 1, pageSize, sortOf(sort));
-    Page<CapsuleEntity> pageResult = capsules.findPlazaPage(filter, now(), qPattern, pageable);
+    Page<CapsuleEntity> pageResult = capsules.findPlazaPage(filter, now(), searchPattern(q), pageable);
 
     List<CapsuleEntity> items = pageResult.getContent();
     Map<UUID, UserEntity> ownerMap = loadOwners(items.stream().map(CapsuleEntity::getOwnerId).toList());
     Set<UUID> faved = loadFavoriteSet(viewerId, items.stream().map(CapsuleEntity::getId).toList());
 
     List<CapsuleListItem> dto = items.stream()
-        // owner 已删除的孤儿胶囊（SQLite 默认不级联删除时可能残留）按 INNER JOIN 语义跳过，
-        // 避免 plaza 渲染时对 null owner 取 nickname 抛 NPE。
         .filter(c -> ownerMap.get(c.getOwnerId()) != null)
         .map(c -> mapper.listItem(c, ownerMap.get(c.getOwnerId()), faved.contains(c.getId()), null))
         .toList();
     return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
   }
 
+  public PlazaStats plazaStats(String q) {
+    OffsetDateTime now = now();
+    var counts = capsules.countPlaza(now, searchPattern(q));
+    return new PlazaStats(
+        new PlazaCounts(counts.getTotal(), counts.getOpened(), counts.getUnopened()),
+        capsules.findFirstByInPlazaTrueOrderByOpenAtDesc().map(CapsuleRepository.OpenTime::getOpenAt).orElse(null),
+        capsules.findFirstByInPlazaTrueAndOpenAtGreaterThanOrderByOpenAtAsc(now)
+            .map(CapsuleRepository.OpenTime::getOpenAt).orElse(null));
+  }
+
+  public MyStats myStats(UserEntity user) {
+    var counts = capsules.countOwned(user.getId(), now());
+    return new MyStats(counts.getCreated(), counts.getOpened(), counts.getUnopened(), counts.getInPlaza(),
+        counts.getFavoritesReceived(), favorites.countByIdUserId(user.getId()));
+  }
+
   public Paginated<CapsuleListItem> myCapsules(UserEntity user, int page, int pageSize) {
     validatePage(page, pageSize);
     Pageable pageable = PageRequest.of(page - 1, pageSize);
     Page<CapsuleEntity> pageResult = capsules.findByOwnerIdOrderByCreatedAtDesc(user.getId(), pageable);
+    Set<UUID> faved = loadFavoriteSet(user.getId().toString(),
+        pageResult.getContent().stream().map(CapsuleEntity::getId).toList());
     List<CapsuleListItem> dto = pageResult.getContent().stream()
-        .map(c -> mapper.listItem(c, user, false, null))
+        .map(c -> mapper.listItem(c, user, faved.contains(c.getId()), null))
         .toList();
     return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
   }
@@ -101,10 +113,20 @@ public class PlazaService {
       CapsuleEntity c = capsuleMap.get(f.getId().getCapsuleId());
       if (c == null) continue;
       UserEntity owner = ownerMap.get(c.getOwnerId());
-      if (owner == null) continue; // owner 已删除的孤儿胶囊跳过
+      if (owner == null) continue;
       dto.add(mapper.listItem(c, owner, true, f.getCreatedAt()));
     }
     return new Paginated<>(dto, pagination(pageResult.getTotalElements(), page, pageSize));
+  }
+
+  private String searchPattern(String q) {
+    if (q == null || q.isBlank()) return null;
+    String trimmed = q.strip();
+    if (trimmed.codePointCount(0, trimmed.length()) > 50) {
+      throw ApiException.validation("q 长度不得超过 50", "q");
+    }
+    return "%" + trimmed.toLowerCase(Locale.ROOT)
+        .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
   }
 
   private Sort sortOf(String sort) {

@@ -1,24 +1,36 @@
 #!/usr/bin/env bash
-# 默认使用 SQLite 跑测试，无需外部 PostgreSQL。
+# 默认使用临时 SQLite 数据库跑测试，零外部依赖且并发安全。
 set -euo pipefail
 
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$HERE/../.." && pwd)"
 cd "$HERE"
 
+if ! command -v mvn >/dev/null 2>&1; then
+  for _d in \
+      "$HOME/.vmr/versions/maven_versions"/*/bin \
+      "$HOME/.sdkman/candidates/maven/current/bin" \
+      /opt/homebrew/opt/maven/bin \
+      /usr/local/opt/maven/bin \
+      "$HOME/.m2/wrapper/dists"/*/*/bin; do
+    if [[ -x "$_d/mvn" ]]; then
+      export PATH="$_d:$PATH"
+      break
+    fi
+  done
+fi
+
 export REPO_ROOT
 export DB_DRIVER="${DB_DRIVER:-sqlite}"
 if [[ "$DB_DRIVER" == "sqlite" ]]; then
-  mkdir -p "$REPO_ROOT/data/sqlite"
-  TEST_DB="$REPO_ROOT/data/sqlite/hellotime_spring_mvc_test.db"
-  rm -f "$TEST_DB"
-  # Flyway 已随「数据库维护解耦」禁用；测试库的 schema 由仓库级 scripts/db 创建
-  # （与 app 实际运行使用的 spec schema 完全一致）。
-  DB_DRIVER=sqlite DB_URL="sqlite:///$TEST_DB" "$REPO_ROOT/scripts/db" init
-  export SPRING_DATASOURCE_URL="jdbc:sqlite:$TEST_DB"
+  TEST_DB="$(mktemp "${TMPDIR:-/tmp}/hellotime-spring-mvc-test.XXXXXX")"
+  trap 'unlink "$TEST_DB" 2>/dev/null || true' EXIT
+  export SPRING_DATASOURCE_URL="jdbc:sqlite:$TEST_DB?transaction_mode=IMMEDIATE"
   export SPRING_DATASOURCE_DRIVER="org.sqlite.JDBC"
   export SPRING_JPA_DATABASE_PLATFORM="org.hibernate.community.dialect.SQLiteDialect"
   export SPRING_DATASOURCE_MAX_POOL_SIZE="${SPRING_DATASOURCE_MAX_POOL_SIZE:-1}"
+  export SPRING_SQL_INIT_MODE="always"
+  export SPRING_SQL_INIT_SCHEMA_LOCATIONS="file:$REPO_ROOT/spec/db/schema.sqlite.sql"
   export DB_USERNAME=""
   export DB_PASSWORD=""
 fi

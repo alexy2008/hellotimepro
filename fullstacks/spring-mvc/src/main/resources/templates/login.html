@@ -1,40 +1,153 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
-<head th:replace="~{fragments/layout :: head('登录')}"></head>
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::content})}">
 <body>
-<header th:replace="~{fragments/layout :: header}"></header>
+<th:block th:fragment="content">
 
-<main class="cy-container cy-container--narrow" style="margin-top:var(--space-12);margin-bottom:var(--space-16)">
-  <div class="cy-card" style="max-width:440px;margin:0 auto">
-    <h1 style="font-family:var(--font-display);font-size:var(--font-size-3xl);margin:0 0 var(--space-2)">欢迎回来</h1>
-    <p style="color:var(--color-text-secondary);margin:0 0 var(--space-8)">你留给未来的信，还在等你开启。</p>
+  <div data-ht-login-root th:attr="data-redirect=${redirect}">
 
-    <form class="cy-form" method="post" action="/login">
-      <input type="hidden" name="from" th:value="${from}">
-      <div class="cy-field">
-        <label for="email">邮箱</label>
-        <input class="cy-input" id="email" name="email" type="email" autocomplete="email" required
-               th:value="${email}">
+    <!-- ============ 时笺登录页 ============ -->
+    <div class="skin-slot" data-skin-view="paper">
+      <div class="page page--auth">
+        <div class="auth">
+          <aside class="auth__art" aria-hidden="true">
+            <div class="auth__brand">
+              <th:block th:replace="~{fragments/parts :: paperLogo}" />
+              <span class="latin">HelloTime</span>
+            </div>
+            <div class="auth__poem serif">
+              <span>见字如面</span>
+              <span>展信安好</span>
+            </div>
+            <div class="auth__foot">
+              <span>写信的人，在等回信的你</span>
+              <th:block th:replace="~{fragments/parts :: seal(ch='信', variant='solid', extraClass='auth__seal')}" />
+            </div>
+            <div class="auth__pm">
+              <th:block th:replace="~{fragments/parts :: postmark(line1=${@fmt.nowDate()}, line2='此 刻', extraClass='pm--auth')}" />
+            </div>
+          </aside>
+
+          <section class="auth__main">
+            <div class="auth__card">
+              <div class="overline"><i></i>Sign in</div>
+              <h1 class="h1">欢迎回来</h1>
+              <p class="lede">你留给未来的信，还在等你开启。</p>
+              <p th:if="${redirect != null and !redirect.isEmpty()}" class="note note--inline">
+                <th:block th:utext="${@fmt.icon('info')}" />
+                <span>登录后会带你回到刚才的页面。</span>
+              </p>
+
+              <form novalidate data-ht-login-form>
+                <div class="field" data-field="email" data-ht-field="email">
+                  <label class="field__label" for="paper-login-email">邮箱</label>
+                  <div class="field__box" data-ht-field-box>
+                    <input class="field__input" id="paper-login-email" name="email" type="email" autocomplete="email"
+                           placeholder="you@example.com" data-testid="login-email" data-ht-sync="email" />
+                    <span class="field__line"></span>
+                  </div>
+                  <div class="field__hint" data-ht-hint="email"></div>
+                </div>
+
+                <div class="field" data-field="password" data-ht-field="password">
+                  <label class="field__label" for="paper-login-pwd">密码</label>
+                  <div class="field__box" data-ht-field-box>
+                    <input class="field__input" id="paper-login-pwd" name="password" type="password" autocomplete="current-password"
+                           placeholder="输入密码" data-testid="login-password" data-ht-sync="password" />
+                    <button class="field__eye" type="button" aria-label="显示密码" data-ht-pwd-eye>
+                      <th:block th:utext="${@fmt.icon('eye')}" />
+                    </button>
+                    <span class="field__line"></span>
+                  </div>
+                  <div class="field__hint" data-ht-hint="password" data-default-hint="忘记密码？当前版本暂不支持找回。">忘记密码？当前版本暂不支持找回。</div>
+                </div>
+
+                <div class="form__err" role="alert" data-ht-form-err></div>
+
+                <button class="btn btn--primary btn--lg btn--block" type="submit" data-testid="login-submit" data-ht-submit>
+                  <span data-ht-submit-text data-idle="登录" data-busy="登录中…">登录</span>
+                  <th:block th:utext="${@fmt.icon('arrow', 'ic--go')}" />
+                </button>
+              </form>
+
+              <p class="auth__alt">
+                还没有账号？
+                <a class="link"
+                   th:href="${redirect != null and !redirect.isEmpty() ? '/register?redirect=' + #uris.escapeQueryParam(redirect) : '/register'}"
+                   data-testid="to-register">注册一个</a>
+              </p>
+            </div>
+          </section>
+        </div>
       </div>
-      <div class="cy-field">
-        <label for="pwd">密码</label>
-        <input class="cy-input" id="pwd" name="password" type="password" autocomplete="current-password" required>
-        <span class="cy-field__hint">忘记密码？M1 暂不支持找回，请联系管理员重置。</span>
-      </div>
+    </div>
 
-      <div th:if="${error}" class="cy-alert cy-alert--danger">
-        <span>⚠</span><span th:text="${error}">错误</span>
-      </div>
+    <!-- ============ 琥珀登录页 ============ -->
+    <div class="skin-slot" data-skin-view="amber">
+      <div class="page page--auth">
+        <div class="container auth">
+          <div class="auth__card card">
+            <div class="auth__art" aria-hidden="true">
+              <span class="auth__orbit"></span>
+              <span class="auth__orbit auth__orbit--2"></span>
+              <th:block th:replace="~{fragments/parts :: capsuleArt(code=null, state='locked', width=180, extraClass='')}" />
+            </div>
+            <div class="eyebrow eyebrow--center">Welcome back</div>
+            <h1 class="page-title">欢迎回来</h1>
+            <p class="page-lead">你封存的胶囊，还在等你回来开启。</p>
+            <p th:if="${redirect != null and !redirect.isEmpty()}" class="tip">
+              <th:block th:utext="${@fmt.icon('info')}" />
+              <span>登录后会带你回到刚才的页面。</span>
+            </p>
 
-      <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit" style="width:100%">登录</button>
+            <form novalidate data-ht-login-form>
+              <div class="field" data-field="email" data-ht-field="email">
+                <div class="field__head">
+                  <label class="field__label" for="amber-login-email">邮箱</label>
+                </div>
+                <div class="input-wrap input-wrap--icon" data-ht-field-box>
+                  <th:block th:utext="${@fmt.icon('mail', 'input-wrap__icon')}" />
+                  <input class="input" id="amber-login-email" name="email" type="email" autocomplete="email"
+                         placeholder="you@example.com" data-testid="login-email" data-ht-sync="email" />
+                </div>
+                <div class="field__hint" data-ht-hint="email"></div>
+              </div>
 
-      <div style="text-align:center;color:var(--color-text-muted);font-size:var(--font-size-sm)">
-        还没有账号？<a href="/register" style="color:var(--color-brand-primary)">立即注册</a>
+              <div class="field" data-field="password" data-ht-field="password">
+                <div class="field__head">
+                  <label class="field__label" for="amber-login-pwd">密码</label>
+                </div>
+                <div class="input-wrap input-wrap--icon input-wrap--action" data-ht-field-box>
+                  <th:block th:utext="${@fmt.icon('lock', 'input-wrap__icon')}" />
+                  <input class="input" id="amber-login-pwd" name="password" type="password" autocomplete="current-password"
+                         placeholder="输入密码" data-testid="login-password" data-ht-sync="password" />
+                  <button class="input-wrap__action icon-btn" type="button" aria-label="显示密码" data-ht-pwd-eye>
+                    <th:block th:utext="${@fmt.icon('eye')}" />
+                  </button>
+                </div>
+                <div class="field__hint" data-ht-hint="password" data-default-hint="忘记密码？当前版本暂不支持找回。">忘记密码？当前版本暂不支持找回。</div>
+              </div>
+
+              <div class="form__err" role="alert" data-ht-form-err></div>
+
+              <button class="btn btn--primary btn--lg btn--block" type="submit" data-testid="login-submit" data-ht-submit>
+                <span data-ht-submit-text data-idle="登录" data-busy="登录中…">登录</span>
+                <th:block th:utext="${@fmt.icon('arrow')}" />
+              </button>
+            </form>
+
+            <p class="auth__alt">
+              还没有账号？
+              <a th:href="${redirect != null and !redirect.isEmpty() ? '/register?redirect=' + #uris.escapeQueryParam(redirect) : '/register'}"
+                 data-testid="to-register">注册一个</a>
+            </p>
+          </div>
+        </div>
       </div>
-    </form>
+    </div>
+
   </div>
-</main>
 
-<footer th:replace="~{fragments/layout :: footer}"></footer>
+</th:block>
 </body>
 </html>

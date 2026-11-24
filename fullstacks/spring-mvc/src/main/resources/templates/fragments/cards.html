@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- 时笺卡片（广场与「我收藏的」共用） -->
+<th:block th:fragment="paperCard(c, idx, rank, testId, openTestId)">
+  <th:block th:with="opened=${c.isOpened()},
+                     cd=${@fmt.cd(c.openAt())},
+                     pct=${@fmt.progress(c.createdAt(), c.openAt())},
+                     mine=${currentUser != null and currentUser.nickname() == c.creator().nickname()}">
+    <article th:class="${'cap cap--' + (opened ? 'opened' : 'sealed')}"
+             th:style="${'--i:' + idx}"
+             th:attr="data-testid=${testId},
+                      data-code=${c.code()},
+                      data-capsule-id=${c.id()},
+                      data-state=${opened ? 'opened' : 'sealed'},
+                      data-in-plaza=${c.inPlaza()},
+                      data-open-at=${@fmt.iso(c.openAt())},
+                      data-created-at=${@fmt.iso(c.createdAt())}">
+      <div class="cap__bg" aria-hidden="true">
+        <svg th:if="${!opened}" class="cap__art" viewBox="0 0 120 84" aria-hidden="true">
+          <rect class="ea__body" x="2" y="6" width="116" height="76" rx="3" />
+          <path class="ea__line" d="M2.5 80.5 47 46M117.5 80.5 73 46" />
+          <path class="ea__flap" d="M3 7.5 60 48 117 7.5" />
+          <g class="ea__seal">
+            <circle cx="60" cy="48" r="11" />
+            <circle class="ea__seal-ring" cx="60" cy="48" r="7" />
+          </g>
+        </svg>
+        <svg th:if="${opened}" class="cap__art" viewBox="0 0 120 100" aria-hidden="true">
+          <path class="ea__body" d="M2 42 60 4 118 42V96a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3Z" />
+          <rect class="ea__paper" x="16" y="14" width="88" height="62" rx="1.5" />
+          <path class="ea__rule" d="M26 30h68M26 40h68M26 50h68M26 60h44" />
+          <path class="ea__pocket" d="M2 42 60 78 118 42V96a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3Z" />
+          <path class="ea__line" d="M2.5 97.5 49 70M117.5 97.5 71 70" />
+        </svg>
+      </div>
+
+      <a class="cap__link" th:href="${'/capsules/' + c.code()}"
+         th:attr="aria-label=${c.title() + '，' + (opened ? '已开启' : '未开启')}, data-testid=${openTestId}"></a>
+
+      <header class="cap__top">
+        <th:block th:replace="~{fragments/parts :: seal(ch=${opened ? '启' : '封'}, variant=${opened ? 'line' : 'solid'}, extraClass='')}" />
+        <span class="cap__status" th:text="${opened ? '已开启' : '未开启'}"></span>
+        <span th:if="${!c.inPlaza()}" class="cap__private" title="没有发布到广场，凭胶囊码可见">
+          <th:block th:utext="${@fmt.icon('lock')}" />未公开
+        </span>
+        <span th:if="${rank > 0}" class="cap__rank latin" th:title="${'热度第 ' + rank}" th:text="${'No.' + rank}"></span>
+        <span class="cap__code mono" th:text="${c.code()}"></span>
+      </header>
+
+      <h3 class="cap__title" data-testid="card-title" th:text="${c.title()}"></h3>
+
+      <th:block th:if="${opened}">
+        <p class="cap__preview" th:text="${@fmt.preview(c.contentPreview(), 78)}"></p>
+        <div class="cap__when">
+          <span th:text="${'启于 ' + @fmt.date(c.openAt())}"></span>
+          <i></i>
+          <span th:text="${'在途 ' + @fmt.span(c.createdAt(), c.openAt())}"></span>
+        </div>
+      </th:block>
+
+      <th:block th:if="${!opened}">
+        <div class="cap__veil" aria-hidden="true"><i></i><i></i></div>
+        <div class="cap__cd">
+          <span class="cap__cd-label">距启封</span>
+          <span class="cap__cd-val" data-ht-live-cd="paper" th:attr="data-open-at=${@fmt.iso(c.openAt())}">
+            <th:block th:if="${cd.d() > 0}">
+              <b class="latin" th:text="${@fmt.num(cd.d())}"></b><small>天</small><span class="mono" th:text="${cd.h() + ':' + cd.m() + ':' + cd.s()}"></span>
+            </th:block>
+            <th:block th:if="${cd.d() <= 0}">
+              <b class="mono cap__cd-hms" th:text="${cd.h() + ':' + cd.m() + ':' + cd.s()}"></b>
+            </th:block>
+          </span>
+        </div>
+        <th:block th:replace="~{fragments/parts :: scale(pct=${pct}, extraClass='')}" />
+        <div class="cap__ends mono">
+          <span th:text="${@fmt.date(c.createdAt())}"></span>
+          <span th:text="${@fmt.date(c.openAt())}"></span>
+        </div>
+      </th:block>
+
+      <footer class="cap__foot">
+        <span class="who">
+          <th:block th:replace="~{fragments/parts :: avatar(id=${c.creator().avatarId()}, extraClass='')}" />
+          <span class="who__n" th:text="${c.creator().nickname()}"></span>
+          <em th:if="${mine}" class="who__me">我</em>
+        </span>
+        <th:block th:replace="~{fragments/parts :: favButton(c=${c}, size='sm')}" />
+      </footer>
+    </article>
+  </th:block>
+</th:block>
+
+<!-- 琥珀卡片（广场与「我收藏的」共用） -->
+<th:block th:fragment="amberCard(c, idx, rank, testId, openTestId)">
+  <th:block th:with="opened=${c.isOpened()},
+                     p=${@fmt.palette(c.code())},
+                     mine=${currentUser != null and currentUser.nickname() == c.creator().nickname()}">
+    <article th:class="${'pc ' + (opened ? 'is-opened' : 'is-locked')}"
+             th:style="${'--glow:' + p.glow() + ';--i:' + idx}"
+             th:attr="data-testid=${testId},
+                      data-code=${c.code()},
+                      data-capsule-id=${c.id()},
+                      data-state=${opened ? 'opened' : 'sealed'},
+                      data-in-plaza=${c.inPlaza()},
+                      data-open-at=${@fmt.iso(c.openAt())},
+                      data-created-at=${@fmt.iso(c.createdAt())}">
+      <a class="pc__link" th:href="${'/capsules/' + c.code()}"
+         th:attr="aria-label=${c.title() + '，' + (opened ? '已开启' : '封存中')}, data-testid=${openTestId}"></a>
+
+      <div class="pc__top">
+        <div class="pc__art">
+          <th:block th:replace="~{fragments/parts :: capsuleArt(code=${c.code()}, state=${opened ? 'opened' : 'locked'}, width=150, extraClass='')}" />
+        </div>
+        <div class="pc__badges">
+          <th:block th:if="${opened}">
+            <th:block th:replace="~{fragments/parts :: badge(kind='opened', iconName='mail', text='已开启')}" />
+          </th:block>
+          <th:block th:if="${!opened}">
+            <th:block th:replace="~{fragments/parts :: badge(kind='locked', iconName='lock', text='封存中')}" />
+          </th:block>
+          <th:block th:if="${rank > 0}">
+            <th:block th:replace="~{fragments/parts :: badge(kind='hot', iconName='fire', text=${'热度 No.' + rank})}" />
+          </th:block>
+          <th:block th:if="${!c.inPlaza()}">
+            <th:block th:replace="~{fragments/parts :: badge(kind='private', iconName='lock', text='未公开')}" />
+          </th:block>
+        </div>
+      </div>
+
+      <h3 class="pc__title" data-testid="card-title" th:text="${c.title()}"></h3>
+
+      <div class="pc__by">
+        <th:block th:replace="~{fragments/parts :: avatar(id=${c.creator().avatarId()}, extraClass='')}" />
+        <span class="pc__name" th:text="${c.creator().nickname()}"></span>
+        <em th:if="${mine}" class="me-tag">我</em>
+        <i></i>
+        <th:block th:text="${'封存于 ' + @fmt.date(c.createdAt())}" />
+      </div>
+
+      <div class="pc__body">
+        <th:block th:if="${opened}">
+          <p class="pc__excerpt" th:text="${@fmt.preview(c.contentPreview(), 80)}"></p>
+        </th:block>
+        <th:block th:if="${!opened}">
+          <div class="pc__cd">
+            <th:block th:utext="${@fmt.icon('hourglass')}" />
+            <span class="pc__time mono" data-ht-live-cd="amber" th:attr="data-open-at=${@fmt.iso(c.openAt())}"
+                  th:text="${@fmt.cdShortAmber(c.openAt())}"></span>后开启
+          </div>
+          <div class="pc__progress" title="从封存到开启，时间已经走过的比例">
+            <span data-ht-progress-bar th:style="${'width:' + @fmt.progressBarWidth(c.createdAt(), c.openAt())}"></span>
+          </div>
+        </th:block>
+      </div>
+
+      <div class="pc__foot">
+        <span class="pc__when">
+          <th:block th:utext="${@fmt.icon('calendar')}" />
+          <th:block th:text="${@fmt.dateTime(c.openAt()) + (opened ? ' 已开启' : ' 开启')}" />
+        </span>
+        <th:block th:replace="~{fragments/parts :: favButton(c=${c}, size='sm')}" />
+      </div>
+    </article>
+  </th:block>
+</th:block>
+
+</body>
+</html>

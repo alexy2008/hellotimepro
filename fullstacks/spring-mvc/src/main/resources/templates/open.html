@@ -1,35 +1,135 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
-<head th:replace="~{fragments/layout :: head('开启胶囊')}"></head>
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::content})}">
 <body>
-<header th:replace="~{fragments/layout :: header}"></header>
+<th:block th:fragment="content">
 
-<main class="cy-container">
-  <div class="cy-open-center">
-    <h1>用 8 位密钥开启胶囊</h1>
-    <p>输入朋友分享给你的 8 位大写字母和数字，可直接查看胶囊。</p>
+  <!-- ============ 时笺开启页 ============ -->
+  <div class="skin-slot" data-skin-view="paper">
+    <div class="page page--open">
+      <div class="wrap openp">
+        <div class="openp__poem" aria-hidden="true">
+          <span>云中谁寄锦书来</span>
+          <i></i>
+          <small>李清照 ·《一剪梅》</small>
+        </div>
+        <section class="openp__main">
+          <div class="overline"><i></i>Open a capsule</div>
+          <h1 class="h1">凭码开启</h1>
+          <p class="lede">输入朋友分享给你的 8 位胶囊码。<br/>如果还没到启封的时刻，你会看到它的倒计时。</p>
 
-    <div style="margin-bottom:var(--space-8)">
-      <div class="cy-code-input">
-        <input th:each="i : ${#numbers.sequence(1, 8)}" type="text" inputmode="text"
-               autocapitalize="characters" maxlength="1"
-               th:aria-label="'第 ' + ${i} + ' 位'">
-      </div>
-    </div>
+          <form novalidate data-ht-code-form data-autofocus="true">
+            <th:block th:replace="~{fragments/parts :: paperCodeInput(compact=false)}" />
+            <div class="openp__err" role="alert" data-ht-code-err></div>
 
-    <div style="display:flex;gap:var(--space-3);justify-content:center;flex-wrap:wrap">
-      <button type="button" class="cy-btn cy-btn--primary cy-btn--lg" data-open-submit>开启 →</button>
-    </div>
+            <div class="openp__act">
+              <button class="btn btn--primary btn--lg" type="submit" disabled data-ht-open-submit>
+                <th:block th:utext="${@fmt.icon('key')}" />
+                <span>开启</span>
+                <th:block th:utext="${@fmt.icon('arrow', 'ic--go')}" />
+              </button>
+              <button class="btn btn--ghost btn--lg" type="button" data-ht-code-paste>
+                <th:block th:utext="${@fmt.icon('paste')}" />粘贴识别
+              </button>
+            </div>
+          </form>
 
-    <div style="margin-top:var(--space-10);color:var(--color-text-muted);font-size:var(--font-size-sm)">
-      <div style="display:flex;gap:var(--space-4);justify-content:center;flex-wrap:wrap">
-        <span>💡 可用 <code style="background:var(--color-surface-2);padding:2px 6px;border-radius:var(--radius-sm)">/c/&lt;code&gt;</code> 直链访问</span>
-        <span>🔒 未到开启时间的胶囊也会显示倒计时</span>
+          <ul class="openp__tips">
+            <li>
+              <th:block th:utext="${@fmt.icon('link')}" />
+              <span>也可以直接访问 <code class="mono">/capsules/&lt;胶囊码&gt;</code></span>
+            </li>
+            <li>
+              <th:block th:utext="${@fmt.icon('lock')}" />
+              <span>没有发布到广场的胶囊，同样可以凭码开启</span>
+            </li>
+          </ul>
+
+          <section th:if="${authenticated and !mySealed.isEmpty()}" class="mylist" data-testid="my-sealed">
+            <header>
+              <h2 class="serif">我封存过的胶囊</h2>
+              <a class="link" href="/me/created">全部<th:block th:utext="${@fmt.icon('arrow')}" /></a>
+            </header>
+            <ul>
+              <th:block th:each="c : ${mySealed}">
+                <li>
+                  <a class="mylist__row" th:href="${'/capsules/' + c.code()}"
+                     data-testid="my-sealed-item"
+                     th:attr="data-code=${c.code()}, data-state=${c.isOpened() ? 'opened' : 'sealed'}">
+                    <th:block th:replace="~{fragments/parts :: seal(ch=${c.isOpened() ? '启' : '封'}, variant=${c.isOpened() ? 'line' : 'solid'}, extraClass='')}" />
+                    <span class="mylist__info">
+                      <b class="serif" th:text="${c.title()}"></b>
+                      <span class="mono" th:text="${c.code()}"></span>
+                    </span>
+                    <span class="mylist__st" th:text="${c.isOpened() ? '已开启' : '距启封 ' + @fmt.spanUntil(c.openAt())}"></span>
+                    <th:block th:utext="${@fmt.icon('chev-right')}" />
+                  </a>
+                </li>
+              </th:block>
+            </ul>
+          </section>
+        </section>
       </div>
     </div>
   </div>
-</main>
 
-<footer th:replace="~{fragments/layout :: footer}"></footer>
+  <!-- ============ 琥珀开启页 ============ -->
+  <div class="skin-slot" data-skin-view="amber">
+    <div class="page page--open">
+      <div class="container open">
+        <header class="page-head page-head--center">
+          <div class="eyebrow">Open a capsule</div>
+          <h1 class="page-title">开启胶囊</h1>
+          <p class="page-lead">输入 8 位胶囊码。到了开启时间，就能读到里面的话；还没到，就陪它一起倒数。</p>
+        </header>
+
+        <form class="open__form card" novalidate data-ht-code-form data-autofocus="true">
+          <th:block th:replace="~{fragments/parts :: amberCodeInput(size='lg')}" />
+          <div class="open__err" role="alert" data-ht-code-err></div>
+          <button class="btn btn--primary btn--lg" type="submit" data-ht-amber-open-submit>
+            <th:block th:utext="${@fmt.icon('key')}" />开启胶囊
+          </button>
+          <p class="open__hint">
+            胶囊码由 8 位大写字母与数字组成，输入时不区分大小写，可直接粘贴。<br/>
+            没有发布到广场的胶囊，同样可以凭码开启。也可以直接访问 <code class="mono">/capsules/胶囊码</code>。
+          </p>
+        </form>
+
+        <section th:if="${authenticated and !mySealed.isEmpty()}" class="open__list" data-testid="my-sealed">
+          <header>
+            <h2>我封存过的胶囊</h2>
+            <a class="link-btn" href="/me/created">全部<th:block th:utext="${@fmt.icon('arrow')}" /></a>
+          </header>
+          <ul>
+            <th:block th:each="c : ${mySealed}">
+              <th:block th:with="p=${@fmt.palette(c.code())}">
+                <li>
+                  <a class="crow" th:href="${'/capsules/' + c.code()}"
+                     th:style="${'--glow:' + p.glow()}"
+                     data-testid="my-sealed-item"
+                     th:attr="data-code=${c.code()}, data-state=${c.isOpened() ? 'opened' : 'sealed'}">
+                    <th:block th:replace="~{fragments/parts :: capsuleArt(code=${c.code()}, state=${c.isOpened() ? 'opened' : 'locked'}, width=72, extraClass='')}" />
+                    <span class="crow__info">
+                      <b th:text="${c.title()}"></b>
+                      <span class="mono" th:text="${c.code()}"></span>
+                    </span>
+                    <th:block th:if="${c.isOpened()}">
+                      <th:block th:replace="~{fragments/parts :: badge(kind='opened', iconName='mail', text='已开启')}" />
+                    </th:block>
+                    <th:block th:if="${!c.isOpened()}">
+                      <th:block th:replace="~{fragments/parts :: badge(kind='locked', iconName='lock', text=${@fmt.cdShortAmber(c.openAt()) + ' 后'})}" />
+                    </th:block>
+                    <th:block th:utext="${@fmt.icon('chev-right', 'crow__go')}" />
+                  </a>
+                </li>
+              </th:block>
+            </th:block>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+</th:block>
 </body>
 </html>

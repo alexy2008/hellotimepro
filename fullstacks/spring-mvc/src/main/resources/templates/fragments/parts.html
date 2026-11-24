@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- 时笺 Logo -->
+<th:block th:fragment="paperLogo">
+  <svg class="logo" viewBox="0 0 28 28" aria-hidden="true">
+    <rect width="28" height="28" rx="6" fill="var(--color-accent)" />
+    <path d="M6 9l8 7.5L22 9" fill="none" stroke="var(--color-on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="14" cy="17" r="2.6" fill="var(--color-on-accent)" />
+  </svg>
+</th:block>
+
+<!-- 琥珀 Logo -->
+<th:block th:fragment="amberLogo(size, extraClass)">
+  <th:block th:with="u=${@fmt.uid('al')}">
+    <svg th:class="${extraClass != null and !extraClass.isEmpty() ? 'logo ' + extraClass : 'logo'}"
+         th:attr="width=${size}, height=${size}" viewBox="0 0 64 64" aria-hidden="true">
+      <defs>
+        <linearGradient th:id="${u + 'n'}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#34267e" />
+          <stop offset="1" stop-color="#0a0e28" />
+        </linearGradient>
+        <linearGradient th:id="${u + 'a'}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ffe59a" />
+          <stop offset=".5" stop-color="#ffb347" />
+          <stop offset="1" stop-color="#ff7a45" />
+        </linearGradient>
+        <linearGradient th:id="${u + 'g'}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#fff" />
+          <stop offset="1" stop-color="#c9d1ff" />
+        </linearGradient>
+        <radialGradient th:id="${u + 'w'}" cx=".5" cy=".5" r=".5">
+          <stop offset="0" stop-color="#ffb347" stop-opacity=".55" />
+          <stop offset="1" stop-color="#ffb347" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="64" height="64" rx="15" th:attr="fill=${'url(#' + u + 'n)'}" />
+      <circle cx="32" cy="32" r="24" th:attr="fill=${'url(#' + u + 'w)'}" />
+      <g transform="rotate(45 32 32)">
+        <path d="M5 32A27 8 0 0 1 59 32" fill="none" stroke="#b9afff" stroke-opacity=".55" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="1.5 3.4" />
+        <path d="M22 32V22a10 10 0 0 1 20 0v10Z" th:attr="fill=${'url(#' + u + 'a)'}" />
+        <path d="M22 32v10a10 10 0 0 0 20 0V32Z" th:attr="fill=${'url(#' + u + 'g)'}" />
+        <rect x="26.5" y="35.5" width="11" height="10.5" rx="2" fill="#ffd98a" fill-opacity=".9" />
+        <path d="M28.8 39h6.4M28.8 42h4.6" stroke="#b06a1c" stroke-width="1.1" stroke-linecap="round" />
+        <rect x="20.6" y="30.4" width="22.8" height="3.2" rx="1.6" fill="#1b1550" />
+        <path d="M26.2 23a5.8 5.8 0 0 1 4.2-5.8" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="2" stroke-linecap="round" />
+        <path d="M5 32A27 8 0 0 0 59 32" fill="none" stroke="#d9d3ff" stroke-width="1.8" stroke-linecap="round" />
+        <circle cx="51" cy="37.2" r="2.6" fill="#ffd27a" />
+      </g>
+      <path d="M13 43q.5 3.5 4 4-3.5.5-4 4-.5-3.5-4-4 3.5-.5 4-4Z" fill="#ffe59a" />
+      <circle cx="50.5" cy="13.5" r="1.4" fill="#fff" fill-opacity=".9" />
+      <circle cx="44" cy="8.5" r=".8" fill="#fff" fill-opacity=".6" />
+    </svg>
+  </th:block>
+</th:block>
+
+<!-- 皮肤切换单选组 -->
+<th:block th:fragment="skinSwitch">
+  <div class="skinsw" role="radiogroup" aria-label="界面皮肤">
+    <button type="button" role="radio" aria-checked="false" title="切换到「时笺」"
+            data-testid="skin-option" data-ht-skin-opt data-value="paper" data-selected="false">时笺</button>
+    <button type="button" role="radio" aria-checked="true" class="is-active" title="切换到「琥珀」"
+            data-testid="skin-option" data-ht-skin-opt data-value="amber" data-selected="true">琥珀</button>
+  </div>
+</th:block>
+
+<!-- 内联 v2 头像 -->
+<th:block th:fragment="avatar(id, extraClass)">
+  <th:block th:with="a=${@fmt.avatar(id)}">
+    <span th:class="${extraClass != null and !extraClass.isEmpty() ? 'av ' + extraClass : 'av'}"
+          th:style="${'--av:' + a.primaryColor()}" aria-hidden="true" data-ht-avatar th:attr="data-avatar-id=${a.id()}">
+      <svg viewBox="0 0 24 24" th:utext="${a.glyph()}"></svg>
+    </span>
+  </th:block>
+</th:block>
+
+<!-- 时笺邮票头像 -->
+<th:block th:fragment="avatarStamp(id, extraClass, showLabel)">
+  <th:block th:with="a=${@fmt.avatar(id)}">
+    <span th:class="${extraClass != null and !extraClass.isEmpty() ? 'stamp ' + extraClass : 'stamp'}"
+          th:style="${'--av:' + a.primaryColor()}" data-ht-stamp th:attr="data-avatar-id=${a.id()}">
+      <span class="stamp__in">
+        <svg viewBox="0 0 24 24" aria-hidden="true" th:utext="${a.glyph()}"></svg>
+        <b th:if="${showLabel}" th:text="${a.name()}"></b>
+      </span>
+    </span>
+  </th:block>
+</th:block>
+
+<!-- 技术栈图标 -->
+<th:block th:fragment="techIcon(item, cls)">
+  <img th:if="${item.iconUrl() != null}" th:class="${cls}" th:src="${item.iconUrl()}" alt="" loading="lazy" />
+  <span th:if="${item.iconUrl() == null}" th:class="${cls + ' ' + cls + '--txt'}" aria-hidden="true"
+        th:text="${@fmt.techShort(item.name())}"></span>
+</th:block>
+
+<!-- 用户下拉菜单 -->
+<th:block th:fragment="userMenu(user, createdIcon)">
+  <div class="umenu" data-ht-umenu>
+    <button class="uchip" type="button" aria-haspopup="menu" aria-expanded="false"
+            th:attr="aria-label=${user.nickname() + ' 的菜单'}, data-nickname=${user.nickname()}"
+            data-testid="user-menu" data-ht-umenu-btn>
+      <th:block th:replace="~{fragments/parts :: avatar(id=${user.avatarId()}, extraClass='')}" />
+      <span class="uchip__n" data-ht-user-nick th:text="${user.nickname()}"></span>
+      <th:block th:utext="${@fmt.icon('chev-down', 'ic--chev')}" />
+    </button>
+    <div class="umenu__pop" role="menu">
+      <div class="umenu__who">
+        <th:block th:replace="~{fragments/parts :: avatar(id=${user.avatarId()}, extraClass='av--lg')}" />
+        <div>
+          <b data-ht-user-nick th:text="${user.nickname()}"></b>
+          <span class="mono" th:text="${user.email()}"></span>
+        </div>
+      </div>
+      <a role="menuitem" href="/me/created" data-testid="menu-created">
+        <th:block th:utext="${@fmt.icon(createdIcon)}" />我创建的
+      </a>
+      <a role="menuitem" href="/me/favorites" data-testid="menu-favorites">
+        <th:block th:utext="${@fmt.icon('heart')}" />我收藏的
+      </a>
+      <a role="menuitem" href="/me/profile" data-testid="menu-profile">
+        <th:block th:utext="${@fmt.icon('sliders')}" />账号设置
+      </a>
+      <hr />
+      <button role="menuitem" type="button" data-testid="logout" data-ht-logout>
+        <th:block th:utext="${@fmt.icon('logout')}" />登出
+      </button>
+    </div>
+  </div>
+</th:block>
+
+<!-- 手机底部导航栏 -->
+<th:block th:fragment="tabBar(createLabel)">
+  <nav class="tabbar" aria-label="主导航">
+    <a href="/" data-testid="tab-plaza"
+       th:classappend="${navKey == 'plaza'} ? 'is-active' : ''"
+       th:attr="aria-current=${navKey == 'plaza' ? 'page' : null}">
+      <th:block th:utext="${@fmt.icon('grid')}" />
+      <span>广场</span>
+    </a>
+    <a href="/open" data-testid="tab-open"
+       th:classappend="${navKey == 'open'} ? 'is-active' : ''"
+       th:attr="aria-current=${navKey == 'open' ? 'page' : null}">
+      <th:block th:utext="${@fmt.icon('key')}" />
+      <span>开启</span>
+    </a>
+    <a href="/create" data-testid="tab-create" data-require-login="create" class="tabbar__main"
+       th:classappend="${navKey == 'create'} ? ' is-active' : ''"
+       th:attr="aria-current=${navKey == 'create' ? 'page' : null}">
+      <i><th:block th:utext="${@fmt.icon('pen')}" /></i>
+      <span th:text="${createLabel}"></span>
+    </a>
+    <a th:href="${authenticated ? '/me/created' : '/login'}" data-testid="tab-me"
+       th:classappend="${navKey == 'me'} ? 'is-active' : ''"
+       th:attr="aria-current=${navKey == 'me' ? 'page' : null}">
+      <th:block th:if="${authenticated and currentUser != null}">
+        <th:block th:replace="~{fragments/parts :: avatar(id=${currentUser.avatarId()}, extraClass='')}" />
+      </th:block>
+      <th:block th:unless="${authenticated}" th:utext="${@fmt.icon('user')}" />
+      <span th:text="${authenticated ? '我的' : '登录'}"></span>
+    </a>
+  </nav>
+</th:block>
+
+<!-- 时笺印章 -->
+<th:block th:fragment="seal(ch, variant, extraClass)">
+  <span th:class="${'seal seal--' + variant + (extraClass != null and !extraClass.isEmpty() ? ' ' + extraClass : '')}"
+        aria-hidden="true" th:text="${ch}"></span>
+</th:block>
+
+<!-- 时笺火漆 -->
+<th:block th:fragment="wax(ch, extraClass)">
+  <th:block th:with="gid=${@fmt.uid('wax-')}">
+    <span th:class="${extraClass != null and !extraClass.isEmpty() ? 'wax ' + extraClass : 'wax'}" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <defs>
+          <radialGradient th:id="${gid}" cx="36%" cy="30%" r="78%">
+            <stop offset="0" style="stop-color:var(--wax-hi)" />
+            <stop offset=".5" style="stop-color:var(--wax)" />
+            <stop offset="1" style="stop-color:var(--wax-lo)" />
+          </radialGradient>
+        </defs>
+        <path th:attr="d=${@fmt.waxOut()}" fill="var(--wax-lo)" />
+        <path th:attr="d=${@fmt.waxIn()}, fill=${'url(#' + gid + ')'}" />
+        <circle cx="50" cy="50" r="30.5" fill="none" stroke="var(--wax-lo)" stroke-width="2.4" opacity=".5" />
+        <circle cx="50.7" cy="50.8" r="30.5" fill="none" stroke="var(--wax-hi)" stroke-width=".9" opacity=".55" />
+        <text class="wax__ch wax__ch--hi" x="50.9" y="51.1" text-anchor="middle" dy=".36em" th:text="${ch}"></text>
+        <text class="wax__ch" x="50" y="50" text-anchor="middle" dy=".36em" th:text="${ch}"></text>
+        <ellipse cx="35" cy="29" rx="15" ry="7.5" fill="#fff" opacity=".17" transform="rotate(-30 35 29)" />
+      </svg>
+    </span>
+  </th:block>
+</th:block>
+
+<!-- 时笺信封 -->
+<th:block th:fragment="envelope(extraClass, letterTitle)">
+  <div th:class="${extraClass != null and !extraClass.isEmpty() ? 'env ' + extraClass : 'env'}" data-ht-envelope>
+    <div class="env__back"></div>
+    <div class="env__letter">
+      <th:block th:if="${letterTitle != null}">
+        <b th:text="${letterTitle}"></b><i></i><i></i><i></i><i></i>
+      </th:block>
+    </div>
+    <div class="env__front">
+      <svg viewBox="0 0 100 64" preserveAspectRatio="none" aria-hidden="true">
+        <path class="env__pocket" d="M0 0 50 36 100 0V64H0Z" />
+        <path class="env__shade" d="M1 2.2 50 38 99 2.2" />
+        <path class="env__seam" d="M0 64 47 33.9M100 64 53 33.9" />
+        <path class="env__edge" d="M0 0 50 36 100 0" />
+      </svg>
+    </div>
+    <div class="env__flap">
+      <i class="env__flap-f">
+        <svg viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 0 50 36 100 0" />
+        </svg>
+      </i>
+      <i class="env__flap-b"></i>
+    </div>
+    <div class="env__seal" data-ht-env-seal>
+      <span data-ht-wax-whole><th:block th:replace="~{fragments/parts :: wax(ch='封', extraClass='')}" /></span>
+      <span class="wax-half wax-half--l" hidden data-ht-wax-l><th:block th:replace="~{fragments/parts :: wax(ch='封', extraClass='')}" /></span>
+      <span class="wax-half wax-half--r" hidden data-ht-wax-r><th:block th:replace="~{fragments/parts :: wax(ch='封', extraClass='')}" /></span>
+    </div>
+  </div>
+</th:block>
+
+<!-- 时笺邮戳 -->
+<th:block th:fragment="postmark(line1, line2, extraClass)">
+  <th:block th:with="pid=${@fmt.uid('pm')}">
+    <svg th:class="${extraClass != null and !extraClass.isEmpty() ? 'pm ' + extraClass : 'pm'}" viewBox="0 0 172 120" aria-hidden="true">
+      <defs>
+        <path th:id="${pid + 'a'}" d="M16.5,60 a43.5,43.5 0 1,1 87,0" />
+        <path th:id="${pid + 'b'}" d="M9.5,60 a50.5,50.5 0 0,0 101,0" />
+      </defs>
+      <g class="pm__ring">
+        <circle cx="60" cy="60" r="56" />
+        <circle cx="60" cy="60" r="37" />
+      </g>
+      <text class="pm__arc">
+        <textPath th:attr="href=${'#' + pid + 'a'}" startOffset="50%" text-anchor="middle">HELLOTIME · POST</textPath>
+      </text>
+      <text class="pm__arc pm__arc--cn">
+        <textPath th:attr="href=${'#' + pid + 'b'}" startOffset="50%" text-anchor="middle">时 光 邮 局</textPath>
+      </text>
+      <text class="pm__l1" x="60" y="59" text-anchor="middle" data-ht-pm-l1 th:text="${line1}"></text>
+      <text class="pm__l2" x="60" y="74" text-anchor="middle" data-ht-pm-l2 th:text="${line2}"></text>
+      <g class="pm__waves">
+        <path d="M120 34q6.5-5 13 0t13 0 13 0 13 0" />
+        <path d="M120 47q6.5-5 13 0t13 0 13 0 13 0" />
+        <path d="M120 60q6.5-5 13 0t13 0 13 0 13 0" />
+        <path d="M120 73q6.5-5 13 0t13 0 13 0 13 0" />
+        <path d="M120 86q6.5-5 13 0t13 0 13 0 13 0" />
+      </g>
+    </svg>
+  </th:block>
+</th:block>
+
+<!-- 时笺刻度尺 -->
+<th:block th:fragment="scale(pct, extraClass)">
+  <div th:class="${extraClass != null and !extraClass.isEmpty() ? 'scale ' + extraClass : 'scale'}"
+       th:style="${'--p:' + pct + '%'}" data-ht-scale>
+    <i class="scale__fill"></i>
+    <i class="scale__mark"></i>
+  </div>
+</th:block>
+
+<!-- 琥珀胶囊插画 -->
+<th:block th:fragment="capsuleArt(code, state, width, extraClass)">
+  <th:block th:with="p=${@fmt.palette(code)}, cid=${@fmt.uid('ca')}">
+    <svg th:class="${'cart cart--' + state + (extraClass != null and !extraClass.isEmpty() ? ' ' + extraClass : '')}"
+         th:attr="width=${width}, height=${width / 2}"
+         viewBox="0 0 240 120"
+         th:style="${'--cap-glow:' + p.glow()}"
+         aria-hidden="true" data-ht-cart>
+      <defs>
+        <linearGradient th:id="${cid + 'c'}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" th:attr="stop-color=${p.capLight()}" />
+          <stop offset="1" th:attr="stop-color=${p.capDeep()}" />
+        </linearGradient>
+        <linearGradient th:id="${cid + 'g'}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity=".62" />
+          <stop offset="1" th:attr="stop-color=${p.accent()}" stop-opacity=".42" />
+        </linearGradient>
+      </defs>
+      <ellipse class="cart__shadow" cx="120" cy="107" rx="74" ry="6" />
+      <g class="cart__paper">
+        <rect x="98" y="24" width="44" height="62" rx="5" />
+        <path d="M106 40h28M106 50h28M106 60h17" />
+      </g>
+      <g class="cart__cap">
+        <path d="M120 30H60a30 30 0 0 0 0 60h60Z" th:attr="fill=${'url(#' + cid + 'c)'}" />
+        <path class="cart__groove" d="M104 31v58M111 31v58" />
+        <path class="cart__shine" d="M60 41h36" />
+      </g>
+      <g class="cart__body">
+        <path class="cart__glass" d="M120 30h60a30 30 0 0 1 0 60h-60Z" th:attr="fill=${'url(#' + cid + 'g)'}" />
+        <rect class="cart__scroll" x="133" y="46" width="46" height="28" rx="6" />
+        <path class="cart__scroll-line" d="M141 56h30M141 64h19" />
+        <path class="cart__shine" d="M132 40h40" />
+      </g>
+      <rect class="cart__seam" x="115.5" y="27" width="9" height="66" rx="4.5" />
+      <circle class="cart__lock" cx="120" cy="60" r="4.5" />
+    </svg>
+  </th:block>
+</th:block>
+
+<!-- 琥珀徽标 -->
+<th:block th:fragment="badge(kind, iconName, text)">
+  <span th:class="${'badge badge--' + kind}">
+    <th:block th:if="${iconName != null and !iconName.isEmpty()}" th:utext="${@fmt.icon(iconName)}" />
+    <th:block th:text="${text}" />
+  </span>
+</th:block>
+
+<!-- 琥珀邮戳 -->
+<th:block th:fragment="amberStamp(dateText, labelText)">
+  <th:block th:with="sid=${@fmt.uid('st')}">
+    <svg class="stamp" viewBox="0 0 140 140" aria-hidden="true">
+      <defs>
+        <path th:id="${sid}" d="M18 70a52 52 0 1 1 104 0a52 52 0 1 1-104 0" />
+      </defs>
+      <circle class="stamp__ring" cx="70" cy="70" r="66" />
+      <circle class="stamp__ring stamp__ring--in" cx="70" cy="70" r="40" />
+      <text class="stamp__arc">
+        <textPath th:attr="href=${'#' + sid}" textLength="316" lengthAdjust="spacing">HELLOTIME PRO · 时间胶囊 · TIME CAPSULE ·</textPath>
+      </text>
+      <text class="stamp__label" x="70" y="68" text-anchor="middle" th:text="${labelText}"></text>
+      <text class="stamp__date" x="70" y="86" text-anchor="middle" th:text="${dateText}"></text>
+    </svg>
+  </th:block>
+</th:block>
+
+<!-- 收藏按钮（两套皮肤共用） -->
+<th:block th:fragment="favButton(c, size)">
+  <button th:class="${'fav fav--' + size + (c.favoritedByMe() ? ' is-on' : '')}"
+          type="button"
+          th:attr="aria-pressed=${c.favoritedByMe()},
+                   aria-label=${(c.favoritedByMe() ? '取消收藏，已有 ' : '收藏，已有 ') + c.favoriteCount() + ' 人收藏'},
+                   data-count=${c.favoriteCount()},
+                   data-capsule-id=${c.id()},
+                   data-code=${c.code()},
+                   data-fav-size=${size}"
+          data-testid="fav-button"
+          data-ht-fav-btn>
+    <span class="fav__ic">
+      <th:block th:utext="${@fmt.icon('heart')}" />
+    </span>
+    <span th:if="${size == 'md'}" class="fav__t" th:text="${c.favoritedByMe() ? '已收藏' : '收藏'}"></span>
+    <span class="fav__n" th:text="${c.favoriteCount()}"></span>
+  </button>
+</th:block>
+
+<!-- 时笺 8 格输码 -->
+<th:block th:fragment="paperCodeInput(compact)">
+  <div th:class="${compact ? 'code code--sm' : 'code'}" role="group" aria-label="8 位胶囊码" data-ht-paper-code>
+    <input class="code__cell mono" type="text" inputmode="text" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 1 位" style="--k:0" value="" data-testid="code-input" data-code-cell="" data-value="" />
+    <input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 2 位" style="--k:1" value="" data-code-cell="" data-value="" />
+    <input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 3 位" style="--k:2" value="" data-code-cell="" data-value="" />
+    <input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 4 位" style="--k:3" value="" data-code-cell="" data-value="" />
+    <span class="code__dash" aria-hidden="true"></span>
+    <input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 5 位" style="--k:4" value="" data-code-cell="" data-value="" />
+    <input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 6 位" style="--k:5" value="" data-code-cell="" data-value="" />
+    <input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 7 位" style="--k:6" value="" data-code-cell="" data-value="" />
+    <input class="code__cell mono" type="text" inputmode="text" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="第 8 位" style="--k:7" value="" data-code-cell="" data-value="" />
+  </div>
+</th:block>
+
+<!-- 琥珀 8 格输码 -->
+<th:block th:fragment="amberCodeInput(size)">
+  <div th:class="${'code code--' + size}" data-ht-amber-code>
+    <input class="code__native" type="text" inputmode="text" autocomplete="off" autocapitalize="characters"
+           spellcheck="false" maxlength="12" aria-label="8 位胶囊码" value="" data-testid="code-input" />
+    <div class="code__cells" aria-hidden="true">
+      <span class="code__cell is-active" data-code-cell="" data-value=""></span>
+      <span class="code__cell" data-code-cell="" data-value=""></span>
+      <span class="code__cell" data-code-cell="" data-value=""></span>
+      <span class="code__cell" data-code-cell="" data-value=""></span>
+      <span class="code__cell has-gap" data-code-cell="" data-value=""></span>
+      <span class="code__cell" data-code-cell="" data-value=""></span>
+      <span class="code__cell" data-code-cell="" data-value=""></span>
+      <span class="code__cell" data-code-cell="" data-value=""></span>
+    </div>
+  </div>
+</th:block>
+
+<!-- 头像选择器（按皮肤分别渲染邮票或星球） -->
+<th:block th:fragment="avatarPicker(skin, selectedId)">
+  <th:block th:with="sel=${selectedId != null and !selectedId.isEmpty() ? selectedId : 'neo'}, cur=${@fmt.avatar(sel)}">
+    <div class="avpick" role="radiogroup" aria-label="选择头像" data-ht-avpick>
+      <th:block th:each="a : ${avatarMetas}">
+        <button type="button"
+                th:class="${'avpick__it' + (a.id() == sel ? ' is-sel' : '')}"
+                role="radio"
+                th:attr="aria-checked=${a.id() == sel},
+                         tabindex=${a.id() == sel ? 0 : -1},
+                         aria-label=${a.name() + '，' + a.tagline()},
+                         data-value=${a.id()},
+                         data-selected=${a.id() == sel}"
+                data-testid="avatar-option">
+          <th:block th:if="${skin == 'paper'}">
+            <th:block th:replace="~{fragments/parts :: avatarStamp(id=${a.id()}, extraClass='', showLabel=${true})}" />
+            <svg class="avpick__cancel" viewBox="0 0 64 80" aria-hidden="true">
+              <circle cx="51" cy="65" r="14.5" />
+              <circle cx="51" cy="65" r="10.5" />
+              <path d="M45.5 65.5l4 4 7.5-8.5" />
+            </svg>
+          </th:block>
+          <th:block th:if="${skin == 'amber'}">
+            <th:block th:replace="~{fragments/parts :: avatar(id=${a.id()}, extraClass='av--xl')}" />
+            <span th:text="${a.name()}"></span>
+          </th:block>
+        </button>
+      </th:block>
+    </div>
+    <div class="avpick__cap" data-ht-avpick-cap>
+      <th:block th:if="${skin == 'amber'}">
+        <th:block th:replace="~{fragments/parts :: avatar(id=${cur.id()}, extraClass='')}" />
+      </th:block>
+      <b data-ht-av-name th:text="${cur.name()}"></b>
+      <span data-ht-av-tag th:text="${cur.tagline()}"></span>
+    </div>
+  </th:block>
+</th:block>
+
+<!-- 密码强度规则 -->
+<th:block th:fragment="pwdRules">
+  <ul class="rules" aria-hidden="true" data-ht-pwd-rules>
+    <li data-rule="len">至少 8 位</li>
+    <li data-rule="alpha">含字母</li>
+    <li data-rule="digit">含数字</li>
+  </ul>
+</th:block>
+
+</body>
+</html>

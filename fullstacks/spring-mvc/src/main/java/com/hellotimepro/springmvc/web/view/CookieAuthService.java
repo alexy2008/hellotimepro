@@ -1,6 +1,5 @@
 package com.hellotimepro.springmvc.web.view;
 
-import com.hellotimepro.springmvc.config.AppProperties;
 import com.hellotimepro.springmvc.domain.UserEntity;
 import com.hellotimepro.springmvc.dto.Dtos.AuthTokens;
 import com.hellotimepro.springmvc.repository.UserRepository;
@@ -14,56 +13,93 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * 服务端渲染（SSR）这一侧用 httpOnly cookie 承载会话：access JWT 与 refresh token。
+ * 服务端渲染（SSR）侧用 httpOnly cookie 承载会话：access JWT 与 refresh token。
  *
- * <p>JSON 接口（/api/v1/*）仍然走标准的 Bearer 头鉴权——浏览器侧的 fetch 调用由
- * {@link com.hellotimepro.springmvc.web.CookieTokenFilter} 把 access cookie 注入成
- * Authorization 头，从而复用同一套 {@code AuthContext} 控制器逻辑，无需为 UI 另开接口。
- *
- * <p>登录态优先用自包含的 access JWT 解码（1 小时有效），仅当 access 缺失/过期时才用
- * refresh cookie 轮换一次——避免每次导航都轮换 refresh token（参考 next/nuxt 全栈
- * 「急切刷新导致整页 reload 误登出」的坑）。
+ * <p>同一请求内通过 request attribute 缓存解析结果，避免 {@code GlobalModelAttributes} 与
+ * 页面 {@code @Controller} 两次调用在 access 刚过期时重复轮换 refresh token 触发重用检测。
  */
 @Service
 public class CookieAuthService {
   public static final String ACCESS_COOKIE = "ht_access";
   public static final String REFRESH_COOKIE = "ht_refresh";
+  private static final String REQ_USER_ATTR = "ht.resolved.user";
+  private static final String REQ_ACCESS_ATTR = "ht.resolved.access";
 
   private final SecurityService security;
   private final UserRepository users;
   private final AuthService auth;
-  private final AppProperties props;
 
-  public CookieAuthService(SecurityService security, UserRepository users, AuthService auth,
-      AppProperties props) {
+  public CookieAuthService(SecurityService security, UserRepository users, AuthService auth) {
     this.security = security;
     this.users = users;
     this.auth = auth;
-    this.props = props;
   }
 
-  /** 解析当前登录用户：先用 access cookie 解码；过期时用 refresh cookie 轮换并写回新 cookie。 */
+  /** 解析当前登录用户：先用 access cookie 解码；过期时用 refresh cookie 轮换一次并写回新 cookie。 */
+  @SuppressWarnings("unchecked")
   public Optional<UserEntity> currentUser(HttpServletRequest req, HttpServletResponse res) {
+    Object cached = req.getAttribute(REQ_USER_ATTR);
+    if (cached instanceof Optional<?> opt) {
+      return (Optional<UserEntity>) opt;
+    }
+
+    Optional<UserEntity> resolved = Optional.empty();
     String access = readCookie(req, ACCESS_COOKIE);
     if (access != null && !access.isBlank()) {
       SecurityService.DecodeResult decoded = security.decodeAccessToken(access);
       if (decoded.subject().isPresent()) {
-        Optional<UserEntity> user = users.findById(UUID.fromString(decoded.subject().get()));
-        if (user.isPresent()) return user;
+        try {
+          resolved = users.findById(UUID.fromString(decoded.subject().get()));
+          if (resolved.isPresent()) {
+            req.setAttribute(REQ_ACCESS_ATTR, access);
+            req.setAttribute(REQ_USER_ATTR, resolved);
+            return resolved;
+          }
+        } catch (IllegalArgumentException ignored) {
+          // ignore malformed subject
+        }
       }
     }
-    // access 缺失/过期/无效 → 尝试用 refresh 轮换一次
+
     String refresh = readCookie(req, REFRESH_COOKIE);
     if (refresh != null && !refresh.isBlank() && res != null) {
       try {
         AuthTokens tokens = auth.refresh(refresh);
         setAuthCookies(res, tokens);
-        return users.findById(UUID.fromString(tokens.user().id()));
+        req.setAttribute(REQ_ACCESS_ATTR, tokens.accessToken());
+        resolved = users.findById(UUID.fromString(tokens.user().id()));
       } catch (RuntimeException ex) {
         clearAuthCookies(res);
       }
     }
-    return Optional.empty();
+
+    req.setAttribute(REQ_USER_ATTR, resolved);
+    return resolved;
+  }
+
+  /**
+   * 供 {@link com.hellotimepro.springmvc.web.CookieTokenFilter} 将浏览器 cookie 桥接为 Bearer 头。
+   * 当 access 有效时直接返回；当 access 过期但存在有效 refresh cookie 时透明轮换一次。
+   */
+  public String resolveAccessForApi(HttpServletRequest req, HttpServletResponse res) {
+    String access = readCookie(req, ACCESS_COOKIE);
+    if (access != null && !access.isBlank()) {
+      SecurityService.DecodeResult decoded = security.decodeAccessToken(access);
+      if (decoded.subject().isPresent()) {
+        return access;
+      }
+    }
+    String refresh = readCookie(req, REFRESH_COOKIE);
+    if (refresh != null && !refresh.isBlank() && res != null) {
+      try {
+        AuthTokens tokens = auth.refresh(refresh);
+        setAuthCookies(res, tokens);
+        return tokens.accessToken();
+      } catch (RuntimeException ex) {
+        clearAuthCookies(res);
+      }
+    }
+    return access;
   }
 
   public void setAuthCookies(HttpServletResponse res, AuthTokens tokens) {
@@ -81,7 +117,6 @@ public class CookieAuthService {
   }
 
   private String buildCookie(String name, String value, int maxAgeSeconds) {
-    // SameSite=Lax 足够：同源 SSR + fetch；教学项目不强制 Secure（本地 http）。
     return name + "=" + value + "; Path=/; Max-Age=" + maxAgeSeconds + "; HttpOnly; SameSite=Lax";
   }
 

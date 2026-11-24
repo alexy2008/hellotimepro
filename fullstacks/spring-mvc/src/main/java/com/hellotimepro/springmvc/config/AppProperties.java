@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app")
 public class AppProperties {
   private String serviceName = "hellotime-pro";
-  private String serviceVersion = "0.1.0";
+  private String serviceVersion = "2.0.0";
   private String dbDriver = "postgres";
   private String jwtSecret = "dev-secret-change-me";
   private int accessTokenTtlSeconds = 3600;

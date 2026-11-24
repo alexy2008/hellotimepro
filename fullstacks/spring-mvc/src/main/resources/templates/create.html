@@ -1,77 +1,476 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
-<head th:replace="~{fragments/layout :: head('写给未来的信')}"></head>
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::content})}">
 <body>
-<header th:replace="~{fragments/layout :: header}"></header>
+<th:block th:fragment="content">
 
-<main class="cy-container cy-container--narrow" style="margin-top:var(--space-10);margin-bottom:var(--space-16)">
-  <div style="max-width:720px;margin:0 auto">
-    <h1 style="font-family:var(--font-display);font-size:var(--font-size-4xl);margin:0 0 var(--space-2)">写给未来的信</h1>
-    <p style="color:var(--color-text-secondary);margin:0 0 var(--space-8)">
-      这段文字会被上锁，直到你设定的时刻才能由任何人 —— 包括你自己 —— 开启。
-    </p>
+  <div data-ht-create-root>
 
-    <form id="create-form" class="cy-form" method="post" action="/create">
-      <div class="cy-field">
-        <label for="title">标题 <span style="color:var(--color-text-muted);font-weight:400">· 最多 60 字</span></label>
-        <div style="display:flex;gap:var(--space-2);align-items:stretch">
-          <input class="cy-input" id="title" name="title" type="text" maxlength="60" required
-                 th:value="${title}" style="flex:1">
-          <button type="button" class="cy-btn cy-btn--ghost" id="ai-generate"
-                  title="让 AI 生成胶囊正文与建议开启时间；标题留空时会顺便起个标题"
-                  style="white-space:nowrap">✨ AI 生成</button>
+    <!-- ============ 时笺创建页 ============ -->
+    <div class="skin-slot" data-skin-view="paper">
+      <div class="page page--create">
+        <div class="wrap create">
+          <header class="pagehead">
+            <div>
+              <div class="overline"><i></i>New capsule</div>
+              <h1 class="h1">写给未来的信</h1>
+            </div>
+            <p class="lede">这段文字会被封存，直到你设定的时刻，<br />才能被任何人——包括你自己——打开。</p>
+          </header>
+
+          <div class="create__grid">
+            <!-- 左：红格信笺 -->
+            <section class="sheet" aria-label="信的内容" data-ht-paper-sheet>
+              <div class="sheet__head">
+                <span class="sheet__to">致 未来 ——</span>
+                <button class="aibtn" type="button" data-testid="ai-generate" data-ht-ai-btn
+                        title="让 AI 代写正文并建议启封时间；标题留空时会顺便起个标题">
+                  <th:block th:utext="${@fmt.icon('sparkle')}" />
+                  <span data-ht-ai-label>AI 代笔</span>
+                </button>
+              </div>
+
+              <div class="sheet__title" data-ht-shake="title">
+                <input type="text" maxlength="60" autocomplete="off" placeholder="给这封信起个标题"
+                       aria-label="标题，最多 60 字" data-testid="create-title" data-ht-create-title />
+                <span class="sheet__n mono"><b data-ht-title-count>0</b>/60</span>
+              </div>
+              <div class="sheet__err" role="alert" data-field="title" data-ht-create-err="title"></div>
+
+              <div class="recos is-hidden" data-ht-recos>
+                <div class="recos__in">
+                  <div class="recos__head">
+                    <span><th:block th:utext="${@fmt.icon('sparkle')}" />没有头绪？从一个灵感开始</span>
+                    <button class="linkbtn" type="button" data-testid="reco-refresh" data-ht-reco-refresh>
+                      <th:block th:utext="${@fmt.icon('refresh')}" /><span data-ht-reco-refresh-label>换一批</span>
+                    </button>
+                  </div>
+                  <div class="recos__list" data-ht-recos-list="paper"></div>
+                </div>
+              </div>
+
+              <div class="sheet__body" data-ht-shake="content">
+                <textarea maxlength="5000" rows="9" aria-label="正文，最多 5000 字"
+                          placeholder="在这里写下想传到未来的话。&#10;可以是此刻的天气、正在读的书、一个小小的许诺，&#10;或者只是一句：嘿，你还好吗？"
+                          data-testid="create-content" data-ht-create-content></textarea>
+                <div class="sheet__think" aria-hidden="true"><i></i><i></i><i></i></div>
+              </div>
+              <div class="sheet__err" role="alert" data-field="content" data-ht-create-err="content"></div>
+
+              <div class="sheet__foot">
+                <span class="sheet__ainote" data-ht-ai-note></span>
+                <span class="sheet__n mono"><b data-ht-content-count>0</b> / 5000</span>
+              </div>
+
+              <div class="sheet__sign">
+                <span>——</span>
+                <th:block th:replace="~{fragments/parts :: avatar(id=${currentUser.avatarId()}, extraClass='')}" />
+                <b th:text="${currentUser.nickname()}"></b>
+                <span class="sheet__date" data-ht-now-cn th:text="${@fmt.nowCnWeek()}"></span>
+              </div>
+            </section>
+
+            <!-- 右：封缄台 -->
+            <aside class="desk" aria-label="封缄设置">
+              <section class="panel" data-ht-shake="openAt">
+                <h2 class="panel__h"><span class="panel__no">壹</span>启封时刻</h2>
+
+                <div class="presets">
+                  <button class="chip" type="button" data-testid="openat-preset" data-value="1m" data-selected="false" data-ht-preset="1m">1 分钟后<small>体验启封</small></button>
+                  <button class="chip" type="button" data-testid="openat-preset" data-value="tm" data-selected="false" data-ht-preset="tm">明早 9 点</button>
+                  <button class="chip" type="button" data-testid="openat-preset" data-value="1mo" data-selected="false" data-ht-preset="1mo">1 个月后</button>
+                  <button class="chip is-active" type="button" data-testid="openat-preset" data-value="1y" data-selected="true" data-ht-preset="1y">1 年后</button>
+                  <button class="chip" type="button" data-testid="openat-preset" data-value="5y" data-selected="false" data-ht-preset="5y">5 年后</button>
+                  <button class="chip" type="button" data-testid="openat-preset" data-value="10y" data-selected="false" data-ht-preset="10y">10 年后</button>
+                </div>
+
+                <div class="ruler" tabindex="0" role="slider" aria-label="启封距离：左右拖动或用方向键调整"
+                     aria-valuemin="0" aria-valuemax="100" aria-valuenow="65" data-ht-paper-ruler>
+                  <div class="ruler__strip" data-ht-ruler-strip></div>
+                  <div class="ruler__needle" data-ht-ruler-needle></div>
+                </div>
+
+                <div class="when">
+                  <div class="when__rel serif" data-ht-paper-rel>1 年后</div>
+                  <div class="when__abs" data-testid="create-openat" data-value="" data-ht-paper-openat></div>
+                  <button class="linkbtn when__more" type="button" aria-expanded="false" data-ht-paper-cal-btn>
+                    <th:block th:utext="${@fmt.icon('calendar')}" />
+                    <span>精确到分钟</span>
+                    <th:block th:utext="${@fmt.icon('chev-down', 'ic--chev')}" />
+                  </button>
+                </div>
+                <div class="sheet__err" role="alert" data-field="openAt" data-ht-create-err="openAt"></div>
+
+                <div class="calwrap" data-ht-paper-calwrap>
+                  <div class="calwrap__in">
+                    <div class="cal" data-ht-paper-cal>
+                      <div class="cal__head">
+                        <button class="cal__nav" type="button" aria-label="上一年" data-cal-nav="-12">«</button>
+                        <button class="cal__nav" type="button" aria-label="上个月" data-cal-nav="-1">‹</button>
+                        <div class="cal__title serif" data-cal-title></div>
+                        <button class="cal__nav" type="button" aria-label="下个月" data-cal-nav="1">›</button>
+                        <button class="cal__nav" type="button" aria-label="下一年" data-cal-nav="12">»</button>
+                      </div>
+                      <div class="cal__dow">
+                        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+                      </div>
+                      <div class="cal__grid" data-cal-grid></div>
+                      <div class="cal__time">
+                        <span class="cal__time-k"><th:block th:utext="${@fmt.icon('clock')}" />时刻</span>
+                        <input class="cal__t mono" inputmode="numeric" maxlength="2" aria-label="小时" data-cal-h />
+                        <i>:</i>
+                        <input class="cal__t mono" inputmode="numeric" maxlength="2" aria-label="分钟" data-cal-m />
+                        <span class="cal__tz mono" data-cal-tz>本地时区</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <h2 class="panel__h"><span class="panel__no">贰</span>寄往广场</h2>
+                <label class="switch">
+                  <input type="checkbox" checked data-testid="create-in-plaza" data-ht-in-plaza />
+                  <span class="switch__track"><i></i></span>
+                  <span class="switch__text">
+                    <b data-ht-paper-vis-title>发布到胶囊广场</b>
+                    <small data-ht-paper-vis-desc>所有人能看到标题与倒计时；正文在启封后公开。</small>
+                  </span>
+                </label>
+              </section>
+
+              <section class="panel panel--seal">
+                <h2 class="panel__h"><span class="panel__no">叁</span>封缄</h2>
+                <div class="envf" aria-hidden="true" data-ht-paper-envf>
+                  <div class="envf__stamp">
+                    <th:block th:replace="~{fragments/parts :: avatarStamp(id=${currentUser.avatarId()}, extraClass='stamp--sm', showLabel=${false})}" />
+                  </div>
+                  <div class="envf__pm">
+                    <th:block th:replace="~{fragments/parts :: postmark(line1='', line2='', extraClass='pm--envf')}" />
+                  </div>
+                  <div class="envf__to">
+                    <small>寄往</small>
+                    <b data-ht-envf-date></b>
+                    <span data-ht-envf-rel></span>
+                  </div>
+                  <div class="envf__title serif" data-ht-envf-title>《未命名的信》</div>
+                  <div class="envf__from mono">
+                    <span th:text="${'自 ' + @fmt.nowDate() + ' · ' + currentUser.nickname()}"></span>
+                    <span data-ht-envf-vis>广场公开</span>
+                  </div>
+                </div>
+
+                <div class="hold-row">
+                  <button class="hold" type="button" aria-describedby="paperHoldHint"
+                          data-testid="create-submit" data-ht-paper-hold>
+                    <svg class="hold__ring" viewBox="0 0 120 120" aria-hidden="true">
+                      <circle class="hold__track" cx="60" cy="60" r="56" />
+                      <circle class="hold__prog" cx="60" cy="60" r="56" pathLength="100" />
+                    </svg>
+                    <th:block th:replace="~{fragments/parts :: wax(ch='封', extraClass='hold__wax')}" />
+                    <span class="sr-only">长按封缄</span>
+                  </button>
+                  <div class="hold-copy">
+                    <b id="paperHoldHint" data-ht-hold-hint>长按火漆，封缄</b>
+                    <p>封存后，内容和开启时间都不能再修改；<br />可以在「我创建的」里删除。</p>
+                    <p class="hold-poem serif">复恐匆匆说不尽，行人临发又开封。</p>
+                  </div>
+                </div>
+              </section>
+            </aside>
+          </div>
+        </div>
+
+        <!-- 时笺封缄完成仪式回执（动态填充） -->
+        <div data-ht-paper-ceremony></div>
+      </div>
+    </div>
+
+    <!-- ============ 琥珀创建页 ============ -->
+    <div class="skin-slot" data-skin-view="amber">
+      <div class="page page--create">
+        <div class="container">
+
+          <!-- 琥珀封存完成回执（封存成功后显示） -->
+          <div data-ht-amber-sealed hidden></div>
+
+          <!-- 琥珀创建表单主体 -->
+          <div data-ht-amber-form-area>
+            <header class="page-head">
+              <div class="eyebrow">Seal a capsule</div>
+              <h1 class="page-title">写一枚胶囊</h1>
+              <p class="page-lead">写给未来的自己，或者某个还没出现的人。合上之后，在开启时间到来之前，没有任何人能读到它。</p>
+            </header>
+
+            <div class="create">
+              <form class="create__form card" novalidate data-ht-amber-create-form>
+                <div class="field" data-field="title" data-ht-shake="title">
+                  <div class="field__head">
+                    <label class="field__label" for="amber-create-title">标题 <em>*</em></label>
+                    <span class="field__count mono"><b data-ht-title-count>0</b>/60</span>
+                  </div>
+                  <div class="input-wrap input-wrap--action">
+                    <input class="input" id="amber-create-title" maxlength="60" autocomplete="off"
+                           placeholder="给这枚胶囊起个名字" data-testid="create-title" data-ht-create-title />
+                    <button class="ai-btn" type="button" data-testid="ai-generate" data-ht-ai-btn
+                            title="让 AI 代写正文并建议开启时间；标题留空时会顺便起个标题">
+                      <th:block th:utext="${@fmt.icon('sparkle')}" />
+                      <span data-ht-ai-label>AI 代笔</span>
+                    </button>
+                  </div>
+                  <div class="field__error" role="alert" data-field="title" data-ht-create-err="title"></div>
+                </div>
+
+                <div class="recos is-hidden" data-ht-recos>
+                  <div class="recos__in">
+                    <div class="recos__head">
+                      <span><th:block th:utext="${@fmt.icon('sparkle')}" />没有头绪？从一个灵感开始</span>
+                      <button class="link-btn" type="button" data-testid="reco-refresh" data-ht-reco-refresh>
+                        <th:block th:utext="${@fmt.icon('refresh')}" /><span data-ht-reco-refresh-label>换一批</span>
+                      </button>
+                    </div>
+                    <div class="recos__list" data-ht-recos-list="amber"></div>
+                  </div>
+                </div>
+
+                <div class="field" data-field="content" data-ht-shake="content">
+                  <div class="field__head">
+                    <label class="field__label" for="amber-create-content">内容 <em>*</em></label>
+                    <span class="field__count mono"><b data-ht-content-count>0</b>/5000</span>
+                  </div>
+                  <div class="paper" data-ht-amber-paper>
+                    <textarea class="paper__text" id="amber-create-content" maxlength="5000" rows="9"
+                              placeholder="在这里写下想交给未来的话。&#10;可以是此刻的天气、正在读的书、一个小小的约定，&#10;或者只是一句：嘿，你还好吗？"
+                              data-testid="create-content" data-ht-create-content></textarea>
+                    <div class="paper__think" aria-hidden="true"><i></i><i></i><i></i></div>
+                  </div>
+                  <div class="field__hint"><span class="ai-note" data-ht-ai-note></span></div>
+                  <div class="field__error" role="alert" data-field="content" data-ht-create-err="content"></div>
+                </div>
+
+                <!-- 琥珀开启时间：星轨时钟 -->
+                <div class="field" data-field="openAt" data-ht-shake="openAt">
+                  <div class="field__head">
+                    <label class="field__label" for="amber-dtp-trigger">开启时间 <em>*</em></label>
+                    <span class="field__count">最早 1 分钟后 · 最晚 10 年内</span>
+                  </div>
+
+                  <div class="dtp" data-ht-amber-dtp>
+                    <button class="dtp__trigger" type="button" id="amber-dtp-trigger"
+                            aria-haspopup="dialog" aria-expanded="false" aria-controls="amberDtpPanel"
+                            aria-describedby="amberDtpVal"
+                            data-testid="create-openat" data-value="" data-dtp-trigger>
+                      <th:block th:utext="${@fmt.icon('calendar', 'ic--cal')}" />
+                      <span class="dtp__val" id="amberDtpVal">
+                        <span class="dtp__date" data-dtp-date></span>
+                        <span class="dtp__wd" data-dtp-wd></span>
+                        <span class="dtp__time" data-dtp-time></span>
+                      </span>
+                      <span class="dtp__rel" data-dtp-rel></span>
+                      <th:block th:utext="${@fmt.icon('chev-down', 'ic--chev')}" />
+                    </button>
+
+                    <div class="dtp__panel" id="amberDtpPanel" role="dialog" aria-label="选择开启时间" data-dtp-panel>
+                      <div class="dtp__clip">
+                        <div class="dtp__in" data-dtp-inner>
+                          <div class="orbit">
+                            <div class="dtp__k">十年星轨<b data-dtp-orbit-k>1.0 / 10 年</b></div>
+                            <div class="orbit__rail" data-dtp-rail>
+                              <div class="orbit__line"></div>
+                              <div class="orbit__trail" data-dtp-trail></div>
+                              <div data-dtp-nodes></div>
+                              <div class="orbit__cap" tabindex="0" role="slider"
+                                   aria-label="沿十年星轨拖动胶囊（方向键按月，PageUp / PageDown 按年）"
+                                   data-dtp-cap>
+                                <svg viewBox="0 0 32 32" aria-hidden="true">
+                                  <path class="orbit__cap-top" d="M9 16V11a7 7 0 0 1 14 0v5Z" />
+                                  <path class="orbit__cap-bot" d="M9 16v5a7 7 0 0 0 14 0v-5Z" />
+                                  <rect class="orbit__cap-seam" x="8" y="15" width="16" height="2.2" rx="1.1" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="dtp__body">
+                            <div class="mcal">
+                              <div class="mcal__head">
+                                <div class="mcal__title" data-dtp-mcal-title></div>
+                                <button class="mcal__nav" type="button" aria-label="上个月" data-dtp-mcal-prev>
+                                  <th:block th:utext="${@fmt.icon('chev-left')}" />
+                                </button>
+                                <button class="mcal__nav" type="button" aria-label="下个月" data-dtp-mcal-next>
+                                  <th:block th:utext="${@fmt.icon('chev-right')}" />
+                                </button>
+                              </div>
+                              <div class="mcal__dow">
+                                <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+                              </div>
+                              <div class="mcal__grid" role="grid" aria-label="日期" data-dtp-mcal-grid></div>
+                            </div>
+
+                            <div class="clock is-day" data-mode="h" data-dtp-clock>
+                              <div class="clock__read">
+                                <div class="clock__seg">
+                                  <button type="button" class="is-on" aria-label="调小时" data-dtp-mode="h">09</button>
+                                  <i>:</i>
+                                  <button type="button" aria-label="调分钟" data-dtp-mode="m">00</button>
+                                </div>
+                                <div class="ampm">
+                                  <button type="button" class="is-on" data-dtp-ampm="am"><th:block th:utext="${@fmt.icon('sun')}" />上午</button>
+                                  <button type="button" data-dtp-ampm="pm"><th:block th:utext="${@fmt.icon('moon')}" />下午</button>
+                                </div>
+                              </div>
+                              <div class="clock__case">
+                                <i class="clock__crown" aria-hidden="true"></i>
+                                <svg class="clock__dial" viewBox="-12 -12 244 244" tabindex="0" role="slider"
+                                     aria-label="表盘：拖动指针调整时刻" data-dtp-dial>
+                                  <defs>
+                                    <linearGradient id="amber-dtp-hand" gradientUnits="userSpaceOnUse" x1="110" y1="118" x2="110" y2="58">
+                                      <stop class="clock__g-hand-a" offset="0" />
+                                      <stop class="clock__g-hand-b" offset="1" />
+                                    </linearGradient>
+                                    <radialGradient id="amber-dtp-day" cx=".5" cy=".78" r=".75">
+                                      <stop class="clock__g-day" offset="0" stop-opacity=".35" />
+                                      <stop class="clock__g-day" offset="1" stop-opacity="0" />
+                                    </radialGradient>
+                                    <radialGradient id="amber-dtp-night" cx=".5" cy=".3" r=".8">
+                                      <stop class="clock__g-night" offset="0" stop-opacity=".32" />
+                                      <stop class="clock__g-night" offset="1" stop-opacity="0" />
+                                    </radialGradient>
+                                    <radialGradient id="amber-dtp-edge" cx=".5" cy=".5" r=".5">
+                                      <stop class="clock__g-edge" offset=".82" stop-opacity="0" />
+                                      <stop class="clock__g-edge" offset="1" stop-opacity=".22" />
+                                    </radialGradient>
+                                    <clipPath id="amber-dtp-face">
+                                      <circle cx="110" cy="110" r="110" />
+                                    </clipPath>
+                                  </defs>
+                                  <circle class="clock__face" cx="110" cy="110" r="110" />
+                                  <g clip-path="url(#amber-dtp-face)">
+                                    <g class="clock__sky clock__sky--day">
+                                      <rect width="220" height="220" fill="url(#amber-dtp-day)" />
+                                      <circle class="clock__sun" cx="110" cy="160" r="13" />
+                                      <circle class="clock__sun clock__sun--halo" cx="110" cy="160" r="22" />
+                                    </g>
+                                    <g class="clock__sky clock__sky--night">
+                                      <rect width="220" height="220" fill="url(#amber-dtp-night)" />
+                                      <path class="clock__moon" d="M118 150a12 12 0 1 1-12.5-14 9.5 9.5 0 0 0 12.5 14Z" />
+                                      <g class="clock__stars">
+                                        <circle cx="72" cy="68" r="1.2" opacity=".8" />
+                                        <circle cx="150" cy="62" r="1" opacity=".6" />
+                                        <circle cx="160" cy="140" r="1.4" opacity=".7" />
+                                        <circle cx="58" cy="132" r="1" opacity=".5" />
+                                        <circle cx="132" cy="172" r=".9" opacity=".6" />
+                                        <circle cx="84" cy="172" r="1.1" opacity=".5" />
+                                      </g>
+                                    </g>
+                                  </g>
+                                  <circle class="clock__vignette" cx="110" cy="110" r="110" fill="url(#amber-dtp-edge)" />
+                                  <circle class="clock__rehaut" cx="110" cy="110" r="102" />
+                                  <g data-dtp-dial-static></g>
+                                  <text class="clock__brand" x="110" y="64">HELLOTIME</text>
+                                  <text class="clock__brand clock__brand--sub" x="110" y="74">Automatic · Sealed</text>
+                                  <g class="clock__date">
+                                    <rect x="163" y="101" width="24" height="18" rx="3" />
+                                    <text x="175" y="110.5" data-dtp-dial-date>1</text>
+                                  </g>
+                                  <g class="clock__hand clock__hand--h" data-dtp-hand-h>
+                                    <line x1="110" y1="118" x2="110" y2="58" />
+                                  </g>
+                                  <g class="clock__hand clock__hand--m" data-dtp-hand-m>
+                                    <line x1="110" y1="124" x2="110" y2="44" />
+                                    <circle class="knob" cx="110" cy="44" r="4.5" />
+                                  </g>
+                                  <circle class="clock__pin" cx="110" cy="110" r="6" />
+                                  <path class="clock__glass" d="M30 92C40 52 74 26 116 22c-36 14-62 40-74 78-4 2-9 0-12-8Z" />
+                                </svg>
+                              </div>
+                              <div class="clock__hint" data-dtp-clock-hint>拖动时针，松手后自动切到分针</div>
+                            </div>
+                          </div>
+
+                          <div class="dtp__foot">
+                            <div class="dtp__eta" data-dtp-eta></div>
+                            <button class="btn btn--primary btn--sm" type="button" data-dtp-done>就这一刻</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="chips">
+                    <button class="chip" type="button" data-testid="openat-preset" data-preset="1m" data-value="1m" data-selected="false" data-ht-preset="1m">1 分钟后</button>
+                    <button class="chip" type="button" data-testid="openat-preset" data-preset="tm" data-value="tm" data-selected="false" data-ht-preset="tm">明早 9 点</button>
+                    <button class="chip" type="button" data-testid="openat-preset" data-preset="1w" data-value="1w" data-selected="false" data-ht-preset="1w">一周后</button>
+                    <button class="chip" type="button" data-testid="openat-preset" data-preset="1mo" data-value="1mo" data-selected="false" data-ht-preset="1mo">一个月后</button>
+                    <button class="chip is-active" type="button" data-testid="openat-preset" data-preset="1y" data-value="1y" data-selected="true" data-ht-preset="1y">一年后</button>
+                    <button class="chip" type="button" data-testid="openat-preset" data-preset="5y" data-value="5y" data-selected="false" data-ht-preset="5y">五年后</button>
+                    <button class="chip" type="button" data-testid="openat-preset" data-preset="10y" data-value="10y" data-selected="false" data-ht-preset="10y">十年后</button>
+                  </div>
+                  <div class="field__error" role="alert" data-field="openAt" data-ht-create-err="openAt"></div>
+                </div>
+
+                <label class="toggle-card is-on" data-ht-amber-vis-card>
+                  <span class="toggle-card__ic"><th:block th:utext="${@fmt.icon('globe')}" /></span>
+                  <span class="toggle-card__txt">
+                    <b>发布到胶囊广场</b>
+                    <small data-ht-amber-vis-desc>标题与昵称公开展示，内容到时间才可见</small>
+                  </span>
+                  <input type="checkbox" class="sr-only" checked data-testid="create-in-plaza" data-ht-in-plaza />
+                  <span class="switch" aria-hidden="true"></span>
+                </label>
+
+                <div class="create__foot">
+                  <div class="create__sum">
+                    <th:block th:utext="${@fmt.icon('hourglass')}" />
+                    <span data-ht-amber-sum></span>
+                  </div>
+                  <button class="btn btn--primary btn--lg" type="submit" data-testid="create-submit" data-ht-amber-submit>
+                    <th:block th:utext="${@fmt.icon('lock')}" />
+                    <span data-ht-amber-submit-text>封存胶囊</span>
+                  </button>
+                </div>
+              </form>
+
+              <aside class="create__side">
+                <div class="preview card">
+                  <div class="preview__head">
+                    <span class="eyebrow">实时预览</span>
+                    <span class="badge badge--amber">尚未封存</span>
+                  </div>
+                  <div class="preview__art">
+                    <th:block th:replace="~{fragments/parts :: capsuleArt(code=null, state='opened', width=220, extraClass='')}" />
+                  </div>
+                  <h3 class="preview__title" data-ht-prev-title>未命名的胶囊</h3>
+                  <div class="preview__by">
+                    <th:block th:replace="~{fragments/parts :: avatar(id=${currentUser.avatarId()}, extraClass='')}" />
+                    <th:block th:text="${currentUser.nickname()}" />
+                  </div>
+                  <dl class="preview__table">
+                    <div><dt>开启时间</dt><dd class="mono" data-ht-prev-openat></dd></div>
+                    <div><dt>沉睡时长</dt><dd data-ht-prev-span></dd></div>
+                    <div><dt>正文</dt><dd data-ht-prev-len>0 字</dd></div>
+                  </dl>
+                  <div class="badges">
+                    <span class="badge badge--plaza" data-ht-prev-vis><th:block th:utext="${@fmt.icon('globe')}" />广场公开</span>
+                    <span class="badge badge--amber"><th:block th:utext="${@fmt.icon('clock')}" /><span data-ht-prev-badge-span>1 年后</span></span>
+                  </div>
+                </div>
+                <ul class="notes">
+                  <li><th:block th:utext="${@fmt.icon('key')}" /><span>封存后会得到一串 8 位胶囊码，它是开启胶囊的凭证，也能分享给别人。</span></li>
+                  <li><th:block th:utext="${@fmt.icon('lock')}" /><span>到开启时间之前，内容对所有人不可见——包括写下它的你。</span></li>
+                  <li><th:block th:utext="${@fmt.icon('trash')}" /><span>封存后，内容和开启时间都不能再修改；可以在「我创建的」里删除。</span></li>
+                </ul>
+              </aside>
+            </div>
+          </div>
+
         </div>
       </div>
+    </div>
 
-      <!-- AI 灵感推荐区：由 app.js 异步拉取后填充（空标题且有推荐时才显示） -->
-      <div id="reco-area"></div>
-
-      <div class="cy-field">
-        <label for="content">内容 <span style="color:var(--color-text-muted);font-weight:400">· 最多 5000 字</span></label>
-        <textarea class="cy-textarea" id="content" name="content" rows="10" maxlength="5000" required
-                  th:text="${content}"
-                  placeholder="在这里写下你想传递到未来的话。建议：&#10;- 具体的场景 / 情绪 / 正在读的书&#10;- 一个小小的许诺&#10;- 或只是一句：嘿，还活着吗？"></textarea>
-      </div>
-
-      <div class="cy-field">
-        <label for="open_at">开启时间 <span style="color:var(--color-text-muted);font-weight:400">· 最早 60 秒后</span></label>
-        <div class="cy-dtp" id="open_at_picker" data-dtp-input="open_at"></div>
-        <input class="cy-input cy-dtp__source" id="open_at" type="datetime-local" required aria-hidden="true" tabindex="-1">
-        <input type="hidden" id="openAt" name="openAt">
-        <span class="cy-field__hint">时区以你当前所在时区为准，提交时会转换为 UTC。</span>
-        <div class="cy-create-presets">
-          <span class="cy-create-presets__label">快速预设</span>
-          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" data-preset="1m">1 分钟后（测试）</button>
-          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" data-preset="1h">1 小时后</button>
-          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" data-preset="tomorrow9">明天早上 9:00</button>
-          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" data-preset="1y">1 年后</button>
-          <button type="button" class="cy-btn cy-btn--ghost cy-btn--sm" data-preset="y2030">2030.01.01</button>
-        </div>
-      </div>
-
-      <div class="cy-alert cy-alert--info">
-        <span>ⓘ</span><span>上锁后不可编辑、不可提前开启；可以在"我创建的"列表里随时撤回（删除）。</span>
-      </div>
-
-      <div th:if="${error}" class="cy-alert cy-alert--danger">
-        <span>⚠</span><span th:text="${error}">错误</span>
-      </div>
-
-      <div class="cy-create-actions">
-        <label class="cy-toggle cy-toggle--inline">
-          <input type="checkbox" name="inPlaza" value="true" th:checked="${inPlaza == null ? true : inPlaza}">
-          <span class="cy-toggle__track"></span>
-          <span class="cy-toggle__label">发布到胶囊广场</span>
-        </label>
-        <div class="cy-create-actions__buttons">
-          <a class="cy-btn cy-btn--ghost" href="/me/created">取消</a>
-          <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit">🔒 上锁封存</button>
-        </div>
-      </div>
-    </form>
   </div>
-</main>
 
-<footer th:replace="~{fragments/layout :: footer}"></footer>
+</th:block>
 </body>
 </html>

@@ -1,58 +1,190 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN" data-theme="dark">
-<head th:replace="~{fragments/layout :: head('注册')}"></head>
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::content})}">
 <body>
-<header th:replace="~{fragments/layout :: header}"></header>
+<th:block th:fragment="content">
 
-<main class="cy-container cy-container--narrow" style="margin-top:var(--space-12);margin-bottom:var(--space-16)"
-      th:with="selId=${selectedAvatar != null ? selectedAvatar : (!#lists.isEmpty(avatars) ? avatars[0].id : '')}">
-  <div class="cy-card" style="max-width:560px;margin:0 auto">
-    <h1 style="font-family:var(--font-display);font-size:var(--font-size-3xl);margin:0 0 var(--space-2)">注册新身份</h1>
-    <p style="color:var(--color-text-secondary);margin:0 0 var(--space-8)">选一个赛博头像、写一封最早 60 秒后才能打开的信。</p>
+  <div data-ht-register-root th:attr="data-redirect=${redirect}">
 
-    <form class="cy-form" method="post" action="/register">
-      <div class="cy-field">
-        <label for="email">邮箱</label>
-        <input class="cy-input" id="email" name="email" type="email" required th:value="${email}">
-      </div>
-      <div class="cy-field">
-        <label for="nick">昵称</label>
-        <input class="cy-input" id="nick" name="nickname" type="text" maxlength="20" required th:value="${nickname}">
-        <span class="cy-field__hint">2–20 字符，注册后可修改。</span>
-      </div>
-      <div class="cy-field">
-        <label for="pwd">密码</label>
-        <input class="cy-input" id="pwd" name="password" type="password" required minlength="8">
-        <span class="cy-field__hint">至少 8 位，需包含字母和数字。</span>
-      </div>
-      <div class="cy-field">
-        <label>选择头像（必选）</label>
-        <input type="hidden" id="avatarId" name="avatarId" th:value="${selId}">
-        <div class="cy-avatar-picker" role="radiogroup" aria-label="选择头像" data-target="avatarId">
-          <button th:each="a : ${avatars}" type="button" role="radio"
-                  class="cy-avatar-picker__item"
-                  th:classappend="${a.id == selId} ? ' is-selected' : ''"
-                  th:attr="aria-checked=${a.id == selId}, data-avatar-id=${a.id}"
-                  th:title="${a.name}">
-            <img th:src="${@fmt.avatarUrl(a.id)}" th:alt="${a.name}">
-          </button>
+    <!-- ============ 时笺注册页 ============ -->
+    <div class="skin-slot" data-skin-view="paper">
+      <div class="page page--auth">
+        <div class="auth">
+          <aside class="auth__art" aria-hidden="true">
+            <div class="auth__brand">
+              <th:block th:replace="~{fragments/parts :: paperLogo}" />
+              <span class="latin">HelloTime</span>
+            </div>
+            <div class="auth__poem serif">
+              <span>纸短情长</span>
+              <span>来日方长</span>
+            </div>
+            <div class="auth__foot">
+              <span>先留个名字，再慢慢写</span>
+              <th:block th:replace="~{fragments/parts :: seal(ch='缄', variant='solid', extraClass='auth__seal')}" />
+            </div>
+            <div class="auth__pm">
+              <th:block th:replace="~{fragments/parts :: postmark(line1=${@fmt.nowDate()}, line2='此 刻', extraClass='pm--auth')}" />
+            </div>
+          </aside>
+
+          <section class="auth__main">
+            <div class="auth__card auth__card--wide">
+              <div class="overline"><i></i>Sign up</div>
+              <h1 class="h1">领一个信箱</h1>
+              <p class="lede">挑一枚邮票当头像，然后写一封最早 1 分钟后才能打开的信。</p>
+
+              <form novalidate data-ht-register-form>
+                <div class="form__row">
+                  <div class="field" data-field="email" data-ht-field="email">
+                    <label class="field__label" for="paper-reg-email">邮箱</label>
+                    <div class="field__box" data-ht-field-box>
+                      <input class="field__input" id="paper-reg-email" name="email" type="email" autocomplete="email"
+                             placeholder="you@example.com" data-testid="register-email" data-ht-sync="email" />
+                      <span class="field__line"></span>
+                    </div>
+                    <div class="field__hint" data-ht-hint="email" data-default-hint="作为登录账号，注册后不可修改。">作为登录账号，注册后不可修改。</div>
+                  </div>
+
+                  <div class="field" data-field="nickname" data-ht-field="nickname">
+                    <label class="field__label" for="paper-reg-nick">昵称</label>
+                    <div class="field__box" data-ht-field-box>
+                      <input class="field__input" id="paper-reg-nick" name="nickname" type="text" autocomplete="nickname"
+                             placeholder="2–20 个字符" data-testid="register-nickname" data-ht-sync="nickname" />
+                      <span class="field__state" aria-hidden="true" data-ht-nick-state></span>
+                      <span class="field__line"></span>
+                    </div>
+                    <div class="field__hint" data-ht-hint="nickname" data-default-hint="全站唯一，注册后可以改。">全站唯一，注册后可以改。</div>
+                  </div>
+                </div>
+
+                <div class="field" data-field="password" data-ht-field="password">
+                  <label class="field__label" for="paper-reg-pwd">密码</label>
+                  <div class="field__box" data-ht-field-box>
+                    <input class="field__input" id="paper-reg-pwd" name="password" type="password" autocomplete="new-password"
+                           placeholder="设置密码" data-testid="register-password" data-ht-sync="password" />
+                    <button class="field__eye" type="button" aria-label="显示密码" data-ht-pwd-eye>
+                      <th:block th:utext="${@fmt.icon('eye')}" />
+                    </button>
+                    <span class="field__line"></span>
+                  </div>
+                  <div class="field__hint" data-ht-hint="password"></div>
+                </div>
+
+                <th:block th:replace="~{fragments/parts :: pwdRules}" />
+
+                <div class="field field--plain">
+                  <span class="field__label">邮票头像 <small>十选一，不支持上传</small></span>
+                  <th:block th:replace="~{fragments/parts :: avatarPicker(skin='paper', selectedId='neo')}" />
+                </div>
+
+                <div class="form__err" role="alert" data-ht-form-err></div>
+
+                <button class="btn btn--primary btn--lg btn--block" type="submit" data-testid="register-submit" data-ht-submit>
+                  <span data-ht-submit-text data-idle="创建账号，开始写信" data-busy="正在创建…">创建账号，开始写信</span>
+                  <th:block th:utext="${@fmt.icon('arrow', 'ic--go')}" />
+                </button>
+              </form>
+
+              <p class="auth__alt">
+                已经有账号？
+                <a class="link"
+                   th:href="${redirect != null and !redirect.isEmpty() ? '/login?redirect=' + #uris.escapeQueryParam(redirect) : '/login'}"
+                   data-testid="to-login">去登录</a>
+              </p>
+            </div>
+          </section>
         </div>
-        <span class="cy-field__hint">10 个内置头像，不支持上传自定义头像（M1 版本）。</span>
       </div>
+    </div>
 
-      <div th:if="${error}" class="cy-alert cy-alert--danger">
-        <span>⚠</span><span th:text="${error}">错误</span>
+    <!-- ============ 琥珀注册页 ============ -->
+    <div class="skin-slot" data-skin-view="amber">
+      <div class="page page--auth">
+        <div class="container auth">
+          <div class="auth__card auth__card--wide card">
+            <div class="auth__art" aria-hidden="true">
+              <span class="auth__orbit"></span>
+              <span class="auth__orbit auth__orbit--2"></span>
+              <th:block th:replace="~{fragments/parts :: capsuleArt(code=null, state='opened', width=180, extraClass='')}" />
+            </div>
+            <div class="eyebrow eyebrow--center">Create account</div>
+            <h1 class="page-title">领一个身份</h1>
+            <p class="page-lead">挑一颗星球当头像，然后写下你的第一枚胶囊。</p>
+
+            <form novalidate data-ht-register-form>
+              <div class="form__row">
+                <div class="field" data-field="email" data-ht-field="email">
+                  <div class="field__head">
+                    <label class="field__label" for="amber-reg-email">邮箱 <em>*</em></label>
+                  </div>
+                  <div class="input-wrap input-wrap--icon" data-ht-field-box>
+                    <th:block th:utext="${@fmt.icon('mail', 'input-wrap__icon')}" />
+                    <input class="input" id="amber-reg-email" name="email" type="email" autocomplete="email"
+                           placeholder="you@example.com" data-testid="register-email" data-ht-sync="email" />
+                  </div>
+                  <div class="field__hint" data-ht-hint="email" data-default-hint="作为登录账号，注册后不可修改。">作为登录账号，注册后不可修改。</div>
+                </div>
+
+                <div class="field" data-field="nickname" data-ht-field="nickname">
+                  <div class="field__head">
+                    <label class="field__label" for="amber-reg-nick">昵称 <em>*</em></label>
+                  </div>
+                  <div class="input-wrap input-wrap--icon input-wrap--action" data-ht-field-box>
+                    <th:block th:utext="${@fmt.icon('user', 'input-wrap__icon')}" />
+                    <input class="input" id="amber-reg-nick" name="nickname" type="text" autocomplete="nickname"
+                           placeholder="2–20 个字符" data-testid="register-nickname" data-ht-sync="nickname" />
+                    <span class="input-wrap__action nick-state" aria-hidden="true" data-ht-nick-state></span>
+                  </div>
+                  <div class="field__hint" data-ht-hint="nickname" data-default-hint="全站唯一，注册后可以改。">全站唯一，注册后可以改。</div>
+                </div>
+              </div>
+
+              <div class="field" data-field="password" data-ht-field="password">
+                <div class="field__head">
+                  <label class="field__label" for="amber-reg-pwd">密码 <em>*</em></label>
+                </div>
+                <div class="input-wrap input-wrap--icon input-wrap--action" data-ht-field-box>
+                  <th:block th:utext="${@fmt.icon('lock', 'input-wrap__icon')}" />
+                  <input class="input" id="amber-reg-pwd" name="password" type="password" autocomplete="new-password"
+                         placeholder="设置密码" data-testid="register-password" data-ht-sync="password" />
+                  <button class="input-wrap__action icon-btn" type="button" aria-label="显示密码" data-ht-pwd-eye>
+                    <th:block th:utext="${@fmt.icon('eye')}" />
+                  </button>
+                </div>
+                <div class="field__hint" data-ht-hint="password"></div>
+              </div>
+
+              <th:block th:replace="~{fragments/parts :: pwdRules}" />
+
+              <div class="field field--plain">
+                <div class="field__head">
+                  <span class="field__label">头像 <em>*</em></span>
+                  <span class="field__count">十选一，不支持上传</span>
+                </div>
+                <th:block th:replace="~{fragments/parts :: avatarPicker(skin='amber', selectedId='neo')}" />
+              </div>
+
+              <div class="form__err" role="alert" data-ht-form-err></div>
+
+              <button class="btn btn--primary btn--lg btn--block" type="submit" data-testid="register-submit" data-ht-submit>
+                <span data-ht-submit-text data-idle="创建账号，开始写胶囊" data-busy="正在创建…">创建账号，开始写胶囊</span>
+                <th:block th:utext="${@fmt.icon('arrow')}" />
+              </button>
+            </form>
+
+            <p class="auth__alt">
+              已经有账号？
+              <a th:href="${redirect != null and !redirect.isEmpty() ? '/login?redirect=' + #uris.escapeQueryParam(redirect) : '/login'}"
+                 data-testid="to-login">去登录</a>
+            </p>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <button class="cy-btn cy-btn--primary cy-btn--lg" type="submit" style="width:100%">创建账号并进入创建胶囊</button>
-
-      <div style="text-align:center;color:var(--color-text-muted);font-size:var(--font-size-sm)">
-        已有账号？<a href="/login" style="color:var(--color-brand-primary)">去登录</a>
-      </div>
-    </form>
   </div>
-</main>
 
-<footer th:replace="~{fragments/layout :: footer}"></footer>
+</th:block>
 </body>
 </html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::content})}">
+<body>
+<th:block th:fragment="content">
+
+  <div class="skin-slot" data-skin-view="paper">
+    <div class="page">
+      <div class="wrap wrap--narrow detail">
+        <div class="lost" data-testid="not-found">
+          <div class="lost__mark">
+            <th:block th:replace="~{fragments/parts :: seal(ch='迷', variant='line', extraClass='')}" />
+          </div>
+          <h1 class="h1">查无此页</h1>
+          <p>这个地址没有对应的页面。<br />也许是链接抄错了一位，也许它从未存在过。</p>
+          <div class="lost__act">
+            <a class="btn btn--primary" href="/">回到广场</a>
+            <a class="btn btn--ghost" href="/open"><th:block th:utext="${@fmt.icon('key')}" />凭码开启</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="skin-slot" data-skin-view="amber">
+    <div class="page">
+      <div class="container">
+        <div class="notice card" data-testid="not-found">
+          <div class="notice__float">
+            <th:block th:replace="~{fragments/parts :: capsuleArt(code='NOWHERE0', state='opened', width=220, extraClass='')}" />
+          </div>
+          <div class="eyebrow eyebrow--center">404</div>
+          <h1 class="page-title">这一页飘走了</h1>
+          <p class="page-lead">这个地址没有对应的页面。也许是链接抄错了一位，也许它从未存在过。</p>
+          <div class="notice__act">
+            <a class="btn btn--primary" href="/">回到广场</a>
+            <a class="btn btn--ghost" href="/open"><th:block th:utext="${@fmt.icon('key')}" />凭码开启</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</th:block>
+</body>
+</html>

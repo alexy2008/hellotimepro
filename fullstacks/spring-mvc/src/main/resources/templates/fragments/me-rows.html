@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- 时笺：「我创建的」单行 -->
+<th:block th:fragment="paperCreatedRow(c, idx)">
+  <th:block th:with="opened=${c.isOpened()}, cd=${@fmt.cd(c.openAt())}, pct=${@fmt.progress(c.createdAt(), c.openAt())}">
+    <li class="ledger__row"
+        th:style="${'--i:' + idx}"
+        data-testid="my-capsule"
+        th:attr="data-capsule-id=${c.id()},
+                 data-code=${c.code()},
+                 data-title=${c.title()},
+                 data-state=${opened ? 'opened' : 'sealed'},
+                 data-in-plaza=${c.inPlaza()}">
+      <div class="ledger__seal">
+        <th:block th:replace="~{fragments/parts :: seal(ch=${opened ? '启' : '封'}, variant=${opened ? 'line' : 'solid'}, extraClass='')}" />
+      </div>
+      <div class="ledger__main">
+        <a class="ledger__title serif" th:href="${'/capsules/' + c.code()}" data-testid="row-open" th:text="${c.title()}"></a>
+        <div class="ledger__sub">
+          <button class="ledger__code mono" type="button" title="点击复制胶囊码" th:attr="data-copy-code=${c.code()}">
+            <th:block th:text="${c.code()}" /><th:block th:utext="${@fmt.icon('copy')}" />
+          </button>
+          <span th:if="${c.inPlaza()}" class="tag"><th:block th:utext="${@fmt.icon('globe')}" />广场公开</span>
+          <span th:if="${!c.inPlaza()}" class="tag tag--quiet"><th:block th:utext="${@fmt.icon('lock')}" />仅凭码可见</span>
+          <span th:text="${'封存于 ' + @fmt.date(c.createdAt())}"></span>
+        </div>
+      </div>
+
+      <div th:if="${opened}" class="ledger__when">
+        <span class="ledger__k">已启封</span>
+        <b th:text="${@fmt.date(c.openAt())}"></b>
+        <small th:text="${'在途 ' + @fmt.span(c.createdAt(), c.openAt())}"></small>
+      </div>
+      <div th:if="${!opened}" class="ledger__when">
+        <span class="ledger__k">距启封</span>
+        <b data-ht-live-cd="ledger-paper" th:attr="data-open-at=${@fmt.iso(c.openAt())}">
+          <th:block th:if="${cd.d() > 0}">
+            <span class="latin" th:text="${@fmt.num(cd.d())}"></span> 天
+          </th:block>
+          <th:block th:if="${cd.d() <= 0}">
+            <span class="mono" th:text="${cd.h() + ':' + cd.m() + ':' + cd.s()}"></span>
+          </th:block>
+        </b>
+        <th:block th:replace="~{fragments/parts :: scale(pct=${pct}, extraClass='')}" />
+      </div>
+
+      <div class="ledger__fav" th:title="${'被收藏 ' + c.favoriteCount() + ' 次'}">
+        <th:block th:utext="${@fmt.icon('heart')}" />
+        <span class="latin" th:text="${@fmt.num(c.favoriteCount())}"></span>
+      </div>
+      <div class="ledger__act">
+        <a class="btn btn--text" th:href="${'/capsules/' + c.code()}">查看</a>
+        <button class="btn btn--text btn--danger" type="button" data-testid="delete-capsule"
+                th:attr="data-delete-id=${c.id()}, data-delete-code=${c.code()}, data-delete-title=${c.title()}">删除</button>
+      </div>
+    </li>
+  </th:block>
+</th:block>
+
+<!-- 琥珀：「我创建的」单行 -->
+<th:block th:fragment="amberCreatedRow(c, idx)">
+  <th:block th:with="opened=${c.isOpened()}, p=${@fmt.palette(c.code())}">
+    <li class="ledger__row"
+        th:style="${'--i:' + idx + ';--glow:' + p.glow()}"
+        data-testid="my-capsule"
+        th:attr="data-capsule-id=${c.id()},
+                 data-code=${c.code()},
+                 data-title=${c.title()},
+                 data-state=${opened ? 'opened' : 'sealed'},
+                 data-in-plaza=${c.inPlaza()}">
+      <a class="ledger__art" th:href="${'/capsules/' + c.code()}" tabindex="-1" aria-hidden="true">
+        <th:block th:replace="~{fragments/parts :: capsuleArt(code=${c.code()}, state=${opened ? 'opened' : 'locked'}, width=112, extraClass='')}" />
+      </a>
+      <div class="ledger__main">
+        <a class="ledger__title" th:href="${'/capsules/' + c.code()}" data-testid="row-open" th:text="${c.title()}"></a>
+        <div class="ledger__sub">
+          <button class="ledger__code mono" type="button" title="点击复制胶囊码" th:attr="data-copy-code=${c.code()}">
+            <th:block th:text="${c.code()}" /><th:block th:utext="${@fmt.icon('copy')}" />
+          </button>
+          <th:block th:if="${c.inPlaza()}">
+            <th:block th:replace="~{fragments/parts :: badge(kind='plaza', iconName='globe', text='广场公开')}" />
+          </th:block>
+          <th:block th:if="${!c.inPlaza()}">
+            <th:block th:replace="~{fragments/parts :: badge(kind='private', iconName='lock', text='仅凭码可见')}" />
+          </th:block>
+          <span th:text="${'封存于 ' + @fmt.date(c.createdAt())}"></span>
+        </div>
+      </div>
+
+      <div class="ledger__when">
+        <th:block th:if="${opened}">
+          <th:block th:replace="~{fragments/parts :: badge(kind='opened', iconName='mail', text='已开启')}" />
+          <span th:text="${@fmt.date(c.openAt()) + ' · 沉睡 ' + @fmt.span(c.createdAt(), c.openAt())}"></span>
+        </th:block>
+        <th:block th:if="${!opened}">
+          <span class="ledger__cd">
+            <th:block th:utext="${@fmt.icon('hourglass')}" />
+            <b class="mono" data-ht-live-cd="amber" th:attr="data-open-at=${@fmt.iso(c.openAt())}" th:text="${@fmt.cdShortAmber(c.openAt())}"></b>
+          </span>
+          <div class="pc__progress">
+            <span th:style="${'width:' + @fmt.progressBarWidth(c.createdAt(), c.openAt())}"></span>
+          </div>
+        </th:block>
+      </div>
+
+      <div class="ledger__fav" th:title="${'被收藏 ' + c.favoriteCount() + ' 次'}">
+        <th:block th:utext="${@fmt.icon('heart')}" />
+        <span class="mono" th:text="${@fmt.num(c.favoriteCount())}"></span>
+      </div>
+      <div class="ledger__act">
+        <a class="btn btn--ghost btn--sm" th:href="${'/capsules/' + c.code()}">查看</a>
+        <button class="btn btn--danger-ghost btn--sm" type="button" data-testid="delete-capsule"
+                th:attr="data-delete-id=${c.id()}, data-delete-code=${c.code()}, data-delete-title=${c.title()}">删除</button>
+      </div>
+    </li>
+  </th:block>
+</th:block>
+
+<!-- 供 /ui/me/created/rows 返回下一页双皮肤台账行 -->
+<th:block th:fragment="createdBoth">
+  <ul data-me-batch="paper">
+    <th:block th:each="c, st : ${items}">
+      <th:block th:replace="~{fragments/me-rows :: paperCreatedRow(c=${c}, idx=${st.index})}" />
+    </th:block>
+  </ul>
+  <ul data-me-batch="amber">
+    <th:block th:each="c, st : ${items}">
+      <th:block th:replace="~{fragments/me-rows :: amberCreatedRow(c=${c}, idx=${st.index})}" />
+    </th:block>
+  </ul>
+</th:block>
+
+<!-- 供 /ui/me/favorites/rows 返回下一页双皮肤收藏卡片 -->
+<th:block th:fragment="favoritesBoth">
+  <div data-me-batch="paper">
+    <th:block th:each="c, st : ${items}">
+      <th:block th:replace="~{fragments/cards :: paperCard(c=${c}, idx=${st.index}, rank=0, testId='fav-item', openTestId='row-open')}" />
+    </th:block>
+  </div>
+  <div data-me-batch="amber">
+    <th:block th:each="c, st : ${items}">
+      <th:block th:replace="~{fragments/cards :: amberCard(c=${c}, idx=${st.index}, rank=0, testId='fav-item', openTestId='row-open')}" />
+    </th:block>
+  </div>
+</th:block>
+
+</body>
+</html>

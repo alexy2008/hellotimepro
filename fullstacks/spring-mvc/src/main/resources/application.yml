@@ -35,7 +35,7 @@ spring:
 
 app:
   service-name: hellotime-pro
-  service-version: 0.1.0
+  service-version: 2.0.0
   db-driver: ${DB_DRIVER:postgres}
   jwt-secret: ${JWT_SECRET:dev-secret-change-me}
   access-token-ttl-seconds: ${ACCESS_TOKEN_TTL_SECONDS:3600}

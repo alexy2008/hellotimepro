@@ -1,108 +1,108 @@
 package com.hellotimepro.springmvc.web.view;
 
-import com.hellotimepro.springmvc.domain.CapsuleEntity;
-import com.hellotimepro.springmvc.domain.FavoriteId;
 import com.hellotimepro.springmvc.domain.UserEntity;
+import com.hellotimepro.springmvc.dto.Dtos.CapsuleDetail;
+import com.hellotimepro.springmvc.dto.Dtos.CapsuleListItem;
 import com.hellotimepro.springmvc.dto.Dtos.Paginated;
-import com.hellotimepro.springmvc.repository.CapsuleRepository;
-import com.hellotimepro.springmvc.repository.FavoriteRepository;
+import com.hellotimepro.springmvc.dto.Dtos.PlazaStats;
 import com.hellotimepro.springmvc.service.CapsuleService;
-import com.hellotimepro.springmvc.service.FavoriteService;
 import com.hellotimepro.springmvc.service.PlazaService;
-import com.hellotimepro.springmvc.web.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Optional;
-import java.util.UUID;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
- * HTMX 片段端点（返回 HTML 片段而非整页）：广场网格搜索、收藏切换、撤回胶囊。
- * 鉴权走 SSR 的 cookie 会话（{@link CookieAuthService}）。
+ * HTMX 与局部 HTML 片段端点：
+ * <ul>
+ *   <li>{@code GET /ui/plaza/grid}：广场搜索 / 筛选 / 排序 / 分页的 HTML 片段替换</li>
+ *   <li>{@code GET /ui/plaza/overview}：广场概览年鉴片段刷新</li>
+ *   <li>{@code GET /ui/capsules/{code}/opened}：详情页倒计时归零、服务端确认已开启后的信笺片段</li>
+ *   <li>{@code GET /ui/me/{kind}/rows}：「我的」列表分页追加的双皮肤条目片段</li>
+ * </ul>
  */
 @Controller
 public class FragmentController {
   private final PlazaService plaza;
-  private final FavoriteService favoriteService;
-  private final CapsuleService capsuleService;
-  private final FavoriteRepository favorites;
-  private final CapsuleRepository capsules;
+  private final CapsuleService capsules;
   private final CookieAuthService cookieAuth;
 
-  public FragmentController(PlazaService plaza, FavoriteService favoriteService, CapsuleService capsuleService,
-      FavoriteRepository favorites, CapsuleRepository capsules, CookieAuthService cookieAuth) {
+  public FragmentController(PlazaService plaza, CapsuleService capsules, CookieAuthService cookieAuth) {
     this.plaza = plaza;
-    this.favoriteService = favoriteService;
-    this.capsuleService = capsuleService;
-    this.favorites = favorites;
     this.capsules = capsules;
     this.cookieAuth = cookieAuth;
   }
 
-  /** 广场网格片段：搜索 / 排序 / 筛选 / 分页时由 HTMX 局部替换 #plaza-grid。 */
   @GetMapping("/ui/plaza/grid")
   public String plazaGrid(@RequestParam(defaultValue = "new") String sort,
       @RequestParam(defaultValue = "all") String filter,
       @RequestParam(required = false) String q,
       @RequestParam(defaultValue = "1") int page,
       HttpServletRequest req, HttpServletResponse res, Model model) {
+    String safeSort = "hot".equals(sort) ? "hot" : "new";
+    String safeFilter = ("opened".equals(filter) || "unopened".equals(filter)) ? filter : "all";
+    int safePage = Math.max(1, page);
+    String safeQ = PublicViewController.clampQuery(q);
+
     String viewerId = cookieAuth.currentUser(req, res).map(u -> u.getId().toString()).orElse(null);
-    Paginated<?> result = plaza.plazaList(sort, filter, q, page, 12, viewerId);
+    Paginated<CapsuleListItem> result = plaza.plazaList(safeSort, safeFilter, safeQ, safePage, 9, viewerId);
+    PlazaStats stats = plaza.plazaStats(safeQ);
+
     model.addAttribute("capsules", result.items());
     model.addAttribute("pagination", result.pagination());
-    return "fragments/plaza-grid :: grid";
+    model.addAttribute("stats", stats);
+    model.addAttribute("sort", safeSort);
+    model.addAttribute("filter", safeFilter);
+    model.addAttribute("q", safeQ);
+    return "fragments/plaza-grid :: results";
   }
 
-  /**
-   * 收藏切换（由创建页/广场的 app.js 以同步 XHR 调用）：返回 JSON 新状态。
-   * 匿名在浏览器侧已拦截并跳登录，这里仅作兜底返回 401。
-   */
-  @PostMapping("/ui/capsules/{id}/favorite-toggle")
-  @ResponseBody
-  public ResponseEntity<FavToggleResult> favoriteToggle(@PathVariable String id,
-      HttpServletRequest req, HttpServletResponse res) {
-    Optional<UserEntity> u = cookieAuth.currentUser(req, res);
-    if (u.isEmpty()) return ResponseEntity.status(401).build();
-    UserEntity user = u.get();
-    UUID cid;
-    try {
-      cid = UUID.fromString(id);
-    } catch (IllegalArgumentException ex) {
-      throw ApiException.notFound("胶囊不存在");
-    }
-    boolean favorited;
-    int count;
-    if (favorites.existsById(new FavoriteId(user.getId(), cid))) {
-      favoriteService.removeFavorite(user, id);
-      favorited = false;
-      count = capsules.findById(cid).map(CapsuleEntity::getFavoriteCount).orElse(0);
-    } else {
-      count = favoriteService.addFavorite(user, id).favoriteCount();
-      favorited = true;
-    }
-    return ResponseEntity.ok(new FavToggleResult(favorited, count));
+  @GetMapping("/ui/plaza/overview")
+  public String plazaOverview(Model model) {
+    model.addAttribute("overview", plaza.plazaStats(null));
+    return "fragments/plaza-grid :: overview";
   }
 
-  public record FavToggleResult(boolean favorited, int favoriteCount) {}
+  @GetMapping("/ui/capsules/{code}/opened")
+  public String openedCapsule(@PathVariable String code,
+      HttpServletRequest req, HttpServletResponse res, Model model) {
+    String viewerId = cookieAuth.currentUser(req, res).map(u -> u.getId().toString()).orElse(null);
+    CapsuleDetail detail = capsules.getByCode(code, viewerId);
+    if (!detail.isOpened()) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "not_opened_yet");
+    }
+    model.addAttribute("capsule", detail);
+    model.addAttribute("reveal", true);
+    return "fragments/capsule-detail :: openedBoth";
+  }
 
-  /** 撤回（删除）自己的胶囊：HTMX 删除对应卡片。 */
-  @DeleteMapping("/ui/capsules/{id}")
-  public ResponseEntity<String> deleteOwn(@PathVariable String id,
-      HttpServletRequest req, HttpServletResponse res) {
+  @GetMapping("/ui/me/{kind}/rows")
+  public String meRows(@PathVariable String kind,
+      @RequestParam(defaultValue = "1") int page,
+      HttpServletRequest req, HttpServletResponse res, Model model) {
     Optional<UserEntity> u = cookieAuth.currentUser(req, res);
     if (u.isEmpty()) {
-      res.setHeader("HX-Redirect", "/login?from=/me/created");
-      return ResponseEntity.ok().build();
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "unauthorized");
     }
-    capsuleService.deleteOwn(u.get(), id);
-    return ResponseEntity.ok("");
+    int safePage = Math.max(1, page);
+    if ("created".equals(kind)) {
+      Paginated<CapsuleListItem> result = plaza.myCapsules(u.get(), safePage, MeViewController.PAGE_SIZE);
+      res.setHeader("X-Total-Count", String.valueOf(result.pagination().total()));
+      model.addAttribute("items", result.items());
+      return "fragments/me-rows :: createdBoth";
+    }
+    if ("favorites".equals(kind)) {
+      Paginated<CapsuleListItem> result = plaza.myFavorites(u.get(), safePage, MeViewController.PAGE_SIZE);
+      res.setHeader("X-Total-Count", String.valueOf(result.pagination().total()));
+      model.addAttribute("items", result.items());
+      return "fragments/me-rows :: favoritesBoth";
+    }
+    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "unknown_kind");
   }
 }

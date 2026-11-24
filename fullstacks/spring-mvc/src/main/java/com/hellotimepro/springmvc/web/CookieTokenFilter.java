@@ -3,7 +3,6 @@ package com.hellotimepro.springmvc.web;
 import com.hellotimepro.springmvc.web.view.CookieAuthService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -16,23 +15,29 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * 让浏览器侧对 {@code /api/v1/*} 的 fetch 调用能用 httpOnly 的 access cookie 鉴权：
- * 当请求缺少 {@code Authorization} 头但带有 {@code ht_access} cookie 时，包装请求把它
- * 注入成 {@code Authorization: Bearer <access>}，复用既有 JSON 控制器的鉴权逻辑。
+ * 让浏览器侧对 {@code /api/v1/*} 的 fetch 调用能用 httpOnly cookie 鉴权：
+ * 当请求缺少 {@code Authorization} 头但带有会话 cookie 时，包装请求注入 {@code Authorization: Bearer <access>}。
  *
- * <p>仅在 Authorization 头缺失时生效——契约黑盒测试发送真实 Bearer 头时此过滤器不介入，
- * 「无鉴权 → 401」用例也不受影响（既无头也无 cookie）。
+ * <p>仅在 Authorization 头缺失时生效——契约黑盒测试发送真实 Bearer 头或无 cookie 时此过滤器不介入。
  */
 @Component
 @Order(10)
 public class CookieTokenFilter extends OncePerRequestFilter {
+  private final CookieAuthService cookieAuth;
+
+  public CookieTokenFilter(CookieAuthService cookieAuth) {
+    this.cookieAuth = cookieAuth;
+  }
 
   @Override
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
       FilterChain chain) throws ServletException, IOException {
+    String uri = request.getRequestURI();
     String existing = request.getHeader("Authorization");
-    if ((existing == null || existing.isBlank()) && request.getRequestURI().startsWith("/api/v1/")) {
-      String access = readCookie(request, CookieAuthService.ACCESS_COOKIE);
+    if ((existing == null || existing.isBlank())
+        && uri.startsWith("/api/v1/")
+        && !uri.startsWith("/api/v1/auth/")) {
+      String access = cookieAuth.resolveAccessForApi(request, response);
       if (access != null && !access.isBlank()) {
         request = new BearerHeaderRequest(request, "Bearer " + access);
       }
@@ -40,16 +45,6 @@ public class CookieTokenFilter extends OncePerRequestFilter {
     chain.doFilter(request, response);
   }
 
-  private static String readCookie(HttpServletRequest req, String name) {
-    Cookie[] cookies = req.getCookies();
-    if (cookies == null) return null;
-    for (Cookie c : cookies) {
-      if (name.equals(c.getName())) return c.getValue();
-    }
-    return null;
-  }
-
-  /** 仅覆盖 Authorization 头的请求包装器。 */
   private static final class BearerHeaderRequest extends HttpServletRequestWrapper {
     private final String authorization;
 

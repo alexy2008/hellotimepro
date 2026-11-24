@@ -2,8 +2,6 @@ package com.hellotimepro.springmvc.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -13,6 +11,9 @@ import java.util.List;
 
 public final class Dtos {
   private Dtos() {}
+
+  /** 标准带连字符的 UUID；请求体（@Pattern）与路径参数（CapsuleIds）共用同一口径。 */
+  public static final String UUID_PATTERN = "[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}";
 
   public record Envelope<T>(boolean success, T data, String message, String errorCode) {
     public static <T> Envelope<T> ok(T data) {
@@ -78,7 +79,7 @@ public final class Dtos {
       Boolean inPlaza
   ) {}
 
-  public record FavoriteRequest(@NotBlank String capsuleId) {}
+  public record FavoriteRequest(@NotBlank @Pattern(regexp = UUID_PATTERN) String capsuleId) {}
 
   public record CapsuleBase(
       String id,
@@ -122,6 +123,13 @@ public final class Dtos {
   ) {}
 
   public record FavoriteResult(String capsuleId, int favoriteCount, OffsetDateTime favoritedAt) {}
+
+  public record PlazaCounts(long all, long opened, long unopened) {}
+
+  public record PlazaStats(PlazaCounts counts, OffsetDateTime farthestOpenAt, OffsetDateTime nextOpenAt) {}
+
+  public record MyStats(long created, long opened, long unopened, long inPlaza,
+      long favoritesReceived, long favoritesGiven) {}
 
   public record StackItem(String role, String name, String version, String iconUrl) {}
 
