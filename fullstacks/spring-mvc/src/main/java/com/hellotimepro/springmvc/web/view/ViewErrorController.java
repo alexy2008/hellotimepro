@@ -17,7 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * 统一处理未匹配路由与容器级错误：
  * <ul>
  *   <li>{@code /api/*} 返回契约格式的 JSON {@link ErrorEnvelope}</li>
- *   <li>其余页面路由返回双皮肤 404 页面（含 {@code data-testid="not-found"}）</li>
+ *   <li>其余页面路由：404 返回双皮肤「查无此页」（含 {@code data-testid="not-found"}），
+ *       其他状态（400 / 500 …）返回同模板里可重试的出错页</li>
  * </ul>
  */
 @Controller
@@ -52,9 +53,14 @@ public class ViewErrorController implements ErrorController {
           .body(new ErrorEnvelope(false, null, httpStatus.getReasonPhrase(), code.name(), null));
     }
 
-    res.setStatus(status == 200 ? 404 : status);
+    int pageStatus = status == 200 ? 404 : status;
+    res.setStatus(pageStatus);
     globalModel.populate(req, res, model, origUri);
-    model.addAttribute("pageTitle", "查无此页 · HelloTime Pro");
+    // 只有 404 才是「查无此页」；其余（400 参数错误、500 服务异常）显示可重试的出错页
+    boolean notFound = pageStatus == 404;
+    model.addAttribute("notFound", notFound);
+    model.addAttribute("errorStatus", pageStatus);
+    model.addAttribute("pageTitle", (notFound ? "查无此页" : "出了点问题") + " · HelloTime Pro");
     return "not-found";
   }
 }

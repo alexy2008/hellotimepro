@@ -1338,7 +1338,8 @@
 
   function resetAfterAgain() {
     createdCapsule = null;
-    draft = freshDraft();
+    // 提交期间改过的草稿仍在存储里则接着写，否则从空白开始
+    draft = loadDraft();
     errors = { title: "", content: "", openAt: "" };
     aiDone = false;
     aiNote = "";
@@ -1375,6 +1376,10 @@
     if (holdHint && busy) holdHint.textContent = "正在封缄…";
   }
 
+  function sameDraftContent(a, b) {
+    return a.title === b.title && a.content === b.content && a.openAt === b.openAt && a.inPlaza === b.inPlaza;
+  }
+
   async function submitCapsule() {
     if (submitPending || !validate()) return null;
     submitPending = true;
@@ -1391,7 +1396,10 @@
         },
       });
       createdCapsule = c;
-      try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
+      // 只清空本次提交的草稿版本：请求期间又改过的内容已由 saveDraft 存下，留给「再写一枚」恢复
+      if (sameDraftContent(draft, snapshot)) {
+        try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
+      }
       renderReceipts(c);
       return c;
     } catch (err) {

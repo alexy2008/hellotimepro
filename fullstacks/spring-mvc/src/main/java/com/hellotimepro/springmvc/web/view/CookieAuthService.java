@@ -10,6 +10,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 
 /**
@@ -24,7 +27,11 @@ public class CookieAuthService {
   public static final String REFRESH_COOKIE = "ht_refresh";
   private static final String REQ_USER_ATTR = "ht.resolved.user";
   private static final String REQ_ACCESS_ATTR = "ht.resolved.access";
+  private static final long ROTATION_GRACE_MS = 10_000;
 
+  private record Rotation(CompletableFuture<AuthTokens> future, long startedAt) {}
+
+  private final ConcurrentHashMap<String, Rotation> rotations = new ConcurrentHashMap<>();
   private final SecurityService security;
   private final UserRepository users;
   private final AuthService auth;
@@ -64,7 +71,7 @@ public class CookieAuthService {
     String refresh = readCookie(req, REFRESH_COOKIE);
     if (refresh != null && !refresh.isBlank() && res != null) {
       try {
-        AuthTokens tokens = auth.refresh(refresh);
+        AuthTokens tokens = rotateOnce(refresh);
         setAuthCookies(res, tokens);
         req.setAttribute(REQ_ACCESS_ATTR, tokens.accessToken());
         resolved = users.findById(UUID.fromString(tokens.user().id()));
@@ -92,7 +99,7 @@ public class CookieAuthService {
     String refresh = readCookie(req, REFRESH_COOKIE);
     if (refresh != null && !refresh.isBlank() && res != null) {
       try {
-        AuthTokens tokens = auth.refresh(refresh);
+        AuthTokens tokens = rotateOnce(refresh);
         setAuthCookies(res, tokens);
         return tokens.accessToken();
       } catch (RuntimeException ex) {
@@ -100,6 +107,39 @@ public class CookieAuthService {
       }
     }
     return access;
+  }
+
+  /**
+   * 同一个 refresh cookie 只轮换一次：并发请求（多标签页同时恢复、连点收藏）共用第一次轮换的结果。
+   *
+   * <p>request attribute 只能管住同一请求内部；跨请求时第二个请求若再拿旧 refresh 调
+   * {@link AuthService#refresh}，会被当成重放而吊销整个令牌家族。这里按 refresh 哈希做进程内单飞，
+   * 结果（成功或失败）保留 {@link #ROTATION_GRACE_MS}，覆盖浏览器拿到新 cookie 之前发出的请求。
+   */
+  private AuthTokens rotateOnce(String refresh) {
+    long now = System.currentTimeMillis();
+    rotations.entrySet().removeIf(e -> e.getValue().future().isDone()
+        && now - e.getValue().startedAt() > ROTATION_GRACE_MS);
+
+    String key = security.hashRefreshToken(refresh);
+    Rotation fresh = new Rotation(new CompletableFuture<>(), now);
+    Rotation current = rotations.compute(key, (k, old) ->
+        old != null && (!old.future().isDone() || now - old.startedAt() <= ROTATION_GRACE_MS) ? old : fresh);
+
+    if (current == fresh) {
+      try {
+        AuthTokens tokens = auth.refresh(refresh);
+        fresh.future().complete(tokens);
+      } catch (RuntimeException ex) {
+        fresh.future().completeExceptionally(ex);
+      }
+    }
+    try {
+      return current.future().join();
+    } catch (CompletionException ex) {
+      if (ex.getCause() instanceof RuntimeException cause) throw cause;
+      throw ex;
+    }
   }
 
   public void setAuthCookies(HttpServletResponse res, AuthTokens tokens) {

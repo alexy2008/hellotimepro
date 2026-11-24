@@ -9,8 +9,11 @@ import com.hellotimepro.springmvc.service.CapsuleService;
 import com.hellotimepro.springmvc.service.PlazaService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.hellotimepro.springmvc.web.ApiException;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,6 +40,15 @@ public class FragmentController {
     this.plaza = plaza;
     this.capsules = capsules;
     this.cookieAuth = cookieAuth;
+  }
+
+  /**
+   * 片段端点里的业务异常按其状态码返回（如胶囊已被删除 → 404），
+   * 否则会落到容器变成 500，详情页的启封轮询就认不出 404、无限重试。
+   */
+  @ExceptionHandler(ApiException.class)
+  public ResponseEntity<Void> apiError(ApiException ex) {
+    return ResponseEntity.status(ex.getStatus()).build();
   }
 
   @GetMapping("/ui/plaza/grid")

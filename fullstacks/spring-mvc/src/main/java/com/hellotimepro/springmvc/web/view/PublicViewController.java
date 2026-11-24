@@ -8,6 +8,7 @@ import com.hellotimepro.springmvc.dto.Dtos.PlazaStats;
 import com.hellotimepro.springmvc.service.CapsuleService;
 import com.hellotimepro.springmvc.service.PlazaService;
 import com.hellotimepro.springmvc.web.ApiException;
+import com.hellotimepro.springmvc.web.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
@@ -109,6 +110,8 @@ public class PublicViewController {
       model.addAttribute("reveal", false);
       return "capsule-detail";
     } catch (ApiException ex) {
+      // 只有「码不存在 / 码格式不对」才是查无此码；其余失败交给错误页，提供重试
+      if (ex.getCode() != ErrorCode.NOT_FOUND && ex.getCode() != ErrorCode.VALIDATION_ERROR) throw ex;
       model.addAttribute("pageTitle", "查无此信 · HelloTime Pro");
       model.addAttribute("capsule", null);
       model.addAttribute("missing", true);

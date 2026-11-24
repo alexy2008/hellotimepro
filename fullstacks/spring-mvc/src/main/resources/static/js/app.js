@@ -1575,7 +1575,7 @@
           if (res.status === 200) {
             return await res.text();
           }
-          if (res.status === 404) {
+          if (res.status === 404 || res.status === 422) {
             window.location.reload();
             return null;
           }
@@ -2039,6 +2039,7 @@
     const pageSize = parseInt(meRoot.dataset.pageSize, 10) || 20;
     let total = parseInt(meRoot.dataset.total, 10) || 0;
     let moreBusy = false;
+    let autoLoadPaused = false;
 
     async function refreshStats() {
       try {
@@ -2090,7 +2091,8 @@
         return;
       }
 
-      if (shown === 0 && total > 0) {
+      // 当前页删空后自动补读一次；失败或没拿到新条目就停下，改由「加载更多」按钮手动重试，避免死循环
+      if (shown === 0 && total > 0 && !autoLoadPaused) {
         void loadMoreRows(1);
         return;
       }
@@ -2138,6 +2140,7 @@
 
         const html = await res.text();
         const doc = new DOMParser().parseFromString(html, "text/html");
+        const before = shown;
         ["paper", "amber"].forEach((sk) => {
           const list = meRoot.querySelector(`[data-ht-me-list="${sk}"]`);
           const batch = doc.querySelector(`[data-me-batch="${sk}"]`);
@@ -2152,7 +2155,9 @@
           });
         });
         syncSkinDom(meRoot);
+        autoLoadPaused = countShown() <= before;
       } catch {
+        autoLoadPaused = true;
         toast("加载失败，请稍后再试", { tone: "error" });
       } finally {
         moreBusy = false;
