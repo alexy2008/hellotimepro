@@ -37,11 +37,11 @@ class ApiV2RegressionTest extends TestCase
         DB::statement('PRAGMA foreign_keys = OFF');
     }
 
-    private function registerUser(string $email, string $nickname): array
+    private function registerUser(string $email, string $nickname, string $password = 'Pass1234!'): array
     {
         $res = $this->postJson('/api/v1/auth/register', [
             'email' => $email,
-            'password' => 'Pass1234!',
+            'password' => $password,
             'nickname' => $nickname,
             'avatarId' => 'neo',
         ]);
@@ -230,5 +230,33 @@ class ApiV2RegressionTest extends TestCase
         $this->assertNull($item['contentPreview']);
         $this->assertArrayHasKey('favoritedAt', $item);
         $this->assertNull($item['favoritedAt']);
+    }
+
+    public function test_login_and_change_password_accept_2a_and_2b_bcrypt_hashes(): void
+    {
+        $u = $this->registerUser('cross-bcrypt@example.com', '跨栈密码测试', 'HelloTime2026!');
+        $baseHash = (string) DB::table('users')->where('email', 'cross-bcrypt@example.com')->value('password_hash');
+
+        foreach (['$2a$', '$2b$'] as $prefix) {
+            $crossHash = $prefix . substr($baseHash, 4);
+            DB::table('users')->where('email', 'cross-bcrypt@example.com')->update(['password_hash' => $crossHash]);
+
+            $this->postJson('/api/v1/auth/login', [
+                'email' => 'cross-bcrypt@example.com',
+                'password' => 'HelloTime2026!',
+            ])->assertOk()->assertJsonPath('success', true);
+
+            $this->postJson('/api/v1/auth/login', [
+                'email' => 'cross-bcrypt@example.com',
+                'password' => 'WrongPass123!',
+            ])->assertStatus(401)->assertJsonPath('errorCode', 'UNAUTHORIZED');
+        }
+
+        // $2a$ 哈希用户同样可以正常修改密码
+        $this->withHeader('Authorization', 'Bearer ' . $u['accessToken'])
+            ->postJson('/api/v1/me/password', [
+                'currentPassword' => 'HelloTime2026!',
+                'newPassword' => 'NewPass2026!',
+            ])->assertNoContent();
     }
 }

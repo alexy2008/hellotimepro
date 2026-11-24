@@ -90,7 +90,7 @@ class AuthService
         }
 
         $user = User::where('email', $email)->first();
-        if (!$user || !Hash::check((string) ($body['password'] ?? ''), $user->password_hash)) {
+        if (!$user || !$this->verifyPassword((string) ($body['password'] ?? ''), $user->password_hash)) {
             RateLimiter::hit($key, self::LOGIN_DECAY);
             throw new ApiError(401, 'UNAUTHORIZED', '邮箱或密码不正确');
         }
@@ -193,7 +193,7 @@ class AuthService
 
     public function changePassword(User $user, array $body): void
     {
-        if (!Hash::check((string) ($body['currentPassword'] ?? ''), $user->password_hash)) {
+        if (!$this->verifyPassword((string) ($body['currentPassword'] ?? ''), $user->password_hash)) {
             throw new ApiError(401, 'UNAUTHORIZED', '当前密码错误');
         }
         $next = (string) ($body['newPassword'] ?? '');
@@ -209,6 +209,19 @@ class AuthService
         RefreshToken::where('user_id', $user->id)
             ->whereNull('revoked_at')
             ->update(['revoked_at' => $this->db->nowDb()]);
+    }
+
+    /**
+     * 跨技术栈密码校验：PHP 原生 password_verify() 同时支持 $2a$（Go/Java/Node/Ruby）、
+     * $2b$（Python/种子数据）与 $2y$（PHP），避免 Laravel BcryptHasher 的 algorithm 检查
+     * 在遇到非 $2y$ 前缀时抛出 RuntimeException。
+     */
+    private function verifyPassword(string $plain, ?string $hashed): bool
+    {
+        if ($hashed === null || $hashed === '') {
+            return false;
+        }
+        return password_verify($plain, $hashed);
     }
 
     /** 签发 access + refresh token 对；familyId 非空表示沿用同一家族（轮转）。 */
