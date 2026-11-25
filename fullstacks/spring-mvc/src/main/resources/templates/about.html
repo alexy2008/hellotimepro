@@ -16,7 +16,7 @@
           </h1>
           <div class="about__lede">
             <p>HelloTime Pro 是一款时间胶囊应用：写下一段话，设定未来某一刻才能开启，封存之后不可修改。它有胶囊广场、AI 代笔、收藏与账号。</p>
-            <p>它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的服务端模板与后端技术栈同源实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。</p>
+            <p>它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的界面层与服务端同源实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。</p>
           </div>
         </header>
 
@@ -25,17 +25,17 @@
             <span class="sechead__no">壹</span>
             <div>
               <h2 class="h2">此刻运行的技术栈</h2>
-              <p>页脚与这里展示的内容，均来自本全栈服务的健康检查元数据。</p>
+              <p>页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
             </div>
           </header>
           <div class="about__live">
-            <span class="dot dot--on"></span>后端在线<i></i><span class="mono">GET /api/v1/health</span>
+            <span class="dot dot--on"></span>服务在线<i></i><span class="mono">GET /api/v1/health</span>
           </div>
           <div class="about__stack" data-testid="about-stack">
             <article class="spec">
               <header class="spec__head">
                 <div>
-                  <div class="spec__k">视图层</div>
+                  <div class="spec__k">界面层</div>
                   <h3 class="spec__t serif">Thymeleaf + HTMX</h3>
                 </div>
                 <span class="spec__sub mono">fullstacks/spring-mvc</span>
@@ -58,7 +58,7 @@
             <article class="spec">
               <header class="spec__head">
                 <div>
-                  <div class="spec__k">全栈内核</div>
+                  <div class="spec__k">服务端</div>
                   <h3 class="spec__t serif">Spring MVC</h3>
                 </div>
                 <span class="spec__sub mono" th:text="${stackInfo.kind()}"></span>
@@ -157,14 +157,14 @@
         <section class="about__sec">
           <div class="eyebrow">Tech stack</div>
           <h2 class="section-title">此刻运行的技术栈</h2>
-          <p class="page-lead">页脚和这里展示的内容，都来自本全栈服务的健康检查接口。</p>
+          <p class="page-lead">页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
           <div class="about__live">
-            <span class="ftr__dot"></span>后端在线 · <span class="mono">GET /api/v1/health</span>
+            <span class="ftr__dot"></span>服务在线 · <span class="mono">GET /api/v1/health</span>
           </div>
           <div class="about__stacks" data-testid="about-stack">
             <article class="card card--pad stack-card">
-              <div class="eyebrow">SSR View</div>
-              <h2 class="card__title">视图层<small class="mono">fullstacks/spring-mvc</small></h2>
+              <div class="eyebrow">Interface</div>
+              <h2 class="card__title">界面层 · Thymeleaf + HTMX<small class="mono">fullstacks/spring-mvc</small></h2>
               <p class="card__lead" th:text="${frontendSummary}"></p>
               <ul class="stack-list">
                 <th:block th:each="it : ${frontendStack}">
@@ -183,8 +183,8 @@
             </article>
 
             <article class="card card--pad stack-card">
-              <div class="eyebrow">Fullstack</div>
-              <h2 class="card__title">后端 · Spring MVC<small class="mono" th:text="${stackInfo.kind()}"></small></h2>
+              <div class="eyebrow">Server</div>
+              <h2 class="card__title">服务端 · Spring MVC<small class="mono" th:text="${stackInfo.kind()}"></small></h2>
               <p class="card__lead" th:text="${stackInfo.summary()}"></p>
               <ul class="stack-list">
                 <th:block th:each="it : ${stackInfo.items()}">

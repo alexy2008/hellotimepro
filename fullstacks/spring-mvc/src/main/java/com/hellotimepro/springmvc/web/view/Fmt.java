@@ -94,6 +94,7 @@ public class Fmt {
       "styling", "样式",
       "build", "构建",
       "state", "状态管理",
+      "template", "模板引擎",
       "enhancement", "渐进增强"
   );
 
