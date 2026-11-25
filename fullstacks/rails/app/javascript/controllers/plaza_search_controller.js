@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 import { syncSkinHooks } from "lib/skin_view";
-import { fragment, reducedMotion } from "lib/ui";
+import { api, fragment, reducedMotion } from "lib/ui";
 
 export default class extends Controller {
   static targets = ["search", "filter", "sort", "sortSelect", "panel", "errorTemplate", "loadingTemplate"];
@@ -18,8 +18,50 @@ export default class extends Controller {
 
   disconnect() {
     clearTimeout(this.debounce);
+    clearTimeout(this.expireTimer);
     this.request?.abort();
+    this.overviewRequest?.abort();
     this.observer.disconnect();
+  }
+
+  onCapsuleExpired() {
+    clearTimeout(this.expireTimer);
+    this.expireTimer = setTimeout(() => {
+      if (!this.element.isConnected) return;
+      this.load(this.pageValue);
+      this.refreshOverview();
+    }, 300);
+  }
+
+  async refreshOverview() {
+    this.overviewRequest?.abort();
+    const request = new AbortController();
+    this.overviewRequest = request;
+    try {
+      const overview = await api("/plaza/stats", { signal: request.signal });
+      if (request.signal.aborted || !this.element.isConnected) return;
+      const stats = document.querySelector('[data-testid="plaza-stats"]');
+      if (!stats) return;
+      const values = {
+        all: overview.counts.all,
+        unopened: overview.counts.unopened,
+        opened: overview.counts.opened,
+        farthestYear: overview.farthestOpenAt ? new Date(overview.farthestOpenAt).getUTCFullYear() : null,
+      };
+      for (const [key, value] of Object.entries(values)) {
+        const cell = stats.querySelector(`[data-testid="stat"][data-key="${key}"]`);
+        if (!cell) continue;
+        if (value == null) {
+          cell.remove();
+        } else {
+          cell.dataset.value = String(value);
+          const num = cell.querySelector("b");
+          if (num) num.textContent = String(value);
+        }
+      }
+    } catch {
+      // 概览刷新失败时静默保留现有数字。
+    }
   }
 
   input(event) {
@@ -99,13 +141,8 @@ export default class extends Controller {
 
   showLoading() {
     this.panelTarget.setAttribute("aria-busy", "true");
-    const cards = this.panelTarget.querySelector(".grid");
-    if (this.panelTarget.querySelector("[data-plaza-counts]") && cards) {
-      cards.classList.add("is-busy");
-      cards.inert = true;
-    } else {
-      this.panelTarget.replaceChildren(this.loadingTemplateTarget.content.cloneNode(true));
-    }
+    // X8：列表加载完成前不渲染 capsule-card，统一展示骨架。
+    this.panelTarget.replaceChildren(this.loadingTemplateTarget.content.cloneNode(true));
     this.filterTargets.forEach((button) => this.setCount(button, null));
   }
 

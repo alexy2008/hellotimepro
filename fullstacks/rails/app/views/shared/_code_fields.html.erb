@@ -1,7 +1,7 @@
 <div class="code <%= compact ? "code--sm code--md" : "code--lg" %>" data-code-input-target="cells">
   <input class="code__native code-entry" aria-label="胶囊码" name="code" inputmode="text" autocapitalize="characters"
          disabled autocomplete="off" spellcheck="false" data-testid="code-input" data-code-input-target="input"
-         data-action="input->code-input#input focus->code-input#focus blur->code-input#focus">
+         data-action="input->code-input#input compositionend->code-input#input focus->code-input#focus blur->code-input#focus">
   <div class="code__cells code-display" aria-hidden="true">
     <% 8.times do |index| %>
       <% if index == 4 %><span class="code__dash" data-skin-only="paper"></span><% end %>

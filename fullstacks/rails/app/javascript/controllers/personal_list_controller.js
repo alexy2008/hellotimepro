@@ -11,6 +11,8 @@ export default class extends Controller {
 
   more() { this.refresh(this.count + this.pageSizeValue); }
 
+  retry() { this.refresh(Math.max(this.count, this.pageSizeValue)); }
+
   async remove({ currentTarget }) {
     if (this.deleting) return;
     const { id, title, code } = currentTarget.dataset;

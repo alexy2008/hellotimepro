@@ -18,7 +18,11 @@
           <% end %>
           <p class="<%= "page-lead" unless paper %>">
             <% if missing_capsule %>
-              没有找到胶囊码为 <b class="mono"><%= params[:code].to_s.upcase %></b> 的胶囊。<br>也许是码抄错了一位，也许它已经被作者删除了。
+              <% if paper %>
+                没有找到胶囊码为 <b class="mono"><%= params[:code].to_s.upcase %></b> 的胶囊。<br>它也可能已经被作者删除了。
+              <% else %>
+                没有找到胶囊码为 <b class="mono"><%= params[:code].to_s.upcase %></b> 的胶囊。<br>也许是码抄错了一位，也许它已经被作者删除了。
+              <% end %>
             <% else %>
               这个地址没有对应的页面。<% if paper %><br><% end %>也许是链接抄错了一位，也许它从未存在过。
             <% end %>

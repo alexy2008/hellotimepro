@@ -6,6 +6,10 @@ import { placeMeTabs, placeSelection, syncSkinHooks } from "lib/skin_view";
 import { syncDraftOwner } from "lib/draft";
 
 const root = document.documentElement;
+const THEME_COLOR = {
+  paper: { light: "#F3EFE5", dark: "#131210" },
+  amber: { light: "#faf5ea", dark: "#080b1a" },
+};
 
 export default class extends Controller {
   static targets = ["skinOption", "themeButton", "menu", "header"];
@@ -93,6 +97,9 @@ export default class extends Controller {
     const dark = root.dataset.theme === "dark";
     this.themeButtonTarget.setAttribute("aria-checked", String(dark));
     this.themeButtonTarget.setAttribute("aria-label", dark ? "切换到日间主题" : "切换到夜间主题");
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const color = THEME_COLOR[root.dataset.skin]?.[root.dataset.theme];
+    if (meta && color) meta.setAttribute("content", color);
   }
 
   placeNavInk() {

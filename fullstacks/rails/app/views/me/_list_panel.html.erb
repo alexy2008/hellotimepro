@@ -1,6 +1,12 @@
 <%= render "me/overview" %>
 <section class="me__body is-swap" aria-label="<%= @tab == :created ? "我创建的" : "我收藏的" %>" data-tab="<%= @tab %>">
-  <% if @items.empty? %>
+  <% if @list_error %>
+    <div class="empty empty--inline" data-testid="list-error" role="alert">
+      <h2 class="empty__title">暂时无法加载列表</h2>
+      <p>没能读取到数据，请稍后重试。</p>
+      <button class="btn btn--ghost" type="button" data-testid="list-retry" data-action="personal-list#retry"><%= icon "refresh" %> 重试</button>
+    </div>
+  <% elsif @items.empty? %>
     <div class="empty empty--inline" data-testid="list-empty">
       <span class="seal seal--line" data-skin-only="paper"><%= @tab == :created ? "写" : "藏" %></span>
       <div data-skin-only="amber"><%= render "skins/amber/capsule_art", code: nil, opened: false, width: 174 %></div>

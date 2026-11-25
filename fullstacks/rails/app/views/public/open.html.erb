@@ -13,7 +13,7 @@
         <p class="page-lead">输入 8 位胶囊码。到了开启时间，就能读到里面的话；还没到，就陪它一起倒数。</p>
       </header>
       <form class="open__form card" action="/open" data-controller="code-input" data-code-input-autofocus-value="true"
-            data-action="submit->code-input#submit hellotime:skin@document->code-input#cancel turbo:before-visit@document->code-input#cancel">
+            data-action="submit->code-input#submit turbo:before-visit@document->code-input#cancel">
         <%= render "shared/code_fields", compact: false %>
         <div class="open__err openp__err" role="alert" data-code-input-target="error"></div>
         <div class="openp__act">
@@ -32,11 +32,19 @@
           <header class="mylist__head"><h2>我封存过的胶囊</h2><%= link_to "全部 →", me_created_path, class: "link-btn" %></header>
           <ul>
             <% @recent.each do |capsule| %>
-              <li><%= link_to capsule_path(capsule[:code]), class: "crow mylist__row", data: capsule_attrs(capsule).merge(testid: "my-sealed-item") do %>
+              <li><%= link_to capsule_path(capsule[:code]), class: "crow mylist__row",
+                              style: "--glow: oklch(0.72 0.17 #{capsule_hue(capsule[:code])} / 0.34)",
+                              data: capsule_attrs(capsule).merge(testid: "my-sealed-item") do %>
                 <span data-skin-only="amber"><%= render "skins/amber/capsule_art", code: capsule[:code], opened: capsule[:isOpened], width: 72 %></span>
                 <span class="seal seal--<%= capsule[:isOpened] ? "line" : "solid" %>" data-skin-only="paper"><%= capsule[:isOpened] ? "启" : "封" %></span>
                 <span class="crow__info mylist__info"><b><%= capsule[:title] %></b><span class="mono"><%= capsule[:code] %></span></span>
-                <span class="mylist__st badge badge--<%= capsule[:isOpened] ? "opened" : "locked" %>"><%= capsule[:isOpened] ? "已开启" : "封存中" %></span><%= icon "chev-right", "crow__go" %>
+                <% if capsule[:isOpened] %>
+                  <span class="mylist__st badge badge--opened"><span data-skin-only="amber"><%= icon "mail" %></span> 已开启</span>
+                <% else %>
+                  <span class="mylist__st" data-skin-only="paper">距启封 <%= duration_words(Time.current.iso8601, capsule[:openAt]) %></span>
+                  <span class="badge badge--locked" data-skin-only="amber"><%= icon "lock" %> <%= render "shared/compact_countdown", open_at: capsule[:openAt] %> 后</span>
+                <% end %>
+                <%= icon "chev-right", "crow__go" %>
               <% end %></li>
             <% end %>
           </ul>

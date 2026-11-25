@@ -40,6 +40,8 @@
               <text class="clock__bz clock__bz-n" x="110" y="-5.5" transform="<%= rotation %>"><%= index %></text>
             <% elsif index.multiple_of?(5) %>
               <rect class="clock__bz" x="109.3" y="-8.5" width="1.4" height="6" rx=".5" transform="<%= rotation %>"/>
+            <% elsif index < 15 %>
+              <rect class="clock__bz" x="109.6" y="-7.5" width=".8" height="3.5" transform="<%= rotation %>"/>
             <% else %>
               <circle class="clock__bz" cx="110" cy="-5.5" r=".7" transform="<%= rotation %>"/>
             <% end %>

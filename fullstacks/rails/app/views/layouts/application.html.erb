@@ -1,15 +1,24 @@
 <!doctype html>
-<html lang="zh-CN" data-skin="paper" data-theme="light">
+<html lang="zh-CN" data-skin="amber" data-theme="dark">
   <head>
-    <title>HelloTime Pro · 时间胶囊</title>
+    <title>HelloTime Pro · 把此刻寄给未来</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#080b1a">
     <meta name="turbo-cache-control" content="no-cache">
     <script>
       try {
-        const skin = localStorage.getItem("hellotime.skin");
-        const theme = localStorage.getItem("hellotime.theme");
-        if (skin === "amber" || skin === "paper") document.documentElement.dataset.skin = skin;
-        if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
+        var root = document.documentElement;
+        var skin = localStorage.getItem("hellotime.skin");
+        var theme = localStorage.getItem("hellotime.theme");
+        if (skin !== "paper" && skin !== "amber") skin = "amber";
+        if (theme !== "dark" && theme !== "light") {
+          theme = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        }
+        root.dataset.skin = skin;
+        root.dataset.theme = theme;
+        var colors = { paper: { light: "#F3EFE5", dark: "#131210" }, amber: { light: "#faf5ea", dark: "#080b1a" } };
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", colors[skin][theme]);
       } catch {}
     </script>
     <%= csrf_meta_tags %>

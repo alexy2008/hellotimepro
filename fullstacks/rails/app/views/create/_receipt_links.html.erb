@@ -2,7 +2,9 @@
   查看这枚胶囊 <%= icon "arrow" %>
 <% end %>
 <% if action_name == "create" && request.format.html? %>
-  <%= link_to "再写一枚", create_path, class: "btn btn--ghost", data: { view_testid: "receipt-again" } %>
+  <%= button_to create_path, method: :get, class: "btn btn--ghost", data: { view_testid: "receipt-again" } do %>
+    再写一枚 <%= icon(skin == "paper" ? "pen" : "plus") %>
+  <% end %>
 <% else %>
   <button class="<%= skin == "paper" ? "linkbtn" : "link-btn" %>" type="button" data-view-testid="receipt-again" data-create-again>
     再写一枚 <%= icon(skin == "paper" ? "pen" : "plus") %>

@@ -10,7 +10,7 @@ module CapsuleService
     now = Time.now.utc
     validate_open_at!(open_at, now)
 
-    in_plaza = params[:inPlaza].nil? ? true : !!params[:inPlaza]
+    in_plaza = Validation.boolean(params[:inPlaza], "inPlaza", default: true)
 
     capsule = create_with_unique_code(owner: owner, title: title, content: content, open_at: open_at,
                                       in_plaza: in_plaza, favorite_count: 0, created_at: now, updated_at: now)

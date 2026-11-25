@@ -2,7 +2,7 @@
    password = options[:type] == "password"
    nickname = name == "nickname"
    new_password = %w[password newPassword].include?(name) && options[:autocomplete] == "new-password"
-   account_target = { "nickname" => "nickname", "confirmPassword" => "confirm" }[name]
+   account_target = { "nickname" => "nickname", "currentPassword" => "current", "confirmPassword" => "confirm" }[name]
    account_target = "password" if new_password
    glyph = password ? "lock" : (nickname ? "user" : "mail") %>
 <div class="field" data-controller="<%= "password-field" if password %>">

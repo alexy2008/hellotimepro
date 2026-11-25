@@ -15,7 +15,9 @@
           <div class="field field--plain">
             <span class="field__label">头像</span><%= render "shared/avatar_picker", selected: @profile_error ? params[:avatarId] : @user.avatar_id, nested: false %>
           </div>
-          <% if @profile_error %><div class="form__err" role="alert"><%= @profile_error %></div><% end %>
+          <div id="profile-form-error" data-account-form-target="formError">
+            <%= render "me/form_error", message: @profile_error if @profile_error %>
+          </div>
           <div class="pane__act card__act">
             <button class="btn btn--ghost" type="button" data-action="account-form#resetProfile avatar-picker#reset">重置</button>
             <button class="btn btn--primary" type="submit" data-testid="profile-save">保存更改</button>
@@ -34,7 +36,9 @@
           <%= render "shared/account_field", label: "再输一次新密码", name: "confirmPassword", type: "password", autocomplete: "new-password", testid: "pwd-confirm" %>
           <div class="field__hint form__err" role="alert" data-field="confirm" data-account-form-target="error"
                <%= @confirm_error ? 'data-testid=field-error' : 'hidden' %>>两次输入的新密码不一致</div>
-          <% if @password_error %><div class="form__err" role="alert"><%= @password_error %></div><% end %>
+          <div id="password-form-error" data-account-form-target="formError">
+            <%= render "me/form_error", message: @password_error if @password_error %>
+          </div>
           <p class="pane__fine tip tip--quiet"><%= icon "shield" %><span>更新密码后需要重新登录。</span></p>
           <div class="pane__act card__act"><button class="btn btn--primary" type="submit" data-testid="pwd-submit">更新密码</button></div>
         <% end %>

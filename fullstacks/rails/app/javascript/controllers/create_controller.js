@@ -243,7 +243,10 @@ export default class extends Controller {
       this.setAiState(true);
       if (!calledWithTitle && result.title) await this.type("title", KEEP(result.title, TITLE_LIMIT), 1, signal);
       const suggested = Date.parse(result.openAt);
-      if (Number.isFinite(suggested)) this.setTime(Math.max(suggested, minOpen() + 30_000), null);
+      if (Number.isFinite(suggested)) {
+        this.setTime(Math.max(suggested, minOpen() + 30_000), null);
+        this.save();
+      }
       await this.type("content", KEEP(result.content, CONTENT_LIMIT), 3, signal);
       this.setError("content");
       this.write("aiNote", `已为你代笔 · 建议 ${result.openInDays} 天后开启`, "textContent");

@@ -54,7 +54,7 @@ class PublicController < ApplicationController
     now = Time.now.utc
     @stats = PlazaService.plaza_stats(q: @q, now: now)
     result = PlazaService.plaza_list(sort: @sort, filter: @filter, q: @q, page: @page,
-                                    page_size: 15, viewer_id: current_user&.id, now: now)
+                                    page_size: 9, viewer_id: current_user&.id, now: now)
     @items = result[:items]
     @pagination = result[:pagination]
   rescue ApiError, ActiveRecord::ActiveRecordError => e

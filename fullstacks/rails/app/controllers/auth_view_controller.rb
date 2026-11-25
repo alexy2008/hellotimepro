@@ -6,8 +6,9 @@ class AuthViewController < ApplicationController
   end
 
   def do_login
-    set_auth_cookies(AuthService.login(email: params[:email], password: params[:password]))
-    redirect_to @return_path || me_created_path, status: :see_other
+    tokens = AuthService.login(email: params[:email], password: params[:password])
+    set_auth_cookies(tokens)
+    redirect_to @return_path || me_created_path, status: :see_other, flash: { success: "欢迎回来，#{tokens[:user][:nickname]}" }
   rescue ApiError => e
     @error = e.status == 429 ? e.message : "邮箱或密码不正确"
     @email = params[:email]
@@ -18,11 +19,13 @@ class AuthViewController < ApplicationController
   end
 
   def do_register
-    set_auth_cookies(AuthService.register(
+    nickname = params[:nickname].to_s.strip
+    tokens = AuthService.register(
       email: params[:email], password: params[:password],
-      nickname: params[:nickname], avatarId: params[:avatarId],
-    ))
-    redirect_to @return_path || create_path, status: :see_other
+      nickname: nickname, avatarId: params[:avatarId],
+    )
+    set_auth_cookies(tokens)
+    redirect_to @return_path || create_path, status: :see_other, flash: { success: "你好，#{tokens[:user][:nickname]}" }
   rescue ApiError => e
     @error = e.message
     @email = params[:email]

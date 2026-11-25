@@ -14,7 +14,7 @@
           <a class="btn btn--ghost btn--lg" href="#plaza">逛逛胶囊广场 <%= icon "arrow", "ic--go" %></a>
         </div>
         <form class="hquick quick card" action="/open" data-controller="code-input"
-              data-action="submit->code-input#submit hellotime:skin@document->code-input#cancel turbo:before-visit@document->code-input#cancel">
+              data-action="submit->code-input#submit turbo:before-visit@document->code-input#cancel">
           <p class="hquick__k quick__k"><%= icon "key" %> 已有胶囊码？在这里开启</p>
           <div class="hquick__row quick__row">
             <%= render "shared/code_fields", compact: true %>
@@ -27,6 +27,7 @@
           <span class="hero__now-k" data-skin-only="paper">此刻</span><span data-skin-only="amber">此刻 ·</span>
           <span data-skin-only="paper" data-controller="local-time" data-local-time-calendar-value="true"><%= Time.current.strftime("%Y年%m月%d日") %></span>
           <time class="mono hero__now-t" data-controller="local-time" data-local-time-live-value="true" data-local-time-clock-value="true"><%= Time.current.strftime("%H:%M:%S") %></time>
+          <span class="hero__lunar" data-skin-only="paper" data-controller="local-time" data-local-time-lunar-value="true"></span>
         </div>
       </div>
       <div class="hero__art" data-hero-art-target="art">
@@ -53,6 +54,7 @@
   </section>
 
   <section class="wrap container plaza" id="plaza" data-controller="plaza-search"
+           data-action="clock:expired@document->plaza-search#onCapsuleExpired"
            data-plaza-search-page-value="<%= @page %>" data-plaza-search-filter-value="<%= @filter %>"
            data-plaza-search-sort-value="<%= @sort %>" data-plaza-search-fragment-value="<%= ui_plaza_grid_path %>">
     <header class="plaza__head" data-skin-only="paper">

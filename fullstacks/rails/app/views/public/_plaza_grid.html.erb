@@ -19,7 +19,7 @@
       </div>
     <% else %>
       <% @items.each_with_index do |capsule, index| %>
-        <%= render "public/capsule_card", capsule: capsule, index: index, rank: (@sort == "hot" && @q.blank? && @filter == "all" && @page == 1 && index < 3 ? index + 1 : nil) %>
+        <%= render "public/capsule_card", capsule: capsule, index: index, rank: (@sort == "hot" && @q.blank? && @page == 1 && index < 3 ? index + 1 : nil) %>
       <% end %>
     <% end %>
   </div>

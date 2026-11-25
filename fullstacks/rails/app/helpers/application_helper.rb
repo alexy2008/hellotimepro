@@ -66,18 +66,39 @@ module ApplicationHelper
     tag.span(AvatarService.svg(id).html_safe, class: ["av", classes], style: "--av: #{color}", "aria-hidden": "true")
   end
 
+  TECH_NOTES = {
+    "Ruby" => "注重表达力与开发体验的动态面向对象语言",
+    "Ruby on Rails" => "约定优于配置的全栈框架，覆盖路由、控制器、视图与数据访问",
+    "Active Record" => "Rails 内置的 ORM 层，以模型关联、校验与事务映射关系数据库",
+    "ERB" => "Rails 原生 Action View 模板引擎，在服务端直接拼装双皮肤 HTML",
+    "Turbo" => "Hotwire 核心组件，通过 Drive 与 Frame 实现无刷新导航与局部片段替换",
+    "Stimulus" => "贴近 HTML 的轻量级控制器框架，按需增强倒计时、标尺与表单交互",
+    "PostgreSQL" => "功能丰富的开源关系型数据库",
+    "SQLite" => "嵌入式单文件关系型数据库，零配置即可运行",
+  }.freeze
+
   def stack_items = HealthMetadata.stack_items(AppConfig.sqlite?) + interface_stack_items
 
   def interface_stack_items
     [
-      { role: "framework", name: "Hotwire", version: "Turbo + Stimulus" },
-      { role: "template", name: "ERB", version: "Action View" },
+      { role: "template", name: "ERB", version: Rails.version, iconUrl: "/static/icons/rails.svg" },
+      { role: "framework", name: "Turbo", version: "2.0" },
+      { role: "enhancement", name: "Stimulus", version: "1.3" },
     ]
   end
 
   def stack_role(item)
-    { "language" => "语言", "framework" => "框架", "orm" => "ORM", "database" => "数据库", "template" => "模板" }.fetch(item[:role], item[:role])
+    {
+      "language" => "语言",
+      "framework" => "框架",
+      "orm" => "ORM",
+      "database" => "数据库",
+      "template" => "模板引擎",
+      "enhancement" => "渐进增强",
+    }.fetch(item[:role], item[:role])
   end
+
+  def tech_note(name) = TECH_NOTES.fetch(name, "")
 
   def route_name
     case controller_name

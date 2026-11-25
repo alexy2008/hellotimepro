@@ -164,7 +164,7 @@ export default class extends Controller {
   dragRail(event) {
     const rect = this.rail.getBoundingClientRect();
     const rate = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-    const now = minOpen(), limit = maxOpen();
+    const now = Date.now(), limit = maxOpen();
     const date = new Date(now + rate * (limit - now));
     const current = new Date(this.time);
     this.pick(date.setHours(current.getHours(), current.getMinutes(), 0, 0));
@@ -214,12 +214,19 @@ export default class extends Controller {
     });
 
     const eta = this.element.querySelector("[data-eta]");
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const duration = this.duration(now);
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "本地时区";
     const note = document.createElement("small");
     note.classList.toggle("is-warn", this.clamped);
     note.textContent = this.clamped ? `已贴着可选范围调整（最早 1 分钟后，最晚 10 年内）· ${zone}` : `按你所在的时区 ${zone} 计时`;
-    eta.replaceChildren(`胶囊将在 ${duration} 后开启`, note);
+    const parts = ["胶囊将在 "];
+    this.durationParts(now).forEach(([num, unit], idx) => {
+      if (idx > 0) parts.push(" ");
+      const strong = document.createElement("b");
+      strong.textContent = String(num);
+      parts.push(strong, unit);
+    });
+    parts.push(" 后开启", note);
+    eta.replaceChildren(...parts);
     if (!this.panel.inert) this.renderCalendar();
     this.renderClock(date);
   }
@@ -232,7 +239,7 @@ export default class extends Controller {
     return `约 ${Math.round(delay / (365.25 * DAY))} 年后`;
   }
 
-  duration(now) {
+  durationParts(now) {
     const end = this.time + 30_000;
     let years = 0, months = 0;
     while (addMonths(now, (years + 1) * 12) <= end) years++;
@@ -240,7 +247,12 @@ export default class extends Controller {
     const remainder = Math.max(0, end - addMonths(now, years * 12 + months));
     const days = Math.floor(remainder / DAY), hours = Math.floor(remainder / (60 * MINUTE)) % 24;
     const minutes = Math.floor(remainder / MINUTE) % 60;
-    return [years && `${years} 年`, months && `${months} 个月`, days && `${days} 天`, `${hours} 小时`, `${minutes} 分`].filter(Boolean).join(" ");
+    const items = [];
+    if (years) items.push([years, "年"]);
+    if (months) items.push([months, "个月"]);
+    if (days) items.push([days, "天"]);
+    items.push([hours, "小时"], [minutes, "分"]);
+    return items;
   }
 
   renderClock(date) {
@@ -266,7 +278,10 @@ export default class extends Controller {
     const year = this.view.getFullYear(), month = this.view.getMonth();
     const low = dayStart(minOpen()), high = dayStart(maxOpen());
     const today = dayStart(Date.now()), selected = dayStart(this.time);
-    this.element.querySelector("[data-caltitle]").textContent = `${year} 年 ${month + 1} 月`;
+    const yearsDiff = year - new Date().getFullYear();
+    const calSub = document.createElement("small");
+    calSub.textContent = yearsDiff ? `${yearsDiff} 年后` : "今年";
+    this.element.querySelector("[data-caltitle]").replaceChildren(`${year} 年 ${month + 1} 月`, calSub);
     this.element.querySelector('[data-calnav="-1"]').disabled = new Date(year, month, 0) < low;
     this.element.querySelector('[data-calnav="1"]').disabled = new Date(year, month + 1, 1) > high;
     const buttons = calendarDays(year, month).map((date) => {

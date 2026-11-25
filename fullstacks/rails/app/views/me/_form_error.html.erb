@@ -1,0 +1,6 @@
+<% if local_assigns[:confirm_error] %>
+  <div class="field__hint form__err" role="alert" data-field="confirm" data-testid="field-error"><%= confirm_error %></div>
+<% end %>
+<% if local_assigns[:message] %>
+  <div class="form__err" role="alert"><%= message %></div>
+<% end %>

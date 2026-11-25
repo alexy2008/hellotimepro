@@ -7,7 +7,7 @@
     </div>
   </header>
   <section class="about__sec">
-    <div class="eyebrow">Tech stack</div><h2 class="section-title">此刻运行的技术栈</h2><p class="page-lead">页脚和这里使用同一份健康检查信息。</p>
+    <div class="eyebrow">Tech stack</div><h2 class="section-title">此刻运行的技术栈</h2><p class="page-lead">页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
     <div class="about__live"><span class="ftr__dot"></span>服务在线 · <span class="mono">GET /api/v1/health</span></div>
     <div class="about__stacks" data-view-testid="about-stack">
       <% stacks.each do |label, en, title, path, items, summary| %>
@@ -16,7 +16,7 @@
           <ul class="stack-list">
             <% items.each do |item| %>
               <li data-view-testid="stack-item" data-name="<%= item[:name] %>"><span class="stack-list__ic"><%= render "shared/tech_icon", item: item, css: "tech-ic" %></span>
-                <div><b><%= item[:name] %><small class="mono"><%= item[:version] %></small></b></div><em><%= stack_role(item) %></em>
+                <div><b><%= item[:name] %><small class="mono"><%= item[:version] %></small></b><span><%= tech_note(item[:name]) %></span></div><em><%= stack_role(item) %></em>
               </li>
             <% end %>
           </ul>

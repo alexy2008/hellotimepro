@@ -4,11 +4,11 @@
     <h1 class="about__title"><span>有些话，</span><span>要<em>等一等</em>再说<i class="about__stop"></i></span></h1>
     <div class="about__lede">
       <p>HelloTime Pro 是一款时间胶囊应用：写下一段话，设定未来某一刻才能开启，封存之后不可修改。它有胶囊广场、AI 代笔、收藏与账号。</p>
-      <p>它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套由 Ruby on Rails 实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。</p>
+      <p>它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的界面层与服务端同源实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。</p>
     </div>
   </header>
   <section class="about__sec">
-    <header class="sechead"><span class="sechead__no">壹</span><div><h2 class="h2">此刻运行的技术栈</h2><p>页脚与这里使用同一份健康检查信息。</p></div></header>
+    <header class="sechead"><span class="sechead__no">壹</span><div><h2 class="h2">此刻运行的技术栈</h2><p>页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p></div></header>
     <div class="about__live"><span class="dot dot--on"></span>服务在线<i></i><span class="mono">GET /api/v1/health</span></div>
     <div class="about__stack" data-view-testid="about-stack">
       <% stacks.each do |label, _en, title, path, items, summary| %>
@@ -18,7 +18,7 @@
             <% items.each do |item| %>
               <li class="tech" data-view-testid="stack-item" data-name="<%= item[:name] %>">
                 <%= render "shared/tech_icon", item: item, css: "tech__ic" %>
-                <div class="tech__main"><b><%= item[:name] %><small class="mono"><%= item[:version] %></small></b></div>
+                <div class="tech__main"><b><%= item[:name] %><small class="mono"><%= item[:version] %></small></b><span><%= tech_note(item[:name]) %></span></div>
                 <em class="tech__role"><%= stack_role(item) %></em>
               </li>
             <% end %>

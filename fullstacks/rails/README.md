@@ -42,14 +42,14 @@ export DB_URL="sqlite:///${PWD}/data/sqlite/hellotime-rails.db"
 
 ## 2.0 验证
 
-2026-11-23，验证使用独立的 PostgreSQL 库与 SQLite 文件。
+2026-11-24 评审复核修复后，验证使用独立的 PostgreSQL 库（`hellotime_contract_rails`）与独立临时 SQLite 文件。
 
 | 驱动 | API 契约 | UI 冒烟（时笺 + 琥珀） |
 |---|---:|---:|
 | PostgreSQL | 117/117 | 88/88 |
 | SQLite | 117/117 | 88/88 |
 
-`./build`、Propshaft 资产预编译、设计令牌校验均通过。`./test` 的 6 个用例、34 条断言通过。另用 390px 视口验证标尺拖动、日历键盘操作、星轨表盘和换肤同步，并验证 AI 请求取消、封存提交锁与草稿版本清理。
+`./build`、设计令牌校验（`verify-design-tokens.sh rails`）均通过。`./test` 的 8 个用例、53 条断言通过（含 `inPlaza` 布尔校验与 SQLite 相对路径解析回归，并关闭 SQLite 外键验证显式连带删除）。
 
 PostgreSQL 并发验证跑了 4 轮。重复收藏只计一次，同时删除与取消收藏后，详情和统计保持一致。
 

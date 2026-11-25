@@ -100,6 +100,39 @@ class RailsUpgradeTest < Minitest::Test
     assert_equal 204, session.response.status
   end
 
+  def test_in_plaza_must_be_boolean
+    author = user("布尔")
+    open_at = (Time.now.utc + 3600).iso8601
+    ["false", "true", 1, "yes"].each do |invalid|
+      err = assert_raises(ApiError) do
+        CapsuleService.create(author, { title: "标题", content: "正文", openAt: open_at, inPlaza: invalid })
+      end
+      assert_equal 422, err.status
+      assert_equal "VALIDATION_ERROR", err.code
+      assert_equal "inPlaza", err.details.first[:field]
+    end
+
+    created = CapsuleService.create(author, { title: "私密", content: "正文", openAt: open_at, inPlaza: false })
+    assert_equal false, created[:inPlaza]
+  end
+
+  def test_sqlite_relative_db_url_resolves_against_repo_root
+    require "erb"
+    require "yaml"
+    original = [ENV["DB_DRIVER"], ENV["DB_URL"], ENV["REPO_ROOT"]]
+    ENV["DB_DRIVER"] = "sqlite"
+    ENV["REPO_ROOT"] = AppConfig.repo_root
+    ENV["DB_URL"] = "sqlite:///data/sqlite/custom-relative.db"
+    yml = YAML.safe_load(ERB.new(File.read(Rails.root.join("config/database.yml"))).result, aliases: true)
+    assert_equal File.join(AppConfig.repo_root, "data/sqlite/custom-relative.db"), yml.dig("development", "database")
+
+    ENV["DB_URL"] = "sqlite:////tmp/custom-abs.db"
+    yml_abs = YAML.safe_load(ERB.new(File.read(Rails.root.join("config/database.yml"))).result, aliases: true)
+    assert_equal "/tmp/custom-abs.db", yml_abs.dig("development", "database")
+  ensure
+    ENV["DB_DRIVER"], ENV["DB_URL"], ENV["REPO_ROOT"] = original
+  end
+
   private
 
   def user(nickname)

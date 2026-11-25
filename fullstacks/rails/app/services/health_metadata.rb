@@ -7,8 +7,10 @@ class HealthMetadata
       uptimeSeconds: (Time.now - Rails.application.config.x.boot_time).to_i,
       stack: {
         kind: "fullstack",
-        summary: "Rails 用 ERB 服务端渲染双皮肤页面，Turbo 更新页面与片段，Stimulus 管理浏览器内交互。" \
-                 "Active Record 同时支持 PostgreSQL 和 SQLite，JWT JSON API 与 HttpOnly Cookie 网页同源运行。",
+        summary: "基于 Ruby 与 Ruby on Rails 8 实现同源服务端，通过显式路由与薄控制器同时承载 SSR 网页与 /api/v1/* JSON 契约，" \
+                 "领域逻辑集中在 app/services 层复用。认证层以 HttpOnly Cookie 维护网页会话，并以 HS256 JWT 及 Refresh Token " \
+                 "家族轮换服务 API 请求，统一由基础控制器封装契约响应外壳与错误码。持久层基于 Active Record 映射表结构与关联，" \
+                 "支持按环境变量在 PostgreSQL 与 SQLite 双库间无缝切换。",
         items: stack_items(AppConfig.sqlite?),
       },
     }
