@@ -84,4 +84,8 @@ export const FRONTEND_STACK: StackItem[] = [
 ];
 
 export const FRONTEND_SUMMARY =
-  "Runes（$state / $derived / $effect）承载全部状态，路由页把本页状态放进 context 交给两套皮肤视图；svelte-routing 平铺路由表；样式原样引入 spec/styles 的两套皮肤，换皮肤、换明暗只改 <html> 上的两个属性。";
+  "基于 Svelte 5 + TypeScript + Vite 6 核心骨架，选用 svelte-routing 声明式管理单页路由，不引入第三方状态库，完整承载「时笺」与「琥珀」两套皮肤及昼夜主题。" +
+  "依托编译期架构，.svelte 组件在构建阶段直接编译为细粒度 DOM 更新代码，摆脱虚拟 DOM 开销；全面采用 Runes（$state、$derived、$effect、$props）显式声明响应式，全局 store（.svelte.ts 单例）与页面状态均为原生 TypeScript class。" +
+  "路由页创建本页状态并通过类型化 context 注入给两套皮肤视图，DOM 副作用收拢为 {@attach} 附件；svelte-routing 平铺路由表并接管站内链接，配合 AuthGate 守卫登录路由。" +
+  "挂载前先恢复登录态，原生 fetch 客户端支持 401 单飞刷新重放，svelte-check 校验模板与类型。" +
+  "样式原样引入 spec/styles，换肤换色只改 <html> 上的两个属性。";

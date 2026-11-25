@@ -12,7 +12,11 @@ import type { StackItem } from "@/types";
 import { Seal } from "./parts";
 
 export const FRONTEND_SUMMARY =
-  "React Router 负责路由与守卫，Zustand 做轻量状态管理；样式原样引入 spec/styles 的两套皮肤，换皮肤、换明暗只改 <html> 上的两个属性。";
+  "基于 React 19 + TypeScript + Vite 6 核心骨架，选用 React Router 7 管理单页路由，Zustand 5 负责轻量级全局状态，完整承载「时笺」与「琥珀」两套皮肤及昼夜主题。" +
+  "遵循声明式 UI 与单向数据流范式，将广场筛选、胶囊详情、倒计时与表单校验等业务逻辑抽离为自定义 Hooks，两套皮肤视图复用同一批 Hooks，做到逻辑一份、呈现按皮肤分离。" +
+  "Zustand 按领域拆分 auth、ui、plaza 与 feedback 等 store，既避免多层 Context 重渲染，又便于在组件外同步读写；首帧渲染前先恢复登录态，配合 AuthGate 守卫受保护路由与未登录回跳。" +
+  "原生 fetch 客户端统一解包契约响应，支持 401 单飞刷新与请求重放，TypeScript 类型严格对齐 OpenAPI。" +
+  "样式原样引入 spec/styles 设计令牌，内联脚本防止首屏闪烁，换肤换色只改 <html> 上的两个属性。";
 
 function StackCard({ kind, title, sub, items, summary }: { kind: string; title: string; sub: string; items: StackItem[]; summary: string }) {
   return (

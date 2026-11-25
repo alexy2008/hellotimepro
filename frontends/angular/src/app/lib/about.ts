@@ -84,4 +84,8 @@ export const FRONTEND_STACK: StackItem[] = [
 ];
 
 export const FRONTEND_SUMMARY =
-  "standalone 组件 + Signals；NgRx Signal Store 管全局状态，路由宿主组件用依赖注入为两套皮肤提供同一份页面逻辑；样式原样引入 spec/styles 的两套皮肤，换皮肤、换明暗只改 <html> 上的两个属性。";
+  "基于 Angular 19 + TypeScript 核心骨架，由 @angular/build（esbuild）完成 AOT 编译与打包，选用 NgRx Signals 管理全局状态、RxJS 组合异步流，完整承载「时笺」与「琥珀」两套皮肤及昼夜主题。" +
+  "全站采用 standalone 组件（无 NgModule）搭配 OnPush 变更检测与 Signals 原语，开启 strictTemplates 在编译期严格校验模板类型。" +
+  "NgRx Signal Store 以 signalStore 组合状态、派生计算与方法，并借 rxMethod 接入 RxJS 管道处理搜索防抖；页面逻辑依托层级依赖注入，由各路由宿主页提供 Facade，两套皮肤视图直接 inject 复用同一份状态。" +
+  "内置路由支持懒加载、函数式守卫与自定义 TitleStrategy，并通过 provideAppInitializer 在首帧前恢复登录态；ApiService 基于原生 fetch 支持 401 单飞刷新重放。" +
+  "样式原样引入 spec/styles，换肤换色只改 <html> 上的两个属性。";

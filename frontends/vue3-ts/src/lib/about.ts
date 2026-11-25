@@ -83,4 +83,8 @@ export const FRONTEND_STACK: StackItem[] = [
 ];
 
 export const FRONTEND_SUMMARY =
-  "Vue Router 负责路由与导航守卫，Pinia 管理状态，组合式函数承载两套皮肤共用的逻辑；样式原样引入 spec/styles 的两套皮肤，换皮肤、换明暗只改 <html> 上的两个属性。";
+  "基于 Vue 3.5 + TypeScript + Vite 6 核心骨架，选用 Vue Router 4 管理路由与导航守卫，Pinia 2 负责状态管理，完整承载「时笺」与「琥珀」两套皮肤及昼夜主题。" +
+  "依托单文件组件（SFC）与 <script setup> 组合式 API，通过 ref、computed 与 watch 自动追踪依赖更新模板；将广场查询、胶囊详情、倒计时与表单逻辑封装为组合式函数，路由层借 skinned 工厂按皮肤分发视图，做到逻辑一份、呈现按皮肤分离。" +
+  "Pinia 采用 setup 风格拆分 auth、ui、plaza、draft 等 store，可在路由守卫与接口层直接调用；启动时先装 Pinia 并恢复登录态再挂载路由，确保首帧守卫生效。" +
+  "原生 fetch 客户端支持 401 单飞刷新重放，构建期由 vue-tsc 校验模板与类型。" +
+  "样式原样引入 spec/styles，内联脚本防闪烁，换肤换色只改 <html> 上的两个属性。";

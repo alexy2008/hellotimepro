@@ -83,4 +83,8 @@ export const FRONTEND_STACK: StackItem[] = [
 ];
 
 export const FRONTEND_SUMMARY =
-  "Signals 与 Store 承载全部状态，路由页创建本页的状态再交给两套皮肤视图；Solid Router 负责路由与守卫；样式原样引入 spec/styles 的两套皮肤，换皮肤、换明暗只改 <html> 上的两个属性。";
+  "基于 SolidJS 1.9 + TypeScript + Vite 6 核心骨架，选用 Solid Router 声明式管理单页路由，以内置 Signals 与 Store 承载状态，完整承载「时笺」与「琥珀」两套皮肤及昼夜主题。" +
+  "虽采用 JSX 与函数组件写法，却无虚拟 DOM：vite-plugin-solid 在编译期生成真实 DOM 创建与绑定逻辑，组件函数只运行一次，信号变化时精准更新对应节点。" +
+  "全局状态由模块级 createSignal 与 createStore 直接构建，无需额外状态库；页面逻辑封装为 primitives，在路由页创建一次后经 <Skinned> 交给两套皮肤视图，换肤只切换视图而不重建状态。" +
+  "Solid Router 提供响应式参数与登录守卫，挂载前先恢复登录态；原生 fetch 客户端支持 401 单飞刷新重放，tsc 严格校验契约类型。" +
+  "样式原样引入 spec/styles，内联脚本防闪烁，换肤换色只改 <html> 上的两个属性。";
