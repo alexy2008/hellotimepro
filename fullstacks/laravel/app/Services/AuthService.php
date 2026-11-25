@@ -42,7 +42,7 @@ class AuthService
         $email = strtolower(trim((string) ($body['email'] ?? '')));
         $password = (string) ($body['password'] ?? '');
         $nickname = trim((string) ($body['nickname'] ?? ''));
-        $avatar = (string) ($body['avatarId'] ?? 'neo');
+        $avatar = $body['avatarId'] ?? null;
         $details = [];
 
         if (!$this->validate->email($email)) {
@@ -54,7 +54,7 @@ class AuthService
         if (!$this->validate->nickname($nickname)) {
             $details[] = ['field' => 'nickname', 'message' => '昵称长度需为 2-20，且仅包含中英文、数字、下划线或连字符'];
         }
-        if (!$this->avatars->valid($avatar)) {
+        if (!is_string($avatar) || !$this->avatars->valid($avatar)) {
             $details[] = ['field' => 'avatarId', 'message' => '头像不存在'];
         }
         if ($details) {

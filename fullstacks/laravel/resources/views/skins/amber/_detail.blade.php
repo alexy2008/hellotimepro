@@ -34,7 +34,7 @@
         </p>
         <div class="notice__act">
           <a class="btn btn--primary" href="/open">{!! UiHelper::icon('key') !!}重新输入胶囊码</a>
-          <a class="btn btn--ghost" href="/">回到广场</a>
+          <a class="btn btn--ghost" :href="plazaReturnUrl">回到广场</a>
         </div>
       </div>
     </template>
@@ -51,7 +51,7 @@
     {{-- 已开启：信笺 --}}
     <template x-if="c && !amberPhase && isOpenedView">
       <div style="display:contents">
-        <a class="back" href="/">{!! UiHelper::icon('arrow-left') !!}返回广场</a>
+        <a class="back" :href="plazaReturnUrl">{!! UiHelper::icon('arrow-left') !!}返回广场</a>
         <div class="letter-page" :class="reveal ? 'is-reveal' : ''">
           <article class="letter">
             <div class="letter__meta">
@@ -117,7 +117,7 @@
     {{-- 封存中：进度环 + 翻牌倒计时 --}}
     <template x-if="c && !amberPhase && !isOpenedView">
       <div style="display:contents">
-        <a class="back" href="/">{!! UiHelper::icon('arrow-left') !!}返回广场</a>
+        <a class="back" :href="plazaReturnUrl">{!! UiHelper::icon('arrow-left') !!}返回广场</a>
         <section class="vault card" :style="`--glow:${HT.paletteOf(c.code).glow}`">
           <div class="vault__dial">
             <svg class="vault__ring" viewBox="0 0 340 340" aria-hidden="true">

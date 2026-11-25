@@ -97,6 +97,19 @@
 
   <a class="skip" href="#view">跳到正文</a>
 
+  <nav class="ssr-content ssr-links" data-server-rendered aria-label="主导航">
+    <a href="/">广场</a>
+    <a href="/open">开启</a>
+    <a href="/create">创建</a>
+    <a href="/about">关于</a>
+    @if ($currentUserDto ?? null)
+      <a href="/me/created">我的</a>
+    @else
+      <a href="/login">登录</a>
+      <a href="/register">注册</a>
+    @endif
+  </nav>
+
   {{-- 页头：按当前皮肤只挂载一套 DOM --}}
   <template x-if="$store.ui.skin === 'paper'">
     @include('skins.paper._header', ['navKey' => $navKey])
@@ -106,6 +119,7 @@
   </template>
 
   <main id="view" tabindex="-1">
+    @include('components.server-content')
     @yield('content')
   </main>
 

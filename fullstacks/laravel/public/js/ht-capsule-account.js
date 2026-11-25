@@ -9,7 +9,7 @@
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const NICK_RE = /^[\p{L}\p{N}_-]{2,20}$/u;
-  const pwdRules = (v) => ({ len: v.length >= 8, alpha: /[A-Za-z]/.test(v), digit: /\d/.test(v) });
+  const pwdRules = (v) => ({ len: HT.fmt.charLen(v) >= 8, alpha: /[A-Za-z]/.test(v), digit: /\d/.test(v) });
   const pwdValid = (v) => { const r = pwdRules(v); return r.len && r.alpha && r.digit; };
 
   function computeNickState(v, errors) {
@@ -48,6 +48,7 @@
 
       return {
         code: init.code || "",
+        plazaReturnUrl: init.plazaReturnUrl || "/",
         c: init.capsule || null,
         status: init.status || (init.capsule ? "ok" : "missing"),
         // 时笺启封状态
@@ -82,6 +83,12 @@
         },
 
         init() {
+          if (this.plazaReturnUrl === "/") {
+            try {
+              const query = sessionStorage.getItem("hellotime.plazaQuery");
+              if (query) this.plazaReturnUrl = "/?" + query;
+            } catch {}
+          }
           this.$watch("$store.auth.user", (u) => {
             if (!u && this.c) this.c.favoritedByMe = false;
           });
@@ -470,8 +477,9 @@
           return !!(u && u.nickname === nickname);
         },
         async doLogout() {
-          await Alpine.store("auth").logout(true, { keepUserUntilNav: true });
-          window.location.assign("/");
+          if (await Alpine.store("auth").logout(true, { keepUserUntilNav: true })) {
+            window.location.assign("/");
+          }
         },
 
         // ---- 资料页 ----

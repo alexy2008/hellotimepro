@@ -571,6 +571,10 @@
   };
 
   /* ---------------- 注册 Alpine Stores 与通用壳部件 ---------------- */
+  document.addEventListener("alpine:initialized", () => {
+    document.querySelectorAll("[data-server-rendered]").forEach((element) => element.remove());
+  }, { once: true });
+
   document.addEventListener("alpine:init", () => {
     const root = document.documentElement;
     const initSkin = root.dataset.skin === "paper" ? "paper" : "amber";
@@ -672,14 +676,20 @@
         return meInFlight;
       },
       async logout(callApi = true, opts = {}) {
+        if (callApi) {
+          try {
+            await api.logout();
+          } catch {
+            Alpine.store("feedback").toast("登出未完成，请稍后重试", { tone: "error" });
+            return false;
+          }
+        }
         authGen++;
         clearAllDrafts();
-        if (callApi) {
-          try { await api.logout(); } catch {}
-        }
         if (!opts.keepUserUntilNav) {
           this.user = null;
         }
+        return true;
       },
     });
 
@@ -833,12 +843,12 @@
         this.open = false;
         const p = window.location.pathname;
         const isProtected = p === "/create" || p === "/me" || p.startsWith("/me/");
+        const loggedOut = await Alpine.store("auth").logout(true, { keepUserUntilNav: isProtected });
+        if (!loggedOut) return;
         if (isProtected) {
-          await Alpine.store("auth").logout(true, { keepUserUntilNav: true });
           window.location.assign("/");
           return;
         }
-        await Alpine.store("auth").logout(true);
         Alpine.store("feedback").toast("已登出");
       },
     }));

@@ -20,7 +20,7 @@ PHP 8.5 + **Laravel 13 + Eloquent ORM + Blade + Alpine.js 3** 的 HelloTime Pro 
 | 渐进增强 | Alpine.js 3（无构建直出，按领域拆分 4 个脚本模块） |
 | 数据库 | PostgreSQL 16 / SQLite 3 双驱动 |
 | 鉴权 | Laravel Hash（bcrypt）+ HS256 JWT + refresh token 轮换与家族追踪；API 支持 Bearer 与同源 httpOnly cookie 双解析 |
-| 样式 | `spec/styles` 2.0（base → 时笺 → 琥珀 → shell）+ `@fontsource` 自托管字体 + `public/css/laravel.css`（2 行胶水，零 Tailwind） |
+| 样式 | `spec/styles` 2.0（base → 时笺 → 琥珀 → shell）+ `@fontsource` 自托管字体 + `public/css/laravel.css`（Alpine 与 Blade 首屏的少量补充样式，零 Tailwind） |
 
 ## 快速开始
 
@@ -43,9 +43,11 @@ DB_DRIVER=sqlite ./scripts/hello start laravel
 ```bash
 cd fullstacks/laravel
 ./build   # composer install + npm install + scripts-sync-assets.sh 同步静态资源
-./test    # PHPUnit 单元与 2.0 接口回归测试（19 个用例）
+./test    # PHPUnit 单元与 2.0 回归测试
 ./run     # 自动同步静态资源并以 PHP 内置服务器启动（端口 7182）
 ```
+
+在 macOS / Linux 上，`./run` 默认开启四个 PHP 开发服务器 worker，让等待外部 AI 服务的请求与页面访问、登出并行。可用 `PHP_CLI_SERVER_WORKERS` 调整数量。修改 `.env` 后需通过 `./scripts/hello` 重启服务。
 
 `scripts-sync-assets.sh` 负责将 `alpine.min.js`、`spec/styles` 2.0 原样拷贝、`spec/avatars/v2/*.svg` 以及 `@fontsource/*` 字体同步到 `public/`（`public/fonts` 与 `public/styles` 已在 `.gitignore` 中忽略，每次 `./build` / `./run` 自动生成，避免提交 86 MB 字体文件）。
 
@@ -74,7 +76,7 @@ fullstacks/laravel/
 │   ├── pages/                                      # home / open / detail / create / login / register / me / about / not-found
 │   └── skins/{paper,amber}/                        # 两套皮肤的 header / footer / tabbar / card / code-input / 各页视图 / 琥珀星轨时钟
 ├── public/
-│   ├── css/laravel.css                             # 仅 [x-cloak] 与 .list-more（只用语义令牌）
+│   ├── css/laravel.css                             # Alpine、列表分页与 Blade 首屏补充样式
 │   └── js/                                         # alpine.min.js + ht-core / ht-plaza / ht-create / ht-capsule-account
 ├── tests/
 │   ├── Unit/{CrossDbTest,JwtCodecTest}.php
@@ -98,20 +100,21 @@ fullstacks/laravel/
 ## 设计要点
 
 - **逻辑一份，皮肤按 `<template x-if>` 挂载**：每个页面的业务状态（搜索词与防抖计时器、8 格输码、创建页草稿与提交锁、登录/注册/资料表单、倒计时启封轮询）都放在外层 Alpine `x-data` 中，两套皮肤的 Blade 视图分别挂在 `<template x-if="$store.ui.skin === 'paper|amber'">` 下。切换皮肤时只替换活跃视图的 DOM（保证页面上不会出现隐藏重复的 `data-testid`），表单输入、筛选条件和草稿无缝保留。
+- **Blade 首屏内容**：导航、广场搜索与列表、详情和个人列表直接输出可阅读的 HTML，Alpine 初始化后由当前皮肤接管。广场参数同步到 URL，详情页按来源地址或当前标签页的记录恢复广场条件。
 - **首帧零闪烁 + 柔光拂过换肤**：`<head>` 内联脚本在首帧前根据 `localStorage`（`hellotime.skin` / `hellotime.theme`）写好 `<html data-skin data-theme>` 与 `theme-color`。切换皮肤写入 `data-skin-dir="prev|next"` 触发 `spec/styles/shell.css` 的柔光拂过转场，明暗切换使用圆形 `clipPath` View Transition。
 - **同源会话与服务端守卫**：API 保持标准 Bearer 契约，同时在 `/api/v1/auth/{register,login,refresh,logout}` 与 `/api/v1/me/password` 同步维护 `ht_access` / `ht_refresh` httpOnly cookie。受保护页面（`/create`、`/me/*`）由控制器首帧 302 跳转到 `/login?redirect=…`，前端登出时先等待 `/api/v1/auth/logout` 清完 cookie 再更新 UI 或跳转，消除竞态。
 - **双库一致的 Eloquent 层**：`CrossDb` 与 `CrossDbBoolean` 屏蔽 PostgreSQL 原生 UUID / `timestamptz` / `'t'/'f'` 与 SQLite 32-hex / 微秒 ISO 文本 / `0/1` 的差异；SQLite 连接注册 Unicode `LOWER` 并启用 `BEGIN IMMEDIATE` 与 `busy_timeout=5000`；PostgreSQL 删除与收藏严格遵守「先锁胶囊行、再操作收藏」的加锁顺序。
 
 ## 2.0 验证
 
-验证日期：**2026-11-23**（独立库验证，PostgreSQL 使用 `hellotime_contract_laravel`，SQLite 使用 `/tmp/hellotime-contract-laravel.db` 与 `/tmp/hellotime-ui-laravel.db`）：
+**2026-11-24** 完成静态复核修复后的全量重验。契约与冒烟均使用独立验证库，PostgreSQL 和 SQLite 分别播种。
 
 | 验证项 | PostgreSQL | SQLite |
 |---|---|---|
 | API 契约 `verify-contract.sh laravel` | ✅ 117/117 | ✅ 117/117 |
 | UI 冒烟 `verify-ui-smoke.sh laravel`（44 条 × 时笺 / 琥珀） | ✅ 88/88 | ✅ 88/88 |
 | 设计令牌 `verify-design-tokens.sh laravel` | ✅ 通过（扫描 12 个样式文件） | — |
-| 构建与单测 `./build && ./test` | ✅ 19/19 通过（115 assertions） | — |
+| 构建与单测 `./build && ./test` | ✅ 23/23 通过（152 项断言） | — |
 
 复现命令：
 

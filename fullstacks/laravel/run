@@ -69,4 +69,6 @@ fi
 bash ./scripts-sync-assets.sh
 
 php artisan config:clear --quiet >/dev/null 2>&1 || true
-exec php artisan serve --host=0.0.0.0 --port="$PORT"
+# AI 请求可能等待外部服务，开发服务器并行处理页面与会话请求。
+export PHP_CLI_SERVER_WORKERS="${PHP_CLI_SERVER_WORKERS:-4}"
+exec php artisan serve --host=0.0.0.0 --port="$PORT" --no-reload

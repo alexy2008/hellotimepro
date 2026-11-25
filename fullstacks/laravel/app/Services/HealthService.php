@@ -25,7 +25,7 @@ class HealthService
             'uptimeSeconds' => (int) max(0, microtime(true) - (defined('LARAVEL_START') ? LARAVEL_START : microtime(true))),
             'stack' => [
                 'kind' => 'fullstack',
-                'summary' => '基于 PHP 8 + Laravel 13 的服务端渲染全栈实现。路由显式集中在 routes/api.php 与 routes/web.php，控制器只做 HTTP 边界，业务规则收束到 app/Services/*，持久层全部走 Eloquent ORM 与自定义跨库 Cast，同时支持 PostgreSQL 与 SQLite。页面由 Blade 服务端渲染首屏数据并拆分为「时笺」「琥珀」两套皮肤视图，Alpine.js 承载无刷新换肤、星轨时钟、时间标尺、长按封缄、倒计时自动开启与异步接口交互，样式原样引入 spec/styles 2.0 设计令牌。',
+                'summary' => '基于 PHP 8 与 Laravel 13 实现同源服务端，路由显式集中在 routes/web.php 与 routes/api.php，网页与 API 控制器只做 HTTP 边界与参数校验，核心业务规则统一收束在 app/Services 层以保证双端行为一致。认证层同时支持网页会话与 HS256 JWT 及 Refresh Token 家族轮换，异常处理器按契约统一封装 JSON 外壳。持久层全部经 Eloquent ORM 与自定义跨库 Cast 访问，支持 PostgreSQL 与 SQLite 双库无缝切换。',
                 'items' => [
                     ['role' => 'language', 'name' => 'PHP', 'version' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'iconUrl' => '/static/icons/php.svg'],
                     ['role' => 'framework', 'name' => 'Laravel', 'version' => app()->version(), 'iconUrl' => '/static/icons/laravel.svg'],

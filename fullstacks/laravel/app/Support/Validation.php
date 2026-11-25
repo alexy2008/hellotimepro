@@ -18,7 +18,7 @@ class Validation
 
     public function password(string $password): bool
     {
-        $len = strlen($password);
+        $len = mb_strlen($password, 'UTF-8');
         return $len >= 8 && $len <= 128 && preg_match('/[A-Za-z]/', $password) && preg_match('/\d/', $password);
     }
 

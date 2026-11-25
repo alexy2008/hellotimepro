@@ -21,7 +21,7 @@
       HelloTime Pro · 时间胶囊
     </a>
     <div class="ftr__stack" data-testid="footer-stack">
-      <span class="ftr__dot" title="全栈在线" data-online="true"></span>
+      <span class="ftr__dot" title="服务在线" data-online="true"></span>
       @foreach($stackItems as $it)
         <span
           class="ftr__tech"

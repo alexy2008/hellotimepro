@@ -1,6 +1,6 @@
 # HelloTime Pro Laravel 全栈技术手册与代码导读（2.0）
 
-本文说明 HelloTime Pro 2.0 的 Laravel 全栈实现如何在完全对齐 `spec/`（OpenAPI 2.0.0、双库 schema、双皮肤设计令牌与测试钩子）的前提下，保持 **Laravel 13 + Eloquent ORM + Blade SSR + Alpine.js 3** 的地道 PHP 全栈写法。
+本文介绍 HelloTime Pro 2.0 的 Laravel 实现及其对 `spec/` 的映射，涵盖 OpenAPI、双库 schema、双皮肤设计令牌与测试钩子。实现采用 **Laravel 13 + Eloquent ORM + Blade SSR + Alpine.js 3** 。
 
 ## 1. 技术选型与 2.0 架构特色
 
@@ -110,7 +110,7 @@ DB_DRIVER=sqlite ./scripts/hello start laravel
 ```bash
 cd fullstacks/laravel
 ./build   # 安装 Composer/npm 依赖，运行 scripts-sync-assets.sh 同步字体、样式、头像与 Alpine
-./test    # 运行 19 个 PHPUnit 用例（含跨库回归与关闭 SQLite 外键删收藏验证）
+./test    # 运行 PHPUnit 用例（含跨库回归与关闭 SQLite 外键删收藏验证）
 ./run     # 同步静态资源后监听 127.0.0.1:7182
 ```
 
@@ -175,11 +175,13 @@ DB_DRIVER=sqlite ./verification/scripts/verify-ui-smoke.sh laravel
 
 ### 6.1 「逻辑一份，视图按皮肤分」的 Blade 实现方式
 
+Blade 先输出可阅读的导航、广场、详情与个人列表，Alpine 完成初始化后移除这套首屏节点，由当前皮肤接管交互。广场查询写入 URL，详情页返回时使用来源地址。浏览器省略来源时，前端可以读取当前标签页保存的广场参数。
+
 与 SPA 框架（React / Vue）类似，Laravel 版也严格拆分「共享状态与业务交互」和「按皮肤呈现的视图」：
 
 - **外层页面壳（`resources/views/pages/*.blade.php`）** 挂载一个共享 Alpine 组件（如 `x-data="plazaHome()"`、`x-data="createPage()"`、`x-data="mePage()"`），读取服务端直出的 `window.__HT_INIT__` 作为初始状态。
 - **内层双皮肤视图** 用 `<template x-if="$store.ui.skin === 'paper'">` 和 `<template x-if="$store.ui.skin === 'amber'">` 条件渲染。
-  - **优点 1**：DOM 中永远只存在当前皮肤的一套节点，完全满足 `spec/ui/testids.md §1.4` 对非列表 `data-testid` 唯一性的要求。
+  - **优点 1**：Alpine 初始化后，DOM 中只存在当前皮肤的一套交互节点，完全满足 `spec/ui/testids.md §1.4` 对非列表 `data-testid` 唯一性的要求。
   - **优点 2**：切换皮肤时外层 `x-data` 不销毁，表单输入、搜索防抖计时器、半截胶囊码、创建草稿、封存提交锁与回执全部保留（满足契约 X5）。
   - **优点 3**：固定数量的 SVG 刻度（星轨时钟表盘 60 刻度 + 60 表圈刻度 + 11 年份节点、首页主视觉 5 颗星芒、收藏 7 颗心形粒子）直接在 Blade 中用 `@for` / `@foreach` 输出，规避浏览器 HTML 解析器在 `<svg>` 内破坏 `<template x-for>` 的问题。
 

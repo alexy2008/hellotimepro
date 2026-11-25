@@ -22,7 +22,7 @@
         <span>本页由以下技术栈排印</span>
         <span class="ftr__live">
           <span class="dot dot--on"></span>
-          全栈在线 · Laravel
+          服务在线 · Laravel
         </span>
       </div>
       <ul class="stack" data-testid="footer-stack">

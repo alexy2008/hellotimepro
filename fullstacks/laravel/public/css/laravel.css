@@ -13,3 +13,36 @@
   justify-content: center;
   margin-top: var(--space-8);
 }
+
+/* Alpine 初始化之前的可读页面。 */
+.ssr-content {
+  max-width: 72ch;
+  margin-inline: auto;
+  padding: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.ssr-content a {
+  text-decoration: underline;
+}
+
+.ssr-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ssr-capsules {
+  list-style: none;
+  padding: 0;
+}
+
+.ssr-capsules li {
+  padding-block: var(--space-3);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.ssr-letter {
+  white-space: pre-wrap;
+}

@@ -136,15 +136,25 @@ class Mapper
     /** 解析并校验分页查询参数；page < 1 或 pageSize 越界 → 422。 */
     public function pageParams(array $query, int $defaultSize = 20): array
     {
-        $rawPage = $query['page'] ?? 1;
-        $rawSize = $query['pageSize'] ?? $defaultSize;
-        if (!is_numeric($rawPage) || (int) $rawPage < 1) {
-            throw new ApiError(422, 'VALIDATION_ERROR', 'page 必须 >= 1', [['field' => 'page', 'message' => 'page 必须 >= 1']]);
-        }
-        if (!is_numeric($rawSize) || (int) $rawSize < 1 || (int) $rawSize > 50) {
+        $page = self::positiveInteger($query['page'] ?? 1);
+        $size = self::positiveInteger($query['pageSize'] ?? $defaultSize);
+        if ($size === null || $size > 50) {
             throw new ApiError(422, 'VALIDATION_ERROR', 'pageSize 范围 1-50', [['field' => 'pageSize', 'message' => 'pageSize 范围 1-50']]);
         }
-        return [(int) $rawPage, (int) $rawSize];
+        if ($page === null || $page - 1 > intdiv(PHP_INT_MAX, $size)) {
+            throw new ApiError(422, 'VALIDATION_ERROR', 'page 必须为有效的正整数', [['field' => 'page', 'message' => 'page 必须为有效的正整数']]);
+        }
+        return [$page, $size];
+    }
+
+    public static function positiveInteger(mixed $value): ?int
+    {
+        if ((!is_int($value) && !is_string($value)) || !ctype_digit((string) $value)) {
+            return null;
+        }
+        $digits = ltrim((string) $value, '0');
+        $number = (int) $digits;
+        return $number > 0 && (string) $number === $digits ? $number : null;
     }
 
     public function isFavorited(string $userId, string $capsuleId): bool

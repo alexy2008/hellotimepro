@@ -29,8 +29,8 @@ class CapsuleService
     {
         $title = trim((string) ($body['title'] ?? ''));
         $content = (string) ($body['content'] ?? '');
-        $openAtRaw = trim((string) ($body['openAt'] ?? ''));
-        $inPlaza = !array_key_exists('inPlaza', $body) || filter_var($body['inPlaza'], FILTER_VALIDATE_BOOLEAN);
+        $openAtRaw = $body['openAt'] ?? null;
+        $inPlaza = array_key_exists('inPlaza', $body) ? $body['inPlaza'] : true;
         $details = [];
 
         $titleLen = mb_strlen($title, 'UTF-8');
@@ -43,12 +43,19 @@ class CapsuleService
         }
 
         $openAtUtc = null;
-        if ($openAtRaw !== '') {
+        if (is_string($openAtRaw) && preg_match('/\A\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)\z/i', $openAtRaw)) {
             try {
-                $openAtUtc = (new DateTimeImmutable($openAtRaw, new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('UTC'));
+                $parsed = new DateTimeImmutable($openAtRaw);
+                if (DateTimeImmutable::getLastErrors() === false) {
+                    $openAtUtc = $parsed->setTimezone(new DateTimeZone('UTC'));
+                }
             } catch (Throwable) {
                 $openAtUtc = null;
             }
+        }
+
+        if (!is_bool($inPlaza)) {
+            $details[] = ['field' => 'inPlaza', 'message' => 'inPlaza 必须是布尔值'];
         }
 
         if ($openAtUtc === null) {

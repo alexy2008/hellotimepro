@@ -17,7 +17,7 @@
       <div class="about__lede">
         <p>HelloTime Pro 是一款时间胶囊应用：写下一段话，设定未来某一刻才能开启，封存之后不可修改。它有胶囊广场、AI 代笔、收藏与账号。</p>
         <p>
-          它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由 Laravel 服务端渲染全栈实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。
+          它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的界面层与服务端同源实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。
         </p>
       </div>
     </header>
@@ -27,12 +27,12 @@
         <span class="sechead__no">壹</span>
         <div>
           <h2 class="h2">此刻运行的技术栈</h2>
-          <p>页脚与这里展示的内容，都来自同源的健康检查接口——一套 Laravel 服务同时直出页面与 JSON API。</p>
+          <p>页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
         </div>
       </header>
       <div class="about__live">
         <span class="dot dot--on"></span>
-        全栈在线
+        服务在线
         <i></i>
         <span class="mono">GET /api/v1/health</span>
       </div>

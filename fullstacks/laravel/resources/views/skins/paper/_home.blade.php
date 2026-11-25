@@ -197,8 +197,8 @@
       </label>
     </div>
 
-    <div class="grid" :class="loading && pagination ? 'is-busy' : ''" aria-live="polite">
-      <template x-if="loading && !pagination">
+    <div class="grid" :aria-busy="loading ? 'true' : 'false'" aria-live="polite">
+      <template x-if="loading">
         <div style="display:contents">
           @for ($si = 0; $si < 6; $si++)
             <div class="cap cap--skel" style="--i:{{ $si }}" aria-hidden="true">
@@ -208,7 +208,7 @@
         </div>
       </template>
 
-      <template x-if="!(loading && !pagination) && error">
+      <template x-if="!loading && error">
         <div class="empty" data-testid="list-error">
           <svg class="empty__art" viewBox="0 0 120 84" aria-hidden="true">
             <path d="M8 30 60 6l52 24v46H8z"/><path d="M8 30l52 30 52-30"/>
@@ -222,7 +222,7 @@
         </div>
       </template>
 
-      <template x-if="!(loading && !pagination) && !error && !items.length && pagination">
+      <template x-if="!loading && !error && !items.length && pagination">
         <div class="empty" data-testid="list-empty">
           <svg class="empty__art" viewBox="0 0 120 84" aria-hidden="true">
             <path d="M8 30 60 6l52 24v46H8z"/><path d="M8 30l52 30 52-30"/>
@@ -247,7 +247,7 @@
         </div>
       </template>
 
-      <template x-if="!(loading && !pagination) && !error && items.length">
+      <template x-if="!loading && !error && items.length">
         <div style="display:contents">
           <template x-for="(c, idx) in items" :key="c.id">
             @include('skins.paper._card')

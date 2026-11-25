@@ -292,11 +292,11 @@
       let dueRefreshing = false;
 
       return {
-        sort: "new",
-        filter: "all",
-        q: "",
-        qInput: "",
-        page: 1,
+        sort: init.query?.sort ?? "new",
+        filter: init.query?.filter ?? "all",
+        q: init.query?.q ?? "",
+        qInput: init.query?.q ?? "",
+        page: init.query?.page ?? 1,
         pageSize: 9,
 
         items: init.items || [],
@@ -310,6 +310,7 @@
         opener: makeCodeOpener(),
 
         init() {
+          this.writeQueryToUrl();
           this.$watch("$store.auth.user", (u) => {
             if (!u) {
               this.items.forEach((it) => { it.favoritedByMe = false; });
@@ -376,7 +377,8 @@
           this.fetchList();
         },
         setQ(q) {
-          this.q = q;
+          this.q = q.trim();
+          this.counts = null;
           this.page = 1;
           this.fetchList();
           this.fetchCounts();
@@ -395,6 +397,9 @@
           const my = ++listSeq;
           this.loading = true;
           this.error = null;
+          this.items = [];
+          this.pagination = null;
+          this.writeQueryToUrl();
           try {
             const data = await HT.api.plaza({
               sort: this.sort,
@@ -414,6 +419,23 @@
             this.loading = false;
             this.error = (e && e.message) || "加载失败";
           }
+        },
+        writeQueryToUrl() {
+          const url = new URL(window.location.href);
+          if (this.sort === "new") url.searchParams.delete("sort");
+          else url.searchParams.set("sort", this.sort);
+          if (this.filter === "all") url.searchParams.delete("filter");
+          else url.searchParams.set("filter", this.filter);
+          if (!this.q) url.searchParams.delete("q");
+          else url.searchParams.set("q", this.q);
+          if (this.page === 1) url.searchParams.delete("page");
+          else url.searchParams.set("page", this.page);
+          if (url.href !== window.location.href) history.replaceState(history.state, "", url);
+          const plazaQuery = new URLSearchParams();
+          for (const key of ["sort", "filter", "q", "page"]) {
+            if (url.searchParams.has(key)) plazaQuery.set(key, url.searchParams.get(key));
+          }
+          try { sessionStorage.setItem("hellotime.plazaQuery", plazaQuery.toString()); } catch {}
         },
         async fetchCounts() {
           const my = ++countSeq;

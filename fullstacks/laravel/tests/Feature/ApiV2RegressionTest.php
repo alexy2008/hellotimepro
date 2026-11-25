@@ -183,6 +183,67 @@ class ApiV2RegressionTest extends TestCase
             ->assertJsonPath('errorCode', 'VALIDATION_ERROR');
     }
 
+    public function test_create_rejects_invalid_datetime_and_boolean_fields(): void
+    {
+        $u = $this->registerUser('invalid-capsule@example.com', '校验胶囊');
+        $valid = [
+            'title' => '待校验的胶囊',
+            'content' => '寄给未来',
+            'openAt' => gmdate('Y-m-d\TH:i:s\Z', time() + 7200),
+        ];
+
+        foreach ([
+            ['openAt', 'tomorrow'],
+            ['openAt', (date('Y') + 1) . '-02-30T09:00:00Z'],
+            ['inPlaza', 'maybe'],
+            ['inPlaza', null],
+        ] as [$field, $value]) {
+            $this->withToken($u['accessToken'])
+                ->postJson('/api/v1/capsules', array_replace($valid, [$field => $value]))
+                ->assertUnprocessable()
+                ->assertJsonPath('details.0.field', $field);
+        }
+        $this->assertDatabaseCount('capsules', 0);
+    }
+
+    public function test_registration_and_pagination_validate_declared_field_types(): void
+    {
+        $valid = ['email' => 'bad-fields@example.com', 'nickname' => '字段校验', 'password' => 'Pass1234!'];
+        $this->postJson('/api/v1/auth/register', $valid)
+            ->assertUnprocessable()
+            ->assertJsonPath('details.0.field', 'avatarId');
+
+        $this->postJson('/api/v1/auth/register', array_replace($valid, [
+            'password' => '中文a1',
+            'avatarId' => 'neo',
+        ]))->assertUnprocessable()->assertJsonPath('details.0.field', 'password');
+
+        foreach (['page' => '1.9', 'pageSize' => '50.9'] as $field => $value) {
+            $this->getJson('/api/v1/plaza/capsules?' . http_build_query([$field => $value]))
+                ->assertUnprocessable()
+                ->assertJsonPath('details.0.field', $field);
+        }
+    }
+
+    public function test_blade_renders_filtered_plaza_and_sealed_detail_in_the_initial_html(): void
+    {
+        config(['app.key' => 'base64:' . base64_encode(random_bytes(32))]);
+        $u = $this->registerUser('blade@example.com', '静态首屏');
+        $capsule = $this->createCapsule($u['accessToken'], ['title' => '首屏可见']);
+
+        $plazaPath = '/?' . http_build_query(['q' => '首屏', 'filter' => 'unopened', 'sort' => 'hot']);
+        $this->get($plazaPath)
+            ->assertOk()
+            ->assertSee('<h3><a href="/capsules/' . $capsule['code'] . '">首屏可见</a></h3>', false);
+
+        $this->withHeader('Referer', url($plazaPath))
+            ->get('/capsules/' . $capsule['code'])
+            ->assertOk()
+            ->assertSee('<h1>首屏可见</h1>', false)
+            ->assertSee('filter=unopened')
+            ->assertDontSee('寄给未来的信');
+    }
+
     public function test_path_uuid_validation_returns_422(): void
     {
         $u = $this->registerUser('uuid@example.com', '路径校验');

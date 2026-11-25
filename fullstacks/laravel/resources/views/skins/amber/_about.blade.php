@@ -44,10 +44,10 @@
     <section class="about__sec">
       <div class="eyebrow">Tech stack</div>
       <h2 class="section-title">此刻运行的技术栈</h2>
-      <p class="page-lead">页脚和这里展示的内容，都来自同源的健康检查接口——由同一个 Laravel 全栈服务提供页面与 API。</p>
+      <p class="page-lead">页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
       <div class="about__live">
         <span class="ftr__dot"></span>
-        全栈在线 · <span class="mono">GET /api/v1/health</span>
+        服务在线 · <span class="mono">GET /api/v1/health</span>
       </div>
       <div class="about__stacks" data-testid="about-stack">
         <article class="card card--pad stack-card">

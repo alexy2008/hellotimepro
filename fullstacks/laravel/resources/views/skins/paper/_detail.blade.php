@@ -33,7 +33,7 @@
         </p>
         <div class="lost__act">
           <a class="btn btn--primary" href="/open">{!! UiHelper::icon('key') !!}重新输入胶囊码</a>
-          <a class="btn btn--ghost" href="/">回到广场</a>
+          <a class="btn btn--ghost" :href="plazaReturnUrl">回到广场</a>
         </div>
       </div>
     </template>
@@ -41,7 +41,7 @@
     {{-- 已启封：信笺 --}}
     <template x-if="c && isOpenedView">
       <div style="display:contents">
-        <a class="back" href="/">{!! UiHelper::icon('arrow-left') !!}返回广场</a>
+        <a class="back" :href="plazaReturnUrl">{!! UiHelper::icon('arrow-left') !!}返回广场</a>
         <article class="letter" :class="reveal ? 'letter--reveal' : ''">
           <div class="letter__pm" x-html="HT.postmarkSvg(HT.fmt.date(openAtMs), '已 启 封', 'pm--letter')"></div>
           <div class="letter__meta">
@@ -101,7 +101,7 @@
     {{-- 未启封：信封 + 翻页倒计时 + 刻度尺 --}}
     <template x-if="c && !isOpenedView">
       <div style="display:contents">
-        <a class="back" href="/">{!! UiHelper::icon('arrow-left') !!}返回广场</a>
+        <a class="back" :href="plazaReturnUrl">{!! UiHelper::icon('arrow-left') !!}返回广场</a>
         <header class="detail__head">
           <div class="detail__meta">
             <span class="mono" x-text="`NO. ${c.code}`"></span>

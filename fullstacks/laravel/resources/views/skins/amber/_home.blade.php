@@ -226,8 +226,8 @@
       </template>
     </div>
 
-    <div class="grid" :class="loading && pagination ? 'is-busy' : ''" aria-live="polite">
-      <template x-if="loading && !pagination">
+    <div class="grid" :aria-busy="loading ? 'true' : 'false'" aria-live="polite">
+      <template x-if="loading">
         <div style="display:contents">
           @for ($si = 0; $si < 6; $si++)
             <div class="pc pc--skel" style="--i:{{ $si }}" aria-hidden="true">
@@ -242,7 +242,7 @@
         </div>
       </template>
 
-      <template x-if="!(loading && !pagination) && error">
+      <template x-if="!loading && error">
         <div class="empty" data-testid="list-error">
           <div style="display:contents" x-html="HT.capsuleArtSvg(null, 'opened', 170, 'empty__art')"></div>
           <h3 class="empty__title">广场暂时打不开</h3>
@@ -253,7 +253,7 @@
         </div>
       </template>
 
-      <template x-if="!(loading && !pagination) && !error && !items.length && pagination">
+      <template x-if="!loading && !error && !items.length && pagination">
         <div class="empty" data-testid="list-empty">
           <div style="display:contents" x-html="HT.capsuleArtSvg(null, 'opened', 170, 'empty__art')"></div>
           <template x-if="q.trim()">
@@ -275,7 +275,7 @@
         </div>
       </template>
 
-      <template x-if="!(loading && !pagination) && !error && items.length">
+      <template x-if="!loading && !error && items.length">
         <div style="display:contents">
           <template x-for="(c, idx) in items" :key="c.id">
             @include('skins.amber._card')
