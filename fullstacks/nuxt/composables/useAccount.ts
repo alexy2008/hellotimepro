@@ -209,6 +209,7 @@ export function useMyList(kind: "created" | "favorites", onChange?: () => void) 
 
   async function load() {
     const my = ++seq;
+    if (!items.value) error.value = false; // 重试期间显示「正在加载」
     try {
       const r = await fetchPage(1);
       if (my !== seq) return;

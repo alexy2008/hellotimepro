@@ -32,14 +32,10 @@ const router = useRouter();
 provideHealth();
 const shell = computed(() => SHELL[ui.skin]);
 
-// 本地有 refresh token 时主动拉一次 /me，确认登录态仍然有效
-watch(
-  [() => auth.hydrated, () => auth.refreshToken],
-  ([hydrated, rt]) => {
-    if (hydrated && rt) void auth.refreshMe();
-  },
-  { immediate: true },
-);
+// 启动时不主动 refreshMe：登录态由持久化的 user 渲染，access token 留给真正带鉴权的请求惰性刷新。
+// 否则每次整页加载都会轮换 refresh token；响应没来得及保存就被下一次整页导航打断时，
+// 下一页拿旧令牌再刷新会被当作重放，整族吊销后误登出（docs/03-roadmap.md「整页 reload 误登出」）。
+// 令牌失效由第一次带鉴权的请求发现，onAuthLost 清空登录态，下面的监听再把受保护页面送去登录。
 
 // 登录态在受保护页面上丢了（refresh 失败等）：守卫不会再跑一遍，这里补一次跳转
 watch(

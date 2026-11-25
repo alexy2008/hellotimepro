@@ -114,6 +114,47 @@ export const useAuthStore = defineStore("auth", () => {
     clearPersist();
   }
 
+  /**
+   * 同一账号在另一个标签页轮换了 refresh token：改用 localStorage 里的新令牌。
+   * 只接受同一用户的新令牌；登出、换账号由 storage 事件处理（syncFromStorage）。
+   */
+  function adoptStoredRefreshToken(): boolean {
+    const stored = load();
+    if (!stored?.refreshToken || !stored.user || !user.value) return false;
+    if (stored.user.id !== user.value.id || stored.refreshToken === refreshToken.value) return false;
+    refreshToken.value = stored.refreshToken;
+    user.value = stored.user;
+    return true;
+  }
+
+  /** 其他标签页登录、登出或换账号后，本页跟着切换，免得拿过期的令牌去刷新 */
+  function syncFromStorage(raw: string | null) {
+    let stored: PersistShape | null = null;
+    try {
+      stored = raw ? (JSON.parse(raw) as PersistShape) : null;
+    } catch {
+      return;
+    }
+    if (!stored?.refreshToken || !stored.user) {
+      if (refreshToken.value) {
+        session++;
+        user.value = null;
+        accessToken.value = null;
+        refreshToken.value = null;
+      }
+      return;
+    }
+    if (user.value?.id === stored.user.id) {
+      refreshToken.value = stored.refreshToken;
+      user.value = stored.user;
+      return;
+    }
+    session++;
+    user.value = stored.user;
+    accessToken.value = null;
+    refreshToken.value = stored.refreshToken;
+  }
+
   return {
     user,
     accessToken,
@@ -126,6 +167,8 @@ export const useAuthStore = defineStore("auth", () => {
     logout,
     refreshMe,
     dropFromAuthLost,
+    adoptStoredRefreshToken,
+    syncFromStorage,
   };
 });
 
@@ -138,5 +181,10 @@ export function wireAuthApi(store: ReturnType<typeof useAuthStore>) {
     getRefreshToken: () => store.refreshToken,
     onTokensRefreshed: (a, r) => store.patchTokens(a, r),
     onAuthLost: () => store.dropFromAuthLost(),
+    adoptStoredRefreshToken: store.adoptStoredRefreshToken,
+  });
+  // storage 事件只在其他标签页改动时触发，本页自己的写入不会回到这里
+  window.addEventListener("storage", (e) => {
+    if (e.key === STORAGE_KEY || e.key === null) store.syncFromStorage(e.key === null ? null : e.newValue);
   });
 }

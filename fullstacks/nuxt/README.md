@@ -69,3 +69,7 @@ export DB_URL="sqlite:///${PWD}/data/sqlite/hellotime-nuxt.db"
 - SQLite 同时读取种子数据的 32 位 UUID 和应用写入的标准 UUID。对外统一输出标准格式，写收藏与删除时使用库中的实际主键。SQLite 对新旧 ISO 文本按实际时间比较。
 - PostgreSQL 先锁胶囊行再更新收藏。SQLite 用串行写连接和 `BEGIN IMMEDIATE`。两种数据库都在同一事务内维护计数，删除胶囊时显式删除收藏。
 - 浏览器详情使用 2.0 的 `/capsules/:code`。旧版本库中的胶囊仍可用原码查询，2.0 沿用原表结构。
+- 2026-11-25 评审修复（类型检查、6/6 单测、生产构建、Node 双标签页模拟通过；UI 冒烟 PostgreSQL 与 SQLite 各 88/88；未重跑 HTTP 契约，接口层未改动）：
+  - 多标签页共用 localStorage 里的 refresh token。刷新放进 Web Locks（`hellotime.auth.refresh`）依次执行，进锁后先改用同一账号在其他标签页刚轮换出的新令牌；刷新失败时若发现令牌已被换新，用新令牌再试一次。其他标签页登出或换账号时，本页经 `storage` 事件跟着切换。否则旧标签页会拿已轮换的令牌刷新，被当作重放，整族吊销，所有标签页一起登出。
+  - 启动时不再主动 `refreshMe()`，恢复 1.x 的惰性刷新（见 `docs/03-roadmap.md`「整页 reload 误登出」）。React 与 next 仍保留启动刷新，这里刻意不同。
+  - 「我的」列表第一页加载失败时显示 `list-error` 与 `list-retry`，加载中显示占位文字（同 next 的 `ListStatus`）。

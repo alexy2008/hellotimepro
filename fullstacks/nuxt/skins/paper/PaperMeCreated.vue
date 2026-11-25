@@ -8,12 +8,13 @@ import { useMyList } from "@/composables/useAccount";
 import AppIcon from "@/components/AppIcon.vue";
 import CreateLink from "@/components/CreateLink.vue";
 import ListMore from "@/components/ListMore.vue";
+import ListStatus from "@/components/ListStatus.vue";
 import PaperScale from "./PaperScale.vue";
 import PaperSeal from "./PaperSeal.vue";
 
 const props = defineProps<{ now: number }>();
 const emit = defineEmits<{ change: [] }>();
-const { items, total, hasMore, moreBusy, loadMore, remove } = useMyList("created", () => emit("change"));
+const { items, error, reload, total, hasMore, moreBusy, loadMore, remove } = useMyList("created", () => emit("change"));
 
 const row = (c: CapsuleListItem) => {
   const openAt = ms(c.openAt);
@@ -91,4 +92,5 @@ const copy = (code: string) => copyText(code, `已复制胶囊码 ${code}`);
       </p>
     </template>
   </template>
+  <ListStatus v-else :error="error" @retry="reload" />
 </template>

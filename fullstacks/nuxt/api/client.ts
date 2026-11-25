@@ -24,6 +24,8 @@ let getRefreshToken: () => string | null = () => null;
 let onTokensRefreshed: (accessToken: string, refreshToken: string) => void =
   () => {};
 let onAuthLost: () => void = () => {};
+/** 同一账号的另一个标签页已经轮换了 refresh token 时，改用它；返回是否换了 */
+let adoptStoredRefreshToken: () => boolean = () => false;
 
 export function configureApi(opts: {
   getSessionVersion: () => number;
@@ -31,45 +33,69 @@ export function configureApi(opts: {
   getRefreshToken: () => string | null;
   onTokensRefreshed: (a: string, r: string) => void;
   onAuthLost: () => void;
+  adoptStoredRefreshToken: () => boolean;
 }) {
   getSessionVersion = opts.getSessionVersion;
   getAccessToken = opts.getAccessToken;
   getRefreshToken = opts.getRefreshToken;
   onTokensRefreshed = opts.onTokensRefreshed;
   onAuthLost = opts.onAuthLost;
+  adoptStoredRefreshToken = opts.adoptStoredRefreshToken;
+}
+
+/**
+ * 同一浏览器的多个标签页共用 localStorage 里的 refresh token。
+ * 刷新放进 Web Locks 依次执行，进锁后先取其他标签页刚轮换出的新令牌，
+ * 避免两个标签页拿同一枚旧令牌刷新，被服务端当作重放而整族吊销。
+ * 不支持 Web Locks 的浏览器直接执行。
+ */
+function exclusive<T>(task: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
+  return locks ? (locks.request("hellotime.auth.refresh", task) as Promise<T>) : task();
 }
 
 let refreshing: { token: string; request: Promise<string | null> } | null = null;
+
+async function postRefresh(refreshToken: string, retried: boolean): Promise<string | null> {
+  try {
+    const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+    const env = (await res.json()) as Envelope<{
+      accessToken: string;
+      refreshToken: string;
+    }>;
+    // 登出或换账号时，旧令牌的刷新响应不能改写当前登录态。
+    if (getRefreshToken() !== refreshToken) return null;
+    if (!res.ok || !env.success || !env.data) {
+      // 另一个标签页恰好先轮换了（没有 Web Locks 时可能发生）：用它的新令牌再试一次
+      if (!retried && adoptStoredRefreshToken()) {
+        const next = getRefreshToken();
+        return next ? postRefresh(next, true) : null;
+      }
+      onAuthLost();
+      return null;
+    }
+    onTokensRefreshed(env.data.accessToken, env.data.refreshToken);
+    return env.data.accessToken;
+  } catch {
+    if (getRefreshToken() === refreshToken) onAuthLost();
+    return null;
+  }
+}
 
 async function tryRefresh(): Promise<string | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
   if (refreshing?.token === refreshToken) return refreshing.request;
 
-  const request = (async () => {
-    try {
-      const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
-      });
-      const env = (await res.json()) as Envelope<{
-        accessToken: string;
-        refreshToken: string;
-      }>;
-      // 登出或换账号时，旧令牌的刷新响应不能改写当前登录态。
-      if (getRefreshToken() !== refreshToken) return null;
-      if (!res.ok || !env.success || !env.data) {
-        onAuthLost();
-        return null;
-      }
-      onTokensRefreshed(env.data.accessToken, env.data.refreshToken);
-      return env.data.accessToken;
-    } catch {
-      if (getRefreshToken() === refreshToken) onAuthLost();
-      return null;
-    }
-  })();
+  const request = exclusive(async () => {
+    adoptStoredRefreshToken();
+    const latest = getRefreshToken();
+    return latest ? postRefresh(latest, false) : null;
+  });
 
   refreshing = { token: refreshToken, request };
   try {

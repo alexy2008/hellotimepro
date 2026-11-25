@@ -4,13 +4,14 @@ import { useAuthStore } from "@/stores/auth";
 import { useMyList } from "@/composables/useAccount";
 import AppIcon from "@/components/AppIcon.vue";
 import ListMore from "@/components/ListMore.vue";
+import ListStatus from "@/components/ListStatus.vue";
 import PaperCard from "./PaperCard.vue";
 import PaperSeal from "./PaperSeal.vue";
 
 defineProps<{ now: number }>();
 const emit = defineEmits<{ change: [] }>();
 const auth = useAuthStore();
-const { items, total, hasMore, moreBusy, loadMore, onFavChange } = useMyList("favorites", () => emit("change"));
+const { items, error, reload, total, hasMore, moreBusy, loadMore, onFavChange } = useMyList("favorites", () => emit("change"));
 </script>
 
 <template>
@@ -42,4 +43,5 @@ const { items, total, hasMore, moreBusy, loadMore, onFavChange } = useMyList("fa
       <ListMore :show="hasMore" :busy="moreBusy" :left="total - items.length" @more="loadMore" />
     </template>
   </template>
+  <ListStatus v-else :error="error" @retry="reload" />
 </template>
