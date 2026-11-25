@@ -32,6 +32,7 @@ export const TECH_NOTE: Record<string, string> = {
   "Python": "优雅、动态的通用语言，类型注解让大项目也安心",
   "FastAPI": "基于 Starlette + Pydantic 的现代异步框架",
   "PostgreSQL": "功能丰富的开源关系型数据库",
+  "SQLite": "嵌入式单文件关系型数据库，零配置即可运行",
   "SQLAlchemy": "Python 生态里最严谨的关系映射库",
   "Java": "运行在 JVM 上的强类型语言，一次编写处处运行",
   "Spring Boot": "Java 生态最主流的企业级框架，约定优于配置",
@@ -85,5 +86,6 @@ export const FRONTEND_STACK: StackItem[] = [
 ];
 
 export const FRONTEND_SUMMARY =
-  "Nuxt 由文件生成路由，公用布局承载双皮肤。广场和胶囊详情通过 useAsyncData 在服务端取数，浏览器复用首屏数据。" +
-  "登录态在客户端恢复；Pinia 和 Vue 组合式 API 让表单、草稿及筛选跨皮肤保留。";
+  "基于 Nuxt 3 文件系统路由与 Vue 3.5 组合式 API 构建界面层，公用布局统一承载「时笺」与「琥珀」两套 2.0 皮肤及昼夜主题。" +
+  "广场与胶囊详情借助 useAsyncData 在服务端取数直出首屏，浏览器端直接复用脱水载荷避免二次请求；登录态在客户端恢复并配合路由守卫处理回跳。" +
+  "Pinia 3 以 setup 风格管理全局状态，表单、草稿与筛选条件跨皮肤保留；样式原样引入 spec/styles 语义令牌，首帧前注入脚本防止闪烁。";

@@ -16,7 +16,7 @@ const { online, backend } = useHealth();
         HelloTime Pro · 时间胶囊
       </NuxtLink>
       <div class="ftr__stack" data-testid="footer-stack">
-        <span class="ftr__dot" :title="online === false ? '后端离线' : '后端在线'" :data-online="online ?? undefined" />
+        <span class="ftr__dot" :title="online === false ? '服务离线' : '服务在线'" :data-online="online ?? undefined" />
         <AmberChip v-for="it in FRONTEND_STACK" :key="`f-${it.name}`" :it="it" />
         <i v-if="backend.length" class="ftr__x">×</i>
         <AmberChip v-for="it in backend" :key="`b-${it.role}-${it.name}`" :it="it" />

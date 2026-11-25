@@ -21,7 +21,7 @@ const { online, backend, backendName } = useHealth();
           <span>本页由以下技术栈排印</span>
           <span class="ftr__live">
             <span :class="['dot', { 'dot--on': online }]" />
-            {{ online === false ? "后端离线" : online ? `后端在线 · ${backendName ?? ""}` : "连接中…" }}
+            {{ online === false ? "服务离线" : online ? `服务在线 · ${backendName ?? ""}` : "连接中…" }}
           </span>
         </div>
         <ul class="stack" data-testid="footer-stack">

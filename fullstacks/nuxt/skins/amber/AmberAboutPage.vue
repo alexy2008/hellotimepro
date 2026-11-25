@@ -31,17 +31,17 @@ const { health, online, backend, backendName } = useHealth();
       <section class="about__sec">
         <div class="eyebrow">Tech stack</div>
         <h2 class="section-title">此刻运行的技术栈</h2>
-        <p class="page-lead">页脚和这里展示的内容，都来自后端的健康检查接口——换一个后端，它们会跟着变。</p>
+        <p class="page-lead">页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
         <div class="about__live">
           <span class="ftr__dot" />
-          {{ online === false ? "后端离线" : "后端在线" }} · <span class="mono">GET /api/v1/health</span>
+          {{ online === false ? "服务离线" : "服务在线" }} · <span class="mono">GET /api/v1/health</span>
         </div>
         <div class="about__stacks" data-testid="about-stack">
-          <AmberStackCard kind="前端" en="Frontend" path="fullstacks/nuxt" :items="FRONTEND_STACK" :summary="FRONTEND_SUMMARY" />
+          <AmberStackCard kind="界面层 · Nuxt + Vue" en="Interface" path="fullstacks/nuxt" :items="FRONTEND_STACK" :summary="FRONTEND_SUMMARY" />
           <AmberStackCard
             v-if="health"
-            :kind="`后端 · ${backendName ?? '后端'}`"
-            en="Backend"
+            :kind="`服务端 · ${backendName ?? 'Nitro'}`"
+            en="Server"
             :path="health.stack.kind"
             :items="backend"
             :summary="health.stack.summary"
@@ -77,7 +77,7 @@ const { health, online, backend, backendName } = useHealth();
       <section class="about__sec about__credits">
         <div>
           <h3><AppIcon name="code" />源码</h3>
-          <p>实现位于仓库的 <code class="mono">fullstacks/nuxt</code> 与 <code class="mono">backends/</code> 目录。</p>
+          <p>实现位于仓库的 <code class="mono">fullstacks/nuxt</code> 目录。</p>
         </div>
         <div>
           <h3><AppIcon name="heart" />致谢</h3>

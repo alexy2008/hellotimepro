@@ -22,7 +22,7 @@ const { health, online, backend, backendName } = useHealth();
         <div class="about__lede">
           <p>HelloTime Pro 是一款时间胶囊应用：写下一段话，设定未来某一刻才能开启，封存之后不可修改。它有胶囊广场、AI 代笔、收藏与账号。</p>
           <p>
-            它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的前端与后端技术栈实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。
+            它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的界面层与服务端同源实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。
           </p>
         </div>
       </header>
@@ -32,21 +32,21 @@ const { health, online, backend, backendName } = useHealth();
           <span class="sechead__no">壹</span>
           <div>
             <h2 class="h2">此刻运行的技术栈</h2>
-            <p>Nuxt 页面和 Nitro API 同源。数据库与服务端技术栈来自健康检查接口。</p>
+            <p>页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
           </div>
         </header>
         <div class="about__live">
           <span :class="['dot', { 'dot--on': online }]" />
-          {{ online === false ? "后端离线" : "后端在线" }}
+          {{ online === false ? "服务离线" : "服务在线" }}
           <i />
           <span class="mono">GET /api/v1/health</span>
         </div>
         <div class="about__stack" data-testid="about-stack">
-          <PaperStackCard kind="前端" title="Nuxt" sub="fullstacks/nuxt" :items="FRONTEND_STACK" :summary="FRONTEND_SUMMARY" />
+          <PaperStackCard kind="界面层" title="Nuxt + Vue" sub="fullstacks/nuxt" :items="FRONTEND_STACK" :summary="FRONTEND_SUMMARY" />
           <PaperStackCard
             v-if="health"
-            kind="后端"
-            :title="backendName ?? '后端'"
+            kind="服务端"
+            :title="backendName ?? 'Nitro'"
             :sub="health.stack.kind === 'fullstack' ? 'fullstack' : 'backend'"
             :items="backend"
             :summary="health.stack.summary"
