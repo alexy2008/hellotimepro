@@ -13,8 +13,8 @@ Next.js 15（App Router）+ React 19 + TypeScript 实现的 HelloTime Pro 全栈
 | 角色 | 选型 |
 |---|---|
 | 语言 | TypeScript 5 |
-| 框架 | Next.js 15（App Router：文件系统路由 + Route Handlers） |
-| UI | React 19：Server Components 取数 + Client Components 交互（全部页面服务端渲染，见「设计要点」） |
+| 框架 | Next.js 15.5.29（App Router：文件系统路由 + Route Handlers） |
+| UI | React 19.3.1：Server Components 取数 + Client Components 交互（全部页面服务端渲染，见「设计要点」） |
 | 客户端状态 | Zustand 5 |
 | 数据访问 | Drizzle ORM（双 schema：PG / SQLite） |
 | 数据库 | PostgreSQL 16 / SQLite 3 双驱动 |
@@ -95,7 +95,7 @@ src/
 - **页面与接口同源**：浏览器请求 `/api/v1/*` 打到同一个 Next 进程，没有反代、没有 CORS。接口层鉴权走 `Authorization: Bearer`，与独立后端的契约完全一致。
 - **Server / Client 组件分工**：`app/` 下的 `layout.tsx`、`page.tsx` 是 Server Component——读 Cookie、调 `services/*`（经 `lib/server/page-data.ts`，同进程函数调用，不绕 HTTP）、生成 `metadata`；`views/*`、`skins/*`、`components/*` 是 Client Component，同样在服务端渲染成 HTML，浏览器里水合后接管交互。后续的翻页、筛选、搜索、收藏仍走 `/api/v1`。两套皮肤切换只在客户端用同一份数据重渲，不请求服务端。
 - **偏好：Cookie 给服务端，localStorage 仍是首帧权威**：切换皮肤 / 明暗时同时写 localStorage（`hellotime.skin` / `hellotime.theme`）与 Cookie（`ht-skin` / `ht-theme`），**明暗也写**；服务端按 Cookie 输出 `<html data-skin data-theme>` 并渲染对应皮肤。首帧脚本只在 localStorage 与 Cookie 不一致时改 `<html>`，皮肤不同就打上 `data-skin-pending` 暂时隐藏内容，客户端换好皮肤后摘掉，并把 Cookie 校正为本地值。一致时 `<html>` 上没有任何属性变化（已用 MutationObserver 核实）。
-- **匿名 SSR + 客户端个人投影**：令牌在 localStorage，服务端看不到，公开页一律以匿名身份生成；水合后恢复登录态，登录用户静默重取一次广场列表 / 精选或胶囊详情，补上 `favoritedByMe`。匿名访客打开首页、详情、关于页不发任何 `/api/v1` 请求。
+- **匿名 SSR 与收藏状态**：公开页以匿名身份生成。查询条件一致时，广场接纳新的服务端首屏，登录用户随后静默补取收藏状态。详情进入后在后台复验，查到胶囊已删除时清除旧正文。收藏状态确认后才允许登录用户切换收藏，查询失败时可点按钮重试。
 - **水合一致**：服务端不能按请求改模块级 zustand store，所以按请求变化的值走 Context 给 `useSyncExternalStore` 的 `getServerSnapshot`——皮肤 / 明暗（`UiSeedContext`）、渲染时刻（`NowSeedContext`，倒计时两边用同一时刻）；广场首屏经 `PlazaSeedContext` 叠加在空 store 上，水合后写进 store。
 - **服务端还做的事**：根布局在服务端读 `spec/avatars/v2`，把头像表作为 props 交给客户端（React 版是 Vite 的 `import.meta.glob` 构建期内联）；`/me` 的跳转用服务端 `redirect()`；未匹配路由由 `not-found.tsx` 返回 HTTP 404。
 - **逻辑一份，视图按皮肤分**：`hooks/`、`stores/`、`skins/`、`components/` 与 `frontends/react-ts` 逐文件对应，差别在导入路径（`react-router-dom` → `@/lib/router`）、少数文案，以及服务端渲染需要的首屏数据与 seed。草稿、表单值、广场搜索放在共享 store，切皮肤不丢。
@@ -110,6 +110,12 @@ src/
 客户端将当前用户请求和改密后的延迟登出绑定到登录会话。两套皮肤共享搜索防抖与输码空位，查询条件变化时清理旧列表，个人列表首次加载失败可重试。时笺处理开启途中胶囊被删除的状态，琥珀关闭时间面板后移出焦点顺序。复制结果按剪贴板写入是否成功提示。
 
 本轮仅做静态检查，未重跑契约、UI 冒烟或构建。
+
+## SSR 复核修复（2026-11-23）
+
+- 升级到 Next.js 15.5.29 与 React 19.3.1，并更新锁文件。Next.js 版本采用[官方 11 月安全更新](https://nextjs.org/blog/november-2026-security-release)的 15.x 维护版本。
+- 服务端渲染与首次水合统一按 `Asia/Shanghai` 格式化公开页日期，客户端接管后用浏览器时区。创建入口等登录态恢复后才启用导航。
+- 2026-11-25 复核修复后重验（独立库 `hellotime_contract_next` 与 `/tmp/hellotime-contract-next.db`）：契约 PostgreSQL / SQLite 117/117，UI 冒烟 PostgreSQL / SQLite 88/88，设计令牌通过。
 
 ## 2.0 验证
 

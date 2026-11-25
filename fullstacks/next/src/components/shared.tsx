@@ -42,11 +42,9 @@ export function TechIcon({ item, className }: { item: Pick<StackItem, "name" | "
   );
 }
 
-/** 全栈的页面层：App Router 文件系统路由 + Server Components 服务端渲染 + 客户端水合的 React 页面 */
+/** 全栈的界面层：App Router + Server/Client Components 渲染，Zustand 管理客户端状态 */
 export const FRONTEND_STACK: StackItem[] = [
-  { role: "framework", name: "Next.js", version: "15", iconUrl: "/static/icons/nextjs.svg" },
   { role: "ui", name: "React", version: "19", iconUrl: "/static/icons/react.svg" },
-  { role: "language", name: "TypeScript", version: "5.7", iconUrl: "/static/icons/typescript.svg" },
   { role: "state", name: "Zustand", version: "5", iconUrl: null },
 ];
 

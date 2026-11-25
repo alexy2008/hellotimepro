@@ -173,7 +173,7 @@ export function AmberFooter() {
           HelloTime Pro · 时间胶囊
         </Link>
         <div className="ftr__stack" data-testid="footer-stack">
-          <span className="ftr__dot" title={online === false ? "后端离线" : "后端在线"} data-online={online ?? undefined} />
+          <span className="ftr__dot" title={online === false ? "服务离线" : "服务在线"} data-online={online ?? undefined} />
           {FRONTEND_STACK.map((it) => (
             <Chip key={`f-${it.name}`} it={it} />
           ))}

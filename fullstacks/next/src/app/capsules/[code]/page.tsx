@@ -3,6 +3,7 @@
 // generateMetadata 与页面共用 loadCapsuleSeed（React cache），同一次请求只查一次库。
 import type { Metadata } from "next";
 import { CapsuleByCodePage } from "@/views/CapsuleByCodePage";
+import { dateFormat, SSR_TIME_ZONE } from "@/lib/fmt";
 import { loadCapsuleSeed } from "@/lib/server/page-data";
 
 type Props = { params: Promise<{ code: string }> };
@@ -16,11 +17,8 @@ function excerpt(text: string): string {
   return chars.length > 80 ? chars.slice(0, 80).join("") + "…" : flat;
 }
 
-/** 开启日期（UTC 日历日）：描述只要日期，不必关心访客所在时区的时刻 */
-function day(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getUTCFullYear()} 年 ${d.getUTCMonth() + 1} 月 ${d.getUTCDate()} 日`;
-}
+// 搜索摘要使用与服务端详情相同的日历日。
+const serverDate = dateFormat(SSR_TIME_ZONE);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { code } = await params;
@@ -32,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const description =
       c.isOpened && c.content
         ? excerpt(c.content)
-        : `${c.creator.nickname} 封存的一枚时间胶囊，将在 ${day(c.openAt)} 开启。`;
+        : `${c.creator.nickname} 封存的一枚时间胶囊，将在 ${serverDate.cn(Date.parse(c.openAt))} 开启。`;
     return { title, description, openGraph: { title, description, type: "article" } };
   }
   if (seed?.status === "missing") {

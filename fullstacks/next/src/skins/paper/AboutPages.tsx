@@ -12,7 +12,9 @@ import type { StackItem } from "@/types";
 import { Seal } from "./parts";
 
 export const FRONTEND_SUMMARY =
-  "Next.js App Router 用文件系统路由组织页面与 /api/v1 接口，页面在客户端渲染、Zustand 做轻量状态管理；样式原样引入 spec/styles 的两套皮肤，换皮肤、换明暗只改 <html> 上的两个属性。";
+  "基于 Next.js 15 App Router 与 React 19 构建界面层，首屏由 Server Components 在服务端直接调用业务层取数并输出 HTML，交互部分交由 Client Components 水合接管。" +
+  "业务逻辑抽离为共享 Hooks，Zustand 5 按领域管理登录态、皮肤主题、广场筛选与创作草稿，两套皮肤视图复用同一批状态与逻辑。" +
+  "样式原样引入 spec/styles 2.0 设计令牌，首屏内联脚本在绘制前写好皮肤与明暗属性以防闪烁，View Transition 承载平滑换肤与昼夜切换。";
 
 function StackCard({ kind, title, sub, items, summary }: { kind: string; title: string; sub: string; items: StackItem[]; summary: string }) {
   return (
@@ -65,7 +67,7 @@ export function PaperAboutPage() {
           <div className="about__lede">
             <p>HelloTime Pro 是一款时间胶囊应用：写下一段话，设定未来某一刻才能开启，封存之后不可修改。它有胶囊广场、AI 代笔、收藏与账号。</p>
             <p>
-              它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的前端与后端技术栈实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。
+              它同时也是一个<b>多技术栈对比学习项目</b>的一部分。你正在使用的这一套，由下面的界面层与服务端同源实现，并遵循项目统一的 API 契约、数据库 schema 与设计令牌。
             </p>
           </div>
         </header>
@@ -75,18 +77,18 @@ export function PaperAboutPage() {
             <span className="sechead__no">壹</span>
             <div>
               <h2 className="h2">此刻运行的技术栈</h2>
-              <p>页脚与这里展示的内容，都来自后端的健康检查接口——换一个后端，它们会跟着变。</p>
+              <p>页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
             </div>
           </header>
           <div className="about__live">
             <span className={`dot${online ? " dot--on" : ""}`} />
-            {online === false ? "后端离线" : "后端在线"}
+            {online === false ? "服务离线" : "服务在线"}
             <i />
             <span className="mono">GET /api/v1/health</span>
           </div>
           <div className="about__stack" data-testid="about-stack">
-            <StackCard kind="前端" title="Next.js" sub="fullstacks/next" items={FRONTEND_STACK} summary={FRONTEND_SUMMARY} />
-            {health ? <StackCard kind="后端" title={backendName} sub={health.stack.kind === "fullstack" ? "fullstack" : "backend"} items={backend} summary={health.stack.summary} /> : null}
+            <StackCard kind="界面层" title="Next.js + React" sub="fullstacks/next" items={FRONTEND_STACK} summary={FRONTEND_SUMMARY} />
+            {health ? <StackCard kind="服务端" title={backendName} sub={health.stack.kind === "fullstack" ? "fullstack" : "backend"} items={backend} summary={health.stack.summary} /> : null}
           </div>
         </section>
 

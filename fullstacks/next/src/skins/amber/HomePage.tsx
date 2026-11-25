@@ -4,6 +4,7 @@
 // 结构与类名照 2.0 原型 amber/view-plaza.js
 // ============================================================
 
+import { useDisplayDate } from "@/hooks/useNow";
 import { useEffect, useRef, type CSSProperties } from "react";
 import { Link } from "@/lib/router";
 import { fmt, ms, reducedMotion } from "@/lib/fmt";
@@ -30,7 +31,8 @@ const scrollToPlaza = (e?: React.MouseEvent) => {
 };
 
 /** 主视觉：一枚悬浮在「时间表盘」中央的胶囊。三层圆环反向旋转，年份环缓缓流过；鼠标带一点视差 */
-function HeroArt() {
+function HeroArt({ now }: { now: number }) {
+  const displayDate = useDisplayDate();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (reducedMotion()) return;
@@ -53,7 +55,7 @@ function HeroArt() {
       cancelAnimationFrame(raf);
     };
   }, []);
-  const y0 = new Date().getFullYear();
+  const y0 = displayDate.year(now);
   const years = Array.from({ length: 21 }, (_, i) => y0 + i).join(" · ") + " · ";
   return (
     <div className="hart" ref={ref} aria-hidden="true">
@@ -200,6 +202,7 @@ const EmptyBox = ({ title, text, action, testId }: { title: string; text: string
 );
 
 export function AmberHomePage() {
+  const displayDate = useDisplayDate();
   const h = usePlazaHome();
   const s = h.overview;
   const p = h.pagination;
@@ -234,11 +237,11 @@ export function AmberHomePage() {
           <QuickOpen />
           <div className="hero__now">
             <span className="hero__live" />
-            此刻 · <span className="mono">{fmt.date(h.now).replace(/\./g, "-")} {fmt.time(h.now, true)}</span>
+            此刻 · <span className="mono">{displayDate.date(h.now).replace(/\./g, "-")} {displayDate.time(h.now, true)}</span>
           </div>
         </div>
         <div className="hero__art">
-          <HeroArt />
+          <HeroArt now={h.now} />
           {f ? (
             <Link className="slip" to={`/capsules/${f.code}`} style={{ "--glow": paletteOf(f.code).glow } as CSSProperties}>
               <div className="slip__k">
@@ -268,7 +271,7 @@ export function AmberHomePage() {
             <StatCell i={1} k="unopened" n={s.counts.unopened} a="枚正在" b="等待开启" />
             <StatCell i={2} k="opened" n={s.counts.opened} a="枚已经" b="被人读到" />
             {s.farthestOpenAt ? (
-              <StatCell i={3} k="farthestYear" n={new Date(s.farthestOpenAt).getFullYear()} a="年，最远的" b="一枚才会打开" />
+              <StatCell i={3} k="farthestYear" n={displayDate.year(ms(s.farthestOpenAt))} a="年，最远的" b="一枚才会打开" />
             ) : null}
           </>
         ) : null}

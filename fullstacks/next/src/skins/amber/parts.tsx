@@ -3,6 +3,7 @@
 // 结构与类名照 2.0 原型 amber/ui.js；样式在 spec/styles/amber
 // ============================================================
 
+import { useDisplayDate } from "@/hooks/useNow";
 import { Fragment, useId, type CSSProperties } from "react";
 import { fmt, pad2 } from "@/lib/fmt";
 import { Icon, type IconName } from "@/lib/icons";
@@ -76,6 +77,7 @@ export function cdShort(openAt: number, now: number) {
 
 /** 邮戳：外圈文字沿圆排布，略微歪斜，像用手盖上去的 */
 export function Stamp({ date, label = "已开启", className }: { date: number; label?: string; className?: string }) {
+  const displayDate = useDisplayDate();
   const id = `st${useId().replace(/:/g, "")}`;
   return (
     <svg className={className ? `stamp ${className}` : "stamp"} viewBox="0 0 140 140" aria-hidden="true">
@@ -93,7 +95,7 @@ export function Stamp({ date, label = "已开启", className }: { date: number; 
         {label}
       </text>
       <text className="stamp__date" x="70" y="86" textAnchor="middle">
-        {fmt.date(date)}
+        {displayDate.date(date)}
       </text>
     </svg>
   );

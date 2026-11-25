@@ -4,6 +4,7 @@
 // 结构与类名照 2.0 原型 paper/view-capsule.js
 // ============================================================
 
+import { useDisplayDate } from "@/hooks/useNow";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@/lib/router";
 import { fmt, ms, pad2, reducedMotion, sleep } from "@/lib/fmt";
@@ -57,6 +58,7 @@ const Back = () => (
 );
 
 function Sealed({ c, now, opening }: { c: CapsuleDetail; now: number; opening: { crack: "whole" | "split" | "cracked"; open: boolean; rising: boolean } | null }) {
+  const displayDate = useDisplayDate();
   const openAt = ms(c.openAt);
   const createdAt = ms(c.createdAt);
   const cd = fmt.cd(openAt, now);
@@ -88,14 +90,14 @@ function Sealed({ c, now, opening }: { c: CapsuleDetail; now: number; opening: {
           <Avatar id={c.creator.avatarId} />
           <b>{c.creator.nickname}</b>
           <span>
-            封存于 {fmt.cn(createdAt)} {fmt.time(createdAt)}
+            封存于 {displayDate.cn(createdAt)} {displayDate.time(createdAt)}
           </span>
         </div>
       </header>
 
       <section className="stage">
         <div className="stage__pm">
-          <Postmark line1={fmt.date(openAt)} line2={`${fmt.time(openAt)} 启`} className="pm--stage" />
+          <Postmark line1={displayDate.date(openAt)} line2={`${displayDate.time(openAt)} 启`} className="pm--stage" />
         </div>
         <Envelope
           className={`env--stage${opening?.open ? " is-open" : ""}${opening?.rising ? " is-rising" : ""}`}
@@ -126,7 +128,7 @@ function Sealed({ c, now, opening }: { c: CapsuleDetail; now: number; opening: {
           {unit(pad2(cd.s), "秒")}
         </div>
         <div className="cd__when">
-          将于 <b>{fmt.full(openAt)}</b> 启封
+          将于 <b>{displayDate.full(openAt)}</b> 启封
         </div>
       </section>
 
@@ -134,12 +136,12 @@ function Sealed({ c, now, opening }: { c: CapsuleDetail; now: number; opening: {
         <div className="journey__row">
           <span>
             <em>封存</em>
-            {fmt.date(createdAt)}
+            {displayDate.date(createdAt)}
           </span>
           <span className="journey__pct">已等待 {p}%</span>
           <span>
             <em>启封</em>
-            {fmt.date(openAt)}
+            {displayDate.date(openAt)}
           </span>
         </div>
         <Scale p={p} className="scale--lg" />
@@ -155,6 +157,7 @@ function Sealed({ c, now, opening }: { c: CapsuleDetail; now: number; opening: {
 }
 
 function Opened({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
+  const displayDate = useDisplayDate();
   const openAt = ms(c.openAt);
   const createdAt = ms(c.createdAt);
   return (
@@ -162,7 +165,7 @@ function Opened({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
       <Back />
       <article className={`letter${reveal ? " letter--reveal" : ""}`}>
         <div className="letter__pm">
-          <Postmark line1={fmt.date(openAt)} line2="已 启 封" className="pm--letter" />
+          <Postmark line1={displayDate.date(openAt)} line2="已 启 封" className="pm--letter" />
         </div>
         <div className="letter__meta">
           <span className="mono">NO. {c.code}</span>
@@ -174,11 +177,11 @@ function Opened({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
         <dl className="letter__facts">
           <div>
             <dt>封存</dt>
-            <dd className="mono">{fmt.dateTime(createdAt)}</dd>
+            <dd className="mono">{displayDate.dateTime(createdAt)}</dd>
           </div>
           <div>
             <dt>启封</dt>
-            <dd className="mono">{fmt.dateTime(openAt)}</dd>
+            <dd className="mono">{displayDate.dateTime(openAt)}</dd>
           </div>
           <div>
             <dt>在途</dt>
@@ -203,7 +206,7 @@ function Opened({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
             <Avatar id={c.creator.avatarId} />
             <b>{c.creator.nickname}</b>
           </div>
-          <div className="letter__date">写于 {fmt.cn(createdAt)}</div>
+          <div className="letter__date">写于 {displayDate.cn(createdAt)}</div>
           <Seal ch="启" variant="line" className="letter__seal" />
         </footer>
       </article>

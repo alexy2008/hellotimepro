@@ -13,6 +13,7 @@
 
 import { create } from "zustand";
 import { api } from "@/api/client";
+import { getSessionVersion } from "@/stores/auth";
 import type { CapsuleListItem, Pagination, PlazaFilter, PlazaSeed, PlazaSort, PlazaStats } from "@/types";
 
 export interface PlazaState {
@@ -31,6 +32,9 @@ export interface PlazaState {
   counts: PlazaStats["counts"] | null;
   overview: PlazaStats | null;
   featured: CapsuleListItem | null;
+  seedAt: number | null;
+  favoriteSession: number | null;
+  favoriteFailed: boolean;
 
   setSort: (s: PlazaSort) => void;
   setFilter: (f: PlazaFilter) => void;
@@ -41,7 +45,7 @@ export interface PlazaState {
   fetch: (opts?: { silent?: boolean }) => Promise<void>;
   /** 首页进入、或有胶囊到点开启时：列表、数量、年鉴、精选一起刷新 */
   refreshAll: () => Promise<void>;
-  /** 服务端首屏是匿名生成的：登录用户静默重取列表与精选，补上 favoritedByMe */
+  /** 登录用户静默重取列表，补上卡片的 favoritedByMe */
   refreshViewer: () => Promise<void>;
   /** 写入服务端给的首屏数据 */
   seed: (s: PlazaSeed) => void;
@@ -52,6 +56,8 @@ export interface PlazaState {
 let debounce: ReturnType<typeof setTimeout> | undefined;
 let listSeq = 0;
 let countSeq = 0;
+let featuredSeq = 0;
+let overviewSeq = 0;
 
 export const usePlaza = create<PlazaState>()((set, get) => ({
   sort: "new",
@@ -68,6 +74,9 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
   counts: null,
   overview: null,
   featured: null,
+  seedAt: null,
+  favoriteSession: null,
+  favoriteFailed: false,
 
   setSort: (sort) => {
     set({ sort, page: 1, items: [], pagination: null });
@@ -95,16 +104,24 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
 
   fetch: async (opts) => {
     const my = ++listSeq;
+    const session = getSessionVersion();
     const { sort, filter, q, page, pageSize } = get();
-    if (!opts?.silent) set({ loading: true, error: null });
+    set({
+      favoriteFailed: false,
+      favoriteSession: null,
+      ...(opts?.silent ? {} : { loading: true, error: null }),
+    });
     try {
       const data = await api.plaza({ sort, filter, q: q.trim() || undefined, page, pageSize });
-      if (my !== listSeq) return;
-      set({ items: data.items, pagination: data.pagination, loading: false, error: null });
+      if (my !== listSeq || session !== getSessionVersion()) return;
+      set({ items: data.items, pagination: data.pagination, loading: false, error: null, favoriteSession: session });
     } catch (e) {
-      if (my !== listSeq) return;
-      // 静默重取失败：保留服务端给的那一屏（只是少了个人投影）
-      if (opts?.silent) return;
+      if (my !== listSeq || session !== getSessionVersion()) return;
+      // 静默重取失败：保留公开首屏，由收藏按钮提供重试。
+      if (opts?.silent) {
+        set({ favoriteFailed: true, loading: false });
+        return;
+      }
       set({ items: [], pagination: null, loading: false, error: e instanceof Error ? e.message : "加载失败" });
     }
   },
@@ -113,30 +130,16 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
     await Promise.all([get().fetch(), fetchCounts(), fetchOverview(), fetchFeatured()]);
   },
 
-  refreshViewer: async () => {
-    await Promise.all([get().fetch({ silent: true }), fetchFeatured()]);
-  },
+  refreshViewer: () => get().fetch({ silent: true }),
 
   seed: (s) => {
     clearTimeout(debounce);
     // 作废还在路上的旧请求，免得它们晚到覆盖这一屏
     listSeq++;
     countSeq++;
-    set({
-      sort: s.sort,
-      filter: s.filter,
-      q: s.q,
-      qInput: s.q,
-      page: s.page,
-      pageSize: s.pageSize,
-      items: s.items,
-      pagination: s.pagination,
-      loading: false,
-      error: null,
-      counts: s.counts,
-      overview: s.overview,
-      featured: s.featured,
-    });
+    featuredSeq++;
+    overviewSeq++;
+    set(seedFields(s));
   },
 
   patchFavorited: (capsuleId, favorited, count) => {
@@ -149,11 +152,10 @@ export const usePlaza = create<PlazaState>()((set, get) => ({
   },
 }));
 
-/** 服务端首屏能不能直接用：当前查询条件与它一致，且本页还没有自己加载过数据 */
+/** 使用与当前查询一致的新首屏。历史导航重用同一份首屏时走常规刷新。 */
 export function canUseSeed(s: PlazaState, seed: PlazaSeed): boolean {
   return (
-    !s.pagination &&
-    !s.loading &&
+    (s.seedAt === null || seed.generatedAt > s.seedAt) &&
     s.sort === seed.sort &&
     s.filter === seed.filter &&
     s.q === seed.q &&
@@ -163,10 +165,8 @@ export function canUseSeed(s: PlazaState, seed: PlazaSeed): boolean {
   );
 }
 
-/** 服务端首屏铺到广场状态上（只用于服务端渲染与水合那一次，见 hooks/usePlazaHome） */
-export function overlaySeed<T extends PlazaState>(s: T, seed: PlazaSeed): T {
+function seedFields(seed: PlazaSeed) {
   return {
-    ...s,
     sort: seed.sort,
     filter: seed.filter,
     q: seed.q,
@@ -180,17 +180,31 @@ export function overlaySeed<T extends PlazaState>(s: T, seed: PlazaSeed): T {
     counts: seed.counts,
     overview: seed.overview,
     featured: seed.featured,
+    seedAt: seed.generatedAt,
+    favoriteSession: null,
+    favoriteFailed: false,
   };
 }
 
+/** 服务端首屏叠加在广场状态上，客户端在 layout effect 中接管。 */
+export function overlaySeed(s: PlazaState, seed: PlazaSeed): PlazaState {
+  return { ...s, ...seedFields(seed) };
+}
+
 function fetchOverview() {
-  return api.plazaStats().then((overview) => usePlaza.setState({ overview })).catch(() => undefined);
+  const my = ++overviewSeq;
+  return api.plazaStats().then((overview) => {
+    if (my === overviewSeq) usePlaza.setState({ overview });
+  }).catch(() => undefined);
 }
 
 function fetchFeatured() {
+  const my = ++featuredSeq;
   return api
     .plaza({ sort: "hot", filter: "unopened", page: 1, pageSize: 1 })
-    .then((r) => usePlaza.setState({ featured: r.items[0] ?? null }))
+    .then((r) => {
+      if (my === featuredSeq) usePlaza.setState({ featured: r.items[0] ?? null });
+    })
     .catch(() => undefined);
 }
 

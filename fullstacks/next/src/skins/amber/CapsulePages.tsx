@@ -4,6 +4,7 @@
 // 结构与类名照 2.0 原型 amber/view-capsule.js
 // ============================================================
 
+import { useDisplayDate } from "@/hooks/useNow";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "@/lib/router";
 import { fmt, ms, reducedMotion, sleep } from "@/lib/fmt";
@@ -21,7 +22,6 @@ import { AmberCodeInput } from "./CodeInput";
 import { CreateLink } from "@/components/LoginPrompt";
 
 const RING_C = 2 * Math.PI * 150;
-const dash = (iso: number) => fmt.dateTime(iso).replace(/\./g, "-");
 
 const Back = () => (
   <Link className="back" to="/">
@@ -57,6 +57,7 @@ function Actions({ c, letter }: { c: CapsuleDetail; letter?: boolean }) {
 }
 
 function Locked({ c, now }: { c: CapsuleDetail; now: number }) {
+  const displayDate = useDisplayDate();
   const openAt = ms(c.openAt);
   const createdAt = ms(c.createdAt);
   const pct = Math.min(100, Math.max(0, ((now - createdAt) / (openAt - createdAt)) * 100));
@@ -93,7 +94,7 @@ function Locked({ c, now }: { c: CapsuleDetail; now: number }) {
           </h1>
           <div className="vault__by">
             <Avatar id={c.creator.avatarId} />
-            来自 <b>{c.creator.nickname}</b> · 封存于 {fmt.cn(createdAt)}
+            来自 <b>{c.creator.nickname}</b> · 封存于 {displayDate.cn(createdAt)}
           </div>
           <div className="vault__k">距离开启还有</div>
           <div data-testid="countdown" data-open-at={c.openAt}>
@@ -105,7 +106,7 @@ function Locked({ c, now }: { c: CapsuleDetail; now: number }) {
                 <Icon name="calendar" />
                 开启时间
               </dt>
-              <dd className="mono">{dash(openAt)}</dd>
+              <dd className="mono">{displayDate.dateTime(openAt).replace(/\./g, "-")}</dd>
             </div>
             <div>
               <dt>
@@ -134,6 +135,7 @@ function Locked({ c, now }: { c: CapsuleDetail; now: number }) {
 }
 
 function Letter({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
+  const displayDate = useDisplayDate();
   const openAt = ms(c.openAt);
   const createdAt = ms(c.createdAt);
   return (
@@ -151,7 +153,7 @@ function Letter({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
           </h1>
           <div className="letter__from">
             <Avatar id={c.creator.avatarId} />
-            {c.creator.nickname} 写于 {fmt.cn(createdAt)}
+            {c.creator.nickname} 写于 {displayDate.cn(createdAt)}
           </div>
           <div className="letter__body" data-testid="detail-content">
             {paragraphs(c.content).map((para, i) => (
@@ -172,7 +174,7 @@ function Letter({ c, reveal }: { c: CapsuleDetail; reveal: boolean }) {
                 这封信在时间里沉睡了 <b>{fmt.span(openAt - createdAt)}</b>
               </div>
               <span className="mono">
-                {dash(createdAt)} 封存 → {dash(openAt)} 开启
+                {displayDate.dateTime(createdAt).replace(/\./g, "-")} 封存 → {displayDate.dateTime(openAt).replace(/\./g, "-")} 开启
               </span>
             </div>
             <div className="letter__sign">

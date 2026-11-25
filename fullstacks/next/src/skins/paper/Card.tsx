@@ -4,6 +4,7 @@
 // 已开启 —— 封舌掀起、信纸露出半截，两行正文预览
 // ============================================================
 
+import { useDisplayDate } from "@/hooks/useNow";
 import type { CSSProperties } from "react";
 import { Link } from "@/lib/router";
 import type { CapsuleListItem } from "@/types";
@@ -46,6 +47,7 @@ export function PaperCard({ c, i = 0, rank = 0, mine = false, now, testId = "cap
   testId?: string; openTestId?: string;
   onFavChange?: (favorited: boolean, count: number) => void;
 }) {
+  const displayDate = useDisplayDate();
   const openAt = ms(c.openAt);
   const createdAt = ms(c.createdAt);
   const opened = c.isOpened || openAt <= now;
@@ -90,7 +92,7 @@ export function PaperCard({ c, i = 0, rank = 0, mine = false, now, testId = "cap
         <>
           <p className="cap__preview">{preview(c.contentPreview)}</p>
           <div className="cap__when">
-            <span>启于 {fmt.date(openAt)}</span>
+            <span>启于 {displayDate.date(openAt)}</span>
             <i />
             <span>在途 {fmt.span(openAt - createdAt)}</span>
           </div>
@@ -109,8 +111,8 @@ export function PaperCard({ c, i = 0, rank = 0, mine = false, now, testId = "cap
           </div>
           <Scale p={fmt.progress(createdAt, openAt, now)} />
           <div className="cap__ends mono">
-            <span>{fmt.date(createdAt)}</span>
-            <span>{fmt.date(openAt)}</span>
+            <span>{displayDate.date(createdAt)}</span>
+            <span>{displayDate.date(openAt)}</span>
           </div>
         </>
       )}

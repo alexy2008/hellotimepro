@@ -9,7 +9,7 @@ import { fmt, ms, pad2 } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
 import { useAuth } from "@/stores/auth";
 import { copyText, toast } from "@/stores/feedback";
-import { useNow } from "@/hooks/useNow";
+import { useDisplayDate, useNow } from "@/hooks/useNow";
 import { ListStatus } from "@/components/shared";
 import { nickState, useAvatarIds, useLogin, useMyList, useMyStats, useProfile, useRegister } from "@/hooks/useAccount";
 import { AvatarPicker, Field, NickState, PasswordField, PwdRules } from "@/components/forms";
@@ -21,8 +21,9 @@ import { CreateLink } from "@/components/LoginPrompt";
 
 /** 「此刻」邮戳：日期取共享节拍（服务端渲染与水合用同一时刻，见 hooks/useNow） */
 function TodayPostmark() {
+  const displayDate = useDisplayDate();
   const now = useNow();
-  return <Postmark line1={fmt.date(now)} line2="此 刻" className="pm--auth" />;
+  return <Postmark line1={displayDate.date(now)} line2="此 刻" className="pm--auth" />;
 }
 
 /* ---------------- 登录 / 注册 共用的左侧题字 ---------------- */

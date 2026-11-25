@@ -113,7 +113,7 @@ export function PaperFooter() {
             <span>本页由以下技术栈排印</span>
             <span className="ftr__live">
               <span className={`dot${online ? " dot--on" : ""}`} />
-              {online === false ? "后端离线" : online ? `后端在线 · ${backendName ?? ""}` : "连接中…"}
+              {online === false ? "服务离线" : online ? `服务在线 · ${backendName ?? ""}` : "连接中…"}
             </span>
           </div>
           <ul className="stack" data-testid="footer-stack">

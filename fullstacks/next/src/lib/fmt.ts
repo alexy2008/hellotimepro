@@ -9,6 +9,8 @@ export const ms = (iso: string | number): number =>
 export const pad2 = (n: number) => String(n).padStart(2, "0");
 export const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
+export const SSR_TIME_ZONE = "Asia/Shanghai";
+
 const WEEK = ["日", "一", "二", "三", "四", "五", "六"];
 const LUNAR_MONTH = ["正", "二", "三", "四", "五", "六", "七", "八", "九", "十", "冬", "腊"];
 const CN_NUM = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
@@ -30,50 +32,77 @@ export interface Countdown {
   s: number;
 }
 
+/** 传入时区时，用固定的日历字段格式化首屏。未指定时沿用本机时区。 */
+export function dateFormat(timeZone?: string) {
+  const formatter = timeZone && new Intl.DateTimeFormat("en-GB", {
+    timeZone, year: "numeric", month: "numeric", day: "numeric",
+    hour: "numeric", minute: "numeric", second: "numeric", hourCycle: "h23",
+  });
+
+  function parts(t: number) {
+    const d = new Date(t);
+    if (!formatter) {
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(),
+        hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds() };
+    }
+    const fields = Object.fromEntries(formatter.formatToParts(d).map(({ type, value }) => [type, Number(value)]));
+    return { year: fields.year, month: fields.month, day: fields.day,
+      hour: fields.hour, minute: fields.minute, second: fields.second };
+  }
+
+  const format = {
+    year: (t: number) => parts(t).year,
+    date(t: number) {
+      const { year, month, day } = parts(t);
+      return `${year}.${pad2(month)}.${pad2(day)}`;
+    },
+    time(t: number, sec = false) {
+      const { hour, minute, second } = parts(t);
+      return `${pad2(hour)}:${pad2(minute)}${sec ? ":" + pad2(second) : ""}`;
+    },
+    dateTime(t: number) {
+      return format.date(t) + " " + format.time(t);
+    },
+    cn(t: number) {
+      const { year, month, day } = parts(t);
+      return `${year}年${month}月${day}日`;
+    },
+    week(t: number) {
+      const { year, month, day } = parts(t);
+      return "星期" + WEEK[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+    },
+    full(t: number) {
+      return `${format.cn(t)} ${format.week(t)} ${format.time(t)}`;
+    },
+    /** 农历：浏览器自带的中国历，不支持时返回空串 */
+    lunar(t: number) {
+      try {
+        const parts = new Intl.DateTimeFormat("zh-CN-u-ca-chinese", {
+          timeZone,
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }).formatToParts(new Date(t));
+        const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+        const year = get("yearName");
+        let month = get("month");
+        let day = get("day");
+        if (/^\d+$/.test(month)) month = LUNAR_MONTH[+month - 1];
+        if (month && !/月$/.test(month)) month += "月";
+        if (/^\d+$/.test(day)) day = lunarDay(+day);
+        return (year ? year + "年" : "") + month + day;
+      } catch {
+        return "";
+      }
+    },
+  };
+  return format;
+}
+
 export const fmt = {
-  date(t: number) {
-    const d = new Date(t);
-    return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`;
-  },
-  time(t: number, sec = false) {
-    const d = new Date(t);
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}${sec ? ":" + pad2(d.getSeconds()) : ""}`;
-  },
-  dateTime(t: number) {
-    return fmt.date(t) + " " + fmt.time(t);
-  },
-  cn(t: number) {
-    const d = new Date(t);
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-  },
-  week(t: number) {
-    return "星期" + WEEK[new Date(t).getDay()];
-  },
-  full(t: number) {
-    return `${fmt.cn(t)} ${fmt.week(t)} ${fmt.time(t)}`;
-  },
+  ...dateFormat(),
   num(n: number) {
     return Number(n).toLocaleString("zh-CN");
-  },
-  /** 农历：浏览器自带的中国历，不支持时返回空串 */
-  lunar(t: number) {
-    try {
-      const parts = new Intl.DateTimeFormat("zh-CN-u-ca-chinese", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }).formatToParts(new Date(t));
-      const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-      const year = get("yearName");
-      let month = get("month");
-      let day = get("day");
-      if (/^\d+$/.test(month)) month = LUNAR_MONTH[+month - 1];
-      if (month && !/月$/.test(month)) month += "月";
-      if (/^\d+$/.test(day)) day = lunarDay(+day);
-      return (year ? year + "年" : "") + month + day;
-    } catch {
-      return "";
-    }
   },
   /** 把一段时长说成人话：3 分钟 / 5 小时 / 12 天 / 7 个月 / 2 年 8 个月 */
   span(t: number) {

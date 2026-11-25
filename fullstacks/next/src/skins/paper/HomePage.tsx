@@ -4,6 +4,7 @@
 // 结构与类名照 2.0 原型 paper/view-plaza.js
 // ============================================================
 
+import { useDisplayDate } from "@/hooks/useNow";
 import { useRef, type CSSProperties } from "react";
 import { Link } from "@/lib/router";
 import { fmt, ms, reducedMotion } from "@/lib/fmt";
@@ -67,6 +68,7 @@ function QuickOpen() {
 }
 
 function Hero({ now, featured }: { now: number; featured: ReturnType<typeof usePlazaHome>["featured"] }) {
+  const displayDate = useDisplayDate();
   const art = useRef<HTMLDivElement>(null);
   const hero = useRef<HTMLElement>(null);
   const onMove = (e: React.PointerEvent) => {
@@ -125,10 +127,10 @@ function Hero({ now, featured }: { now: number; featured: ReturnType<typeof useP
           <div className="hero__now" aria-live="off">
             <span className="hero__now-k">此刻</span>
             <span>
-              {fmt.cn(now)} {fmt.week(now)}
+              {displayDate.cn(now)} {displayDate.week(now)}
             </span>
-            <span className="mono hero__now-t">{fmt.time(now, true)}</span>
-            <span className="hero__lunar">{fmt.lunar(now)}</span>
+            <span className="mono hero__now-t">{displayDate.time(now, true)}</span>
+            <span className="hero__lunar">{displayDate.lunar(now)}</span>
           </div>
         </div>
         <div className="hero__art" ref={art}>
@@ -144,7 +146,7 @@ function Hero({ now, featured }: { now: number; featured: ReturnType<typeof useP
             <Envelope className="env--hero" />
           </div>
           <div className="ha ha--pm" style={{ "--depth": 1.2 } as CSSProperties} aria-hidden="true">
-            <Postmark line1={fmt.date(now)} line2="此 刻" className="pm--hero" />
+            <Postmark line1={displayDate.date(now)} line2="此 刻" className="pm--hero" />
           </div>
           {featured ? (
             <Link
@@ -183,12 +185,12 @@ function Hero({ now, featured }: { now: number; featured: ReturnType<typeof useP
   );
 }
 
-function AlmanacCell({ k, n, a, b, plain }: { k: string; n: number; a: string; b: string; plain?: boolean }) {
-  const { ref, value } = useCountUp(n, plain ? new Date().getFullYear() : 0);
+function AlmanacCell({ k, n, a, b, fromYear }: { k: string; n: number; a: string; b: string; fromYear?: number }) {
+  const { ref, value } = useCountUp(n, fromYear ?? 0);
   return (
     <div className="almanac__cell" data-testid="stat" data-key={k} data-value={n}>
       <b className="latin" ref={ref}>
-        {plain ? value : fmt.num(value)}
+        {fromYear !== undefined ? value : fmt.num(value)}
       </b>
       <span>
         {a}
@@ -200,6 +202,7 @@ function AlmanacCell({ k, n, a, b, plain }: { k: string; n: number; a: string; b
 }
 
 export function PaperHomePage() {
+  const displayDate = useDisplayDate();
   const h = usePlazaHome();
   const s = h.overview;
   const p = h.pagination;
@@ -216,7 +219,7 @@ export function PaperHomePage() {
             <AlmanacCell k="unopened" n={s.counts.unopened} a="枚正在" b="等待启封" />
             <AlmanacCell k="opened" n={s.counts.opened} a="枚已经" b="被人读到" />
             {s.farthestOpenAt ? (
-              <AlmanacCell k="farthestYear" n={new Date(s.farthestOpenAt).getFullYear()} a="年，最远的" b="一枚才会打开" plain />
+              <AlmanacCell k="farthestYear" n={displayDate.year(ms(s.farthestOpenAt))} a="年，最远的" b="一枚才会打开" fromYear={displayDate.year(h.now)} />
             ) : null}
           </>
         ) : null}

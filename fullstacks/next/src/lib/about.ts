@@ -56,6 +56,7 @@ export const TECH_NOTE: Record<string, string> = {
   "JVM": "Java 虚拟机：JIT 编译 + 分代 GC",
   "Vite": "基于原生 ES 模块的前端构建工具，开发时几乎零等待",
   "Next.js": "React 全栈框架：App Router 文件系统路由，页面与接口同一个应用",
+  "Drizzle ORM": "用 TypeScript 表定义构建 SQL 查询，分别接入 PostgreSQL 与 SQLite",
   "SQLite": "嵌入式单文件关系型数据库，零配置即可运行",
   "Zustand": "极简的 React 状态管理：一个 hook 一个 store，没有样板"
 };

@@ -41,11 +41,16 @@ export function askLogin(kind: "favorite" | "create"): Promise<boolean> {
 export function CreateLink({ onClick, ...props }: Omit<LinkProps, "to"> & { "data-testid"?: string }) {
   const user = useAuth((s) => s.user);
   const navigate = useNavigate();
+  const hydrated = useAuth((s) => s.hydrated);
   async function click(e: MouseEvent<HTMLAnchorElement>) {
     onClick?.(e);
     if (user || e.defaultPrevented) return;
     e.preventDefault();
     if (await askLogin("create")) navigate(loginPath("/create"));
+  }
+  if (!hydrated) {
+    const { replace, ...anchorProps } = props;
+    return <a {...anchorProps} aria-disabled="true" tabIndex={-1} />;
   }
   return <Link {...props} to="/create" onClick={(e) => void click(e)} />;
 }

@@ -219,6 +219,7 @@ export class ApiError extends Error {
 
 /** 广场首页的第一屏：默认查询（最新 · 全部 · 无搜索 · 第 1 页）下的列表、数量、年鉴与精选 */
 export interface PlazaSeed {
+  generatedAt: number;
   sort: PlazaSort;
   filter: PlazaFilter;
   q: string;

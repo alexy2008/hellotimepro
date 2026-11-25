@@ -68,14 +68,14 @@ export function AmberAboutPage() {
         <section className="about__sec">
           <div className="eyebrow">Tech stack</div>
           <h2 className="section-title">此刻运行的技术栈</h2>
-          <p className="page-lead">页脚和这里展示的内容，都来自后端的健康检查接口——换一个后端，它们会跟着变。</p>
+          <p className="page-lead">页脚与这里展示的内容，均来自本全栈同源的健康检查接口——页面与 API 由同一套服务提供。</p>
           <div className="about__live">
             <span className="ftr__dot" />
-            {online === false ? "后端离线" : "后端在线"} · <span className="mono">GET /api/v1/health</span>
+            {online === false ? "服务离线" : "服务在线"} · <span className="mono">GET /api/v1/health</span>
           </div>
           <div className="about__stacks" data-testid="about-stack">
-            <StackCard kind="前端" en="Frontend" path="fullstacks/next" items={FRONTEND_STACK} summary={FRONTEND_SUMMARY} />
-            {health ? <StackCard kind={`后端 · ${backendName}`} en="Backend" path={health.stack.kind} items={backend} summary={health.stack.summary} /> : null}
+            <StackCard kind="界面层 · Next.js + React" en="Interface" path="fullstacks/next" items={FRONTEND_STACK} summary={FRONTEND_SUMMARY} />
+            {health ? <StackCard kind={`服务端 · ${backendName}`} en="Server" path={health.stack.kind} items={backend} summary={health.stack.summary} /> : null}
           </div>
         </section>
 

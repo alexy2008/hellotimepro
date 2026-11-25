@@ -237,8 +237,9 @@ app/layout.tsx（Server Component）
 令牌在 localStorage，服务端看不到，所以**公开页的 HTML 一律以匿名身份生成**（与 nuxt 相同的取舍）：
 
 - `components/App` 在 `useLayoutEffect` 里 `useAuth.getState().hydrate()`：layout effect 早于所有 passive effect，页面里的取数、守卫第一次运行时就能拿到登录态。
-- 广场：`views/PlazaPage` 拿到服务端第一屏，广场 store 还没有自己的数据、查询条件也是默认值时直接用它（服务端渲染、水合、客户端第一次进首页），不发请求；**登录用户**在登录态恢复后静默重取列表与精选（`refreshViewer()`，不闪「加载中」），补上 `favoritedByMe`。之前加载过（筛选、搜索、翻页都在 store 里）就照旧整页刷新。
-- 详情：`useCapsuleByCode(code, initial)` 在路由层（`views/CapsuleByCodePage`）调用一次，两套皮肤共用同一份数据；有 `initial` 就不请求，登录用户静默重取一次补收藏状态。查无此码由服务端直接渲染「找不到这枚胶囊」。
+- 广场：查询条件与服务端一致时接纳新的首屏，登录用户随后用 `refreshViewer()` 补列表里的 `favoritedByMe`。保留了其他筛选或历史导航还原了旧首屏时，按当前条件刷新。
+- 详情：两套皮肤共用 `useCapsuleByCode(code, initial)`。进入详情时后台复验首屏，收到 404 后清除胶囊数据并展示「找不到这枚胶囊」。浏览器从页面缓存恢复时也会复验。
+- 登录用户的收藏按钮等当前会话的查询结果返回后才允许切换。查询失败时，点击按钮重试读状态。创建入口在登录态恢复后才有导航目标，匿名点击时仍先确认。
 - 水合时 zustand 读的是空初值、服务端又不能改 store，所以首屏数据要「铺」在 store 上：广场经 `PlazaSeedContext` 给 `usePlazaHome` 叠加（`overlaySeed`），水合后的 layout effect 写进 store 并清掉，换成读 store 时内容不变。
 - 需要登录的页面（`/create`、`/me/*`）：`AuthGate` 在登录态恢复前什么也不输出，服务端 HTML 里这块是空的；恢复后放行或 `<Navigate>` 去登录页。已登录访问 `/login`、`/register`：服务端按未登录渲染表单，登录态恢复后的第一次渲染判断一次再跳走（`useGuestRedirect`）。
 
@@ -246,7 +247,7 @@ app/layout.tsx（Server Component）
 
 倒计时、进度条、「此刻」邮戳都依赖当前时间，服务端与浏览器的 `Date.now()` 不同，直接渲染会让文字水合不匹配。`hooks/useNow` 的 `getServerSnapshot` 返回根布局传下来的 `serverNow`：服务端渲染与水合用同一时刻，水合完成后再改读本机时钟、每秒一跳。
 
-日期格式化用运行环境的本地时区（与 React 版一致）。本项目服务端与浏览器在同一台机器上；部署到不同时区时，卡片上的日期需要统一时区才能避免水合不匹配。
+公开页使用 `useDisplayDate`。服务端和首次水合都按 `Asia/Shanghai` 格式化，客户端接管后按浏览器时区显示。时间选择器按本地时区解释输入，倒计时按时间戳计算。
 
 ### 5.4 服务端渲染的取舍
 

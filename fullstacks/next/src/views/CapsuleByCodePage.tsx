@@ -1,5 +1,6 @@
 "use client";
 
+import { FavoriteProjectionContext } from "@/components/FavButton";
 import { useParams } from "@/lib/router";
 import { useUi } from "@/stores/ui";
 import { useCapsuleByCode } from "@/hooks/useCapsule";
@@ -19,5 +20,14 @@ export function CapsuleByCodePage({ initial }: { initial: CapsuleSeed | null }) 
 function CapsuleRoute({ code, initial }: { code: string; initial: CapsuleSeed | null }) {
   const skin = useUi((s) => s.skin);
   const cap = useCapsuleByCode(code, initial);
-  return skin === "paper" ? <PaperCapsulePage code={code} cap={cap} /> : <AmberCapsulePage code={code} cap={cap} />;
+  return (
+    <FavoriteProjectionContext.Provider value={{
+      ready: cap.favoriteReady,
+      failed: cap.favoriteFailed,
+      retry: cap.retryFavorite,
+      onChange: cap.patchFavorite,
+    }}>
+      {skin === "paper" ? <PaperCapsulePage code={code} cap={cap} /> : <AmberCapsulePage code={code} cap={cap} />}
+    </FavoriteProjectionContext.Provider>
+  );
 }

@@ -19,6 +19,7 @@ export const PLAZA_DEFAULT = { sort: "new", filter: "all", q: "", page: 1, pageS
 
 /** 首页第一屏；任何一项失败就整体不给，交给客户端按原逻辑请求并显示错误 / 重试 */
 export async function loadPlazaSeed(): Promise<PlazaSeed | null> {
+  const generatedAt = Date.now();
   try {
     const [list, overview, featured] = await Promise.all([
       plazaList({ ...PLAZA_DEFAULT, q: null, viewerId: null }),
@@ -27,6 +28,7 @@ export async function loadPlazaSeed(): Promise<PlazaSeed | null> {
     ]);
     return {
       ...PLAZA_DEFAULT,
+      generatedAt,
       items: list.items,
       pagination: list.pagination,
       // 没有搜索词时，筛选数量（带 q 的统计）与年鉴（不带 q）是同一份

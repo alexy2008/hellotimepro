@@ -8,6 +8,15 @@
 // ============================================================
 
 import { createContext, useContext, useSyncExternalStore } from "react";
+import { dateFormat, fmt, SSR_TIME_ZONE } from "@/lib/fmt";
+
+const serverDate = dateFormat(SSR_TIME_ZONE);
+const subscribeToHydration = () => () => {};
+
+/** 首次水合与服务端用同一时区，客户端接管后恢复访客的本地日期。 */
+export function useDisplayDate() {
+  return useSyncExternalStore(subscribeToHydration, () => fmt, () => serverDate);
+}
 
 const subs = new Set<() => void>();
 let now = Date.now();

@@ -3,6 +3,7 @@
 // 状态由「开启时间 vs 此刻」实时算出，倒计时归零的那一秒当场翻面。
 // ============================================================
 
+import { useDisplayDate } from "@/hooks/useNow";
 import type { CSSProperties } from "react";
 import { Link } from "@/lib/router";
 import type { CapsuleListItem } from "@/types";
@@ -25,6 +26,7 @@ export function AmberCard({ c, i = 0, rank = 0, mine = false, now, testId = "cap
   testId?: string; openTestId?: string;
   onFavChange?: (favorited: boolean, count: number) => void;
 }) {
+  const displayDate = useDisplayDate();
   const openAt = ms(c.openAt);
   const createdAt = ms(c.createdAt);
   const opened = c.isOpened || openAt <= now;
@@ -58,7 +60,7 @@ export function AmberCard({ c, i = 0, rank = 0, mine = false, now, testId = "cap
         <span className="pc__name">{c.creator.nickname}</span>
         {mine ? <em className="me-tag">我</em> : null}
         <i />
-        封存于 {fmt.date(createdAt)}
+        封存于 {displayDate.date(createdAt)}
       </div>
       <div className="pc__body">
         {opened ? (
@@ -78,7 +80,7 @@ export function AmberCard({ c, i = 0, rank = 0, mine = false, now, testId = "cap
       <div className="pc__foot">
         <span className="pc__when">
           <Icon name="calendar" />
-          {fmt.dateTime(openAt)} {opened ? "已开启" : "开启"}
+          {displayDate.dateTime(openAt)} {opened ? "已开启" : "开启"}
         </span>
         <FavButton capsule={c} onChange={onFavChange} />
       </div>

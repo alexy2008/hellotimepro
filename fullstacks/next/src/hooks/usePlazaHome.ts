@@ -48,8 +48,8 @@ export function usePlazaHome() {
     (c) => !c.isOpened && ms(c.openAt) <= now,
   );
   useEffect(() => {
-    if (due) void usePlaza.getState().refreshAll();
-  }, [due]);
+    if (due && !seed) void usePlaza.getState().refreshAll();
+  }, [due, seed]);
 
   const clearSearch = () => {
     usePlaza.getState().setQ("");

@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { useAuth } from "@/stores/auth";
+import { getSessionVersion, useAuth } from "@/stores/auth";
 import { ApiError, type CapsuleDetail, type CapsuleListItem, type CapsuleSeed } from "@/types";
 import { copyText } from "@/stores/feedback";
 import { useNow } from "@/hooks/useNow";
@@ -14,52 +14,66 @@ import { ms, sleep } from "@/lib/fmt";
  * 按码取胶囊。未开启时逐秒倒数，归零那一刻 expired 变 true——
  * 皮肤据此播放开启动画，并调用 awaitOpened(signal) 拿到正文（不用刷新页面）。
  *
- * initial 是服务端（app/capsules/[code]/page.tsx）以匿名身份取好的第一屏：有它就不再请求；
- * 登录用户在登录态恢复后静默重取一次，补上 favoritedByMe。
+ * initial 是服务端以匿名身份取好的第一屏。接管后后台复验历史路由数据，并补上 favoritedByMe。
  * 这个 hook 在路由层（views/CapsuleByCodePage）调用一次，两套皮肤共用同一份数据，换肤不重取。
  */
 export function useCapsuleByCode(code: string, initial: CapsuleSeed | null = null) {
   const user = useAuth((s) => s.user);
-  const authReady = useAuth((s) => s.hydrated);
+  const session = useAuth((s) => s.hydrated ? getSessionVersion() : null);
   const [c, setC] = useState<CapsuleDetail | null>(initial?.status === "ok" ? initial.capsule : null);
   const [status, setStatus] = useState<"loading" | "ok" | "missing" | "error">(initial ? initial.status : "loading");
   const now = useNow();
   const gen = useRef(0); // 换了码或离开页面就作废进行中的等待
-  const fromServer = useRef(initial !== null);
+  const [favoriteSession, setFavoriteSession] = useState<number | null>(null);
+  const [favoriteFailed, setFavoriteFailed] = useState(false);
 
   /** silent：补个人投影用，失败时保留已显示的内容（查无此码除外） */
   const load = useCallback(async (silent = false) => {
     const my = ++gen.current;
+    const session = getSessionVersion();
+    setFavoriteSession(null);
+    setFavoriteFailed(false);
     try {
       const d = await api.capsuleByCode(code);
-      if (my !== gen.current) return null;
+      if (my !== gen.current || session !== getSessionVersion()) return null;
       setC(d);
       setStatus("ok");
+      setFavoriteSession(session);
       return d;
     } catch (e) {
-      if (my !== gen.current) return null;
+      if (my !== gen.current || session !== getSessionVersion()) return null;
       const missing = e instanceof ApiError && e.status === 404;
-      if (silent && !missing) return null;
+      if (silent && !missing) {
+        setFavoriteFailed(true);
+        return null;
+      }
       if (missing) setC(null);
       setStatus(missing ? "missing" : "error");
       return null;
     }
   }, [code]);
 
-  // 登录态恢复之前不取（还不知道是谁在看）；之后进入页面、换了账号时重取
+  // App Router 可以复用历史路由里的首屏。每次进入详情都在后台确认一次。
   useEffect(() => {
-    if (!authReady) return;
-    if (fromServer.current) {
-      fromServer.current = false;
-      if (user && initial?.status === "ok") void load(true);
-      return () => { gen.current++; };
-    }
-    setStatus("loading");
-    setC(null);
-    void load();
-    return () => { gen.current++; };
-    // initial 只在挂载时用一次
-  }, [load, user?.id, authReady]);
+    if (session === null) return;
+    void load(initial !== null);
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) void load(true);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      gen.current++;
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [load, initial, user?.id, session]);
+
+  const favoriteReady = session !== null && favoriteSession === session;
+  const retryFavorite = useCallback(() => { void load(true); }, [load]);
+  function patchFavorite(id: string, favorited: boolean, count: number) {
+    setC((current) => current?.id === id
+      ? { ...current, favoritedByMe: favorited, favoriteCount: count }
+      : current);
+  }
 
   /**
    * 倒数归零后取正文：以服务端的 isOpened 为准。本机时钟可能比服务端快几秒，
@@ -68,16 +82,17 @@ export function useCapsuleByCode(code: string, initial: CapsuleSeed | null = nul
    */
   const awaitOpened = useCallback(async (signal: AbortSignal): Promise<CapsuleDetail | null> => {
     for (let i = 0; !signal.aborted; i++) {
+      const session = getSessionVersion();
       try {
         const d = await api.capsuleByCode(code);
         if (signal.aborted) return null;
-        if (d.isOpened) {
-          setC(d);
+        if (session === getSessionVersion() && d.isOpened) {
+          setC((current) => current && d);
           return d;
         }
       } catch (e) {
         if (signal.aborted) return null;
-        if (e instanceof ApiError && e.status === 404) {
+        if (session === getSessionVersion() && e instanceof ApiError && e.status === 404) {
           setC(null);
           setStatus("missing");
           return null;
@@ -90,7 +105,7 @@ export function useCapsuleByCode(code: string, initial: CapsuleSeed | null = nul
 
   const expired = !!c && !c.isOpened && ms(c.openAt) <= now;
   const reload = useCallback(() => load(), [load]);
-  return { c, setC, status, now, expired, reload, awaitOpened };
+  return { c, status, now, expired, reload, awaitOpened, favoriteReady, favoriteFailed, retryFavorite, patchFavorite };
 }
 
 /** 复制码与分享链接 */

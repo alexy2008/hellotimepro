@@ -5,16 +5,24 @@
 // - 乐观更新：点了立刻变，请求失败再滚回去并提示
 // ============================================================
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "@/lib/router";
 import { api } from "@/api/client";
-import { useAuth } from "@/stores/auth";
+import { getSessionVersion, useAuth } from "@/stores/auth";
 import { usePlaza } from "@/stores/plaza";
 import { toast } from "@/stores/feedback";
 import { askLogin } from "@/components/LoginPrompt";
 import { loginPath } from "@/lib/redirect";
 import { fmt, reducedMotion } from "@/lib/fmt";
 import { Icon } from "@/lib/icons";
+
+// 有 SSR 首屏的页面在读到当前账号的收藏状态后才允许切换。
+export const FavoriteProjectionContext = createContext<{
+  ready: boolean;
+  failed: boolean;
+  retry: () => void;
+  onChange?: (id: string, favorited: boolean, count: number) => void;
+} | null>(null);
 
 interface Props {
   capsule: { id: string; favoritedByMe: boolean; favoriteCount: number };
@@ -24,6 +32,8 @@ interface Props {
 
 export function FavButton({ capsule, size = "sm", onChange }: Props) {
   const user = useAuth((s) => s.user);
+  const hydrated = useAuth((s) => s.hydrated);
+  const projection = useContext(FavoriteProjectionContext);
   const patchPlaza = usePlaza((s) => s.patchFavorited);
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
@@ -34,10 +44,19 @@ export function FavButton({ capsule, size = "sm", onChange }: Props) {
   const busy = useRef(false);
 
   // 外部数据变了（列表刷新、另一处收藏）时跟上
-  useEffect(() => {
+  useLayoutEffect(() => {
     setOn(capsule.favoritedByMe);
     setCount(capsule.favoriteCount);
   }, [capsule.id, capsule.favoritedByMe, capsule.favoriteCount]);
+
+  const needsProjection = !!user && !!projection && !projection.ready;
+  const retryProjection = needsProjection && projection.failed;
+  const displayedOn = !!user && !needsProjection && on;
+  const label = retryProjection ? "重试" : needsProjection ? "加载中" : displayedOn ? "已收藏" : "收藏";
+  const actionLabel = displayedOn ? "取消收藏" : "收藏";
+  const accessibleLabel = retryProjection
+    ? "重试加载收藏状态"
+    : needsProjection ? "正在加载收藏状态" : `${actionLabel}，已有 ${count} 人收藏`;
 
   async function toggle(e: React.MouseEvent) {
     e.preventDefault();
@@ -46,7 +65,12 @@ export function FavButton({ capsule, size = "sm", onChange }: Props) {
       if (await askLogin("favorite")) navigate(loginPath(pathname + search));
       return;
     }
+    if (projection && !projection.ready) {
+      if (projection.failed) projection.retry();
+      return;
+    }
     if (busy.current) return;
+    const session = getSessionVersion();
     busy.current = true;
     const next = !on;
     const prev = { on, count };
@@ -63,12 +87,16 @@ export function FavButton({ capsule, size = "sm", onChange }: Props) {
       if (next) final = (await api.favorite(capsule.id)).favoriteCount;
       else {
         await api.unfavorite(capsule.id);
-        toast("已取消收藏");
       }
+      if (session !== getSessionVersion()) return;
+      if (!next) toast("已取消收藏");
+      setOn(next);
       setCount(final);
       patchPlaza(capsule.id, next, final);
+      projection?.onChange?.(capsule.id, next, final);
       onChange?.(next, final);
     } catch {
+      if (session !== getSessionVersion()) return;
       setOn(prev.on);
       setCount(prev.count);
       toast("收藏没有成功，请稍后再试", { tone: "error" });
@@ -80,17 +108,20 @@ export function FavButton({ capsule, size = "sm", onChange }: Props) {
   const md = size === "md";
   return (
     <button
-      className={`fav fav--${md ? "md" : "sm"}${on ? " is-on" : ""}${pop ? " is-pop" : ""}`}
+      className={`fav fav--${md ? "md" : "sm"}${displayedOn ? " is-on" : ""}${pop ? " is-pop" : ""}`}
       key={pop /* 每次收藏重新挂载 is-pop，动画才会重播 */}
       type="button"
-      aria-pressed={on}
-      aria-label={`${on ? "取消收藏" : "收藏"}，已有 ${count} 人收藏`}
+      disabled={!hydrated || (needsProjection && !retryProjection)}
+      aria-busy={needsProjection && !retryProjection}
+      aria-pressed={needsProjection ? undefined : displayedOn}
+      aria-label={accessibleLabel}
+      title={retryProjection ? "收藏状态加载失败，点击重试" : undefined}
       data-testid="fav-button"
       data-count={count}
       onClick={toggle}
     >
       <span className="fav__ic">
-        <Icon name="heart" />
+        <Icon name={retryProjection ? "refresh" : "heart"} />
         {burst && !reducedMotion() ? (
           <span className="burst">
             {Array.from({ length: 7 }, (_, i) => (
@@ -99,7 +130,7 @@ export function FavButton({ capsule, size = "sm", onChange }: Props) {
           </span>
         ) : null}
       </span>
-      {md ? <span className="fav__t">{on ? "已收藏" : "收藏"}</span> : null}
+      {md ? <span className="fav__t">{label}</span> : null}
       <span className="fav__n">{fmt.num(count)}</span>
     </button>
   );
