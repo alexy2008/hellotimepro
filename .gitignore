@@ -138,3 +138,6 @@ desktop/winui3/remote.env
 desktop/winui3/bin/
 desktop/winui3/obj/
 desktop/winui3/build*.log
+
+# Qoder 生成的 repowiki
+.qoder/
